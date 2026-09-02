@@ -62,6 +62,39 @@ elif anchor in i:
 else:
     raise SystemExit('v0.6.1 recovery source-shape failed: M9Modern pre-curve policy seam not recognized')
 
+# Recover the historical v0.6.1 metadata-writer source shape consumed by the
+# cumulative v0.7 renderer/LUMA/METAFREEZE overlays. The reconstructed recovery
+# foundation kept the same persistence operations on one compact line, while the
+# accepted v0.6.1 source used the formatted block below. This is source-shape
+# normalization only: SAF-first write, java.nio fallback, UTF-8 bytes, flush,
+# logging and return semantics are unchanged.
+meta = Path(sys.argv[1]) / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9CaptureMetadataWriter.java'
+m = meta.read_text()
+compact_meta_output = """            OutputStream safOut=SimpleStorageHelper.openOutputStreamByAbsPath(jsonPath.toString());if(safOut!=null){try(OutputStream out=safOut){out.write(root.toString(2).getBytes(StandardCharsets.UTF_8));out.flush();}}else{try(OutputStream out=Files.newOutputStream(jsonPath)){out.write(root.toString(2).getBytes(StandardCharsets.UTF_8));out.flush();}}Log.d(TAG,\"Saved sidecar: \"+jsonPath);return true;"""
+canonical_meta_output = """            OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(jsonPath.toString());
+            if (safOut != null) {
+                try (OutputStream out = safOut) {
+                    out.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
+                    out.flush();
+                }
+            } else {
+                try (OutputStream out = Files.newOutputStream(jsonPath)) {
+                    out.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
+                    out.flush();
+                }
+            }
+            Log.d(TAG, \"Saved sidecar: \" + jsonPath);
+            return true;"""
+canonical_anchor = '            OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(jsonPath.toString());\n'
+canonical_tail = '            Log.d(TAG, "Saved sidecar: " + jsonPath);\n            return true;'
+if compact_meta_output in m:
+    m = m.replace(compact_meta_output, canonical_meta_output, 1)
+    meta.write_text(m)
+elif canonical_anchor in m and canonical_tail in m:
+    pass
+else:
+    raise SystemExit('v0.6.1 recovery source-shape failed: metadata output persistence seam not recognized')
+
 # Recover the historical v0.6.1 build-identity transition consumed by the
 # cumulative v0.7 overlay.  The v0.6 foundation deliberately installs
 # 0.97-m9modern6; accepted v0.6.1 exposure tune was 0.97-m9modern6p1.
