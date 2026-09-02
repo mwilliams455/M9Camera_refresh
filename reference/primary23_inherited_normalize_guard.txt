@@ -1,0 +1,2 @@
+PRIMARY2.1 frozen PRIMARY2 RAW-normalization arithmetic parity PASS
+canonical_normalize_sha256=7ec1c0039fa0a4e26812eaa20c14cc5532d21495d6fde89ac726ad9ad0b431ee

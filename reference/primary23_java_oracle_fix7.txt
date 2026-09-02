@@ -1,0 +1,5 @@
+case0 hash=d8a41181af097d65 even=12148 edge=38679 nearWhite=3743
+case1 hash=4fa72399bad9d8bb even=12669 edge=50029 nearWhite=7350
+case2 hash=4186500ffb6b1f36 even=15143 edge=56958 nearWhite=10499
+case3 hash=b9b94cc14c4f68ca even=16275 edge=59506 nearWhite=12253
+aggregate=7e21b6ae4a9557ae pixels=24929 cases=4

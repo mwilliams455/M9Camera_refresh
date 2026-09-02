@@ -1,0 +1,27 @@
+PASS render queue remains one worker + two pending
+PASS queue1b admission retained
+PASS no blocking render queue put
+PASS dng worker single bounded + one pending
+PASS dng handoff is nonblocking execute
+PASS dng saturation has sync preservation fallback
+PASS development dng save centralized
+PASS no second raw copy introduced
+PASS renderer capacity releases after handoff
+PASS async dng owns raw close
+PASS timing freeze before async raw close
+PASS capture metadata stays after dng
+PASS timing schema v5 dngasync1a
+PASS timing freeze immutable bytes retained
+PASS timing storage remains SAF helper
+PASS dng telemetry present
+PASS build marker updated
+PASS patch emits dngasync build
+PASS verifier knows dngasync
+PASS frozen payload unchanged M9R35Renderer.java
+PASS frozen payload unchanged M9NativeColorCore.java
+PASS frozen payload unchanged m9color_jni.cpp
+PASS frozen payload unchanged m9_r35_calibration.bin
+PASS frozen payload unchanged m9_r35_calibration_manifest.json
+PASS frozen payload unchanged M9SubjectMotionAnalyzer.java
+PASS frozen payload unchanged M9DeferredMetadataStore.java
+PASS frozen payload unchanged M9CapturePathAllocator.java

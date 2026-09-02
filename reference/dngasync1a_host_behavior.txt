@@ -1,0 +1,43 @@
+21ms LOGD M9PrimaryRender PRIMARY2.4 QUEUE1B enqueue accepted without blocking in 3 ms; depthAtEnqueue=0; activeAtEnqueue=0 thread=main
+22ms LOGD M9PrimaryRender starting PRIMARY2.4 QUEUE1B-NAME1A-TIMINGFREEZE1A-DNGASYNC1A TC20NATIVE1B-ORIENT1A-NORMNATIVE1A-METAFREEZE1A-COLORNATIVE2A-FIX1 M9 render after 3 ms queue wait; pending=0; depthAtEnqueue=0; activeAtEnqueue=0 thread=M9PrimaryRenderer
+29ms LOGD M9PrimaryRender PRIMARY2.4 QUEUE1B enqueue accepted without blocking in 0 ms; depthAtEnqueue=0; activeAtEnqueue=1 thread=main
+29ms LOGD M9PrimaryRender PRIMARY2.4 QUEUE1B enqueue accepted without blocking in 0 ms; depthAtEnqueue=1; activeAtEnqueue=1 thread=main
+accepted=true,true,true
+30ms RENDER_START frame=1 thread=M9PrimaryRenderer
+155ms RENDER_END frame=1 thread=M9PrimaryRenderer
+160ms LOGD M9PrimaryRender PRIMARY2.4 DNGASYNC1A RAW ownership handoff accepted in 0 ms; dngPending=0; dngActive=1 thread=M9PrimaryRenderer
+161ms LOGD M9PrimaryRender PRIMARY2.4 QUEUE1B DNGASYNC1A render worker released in 149 ms; RAW owned by M9PrimaryDngIO; next render may start now thread=M9PrimaryRenderer
+161ms LOGD M9PrimaryRender starting PRIMARY2.4 QUEUE1B-NAME1A-TIMINGFREEZE1A-DNGASYNC1A TC20NATIVE1B-ORIENT1A-NORMNATIVE1A-METAFREEZE1A-COLORNATIVE2A-FIX1 M9 render after 131 ms queue wait; pending=1; depthAtEnqueue=0; activeAtEnqueue=1 thread=M9PrimaryRenderer
+161ms RENDER_START frame=2 thread=M9PrimaryRenderer
+161ms LOGD M9PrimaryDng DNGASYNC1A starting untouched DNG after 0 ms DNG queue wait; dngPending=0 thread=M9PrimaryDngIO
+162ms DNG_START frame=1 thread=M9PrimaryDngIO
+281ms RENDER_END frame=2 thread=M9PrimaryRenderer
+282ms LOGD M9PrimaryRender PRIMARY2.4 DNGASYNC1A RAW ownership handoff accepted in 0 ms; dngPending=1; dngActive=1 thread=M9PrimaryRenderer
+282ms LOGD M9PrimaryRender PRIMARY2.4 QUEUE1B DNGASYNC1A render worker released in 120 ms; RAW owned by M9PrimaryDngIO; next render may start now thread=M9PrimaryRenderer
+282ms LOGD M9PrimaryRender starting PRIMARY2.4 QUEUE1B-NAME1A-TIMINGFREEZE1A-DNGASYNC1A TC20NATIVE1B-ORIENT1A-NORMNATIVE1A-METAFREEZE1A-COLORNATIVE2A-FIX1 M9 render after 252 ms queue wait; pending=0; depthAtEnqueue=1; activeAtEnqueue=1 thread=M9PrimaryRenderer
+282ms RENDER_START frame=3 thread=M9PrimaryRenderer
+402ms RENDER_END frame=3 thread=M9PrimaryRenderer
+403ms LOGD M9PrimaryRender PRIMARY2.4 DNGASYNC1A bounded DNG queue saturated; saving DNG synchronously to preserve output; fallbackCount=1; dngPending=1; dngActive=1 thread=M9PrimaryRenderer
+403ms DNG_START frame=3 thread=M9PrimaryRenderer
+612ms DNG_END frame=1 thread=M9PrimaryDngIO
+619ms LOGD M9PrimaryTiming PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A frozen in memory: /tmp/f1_M9_PRIMARY.json; bytes=2; freezeElapsedMs=0; freezeThread=M9PrimaryDngIO thread=M9PrimaryDngIO
+625ms LOGD M9PrimaryDng DNGASYNC1A complete; saved=true; dngSaveElapsedMs=450; dngQueueWaitMs=0; primaryTimingScheduled=true; async=true thread=M9PrimaryDngIO
+625ms CLOSE frame=1 thread=M9PrimaryDngIO
+625ms LOGD M9PrimaryDng DNGASYNC1A starting untouched DNG after 343 ms DNG queue wait; dngPending=0 thread=M9PrimaryDngIO
+625ms DNG_START frame=2 thread=M9PrimaryDngIO
+625ms LOGD M9PrimaryTiming PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A timing persisted async in 0 ms: /tmp/f1_M9_PRIMARY.json thread=M9PrimaryTimingIO
+854ms DNG_END frame=3 thread=M9PrimaryRenderer
+854ms LOGD M9PrimaryTiming PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A frozen in memory: /tmp/f3_M9_PRIMARY.json; bytes=2; freezeElapsedMs=0; freezeThread=M9PrimaryRenderer thread=M9PrimaryRenderer
+854ms LOGD M9PrimaryDng DNGASYNC1A complete; saved=true; dngSaveElapsedMs=450; dngQueueWaitMs=0; primaryTimingScheduled=true; async=false thread=M9PrimaryRenderer
+854ms CLOSE frame=3 thread=M9PrimaryRenderer
+854ms LOGD M9PrimaryTiming PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A timing persisted async in 0 ms: /tmp/f3_M9_PRIMARY.json thread=M9PrimaryTimingIO
+854ms LOGD M9PrimaryRender PRIMARY2.4 QUEUE1B DNGASYNC1A render worker released in 572 ms; RAW closed on render worker thread=M9PrimaryRenderer
+1075ms DNG_END frame=2 thread=M9PrimaryDngIO
+1075ms LOGD M9PrimaryTiming PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A frozen in memory: /tmp/f2_M9_PRIMARY.json; bytes=2; freezeElapsedMs=0; freezeThread=M9PrimaryDngIO thread=M9PrimaryDngIO
+1076ms LOGD M9PrimaryDng DNGASYNC1A complete; saved=true; dngSaveElapsedMs=450; dngQueueWaitMs=343; primaryTimingScheduled=true; async=true thread=M9PrimaryDngIO
+1076ms CLOSE frame=2 thread=M9PrimaryDngIO
+1076ms LOGD M9PrimaryTiming PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A timing persisted async in 0 ms: /tmp/f2_M9_PRIMARY.json thread=M9PrimaryTimingIO
+ASSERT overlap_second_render_before_first_dng_end=true render2=161 dng1end=612
+ASSERT bounded_fallback_count_ge_1=true count=1
+ASSERT each_frame_closed_once=true
+ASSERT queues_drained=true

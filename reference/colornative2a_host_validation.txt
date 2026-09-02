@@ -1,0 +1,24 @@
+COLORNATIVE2A host validation
+
+[1] C++ production JNI syntax
+PASS
+
+[2] Python patch/verifier syntax
+PASS
+
+[3] Native scalar row-partition parity
+COLORNATIVE2A row-partition scalar parity PASS
+
+[4] Block orientation parity
+COLORNATIVE2A 0/90/180/270 block orientation parity PASS
+
+[5] Java parser-level smoke
+PASS (dependency-resolution errors expected outside Android/Photon tree; javac rc=1)
+
+[6] Frozen calibration and analyzer checks
+5568978ea42e7c65b51f26ffc2d56479418ec6c8d98b242199bab08acb62cbca  /mnt/data/color2a_build/payload/app/src/main/assets/m9/m9_r35_calibration.bin
+6c3a302ddd8c64d04d638ba723ca72291d6233e05049dc0a44028dc15333fc3f  /mnt/data/color2a_build/payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java
+PASS
+
+[7] Production scheduling markers
+PASS

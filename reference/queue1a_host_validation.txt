@@ -1,0 +1,18 @@
+QUEUE1A host/static validation
+
+PASS python3 -m py_compile patches/apply-m9cam-v0.7-r35-parity.py
+PASS python3 -m py_compile patches/verify-m9cam-v0.7-r35.py
+PASS python3 -m py_compile reference/queue1a_nonblocking_guard.py
+PASS reference/queue1a_nonblocking_guard.py
+PASS javac -source 11 -target 11 syntax/type smoke for M9PrimaryRenderQueue.java and M9PrimaryTimingWriter.java against minimal Android/Photon stubs
+PASS M9PrimaryRenderQueue retains ArrayBlockingQueue MAX_PENDING=2
+PASS M9PrimaryRenderQueue contains no EXECUTOR.getQueue().put(job)
+PASS enqueue returns boolean accepted/rejected state
+PASS full-queue rejection returns without render-slot wait
+PASS queue rejection counter + enqueue telemetry present
+PASS rejected _M9_PRIMARY timing write runs on separate daemon executor and retains no RAW frame
+PASS DefaultSaver patch consumes queued = M9PrimaryRenderQueue.enqueue(...)
+PASS v1.20 QUEUE1A build marker present
+PASS renderer schema remains frozen at v19 COLORNATIVE2A FIX1
+
+Full Android/Gradle build and runtime behavior remain device/GitHub gates.

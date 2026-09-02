@@ -1,0 +1,1 @@
+PERF3G ORIENTFUSE8A exact mapping parity PASS: 2646 partition/rotation cases

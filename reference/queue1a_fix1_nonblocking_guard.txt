@@ -1,0 +1,13 @@
+PASS bounded queue retained
+PASS blocking put removed
+PASS boolean enqueue contract
+PASS queue-full counter
+PASS nonblocking rejection marker
+PASS rejection metadata persistence
+PASS async rejection timing
+PASS timing schema bumped
+PASS queue telemetry
+PASS DefaultSaver consumes enqueue result
+PASS QUEUE1A version
+PASS renderer schema frozen
+QUEUE1A nonblocking source guard PASSED

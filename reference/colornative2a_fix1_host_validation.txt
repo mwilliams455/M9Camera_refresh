@@ -1,0 +1,22 @@
+COLORNATIVE2A FIX1 host validation
+
+Device crash diagnosis:
+- current photo attempt reaches M9PrimaryRender/libm9color
+- SIGSEGV SEGV_MAPERR read at 0x0
+- tombstone worker arguments include pixelCount 0x60000 (=96*4096) and width 0x1000 (=4096)
+- original child worker dereferenced child-thread instances of JNI-caller thread_local vectors
+
+Fix:
+- freeze camScratch.data() -> ordinary const jshort* camBase before thread creation
+- freeze argbScratch.data() -> ordinary jint* argbBase before thread creation
+- child threads capture/use camBase + offset and argbBase + offset
+- caller vectors remain sized/stable until all workers join
+
+Validation:
+- production m9color_jni.cpp C++17 syntax compile PASS
+- COLORNATIVE2A row-partition scalar parity PASS
+- COLORNATIVE2A 0/90/180/270 block orientation parity PASS
+- COLORNATIVE2A FIX1 thread_local pointer handoff source guard PASS
+- Python patch/verifier py_compile PASS
+
+No photographic constants/math changed.

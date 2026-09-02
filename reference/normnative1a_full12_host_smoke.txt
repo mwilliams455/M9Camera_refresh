@@ -1,0 +1,1 @@
+12MP JNI wall=23.82 compute=15.15 copy=1.76 clipped=12288 hist=12570624 workers=4 sample=0/60546

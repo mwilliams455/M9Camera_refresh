@@ -1,0 +1,101 @@
+{
+  "method": "Java-like explicit scalar-order matrix chain vs precomposed bridge; 1600x1200 regression frames",
+  "frames": [
+    {
+      "stem": "075848",
+      "cct": 4536.684011285241,
+      "gain": 1.8004940686011586,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 4.440892098500626e-16
+    },
+    {
+      "stem": "121304",
+      "cct": 5497.14746166154,
+      "gain": 1.696554967400749,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 5.551115123125783e-16
+    },
+    {
+      "stem": "121325",
+      "cct": 5583.1255830912005,
+      "gain": 1.2391265581681186,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 3.3306690738754696e-16
+    },
+    {
+      "stem": "121604",
+      "cct": 6130.108728128876,
+      "gain": 1.3699999896852595,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 5.551115123125783e-16
+    },
+    {
+      "stem": "125135",
+      "cct": 4114.986898586907,
+      "gain": 1.5972550374914531,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 6.661338147750939e-16
+    },
+    {
+      "stem": "134206",
+      "cct": 3657.3971770340527,
+      "gain": 1.3875828857033556,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 6.661338147750939e-16
+    },
+    {
+      "stem": "145637",
+      "cct": 5603.060544694972,
+      "gain": 1.8780508555743562,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 5.551115123125783e-16
+    },
+    {
+      "stem": "145740",
+      "cct": 4867.066289897002,
+      "gain": 1.722211768544997,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 6.661338147750939e-16
+    },
+    {
+      "stem": "145854",
+      "cct": 5894.663918395434,
+      "gain": 1.6912993835492092,
+      "pixels": 1920000,
+      "channel_diffs": 0,
+      "pixel_diffs": 0,
+      "max_precurve14bit_diff": 0,
+      "max_float_abs": 4.440892098500626e-16
+    }
+  ],
+  "total_pixels": 17280000,
+  "total_channel_values": 51840000,
+  "total_channel_diffs": 0,
+  "total_pixel_diffs": 0,
+  "max_precurve14bit_diff": 0,
+  "max_float_abs": 6.661338147750939e-16
+}

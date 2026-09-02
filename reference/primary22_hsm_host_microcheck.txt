@@ -1,0 +1,8 @@
+PRIMARY2.2 HSMFAST1 host-only deterministic JVM microcheck
+Samples: 3,000,000 random RGB triples with HSM entries spanning frozen calibration bounds.
+Bit-level output mismatches between PRIMARY2.1 HSM and HSMFAST1: 0.
+Observed isolated HSM timings on the host JVM:
+  baseline 142.9 ms / optimized 130.6 ms
+  baseline 144.6 ms / optimized 139.6 ms
+  baseline 155.0 ms / optimized 119.2 ms
+These timings are directional only; Android device fullColorRenderElapsedMs is the acceptance metric.

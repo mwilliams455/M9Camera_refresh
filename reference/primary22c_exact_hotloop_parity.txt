@@ -1,0 +1,5 @@
+PRIMARY2.2C exact hot-loop parity
+UNIT16 exhaustive mismatches = 0 / 65536
+M9 bridge+SAT3 fused packed mismatches = 0 / 5000000
+HSM 90x30 constant-dimension bit mismatches = 0 / 2000000
+Directional host UNIT16 conversion: divide 59.7 ms / lookup 38.2 ms (1.56x), checksumEqual=true sink=75496519.497

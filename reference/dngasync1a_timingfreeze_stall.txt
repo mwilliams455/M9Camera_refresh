@@ -1,0 +1,3 @@
+PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A frozen in memory: /tmp/x_M9_PRIMARY.json; bytes=2; freezeElapsedMs=1; freezeThread=M9PrimaryDngIO
+scheduled=true returnMs=25
+PRIMARY2.4 TIMINGFREEZE1A+DNGASYNC1A timing persisted async in 2001 ms: /tmp/x_M9_PRIMARY.json

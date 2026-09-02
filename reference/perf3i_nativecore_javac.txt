@@ -1,0 +1,1 @@
+M9NativeColorCore.java javac PASS

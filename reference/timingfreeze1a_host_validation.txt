@@ -1,0 +1,31 @@
+TIMINGFREEZE1A host validation
+
+source guard: PASS
+patch py_compile: PASS
+verifier py_compile: PASS
+queue/timing javac syntax with Android/Photon stubs: PASS
+artificial timing storage stall: PASS
+scheduled=true returnMs=67
+
+Payload files changed from direct v0.7ZF base (expected exactly 3):
+Files /mnt/data/timingfreeze_base/payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java and payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java differ
+Files /mnt/data/timingfreeze_base/payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java and payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java differ
+Files /mnt/data/timingfreeze_base/payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java and payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java differ
+
+Frozen hot-path SHA-256 in TIMINGFREEZE1A package:
+0806030edf6a5c4b15d810e902977a1e462b861f4fc0d6d9871b1da5089c6c15  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+8e73ef8e92770761b09e72590725a1507e14dd5626d19fef1f1892cbf50b3630  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java
+5795c11677de5786515ea019babc5f2629744a0add69d50af0206ccb00137002  payload/app/src/main/cpp/m9color_jni.cpp
+5568978ea42e7c65b51f26ffc2d56479418ec6c8d98b242199bab08acb62cbca  payload/app/src/main/assets/m9/m9_r35_calibration.bin
+21232fb19721f484c8e8d3ce4c19cf9f89143b1185c16021355d3e413607553b  payload/app/src/main/assets/m9/m9_r35_calibration_manifest.json
+6c3a302ddd8c64d04d638ba723ca72291d6233e05049dc0a44028dc15333fc3f  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java
+b3fd02d68fa5eef866660154f55c5156f6a85b04371b5557d9aa8158e44e2ab4  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DeferredMetadataStore.java
+1459896f9ff135bf4302ec2a9ed9c5d7453ebd9de198f93e8b256e6b110dceb2  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9CapturePathAllocator.java
+
+Changed/control SHA-256:
+2eba3e4fcceb85db3e7c829ca6ff7eebe96b5d1f20f3c062097894281bd3d758  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java
+551131aa4aa029a4fb666b7ab04f132f6ffed9917d2027882467bb5a9cd319b2  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+0554250dd1d6cd49c57a97322d4a130c785b33a6dea52f90551b36bae1215ccf  payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
+15e466b756c0862fe47a6f4b8d765315ad48d2b41f09ea24252bb87979a22238  patches/apply-m9cam-v0.7-r35-parity.py
+a678f7669433f2a8390744f99684f89d474c37360aafc308d25535dee6683c47  patches/verify-m9cam-v0.7-r35.py
+c6cf66aeac60b28489a6efd005dffb7c27905ca298b5d05ed1ead9516324b78c  reference/timingfreeze1a_source_guard.py

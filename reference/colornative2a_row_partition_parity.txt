@@ -1,0 +1,3 @@
+COLORNATIVE2A row-partition scalar parity PASS
+Worker counts checked against sequential scalar oracle: 1, 2, 3, 4, 7, 8.
+ARGB output and even/edge/nearWhite diagnostic sums were exact for every tested worker count.

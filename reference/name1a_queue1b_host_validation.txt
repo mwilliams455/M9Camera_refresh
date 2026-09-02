@@ -1,0 +1,14 @@
+NAME1A + QUEUE1B host validation
+source guard: PASS
+patch py_compile: PASS
+verifier py_compile: PASS
+allocator 10,000 identical-base allocations: PASS (run before packaging)
+queue/timing/allocator javac syntax with API stubs: PASS (run before packaging)
+
+SHA-256:
+1459896f9ff135bf4302ec2a9ed9c5d7453ebd9de198f93e8b256e6b110dceb2 payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9CapturePathAllocator.java
+74cb34a5a88d7ccd67120de698fd61dbe360df1904f5c6569557741f8c4946c9 payload/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java
+8afcd98274b2f0d93c930ca19c7a2353ebb98934500444a8de10285e3e9b3173 payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+8274dddeb8fa6f035057477be3c836150ede489a1d96f80ee959cd2517bb9973 payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
+79a000c8b0c6b70537ed9cd4dcbec81a8cde3f02d09fb33f33d108baf18b67ae patches/apply-m9cam-v0.7-r35-parity.py
+6e44d9829245d967e3f9c58445e09548fe717520672e03477c4f2453b15fa8ed patches/verify-m9cam-v0.7-r35.py

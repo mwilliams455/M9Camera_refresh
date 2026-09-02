@@ -1,0 +1,9 @@
+TC20NATIVE1A Java-vs-actual-JNI full-sort parity
+production flags: -O3 -ffp-contract=off -fno-fast-math
+synthetic pixels: 49601
+java weighted median:  0.46205609372066964
+native weighted median: 0.46205609372066964
+java P98:              0.82639677488795830
+native P98:            0.82639677488795830
+valid population Java/native: 49082 / 49082
+result: PASS

@@ -1,0 +1,17 @@
+PASS 7x5 strip=2 rot=0 out=7x5
+PASS 7x5 strip=2 rot=90 out=5x7
+PASS 7x5 strip=2 rot=180 out=7x5
+PASS 7x5 strip=2 rot=270 out=5x7
+PASS 8x6 strip=4 rot=0 out=8x6
+PASS 8x6 strip=4 rot=90 out=6x8
+PASS 8x6 strip=4 rot=180 out=8x6
+PASS 8x6 strip=4 rot=270 out=6x8
+PASS 4x9 strip=3 rot=0 out=4x9
+PASS 4x9 strip=3 rot=90 out=9x4
+PASS 4x9 strip=3 rot=180 out=4x9
+PASS 4x9 strip=3 rot=270 out=9x4
+PASS 16x3072 strip=24 rot=0 out=16x3072
+PASS 16x3072 strip=24 rot=90 out=3072x16
+PASS 16x3072 strip=24 rot=180 out=16x3072
+PASS 16x3072 strip=24 rot=270 out=3072x16
+ORIENT1A strip destination mapping exact parity PASS

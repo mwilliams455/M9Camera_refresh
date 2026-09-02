@@ -1,0 +1,19 @@
+METAFREEZE1A host/static validation
+
+PASS Python patch/verifier py_compile
+PASS metadata storage-anchor regex smoke against current M9CaptureMetadataWriter storage layout
+PASS changed Java sources host syntax compile with Android/Photon stubs
+PASS frozen renderer/native/calibration byte-identical vs v0.7ZB NORMNATIVE1A
+PASS ORIENT1A 0/90/180/270 strip destination exact parity regression
+PASS LUMA2.4 exact-field regression
+PASS LUMA2.4 FB1 target-energy arithmetic regression
+
+Frozen hashes:
+M9R35Renderer.java b562afb35d7dd304a6e582af64607186da1f1a1710683f0cc829261b07564a81
+M9NativeColorCore.java 8b8655df5490497bc7674d002f168b20a41184391c8c2a3474cf33b02e1373d6
+m9color_jni.cpp a5713aeb520114d9da6cbeb3943d897a03aa5cfff2bfb1b8066a2be0a9d8d99a
+m9_r35_calibration.bin 5568978ea42e7c65b51f26ffc2d56479418ec6c8d98b242199bab08acb62cbca
+
+Inherited evidence:
+NORMNATIVE1A JNI checksum=34bc7b2d7da0fd5f clipped=10570 workers=4
+TC20NATIVE1B Java/native median=0.46205609372066964 p98=0.82639677488795830 valid=49082

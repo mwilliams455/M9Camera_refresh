@@ -1,0 +1,14 @@
+{
+  "format": "M9R35CAL",
+  "version": 1,
+  "hsm_dims": [
+    90,
+    30,
+    1
+  ],
+  "dcp": "Xiaomi 15 Ultra Rear Wide Camera Cobalt Modular.dcp",
+  "curve": "Leica M9 firmware curve_02 normal-ISO sRGB Standard",
+  "curve_sha256": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+  "asset_sha256": "5568978ea42e7c65b51f26ffc2d56479418ec6c8d98b242199bab08acb62cbca",
+  "renderer_reference": "m9render_v26r38_h25_tg1_candidate.py"
+}

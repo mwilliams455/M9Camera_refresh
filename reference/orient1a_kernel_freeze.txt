@@ -1,0 +1,12 @@
+ORIENT1A source-freeze evidence versus v0.7Z TC20NATIVE1B
+
+renderStripScalar SHA-256 (old/new identical):
+abf65b58043e1c9ef6f777bae644fe5bdd0c935bcf40b9de9b60f0ff38074400
+
+meterTc20WeightedSelectScalar SHA-256 (old/new identical):
+9c17186c947252c5cc895718d5eb5599becb5fd2d95a714ef8488cb4cda6dccd
+
+Conclusion:
+- full colour / BT.601 / TG1 scalar kernel source is unchanged
+- TC20 weighted-selection scalar kernel source is unchanged
+- ORIENT1A adds only post-kernel completed-ARGB strip layout and direct destination Bitmap commits

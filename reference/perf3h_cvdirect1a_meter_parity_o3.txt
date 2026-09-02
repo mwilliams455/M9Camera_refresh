@@ -1,0 +1,1 @@
+PERF3H CVDIRECT1A TC20 direct-input parity PASS 12 cases

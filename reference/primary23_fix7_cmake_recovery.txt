@@ -1,0 +1,1 @@
+PRIMARY2.3 JNI1 FIX7 invariant: restore Photon native CMake baseline (ncnnMl + dngCreator + allocator + flacRecorder + camera2native) before adding exactly one m9color CMake target; delete all stale jniLibs libm9color.so copies; never create a second native packaging route.

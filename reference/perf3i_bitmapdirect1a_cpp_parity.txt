@@ -1,0 +1,1 @@
+PERF3I BITMAPDIRECT1A exact mapping/packing parity PASS cases=11628
