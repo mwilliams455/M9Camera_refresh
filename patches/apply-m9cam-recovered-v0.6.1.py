@@ -28,6 +28,40 @@ for required in ['MOTION_ACTIVATE = 0.52','PERSISTENCE_PEAK_SCALE = 0.96','PERSI
     if required not in t: raise SystemExit('v0.6.1 recovery tune failed: '+required)
 p.write_text(t)
 
+# Recover the historical v0.6.1 IsoExpoSelector source shape consumed by the
+# cumulative v0.7N FB1 overlay. The recovered v0.6 foundation used the exact
+# same adjustCaps arguments on one line; accepted v0.6.1 had the call wrapped.
+# This is source-shape normalization only; arithmetic/order/predicates are unchanged.
+iso = Path(sys.argv[1]) / 'app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java'
+i = iso.read_text()
+inline = """        if (M9Config.isM9Modern()
+                && PhotonCamera.getSettings().selectedMode == CameraMode.PHOTO
+                && !useTripod) {
+            M9ModernExposurePolicy.Decision m9Decision = M9ModernExposurePolicy.adjustCaps(pair.exposure, pair.iso, pair.isoanalog, capStart, capEnd);
+            capStart = m9Decision.capStartNs; capEnd = m9Decision.capEndNs;
+        }
+"""
+canonical = """        if (M9Config.isM9Modern()
+                && PhotonCamera.getSettings().selectedMode == CameraMode.PHOTO
+                && !useTripod) {
+            M9ModernExposurePolicy.Decision m9Decision = M9ModernExposurePolicy.adjustCaps(
+                    pair.exposure, pair.iso, pair.isoanalog, capStart, capEnd);
+            capStart = m9Decision.capStartNs; capEnd = m9Decision.capEndNs;
+        }
+"""
+anchor = """        if (M9Config.isM9Modern()
+                && PhotonCamera.getSettings().selectedMode == CameraMode.PHOTO
+                && !useTripod) {
+            M9ModernExposurePolicy.Decision m9Decision = M9ModernExposurePolicy.adjustCaps(
+"""
+if inline in i:
+    i = i.replace(inline, canonical, 1)
+    iso.write_text(i)
+elif anchor in i:
+    pass
+else:
+    raise SystemExit('v0.6.1 recovery source-shape failed: M9Modern pre-curve policy seam not recognized')
+
 # Recover the historical v0.6.1 build-identity transition consumed by the
 # cumulative v0.7 overlay.  The v0.6 foundation deliberately installs
 # 0.97-m9modern6; accepted v0.6.1 exposure tune was 0.97-m9modern6p1.
