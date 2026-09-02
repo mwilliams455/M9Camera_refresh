@@ -1,4 +1,4 @@
-name: Build recovered M9Cam PERF3I SCENEEXPOSURE1D
+name: Build recovered M9Cam PERF3I SCENEEXPOSURE1E
 
 on:
   workflow_dispatch:
@@ -60,6 +60,12 @@ jobs:
       - name: Verify SCENEEXPOSURE1D regressions and diagnostic-only contract
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-sceneexposure1d.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
+      - name: Apply SCENEEXPOSURE1E AE-effort tonal-adequacy moderation
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-sceneexposure1e.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Verify SCENEEXPOSURE1E regressions and diagnostic-only contract
+        run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-sceneexposure1e.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -83,7 +89,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZV-PERF3I-EXPOSUREAUDIT1A-SCENEEXPOSURE1D-recovered
+          name: M9Cam-v0.7ZW-PERF3I-EXPOSUREAUDIT1A-SCENEEXPOSURE1E-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
