@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import sys
+import re, sys
 if len(sys.argv)!=2: raise SystemExit('usage: apply-m9cam-recovered-v0.6.1.py <PhotonCamera-root>')
 p=Path(sys.argv[1])/'app/src/main/java/com/particlesdevs/photoncamera/m9/M9ModernExposurePolicy.java'
 t=p.read_text()
@@ -27,4 +27,27 @@ if old in t:t=t.replace(old,new,1)
 for required in ['MOTION_ACTIVATE = 0.52','PERSISTENCE_PEAK_SCALE = 0.96','PERSISTENCE_MAX_BOOST = 0.08','ANALOG_HEADROOM_FRACTION = 0.95']:
     if required not in t: raise SystemExit('v0.6.1 recovery tune failed: '+required)
 p.write_text(t)
-print('M9Modern v0.6.1 accepted tune restored')
+
+# Recover the historical v0.6.1 build-identity transition consumed by the
+# cumulative v0.7 overlay.  The v0.6 foundation deliberately installs
+# 0.97-m9modern6; accepted v0.6.1 exposure tune was 0.97-m9modern6p1.
+gradle = Path(sys.argv[1]) / 'app/build.gradle'
+g = gradle.read_text()
+if re.search(r"versionName\s+(['\"])0\.97-m9modern6p1\1", g):
+    pass
+elif re.search(r"versionName\s+(['\"])0\.97-m9modern6\1", g):
+    g, n = re.subn(
+        r"versionName\s+(['\"])0\.97-m9modern6\1",
+        "versionName '0.97-m9modern6p1'",
+        g,
+        count=1,
+    )
+    if n != 1:
+        raise SystemExit('v0.6.1 recovery identity failed: could not promote 0.97-m9modern6 -> 0.97-m9modern6p1')
+    gradle.write_text(g)
+else:
+    found = re.findall(r"(?m)^.*versionName.*$", g)
+    detail = found[0].strip() if found else '<missing versionName>'
+    raise SystemExit('v0.6.1 recovery identity failed: expected 0.97-m9modern6 or 0.97-m9modern6p1; found: ' + detail)
+
+print('M9Modern v0.6.1 accepted tune + 0.97-m9modern6p1 identity restored')
