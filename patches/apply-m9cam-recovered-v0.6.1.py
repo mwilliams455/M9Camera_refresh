@@ -62,6 +62,29 @@ elif anchor in i:
 else:
     raise SystemExit('v0.6.1 recovery source-shape failed: M9Modern pre-curve policy seam not recognized')
 
+
+# Recover the diagnostics type contract used by the current Photon shutter curve.
+# PhotonCamera dev declares CAP_RAMP_STOPS as double. The reconstructed foundation
+# accidentally retained an early int-only diagnostics signature; that is diagnostics
+# storage only, but it makes the otherwise-correct call fail Java compilation.
+# Keep the value exact by promoting the diagnostics field/parameter to double rather
+# than casting/truncating at the exposure call site. No exposure arithmetic changes.
+diag = Path(sys.argv[1]) / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureDiagnostics.java'
+d = diag.read_text()
+if 'private static int curveRampStops;' in d:
+    d = d.replace('private static int curveRampStops;', 'private static double curveRampStops;', 1)
+if 'long capStart,long capEnd,int rampStops)' in d:
+    d = d.replace('long capStart,long capEnd,int rampStops)', 'long capStart,long capEnd,double rampStops)', 1)
+if 'private static double curveRampStops;' not in d or 'long capStart,long capEnd,double rampStops)' not in d:
+    raise SystemExit('v0.6.1 recovery diagnostics type failed: expected double curveRampStops/recordCurveInput rampStops')
+diag.write_text(d)
+
+# Cross-check the caller contract before the cumulative overlay. This catches future
+# upstream type drift at the recovery boundary rather than during Gradle compilation.
+iso_type_text = iso.read_text()
+if not re.search(r'private\s+static\s+final\s+double\s+CAP_RAMP_STOPS\s*=', iso_type_text):
+    raise SystemExit('v0.6.1 recovery diagnostics type failed: Photon CAP_RAMP_STOPS is no longer double')
+
 # Recover the historical v0.6.1 metadata-writer source shape consumed by the
 # cumulative v0.7 renderer/LUMA/METAFREEZE overlays. The reconstructed recovery
 # foundation kept the same persistence operations on one compact line, while the
@@ -117,4 +140,4 @@ else:
     detail = found[0].strip() if found else '<missing versionName>'
     raise SystemExit('v0.6.1 recovery identity failed: expected 0.97-m9modern6 or 0.97-m9modern6p1; found: ' + detail)
 
-print('M9Modern v0.6.1 accepted tune + 0.97-m9modern6p1 identity restored')
+print('M9Modern v0.6.1 accepted tune + historical source/type contracts + 0.97-m9modern6p1 identity restored')
