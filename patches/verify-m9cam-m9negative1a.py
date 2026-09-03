@@ -24,6 +24,7 @@ negative = 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9NegativeFeedba
 coord = 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9CaptureRenderExposureCoordinator.java'
 renderer = 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
 render_meter = 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderMeterDiagnostic.java'
+render_model = 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderMeterModel1C.java'
 scene = 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9SceneExposureDiagnostic.java'
 spool = 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java'
 
@@ -63,7 +64,9 @@ must(renderer, 'if (primaryRoute)')
 
 # Frozen downstream renderer and SceneExposure identities remain intact.
 must(render_meter, 'm9cam.rendermeter.v3.evidence1c')
-must(render_meter, 'evidence_only_no_signed_ev')
+must(render_meter, 'direct_rendered_luma_evidence_model_active_no_signed_ev')
+must(render_model, 'm9cam.rendermetermodel.v1.evidence1c')
+must(render_model, 'evidence_only_no_signed_ev')
 must(scene, 'm9cam.sceneexposure.v8.renderaware1h')
 must(scene, 'diagnostic_only_no_exposure_mutation')
 must(renderer, 'JPEG_QUALITY = 95')
