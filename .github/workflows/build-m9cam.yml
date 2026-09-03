@@ -126,9 +126,6 @@ jobs:
       - name: Apply VIRTUALBV1A corpus calibration
         run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-virtualbv1a-cal1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
-      - name: Apply SCENEFINGERPRINT1B spatial association overlay
-        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-scenefingerprint1b.py" "$GITHUB_WORKSPACE/PhotonCamera"
-
       - name: Verify VIRTUALBV1A frozen-contract and direction regressions
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-virtualbv1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
