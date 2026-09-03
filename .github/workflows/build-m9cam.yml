@@ -1,4 +1,4 @@
-name: Build recovered M9Cam PERF3I M9NEGATIVE1B SCENEFINGERPRINT1A
+name: Build recovered M9Cam PERF3I M9NEGATIVE1C SIGNEDCAL1A
 
 on:
   workflow_dispatch:
@@ -114,6 +114,12 @@ jobs:
       - name: Verify M9NEGATIVE1B SCENEFINGERPRINT1A regressions
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-m9negative1b-scenefingerprint1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
+      - name: Apply M9NEGATIVE1C SIGNEDCAL1A diagnostic calibration
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-m9negative1c-signedcal1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Verify M9NEGATIVE1C SIGNEDCAL1A frozen-contract regressions
+        run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-m9negative1c-signedcal1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -137,7 +143,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZE-PERF3I-SCENEEXPOSURE1H-M9NEGATIVE1B-SCENEFINGERPRINT1A-CAPTUREMETER1B-RENDERMETER1C-SIDECAR1B-recovered
+          name: M9Cam-v0.7ZZF-PERF3I-SCENEEXPOSURE1H-M9NEGATIVE1C-SIGNEDCAL1A-SCENEFINGERPRINT1A-CAPTUREMETER1B-RENDERMETER1C-SIDECAR1B-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
