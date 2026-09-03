@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import sys
+import runpy, sys
 
 if len(sys.argv) != 2:
     raise SystemExit('usage: apply-m9cam-virtualbv1a-cal1a.py <PhotonCamera-root>')
@@ -22,3 +22,12 @@ print('M9Cam VIRTUALBV1A CAL1A applied')
 print(' - provisional neutral meter proxy Y changed from 100 to 120')
 print(' - value is corpus-derived research calibration, NOT an M9 or M10-R firmware constant')
 print(' - no exposure mutation; raw signed meter delta remains unbounded')
+
+# SCENEFINGERPRINT1B is deliberately layered after the otherwise-frozen VIRTUALBV1A build.
+helper = Path(__file__).resolve().parent / 'apply-m9cam-scenefingerprint1b.py'
+old_argv = sys.argv[:]
+try:
+    sys.argv = [str(helper), str(root)]
+    runpy.run_path(str(helper), run_name='__main__')
+finally:
+    sys.argv = old_argv
