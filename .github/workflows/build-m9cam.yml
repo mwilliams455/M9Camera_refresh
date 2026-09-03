@@ -1,4 +1,4 @@
-name: Build recovered M9Cam PERF3I CAPTURESPLIT1A
+name: Build recovered M9Cam PERF3I CAPTURESPLIT1B
 
 on:
   workflow_dispatch:
@@ -90,6 +90,12 @@ jobs:
       - name: Verify CAPTURESPLIT1A diagnostic architecture
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-capturesplit1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
+      - name: Apply CAPTURESPLIT1B direct render luma and sidecar diagnostics
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-capturesplit1b.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Verify CAPTURESPLIT1B diagnostic architecture
+        run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-capturesplit1b.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -113,7 +119,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZA-PERF3I-SCENEEXPOSURE1H-CAPTURESPLIT1A-recovered
+          name: M9Cam-v0.7ZZB-PERF3I-SCENEEXPOSURE1H-CAPTURESPLIT1B-RENDERMETER1B-SIDECAR1A-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
