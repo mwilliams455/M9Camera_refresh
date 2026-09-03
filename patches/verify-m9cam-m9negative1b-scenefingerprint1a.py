@@ -8,6 +8,8 @@ root = Path(sys.argv[1]).resolve()
 negative = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9NegativeFeedback1A.java').read_text()
 coord = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9CaptureRenderExposureCoordinator.java').read_text()
 gradle = (root / 'app/build.gradle').read_text()
+backlight = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java').read_text()
+compact_version = "1.46-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1b-fp1a-cm1b"
 
 checks = {
     'M9NEGATIVE1B schema': 'm9cam.m9negative.v2.capturemeter1b.scenefingerprint1a' in negative,
@@ -39,8 +41,9 @@ checks = {
     'positive recommendation equation preserved': 'additionalCaptureHeadroomEv\n                    * negativeShadowStarvationEvidence' in negative,
     'negative recommendation equation preserved': '-0.35 * meaningfulClipRiskEvidence' in negative,
     'coordinator identifies 1B': 'm9cam.exposuresplit.v3.capturemeter1b.m9negative1b.scenefingerprint1a' in coord,
-    'version bumped': "versionName '1.46-" in gradle,
-    'version marker': 'm9negative1bscenefingerprint1acapturemeter1b' in gradle,
+    'compact Android versionName exact': ("versionName '" + compact_version + "'") in gradle,
+    'compact Android versionName safely short': len(compact_version) < 96,
+    'full forensic build marker retained': 'm9negative1bscenefingerprint1acapturemeter1b' in backlight,
 }
 failed = [name for name, ok in checks.items() if not ok]
 for name, ok in checks.items():
@@ -50,7 +53,7 @@ if failed:
 
 # Regression labels copied from the 2026-09-03 M9NEGATIVE1A test set.
 # Each vector: median, center, q95, q99, dark64, bright192, bright224,
-# centerDelta, middleCenterQ95, starvation, previewEnergyIsoSeconds.
+# centerDelta, middleCenterQ95, starvation, previewExposureEnergyIsoSeconds.
 def fp(median, center, q95, q99, dark64, b192, b224, center_delta, mcq95, starvation, energy):
     return (median, center, q95, q99, dark64, b192, b224, center_delta, mcq95, starvation, energy)
 
