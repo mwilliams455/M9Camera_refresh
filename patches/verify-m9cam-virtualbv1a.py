@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import math, sys
+import math, runpy, sys
 
 if len(sys.argv) != 2:
     raise SystemExit('usage: verify-m9cam-virtualbv1a.py <PhotonCamera-root>')
@@ -14,7 +14,7 @@ render_meter = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/rend
 gradle = (root / 'app/build.gradle').read_text()
 backlight = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java').read_text()
 
-compact_version = '1.48-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1a-sc1a-vbv1a-cm1b'
+compact_version = '1.49-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cm1b'
 checks = {
     'VIRTUALBV1A schema': 'm9cam.virtualbv.v1' in virtual,
     'diagnostic-only mode': 'diagnostic_only_no_exposure_mutation' in virtual,
@@ -40,15 +40,17 @@ checks = {
     'completed RAW teacher comparison telemetry': 'completedRawRecommendedCaptureDeltaEv' in virtual,
     'metadata publishes m9VirtualBv': 'root.put("m9VirtualBv", M9VirtualBv1A.evaluate(root));' in meta,
     'SCENEEXPOSURE1H frozen schema': 'm9cam.sceneexposure.v8.renderaware1h' in scene,
-    'capture split SIGNEDCAL1A frozen schema': 'm9cam.exposuresplit.v4.capturemeter1b.m9negative1c.scenefingerprint1a.signedcal1a' in coord,
-    'M9NEGATIVE1C frozen schema': 'm9cam.m9negative.v3.capturemeter1b.scenefingerprint1a.signedcal1a' in negative,
-    'SCENEFINGERPRINT1A threshold frozen': 'SIMILAR_SCENE_DISTANCE = 1.0' in negative,
-    'SCENEFINGERPRINT1A 60s gate frozen': 'MAX_FEEDBACK_AGE_MS = 60_000L' in negative,
+    'SCENEEXPOSURE1H publishes only extra tile metadata': 'spatialTileMedians3x3' in scene,
+    'capture split SCENEFINGERPRINT1B schema': 'm9cam.exposuresplit.v5.capturemeter1b.m9negative1c.scenefingerprint1b.signedcal1a' in coord,
+    'M9NEGATIVE1C SCENEFINGERPRINT1B schema': 'm9cam.m9negative.v4.capturemeter1b.scenefingerprint1b.signedcal1a' in negative,
+    'SCENEFINGERPRINT threshold remains 1.0': 'SIMILAR_SCENE_DISTANCE = 1.0' in negative,
+    'SCENEFINGERPRINT 60s gate remains': 'MAX_FEEDBACK_AGE_MS = 60_000L' in negative,
+    'SCENEFINGERPRINT1B spatial scale': 'Math.abs(a[i] - b[i]) / 60.0' in negative,
     'SIGNEDCAL1A still diagnostic': 'm9cam.signedcal.v1.completedraw_coordinates1a' in negative,
     'RENDERMETER1C frozen': 'm9cam.rendermeter.v3.evidence1c' in render_meter,
     'compact Android versionName': ("versionName '" + compact_version + "'") in gradle,
     'compact version length safe': len(compact_version) < 96,
-    'forensic marker contains VIRTUALBV1A': 'm9negative1csignedcal1avirtualbv1ascenefingerprint1acapturemeter1b' in backlight,
+    'forensic marker contains VIRTUALBV1A and FP1B': 'm9negative1csignedcal1avirtualbv1ascenefingerprint1bcapturemeter1b' in backlight,
     'no M10R 59/256 calibration copied': '59 / 256' not in virtual and '59.0 / 256.0' not in virtual,
     'no M10R 25/256 hysteresis copied': '25 / 256' not in virtual and '25.0 / 256.0' not in virtual,
     'no percentile classifier drives BV': 'globalQ95' not in virtual and 'brightFractionGE' not in virtual,
@@ -60,8 +62,6 @@ for name, ok in checks.items():
 if failed:
     raise SystemExit('VIRTUALBV1A structural self-check failed: ' + ', '.join(failed))
 
-# Direction-first model regression. This intentionally validates only the simple
-# scalar proxy and raw unbounded sign. It does NOT claim absolute M9 TTL calibration.
 CENTER_W = 0.70
 GLOBAL_W = 0.30
 REF_Y = 120.0
@@ -70,9 +70,6 @@ def delta(global_y, center_y):
     proxy = CENTER_W * center_y + GLOBAL_W * global_y
     return math.log(REF_Y / proxy, 2.0)
 
-# Existing 2026-09-03 field examples from the SCENEFINGERPRINT validation corpus.
-# Bright-centre window should meter lower BV than Photon -> negative exposure correction.
-# Dark/outdoor-centre examples should meter higher exposure need -> positive correction.
 regressions = [
     ('ordinary_bike', 108.0, 115.0, +1, 0.08),
     ('bright_centre_window', 87.0, 199.0, -1, 0.20),
@@ -90,12 +87,9 @@ for name, g, c, sign, minimum_abs in regressions:
     if abs(d) < minimum_abs:
         raise SystemExit(f'VIRTUALBV1A magnitude sanity failed: {name} only {d:+.3f}')
 
-# Exact neutral proxy sanity.
 if abs(delta(120.0, 120.0)) > 1e-12:
     raise SystemExit('VIRTUALBV1A neutral Y120 proxy does not produce zero delta')
 
-# M9 baseline APEX sanity: ISO160 Sv in standard APEX; reduced M9 equation preserves
-# one-EV response to one-EV BV change. This is an arithmetic check, not a calibration claim.
 sv160 = math.log(160.0 / 3.125, 2.0)
 tv_a = 6.0 + sv160 - 5.0
 tv_b = 7.0 + sv160 - 5.0
@@ -105,3 +99,11 @@ if round(6.0 * 256.0) != 1536:
     raise SystemExit('VIRTUALBV1A Q8.8 scale sanity failed')
 
 print('M9Cam VIRTUALBV1A verification passed')
+
+helper = Path(__file__).resolve().parent / 'verify-m9cam-scenefingerprint1b.py'
+old_argv = sys.argv[:]
+try:
+    sys.argv = [str(helper), str(root)]
+    runpy.run_path(str(helper), run_name='__main__')
+finally:
+    sys.argv = old_argv
