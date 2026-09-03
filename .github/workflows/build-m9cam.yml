@@ -1,4 +1,4 @@
-name: Build recovered M9Cam PERF3I VIRTUALBV1A SIGNEDCAL1A
+name: Build recovered M9Cam CONSTRAINTSPLIT1A VIRTUALBV1A FP1B
 
 on:
   workflow_dispatch:
@@ -126,8 +126,17 @@ jobs:
       - name: Apply VIRTUALBV1A corpus calibration
         run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-virtualbv1a-cal1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
+      - name: Apply SCENEFINGERPRINT1B spatial association overlay
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-scenefingerprint1b.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
       - name: Verify VIRTUALBV1A frozen-contract and direction regressions
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-virtualbv1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Apply CONSTRAINTSPLIT1A diagnostic sensor-constraint overlay
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-constraintsplit1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Verify CONSTRAINTSPLIT1A frozen contracts and regression fixtures
+        run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-constraintsplit1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -152,7 +161,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZG-PERF3I-VIRTUALBV1A-SIGNEDCAL1A-M9NEGATIVE1C-SCENEFINGERPRINT1A-CAPTUREMETER1B-RENDERMETER1C-SIDECAR1B-recovered
+          name: M9Cam-v0.7ZZI-CONSTRAINTSPLIT1A-VIRTUALBV1A-SIGNEDCAL1A-M9NEGATIVE1C-SCENEFINGERPRINT1B-PERF3I-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
