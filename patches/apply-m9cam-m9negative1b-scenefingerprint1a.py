@@ -77,16 +77,21 @@ c = c.replace('m9cam.exposuresplit.v2.capturemeter1b.m9negative1a',
               'm9cam.exposuresplit.v3.capturemeter1b.m9negative1b.scenefingerprint1a', 1)
 cp.write_text(c)
 
+# Keep Android's versionName compact because AGP embeds it in the APK filename. The full
+# forensic identity remains in the diagnostic schemas and M9BacklightDiagnostic build marker.
 gradle = root / 'app/build.gradle'
 g = gradle.read_text()
-needle = 'm9negative1acapturemeter1b'
-if needle not in g:
-    raise SystemExit('SCENEFINGERPRINT1A versionName M9NEGATIVE1A marker missing')
-g = g.replace(needle, 'm9negative1bscenefingerprint1acapturemeter1b', 1)
-if "versionName '1.45-" not in g:
-    raise SystemExit('SCENEFINGERPRINT1A expected versionName 1.45 baseline missing')
-g = g.replace("versionName '1.45-", "versionName '1.46-", 1)
-gradle.write_text(g)
+lines = g.splitlines()
+version_index = -1
+for i, line in enumerate(lines):
+    if "versionName '1.45-" in line and 'm9negative1acapturemeter1b' in line:
+        version_index = i
+        break
+if version_index < 0:
+    raise SystemExit('SCENEFINGERPRINT1A expected long 1.45 M9NEGATIVE1A versionName missing')
+indent = lines[version_index][:len(lines[version_index]) - len(lines[version_index].lstrip())]
+lines[version_index] = indent + "versionName '1.46-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1b-fp1a-cm1b'"
+gradle.write_text('\n'.join(lines) + ('\n' if g.endswith('\n') else ''))
 
 back = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9BacklightDiagnostic.java'
 if back.exists():
@@ -101,4 +106,5 @@ print('M9Cam M9NEGATIVE1B / SCENEFINGERPRINT1A overlay applied')
 print(' - completed RAW recommendation thresholds/math preserved from M9NEGATIVE1A')
 print(' - association uses existing SCENEEXPOSURE1H distribution/center/preview-energy fields')
 print(' - 60s completed-RAW recency gate; no unrelated fallback when no match passes')
+print(' - compact Android versionName prevents AGP/Linux APK filename overflow')
 print(' - live capture mutation remains disabled')
