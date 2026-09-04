@@ -13,9 +13,14 @@ jobs:
       - name: Checkout M9 recovery repo
         uses: actions/checkout@v4
 
-      - name: Clone PhotonCamera dev
+      - name: Clone pinned PhotonCamera baseline
         run: |
+          set -euo pipefail
+          PHOTON_SHA=f0e6425d2509fb8ab834d5d3af593183038b778c
           git clone --depth 1 --branch dev https://github.com/eszdman/PhotonCamera.git PhotonCamera
+          git -C PhotonCamera fetch --depth 1 origin "$PHOTON_SHA"
+          git -C PhotonCamera checkout --detach FETCH_HEAD
+          test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
       - name: Apply and verify cumulative M9 chain through M10RMFMTEST1A
