@@ -1,12 +1,13 @@
-name: Build M9Cam M10RMFMTEST1A
+name: Validate M10RMFM2A diagnostic prep
 
 on:
   workflow_dispatch:
   push:
-    branches: ['**']
+    branches:
+      - m10r-mfm2a-diagnostic-prep
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -21,9 +22,8 @@ jobs:
           git -C PhotonCamera fetch --depth 1 origin "$PHOTON_SHA"
           git -C PhotonCamera checkout --detach FETCH_HEAD
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
-          git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply and verify cumulative M9 chain through M10RMFMTEST1A
+      - name: Apply and verify cumulative chain through M10RMFM2A
         shell: bash
         run: |
           set -euo pipefail
@@ -94,9 +94,13 @@ jobs:
           run_patch verify-m9cam-constrainttie1a.py
           run_patch apply-m9cam-currentframeceiling1a.py
           run_patch verify-m9cam-currentframeceiling1a.py
+
           run_patch apply-m9cam-m10r-mfmtest1a.py
           run_patch fix-m9cam-m10r-mfmtest1a-jsonarray1a.py
           run_patch verify-m9cam-m10r-mfmtest1a.py
+
+          run_patch apply-m9cam-m10r-mfm2a-diagnosticprep.py
+          run_patch verify-m9cam-m10r-mfm2a-diagnosticprep.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -107,22 +111,21 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android build components
+      - name: Install Android compile components
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
 
-      - name: Build debug APK
+      - name: Compile Java/Kotlin application sources only
         run: |
           cd PhotonCamera
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew compileDebugJavaWithJavac --stacktrace
 
-      - name: Upload APK and upstream commit
-        uses: actions/upload-artifact@v4
-        with:
-          name: M9Cam-v0.7ZZS-M10RMFMTEST1A-EXACT-INTEGRAL-4x6-PERF3I-recovered
-          path: |
-            PhotonCamera/app/build/outputs/apk/debug/*.apk
-            PHOTON_UPSTREAM_COMMIT.txt
-          if-no-files-found: error
+      - name: Confirm no APK artifact is produced/promoted
+        run: |
+          if find PhotonCamera/app/build/outputs/apk -type f -name '*.apk' -print -quit 2>/dev/null | grep -q .; then
+            echo 'Unexpected APK output in diagnostic-prep validation'
+            exit 1
+          fi
+          echo 'M10RMFM2A source/compile validation complete; no APK artifact produced.'
