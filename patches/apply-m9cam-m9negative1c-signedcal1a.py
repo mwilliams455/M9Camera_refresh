@@ -90,6 +90,7 @@ helper = r'''    private static JSONObject buildSignedCalibration(CompletedRaw r
             out.put("meaningfulClipRiskEvidence", meaningfulClipRiskEvidence);
             out.put("negativeHighlightStressEvidence", negativeHighlightStressEvidence);
             out.put("rawHeadroomTo0p92Ev", rawHeadroomEv);
+            out.put("additionalCaptureHeadroomEv", additionalCaptureHeadroomEv);
             out.put("positiveCandidateEvBeforeDeadband", positiveCandidateEv);
             out.put("negativeCandidateBeforeGateEv", negativeCandidateBeforeGateEv);
             out.put("negativeClipGatePass", negativeClipGatePass);
