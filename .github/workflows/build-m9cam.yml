@@ -95,6 +95,7 @@ jobs:
           run_patch apply-m9cam-currentframeceiling1a.py
           run_patch verify-m9cam-currentframeceiling1a.py
           run_patch apply-m9cam-m10r-mfmtest1a.py
+          run_patch fix-m9cam-m10r-mfmtest1a-jsonarray1a.py
           run_patch verify-m9cam-m10r-mfmtest1a.py
 
       - name: Set up JDK 17
