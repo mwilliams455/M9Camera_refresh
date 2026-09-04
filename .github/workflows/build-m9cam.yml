@@ -13,6 +13,10 @@ jobs:
       - name: Checkout M9 recovery repo
         uses: actions/checkout@v4
 
+      - name: Verify TC20INTENT1A offline harness syntax
+        run: |
+          python3 -m py_compile research/tc20intent1a_replay.py
+
       - name: Clone pinned PhotonCamera baseline
         run: |
           set -euo pipefail
