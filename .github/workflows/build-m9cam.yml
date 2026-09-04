@@ -1,4 +1,4 @@
-name: Build recovered M9Cam CONSTRAINTLOCAL1A FOREGROUNDGUARD1A CONSTRAINTREF1A EXACTID1A
+name: Build recovered M9Cam PHOTOMETRICNORM1A CONSTRAINTLOCAL1A FOREGROUNDGUARD1A CONSTRAINTREF1A
 
 on:
   workflow_dispatch:
@@ -124,6 +124,10 @@ jobs:
         run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-constraintlocal1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
       - name: Verify CONSTRAINTLOCAL1A history-selection comparisons
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-constraintlocal1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+      - name: Apply PHOTOMETRICNORM1A exposure-normalized scene matcher diagnostics
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-photometricnorm1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+      - name: Verify PHOTOMETRICNORM1A field-sequence classification and frozen seams
+        run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-photometricnorm1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -144,7 +148,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZO-CONSTRAINTLOCAL1A-FOREGROUNDGUARD1A-CONSTRAINTREF1A-EXACTID1A-VIRTUALBV1A-SIGNEDCAL1A-FP1B-PERF3I-recovered
+          name: M9Cam-v0.7ZZP-PHOTOMETRICNORM1A-CONSTRAINTLOCAL1A-FOREGROUNDGUARD1A-CONSTRAINTREF1A-FP1B-PERF3I-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
