@@ -1,4 +1,4 @@
-name: Build recovered M9Cam VIRTUALBVSPATIAL1B CONSTRAINTREF1A EXACTID1A VIRTUALBV1A FP1B
+name: Build recovered M9Cam FOREGROUNDGUARD1A VIRTUALBVSPATIAL1B CONSTRAINTREF1A EXACTID1A
 
 on:
   workflow_dispatch:
@@ -116,6 +116,10 @@ jobs:
         run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-virtualbv-spatial1b.py" "$GITHUB_WORKSPACE/PhotonCamera"
       - name: Verify VIRTUALBVSPATIAL1B frozen live seams and test-20 fixtures
         run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-virtualbv-spatial1b.py" "$GITHUB_WORKSPACE/PhotonCamera"
+      - name: Apply FOREGROUNDGUARD1A bounded foreground-separation floor
+        run: python3 "$GITHUB_WORKSPACE/patches/apply-m9cam-foregroundguard1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
+      - name: Verify FOREGROUNDGUARD1A frozen live seams and test-902 fixtures
+        run: python3 "$GITHUB_WORKSPACE/patches/verify-m9cam-foregroundguard1a.py" "$GITHUB_WORKSPACE/PhotonCamera"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -136,7 +140,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZM-VIRTUALBVSPATIAL1B-CONSTRAINTREF1A-CONSTRAINTSPLIT1A-FIX1-EXACTID1A-VIRTUALBV1A-SIGNEDCAL1A-M9NEGATIVE1C-SCENEFINGERPRINT1B-PERF3I-recovered
+          name: M9Cam-v0.7ZZN-FOREGROUNDGUARD1A-VIRTUALBVSPATIAL1B-CONSTRAINTREF1A-EXACTID1A-VIRTUALBV1A-SIGNEDCAL1A-FP1B-PERF3I-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
