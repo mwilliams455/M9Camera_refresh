@@ -64,8 +64,12 @@ require(guard, 'private static final double MAX_FOREGROUND_BUMP_EV = 0.50;',
         '+0.50 guard cap frozen')
 require(guard, 'Math.max(0.0, fb1Applied - baseEv)', 'guard floor frozen')
 require(constraint_ref, 'm9cam.constraintref.v1', 'CONSTRAINTREF schema frozen')
-require(constraint_ref, 'source_actual_capture_offset_from_photon_plus_raw_relative_constraint',
-        'reference-alignment math frozen')
+require(negative, 'source_actual_capture_offset_from_photon_plus_raw_relative_constraint',
+        'reference-alignment meaning frozen')
+require(negative, 'double positiveCeiling = sourceOffset + allowance;',
+        'reference-aligned positive ceiling formula frozen')
+require(negative, 'double mandatoryCeiling = sourceOffset + protection;',
+        'reference-aligned mandatory ceiling formula frozen')
 require(virtual, 'PROVISIONAL_CENTER_WEIGHT = 0.70', 'VirtualBV center weight frozen')
 require(virtual, 'PROVISIONAL_GLOBAL_WEIGHT = 0.30', 'VirtualBV global weight frozen')
 require(virtual, 'PROVISIONAL_REFERENCE_Y = 120.0', 'VirtualBV Y120 frozen')
