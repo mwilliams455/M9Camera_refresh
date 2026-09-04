@@ -31,6 +31,7 @@ checks = {
     'mandatory ceiling conversion': 'sourceOffset + rawProtection' in constraint_ref and 'sameFrameActualCaptureOffsetFromPhotonEv + protection' in constraint_ref,
     'mandatory ceiling semantics': 'Math.min(meterRequestFromPhotonEv,' in constraint_ref and 'mandatoryCeilingFromPhotonEv' in constraint_ref,
     'positive allowance stays a ceiling': 'meterRequestFromPhotonEv > 0.0' in constraint_ref and 'positiveCeilingFromPhotonEv' in constraint_ref,
+    'same-frame SIGNEDCAL positive allowance exposed': 'out.put("additionalCaptureHeadroomEv", additionalCaptureHeadroomEv);' in negative and 'sameFrameSignedCalibration.optDouble("additionalCaptureHeadroomEv", Double.NaN)' in constraint_ref,
     'legacy raw-relative comparator retained': 'legacyRawRelativeConstraint' in constraint_ref and 'matchedRawConstrainedMeterRequestEv' in constraint_ref,
     'architecture A logged': 'architectureAReplaceFb1ResultEv' in constraint_ref and 'photon_baseline_to_virtualbv_then_reference_aligned_sensor_constraint' in constraint_ref,
     'architecture B residual logged': 'meterResidualAfterLegacyFb1Ev' in constraint_ref and 'architectureBResidualAfterFb1ResultEv' in constraint_ref,
