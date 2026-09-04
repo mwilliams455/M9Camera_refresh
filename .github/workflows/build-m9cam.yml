@@ -1,4 +1,4 @@
-name: Build recovered M9Cam CURRENTFRAMECEILING1A CONSTRAINTTIE1A PHOTOMETRICNORM1A
+name: Build M9Cam M10RMFMTEST1A
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
           git clone --depth 1 --branch dev https://github.com/eszdman/PhotonCamera.git PhotonCamera
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply and verify cumulative M9 chain through CURRENTFRAMECEILING1A
+      - name: Apply and verify cumulative M9 chain through M10RMFMTEST1A
         shell: bash
         run: |
           set -euo pipefail
@@ -89,6 +89,8 @@ jobs:
           run_patch verify-m9cam-constrainttie1a.py
           run_patch apply-m9cam-currentframeceiling1a.py
           run_patch verify-m9cam-currentframeceiling1a.py
+          run_patch apply-m9cam-m10r-mfmtest1a.py
+          run_patch verify-m9cam-m10r-mfmtest1a.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -113,7 +115,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZR-CURRENTFRAMECEILING1A-CONSTRAINTTIE1A-CONSTRAINTNEAREST1A-PHOTOMETRICNORM1A-FOREGROUNDGUARD1A-EXACTID1A-PERF3I-recovered
+          name: M9Cam-v0.7ZZS-M10RMFMTEST1A-EXACT-INTEGRAL-4x6-PERF3I-recovered
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
