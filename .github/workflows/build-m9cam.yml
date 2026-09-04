@@ -24,11 +24,31 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy opencv-python-headless tifffile pillow
 
-      - name: Compile research harness
-        run: python -m py_compile research/tc20intent1a_offline.py
+      - name: Compile research harness and FIX1 entry point
+        run: |
+          python -m py_compile research/tc20intent1a_offline.py
+          python -m py_compile research/tc20intent1a_offline_fix1.py
 
       - name: Run TC20INTENT1A synthetic invariants
-        run: python research/tc20intent1a_offline.py --self-test
+        run: python research/tc20intent1a_offline_fix1.py --self-test
+
+      - name: Verify current sidecar safety cohort extraction
+        run: |
+          PYTHONPATH=research python - <<'PY'
+          import tc20intent1a_offline_fix1 as f
+          current = {
+              'm9SceneExposureDiagnostic': {
+                  'inputs': {'globalQ95': 255, 'brightFractionGE240': 0.029947916666666668}
+              }
+          }
+          q95, b240 = f.preview_safety_from_m9(current)
+          assert q95 == 255.0
+          assert abs(b240 - 0.029947916666666668) < 1e-15
+          mfm2 = {'m9M10rMfmTest': {'previewGlobalQ95Y': 254, 'previewBrightFractionGE240': 0.012}}
+          q95, b240 = f.preview_safety_from_m9(mfm2)
+          assert q95 == 254.0 and b240 == 0.012
+          print('PASS preview safety cohort schema extraction')
+          PY
 
       - name: Verify frozen calibration asset exists
         run: |
