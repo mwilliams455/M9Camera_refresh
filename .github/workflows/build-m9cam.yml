@@ -1,4 +1,4 @@
-name: Build M9Cam TC20PLACEMENTSTAGE1A Offline
+name: Build M9Cam METADATAFIX1A
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply and verify cumulative M9 chain through M10RMFMTEST1A
+      - name: Apply and verify cumulative M9 chain through METADATAFIX1A
         shell: bash
         run: |
           set -euo pipefail
@@ -106,6 +106,9 @@ jobs:
           run_patch fix-m9cam-m10r-mfmtest1a-jsonarray1a.py
           run_patch verify-m9cam-m10r-mfmtest1a.py
 
+          run_patch apply-m9cam-metadatafix1a.py
+          run_patch verify-m9cam-metadatafix1a.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -129,7 +132,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZS-TC20PLACEMENTSTAGE1A-OFFLINE-BASELINE
+          name: M9Cam-METADATAFIX1A
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
