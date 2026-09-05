@@ -1,4 +1,4 @@
-name: Build M9Cam TC20REGIONALKEY1A Offline
+name: Build M9Cam TC20LOWKEY1A Offline
 
 on:
   workflow_dispatch:
@@ -18,6 +18,7 @@ jobs:
           python3 -m py_compile research/tc20intent1a_replay.py
           python3 -m py_compile research/tc20placement1a_replay.py
           python3 -m py_compile research/tc20regionalkey1a_replay.py
+          python3 -m py_compile research/tc20lowkey1a_replay.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -127,7 +128,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZS-TC20REGIONALKEY1A-OFFLINE-BASELINE
+          name: M9Cam-v0.7ZZS-TC20LOWKEY1A-OFFLINE-BASELINE
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
