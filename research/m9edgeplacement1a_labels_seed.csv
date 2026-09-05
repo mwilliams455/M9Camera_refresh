@@ -1,0 +1,7 @@
+pattern,label,notes
+184927,BRIGHT_FAIL,Confirmed bright-tail example from v2.81 too-bright corpus
+184937,BRIGHT_FAIL,Confirmed bright-tail matched-pair example from v2.81
+190346,BRIGHT_FAIL,Confirmed bright-tail example from v2.81
+190401,BRIGHT_FAIL,Confirmed bright-tail example; TC20 highlight-guard bound and should remain an important control within the bright-fail class
+190429,BRIGHT_FAIL,Confirmed bright-tail example from v2.81
+194307,BRIGHT_FAIL,Original confirmed bright-tail case; MFM approximately zero and RAW unclipped
