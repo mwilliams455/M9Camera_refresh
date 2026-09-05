@@ -1,0 +1,31 @@
+name: Verify M9EDGEPLACEMENT1A Research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    paths:
+      - 'research/m9edgeplacement1a_*.py'
+      - 'research/m9edgeplacement1a_*.csv'
+      - 'research/M9EDGEPLACEMENT1A_*.md'
+      - '.github/workflows/edgeplacement-research.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile EDGEPLACEMENT research tools
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/m9edgeplacement1a_replay.py
+          python3 -m py_compile research/m9edgeplacement1a_m9ness_merge.py
+          python3 -m py_compile research/m9edgeplacement1a_archive_index.py
+          python3 -m py_compile research/m9edgeplacement1a_conjunction_search.py
+
+      - name: Run conservative conjunction self-test
+        run: |
+          set -euo pipefail
+          python3 research/m9edgeplacement1a_conjunction_search.py --self-test
