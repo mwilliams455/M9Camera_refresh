@@ -5,17 +5,21 @@ v2.81 evening,190346,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright
 v2.81 evening,190401,evening bright-tail highlight-guard case,BRIGHT_FAIL,,confirmed,Important BRIGHT_FAIL branch-diversity control
 v2.81 evening,190429,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright-tail seed
 v2.81 evening,194307,original evening bright-tail,BRIGHT_FAIL,,confirmed,MFM approximately zero and RAW unclipped
+September 3 RENDERMETER1C,IMG_20260903_094446_1788425086751_00,dark woodland / protected openings,DARK_FAIL,,confirmed_visual,Previously judged JPEG useful-body collapse with conservative plausible RAW negative; development problem rather than capture-exposure target
+September 3 RENDERMETER1C,IMG_20260903_095258_1788425578865_00,sky-protected foreground,DARK_FAIL,,confirmed_visual,Previously judged JPEG foreground/body development failure with conservative plausible RAW negative
 v0.7ZZS 120-frame corpus,#4,fire engine / toy truck by bright window,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
-v0.7ZZS 120-frame corpus,#40,backlit statue,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS Part-3 recovered,IMG_20260904_164019_1788536419887_00 (#40),backlit statue,DARK_FAIL,,confirmed_exact,Recovered from Part-3 local #10 after stress-pair offset anchor; actual app render global/center/middle medians 5/5/4 and ~87.7% <=Y64
 v0.7ZZS 120-frame corpus,#73,sculpture against bright field,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
 v0.7ZZS 120-frame corpus,#80,dark lane / bright background,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
 v0.7ZZS 120-frame corpus,#98,backlit tree,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
 v0.7ZZS 120-frame corpus,#86-87,shaded park / backlight,REVIEW_BOUNDARY,,high,Dense boundary examples; do not force tail label
 v0.7ZZS 120-frame corpus,#9,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; saturation does not determine placement class
-v0.7ZZS 120-frame corpus,#41,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; received positive assist
-v0.7ZZS 120-frame corpus,#43,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,medium,globalQ95==255 stress control
+v0.7ZZS Part-3 recovered,IMG_20260904_164035_1788536435593_00 (#41),preview-saturated statue stress frame,REVIEW_SAFETY_CONTROL,,high,Part-3 local #11; globalQ95==255 and achieved positive capture intent ~+0.070 EV; independently anchors Part-3 global offset
+v0.7ZZS Part-3 recovered,IMG_20260904_164104_1788536464382_00 (#43),preview-saturated statue stress frame,REVIEW_SAFETY_CONTROL,,high,Part-3 local #13; globalQ95==255 and zero achieved intent; paired with #41 to independently anchor Part-3 global offset
 v0.7ZZS 120-frame corpus,#120,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,medium,globalQ95==255 stress control
 v0.7ZZS 120-frame corpus,#121,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; received positive assist
+v0.7ZZS Part-3 recovered,#32 #35 #39 #45 #46 #47 #51 #52 #56 #57 #59,ordinary paths / trees / swan scenes,REVIEW_GOOD_POOL,REVIEW_M9NESS,highest,Exact same 1.61/v8/R3.8 cohort as #40; frozen replays look photographically plausible and are priority hard-negative controls before any DARK gate interpretation
+v0.7ZZS Part-3 recovered,#38 #44 #53 #54 #55 #58,dense woodland / backlit pond / dark-background scenes,REVIEW_BOUNDARY,REVIEW_M9NESS,highest,Same-build difficult scenes; retain as boundary review rather than auto-label because many have very low finished medians while remaining potentially intentional/coherent
 September 4 direct diagnostic,080247,very dark finished render,REVIEW_DARK_CANDIDATE,,high,Finished-render telemetry: global median ~17 center median ~11 >80% <=Y64 liftNeed=1 starvation=1 hold=0; still requires visual confirmation
 September 4 exact control,101204,healthy ordinary frozen result,GOOD,M9_STRONG,confirmed_visual,Prior visual review: balanced exposure; highlights held; dense shadows retain separation; restrained non-HDR rendering; reasonably strong M9 resemblance
 v0.7ZZS 120-frame corpus,ordinary controls,flowers / paths / street scenes / skies / intentional low-key,REVIEW_GOOD_POOL,REVIEW_M9NESS,highest,Populate GOOD heavily and split visually into M9_STRONG vs M9_IMPROVABLE without changing placement class
