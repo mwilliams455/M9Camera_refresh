@@ -49,9 +49,23 @@ The accepted v0.7ZZS field corpus provides 121 JPEGs and 120 complete exact capt
 
 Use this as the dominant GOOD/control pool and dark-tail review pool. Preserve ordinary flowers, paths, street scenes, skies, intentional low-key/silhouette frames, ordinary indoor and ordinary daylight scenes as important negative controls when visually accepted.
 
-Prior visual review identified several especially dense backlit candidates in this corpus (ordinals #4, #40, #73, #80 and #98). These are review candidates, not automatic labels, until exact capture identities are mapped and the frozen JPEG outcome is confirmed. Shaded-park frames #86–87 should also be retained as boundary/ambiguous examples rather than forced into a tail.
+The original full-corpus visual review explicitly judged five backlit/spatial frames **substantially too dense**. They are therefore confirmed visual `DARK_FAIL` examples by corpus ordinal:
+
+- #4 — fire engine / toy truck by bright window
+- #40 — backlit statue
+- #73 — sculpture against bright field
+- #80 — dark lane / bright background
+- #98 — backlit tree
+
+Their exact `IMG_20260904_*` capture identities still need to be recovered before they can be joined automatically to diagnostic rows. This is an identity-mapping gap, not a visual-label uncertainty. Do not demote them back to mere candidates because the ZIP bytes are not mounted in the current runtime.
+
+Shaded-park frames #86–87 remain boundary/ambiguous examples and should not be forced into either tail.
 
 Preview-saturated stress frames #9, #41, #43, #120 and #121 are safety controls. Do not infer placement class from saturation alone.
+
+An exact visually reviewed healthy control is also known:
+
+- `IMG_20260904_101204` — `GOOD + M9_STRONG`; balanced exposure, held highlights, dense-but-separated shadows and restrained non-HDR rendering.
 
 ## Confirmed BRIGHT_FAIL seed
 
@@ -61,13 +75,17 @@ Important diversity inside the class must be preserved: `190401` is highlight-gu
 
 ## DARK_FAIL seed policy
 
-Earlier capture/exposure work supplies useful starvation candidates (`191151`, `061349`, `181712`, `182155`, `183220`, `183146`), but they must not automatically be labelled `DARK_FAIL` here. EDGEPLACEMENT labels the *frozen JPEG outcome*, not merely a capture-side desire for more exposure. Promote each candidate to `DARK_FAIL` only after confirming the frozen JPEG itself is photographically too dense.
+The five September 4 corpus ordinals above are visually confirmed `DARK_FAIL` examples. They should enter placement training as soon as ordinal-to-exact-capture identity is recovered.
+
+Earlier capture/exposure work also supplies starvation candidates (`191151`, `061349`, `181712`, `182155`, `183220`, `183146`), but these must not automatically be labelled `DARK_FAIL` here. EDGEPLACEMENT labels the *frozen JPEG outcome*, not merely a capture-side desire for more exposure.
 
 The September 4 `08:02:47` frame is a high-priority visual-confirmation candidate because existing finished-render telemetry reports approximately global median 17, centre median 11, >80% global occupancy at or below Y64, `wholeFrameStarvationEvidence=1`, `renderLiftNeedEvidence=1`, and `renderHoldEvidence=0`. These diagnostics justify review priority, not an automatic photographic label.
 
 ## GOOD corpus policy
 
 `GOOD` must be substantially larger than either tail. Reuse ordinary frozen-M9 controls, including the broader control sweeps that rejected scene-key gating and the September 4 120-frame field corpus. Do not infer GOOD merely because a frame was not selected by an older experiment; label it from visual acceptance of the frozen JPEG.
+
+`IMG_20260904_101204` is the first exact `GOOD + M9_STRONG` seed. More exact GOOD identities are required before quantitative rule search should be interpreted.
 
 Within GOOD, deliberately retain both `M9_STRONG` and `M9_IMPROVABLE` examples so the placement gate is forced to ignore aesthetic variation that is not a true bright/dark failure.
 
