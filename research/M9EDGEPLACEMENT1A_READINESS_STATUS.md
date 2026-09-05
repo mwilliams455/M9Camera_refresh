@@ -4,19 +4,23 @@ Research-only status snapshot. No live selector is authorized from this state.
 
 ## Confirmed placement counts
 
-### GOOD: 16
+### GOOD: 19
 
-Ten Part-3 same-build R3.8 controls remain confirmed by direct visual review, but
-all previously assigned Part-3 **global ordinal numbers are withdrawn**. Their
-placement labels do not depend on the invalid ordinal mapping.
+Ten Part-3 same-build R3.8 controls remain confirmed by direct visual review, but all previously assigned Part-3 global ordinal numbers are withdrawn. Their placement labels do not depend on the invalid ordinal mapping.
 
-Additional historical/global GOOD controls remain joined, including
-`IMG_20260904_101204` (`M9_STRONG`).
+Three new prospective September-5 visual-first controls are now confirmed GOOD:
 
-### BOUNDARY: 5
+- `IMG_20260905_084106_1788594066806_00` — sunny path/tree; deep local shadow remains coherent
+- `IMG_20260905_084129_1788594089422_00` — sunny path; strong luminance split remains photographically healthy
+- `IMG_20260905_084146_1788594106149_00` — sunny path hard negative; healthy result despite approximately +0.176 EV actual capture intent
 
-Two Part-3 same-build dense/backlit controls remain confirmed by direct visual
-review, again without global ordinal claims. Three historical boundaries remain.
+Additional historical/global GOOD controls remain joined, including `IMG_20260904_101204` (`M9_STRONG`).
+
+### BOUNDARY: 6
+
+Existing five boundaries remain. New prospective boundary:
+
+- `IMG_20260905_084154_1788594114928_00` — direct-sun stress frame. Foreground is extremely dense but a silhouette/direct-sun interpretation remains photographically plausible; do not auto-promote to DARK_FAIL without explicit reviewer judgement.
 
 ### BRIGHT_FAIL: 6
 
@@ -28,33 +32,35 @@ Unchanged evening bright-tail set.
 - `IMG_20260903_095258_1788425578865_00`
 - `IMG_20260904_164048_1788536448208_00` — likely retained visual #73, sculpture/statue against bright field/sky
 
-`IMG_20260904_164019_1788536419887_00` is now an unconfirmed same-build DARK
-candidate. Its previous #40 assignment has been retracted.
+`IMG_20260904_164019_1788536419887_00` remains an unconfirmed same-build DARK candidate. Its previous #40 assignment has been retracted.
 
-Retained global #40 remains a visual DARK_FAIL with exact identity pending.
+## September-5 prospective field result
+
+The new field sequence is valuable because it is labelled directly by exact filename rather than reconstructed viewer ordinal.
+
+Visual-first labels were fixed before telemetry interpretation:
+
+| capture | label | actual capture offset vs Photon | TC20 base gain | TC20 guard gain | finished global median | center median | q95 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 084106 | GOOD | 0 EV | 4.216x | 2.233x | 43 | 57 | 224 |
+| 084129 | GOOD | 0 EV | 3.544x | 2.301x | 49 | 99 | 230 |
+| 084146 | GOOD | +0.176 EV | 1.968x | 1.910x | 78 | 110 | 227 |
+| 084154 | BOUNDARY | +0.433 EV | 4.040x | 1.300x | 23 | 39 | 195 |
+
+All four frames are TC20 highlight-guard limited (`guardGain < baseMedianGain`). Therefore guard binding is again falsified as a placement class selector.
+
+The set also strengthens two existing negatives:
+
+1. **absolute finished darkness is insufficient** — 084106 is visually GOOD with global median 43 and >58% of sampled output at or below Y64;
+2. **positive capture intent is insufficient** — 084146 is GOOD after +0.176 EV actual capture offset.
+
+084154 is especially useful as a hard boundary. It has the largest body collapse in this four-frame set and approximately +0.433 EV actual capture offset, yet direct sun in frame makes automatic lifting unsafe. It should challenge any INTENTCOLLAPSE-like gate before production promotion.
+
+No thresholds are tuned from this four-frame set.
 
 ## Part-3 ordinal correction
 
-`again again part 3.zip` contains 30 chronological capture stems, 29 DNGs, 87
-JSONs and no JPEG members.
-
-An earlier pass inferred a `+30` global offset because two Part-3 captures had the
-same q95/MFM stress pattern retained for global #41/#43. That was not a unique
-identity signal.
-
-The following assertions are therefore invalid and withdrawn:
-
-- `164019 == #40`
-- `164035 == #41`
-- `164104 == #43`
-- all Part-3 GOOD/BOUNDARY global ordinal annotations derived from `+30`
-
-The original reviewer has now identified `164048` as likely #73, and the rendered
-scene independently matches the retained description: sculpture against bright
-field/sky. This is the strongest current Part-3 visual anchor.
-
-One anchor is **not enough to reconstruct the complete viewer order**, so no new
-constant offset is promoted yet.
+The earlier `+30` Part-3 global offset is withdrawn. Telemetry stress signatures were not unique ordinal identities. `164048` remains the strongest visual anchor as likely #73, but no complete ordinal reconstruction is required for the prospective test path.
 
 ## Global readiness guard
 
@@ -66,12 +72,12 @@ Defaults:
 
 Current counts:
 
-- GOOD: **16 / 30**
-- BOUNDARY: **5 / 2** — cleared
+- GOOD: **19 / 30**
+- BOUNDARY: **6 / 2** — cleared
 - BRIGHT_FAIL: **6 / 2** — cleared
 - DARK_FAIL: **3 / 2** — cleared
 
-Global interpretation remains **NOT READY** because GOOD is short by 14 controls.
+Global interpretation remains **NOT READY** because GOOD is short by **11** controls.
 
 ## Compatible-cohort readiness
 
@@ -81,48 +87,24 @@ For the 1.61 / sceneexposure-v8 / frozen R3.8 Part-3 generation:
 - compatible BOUNDARY: **2 / 2** — cleared
 - compatible confirmed DARK_FAIL: **1 / 2** — not cleared
 
-The confirmed same-build DARK example is now `164048` (likely #73), not `164019`.
-
-`164019` must remain independent review material and cannot be silently promoted
-just because it satisfies the current RENDERGRID conjunction.
+The September-5 prospective frames are not silently folded into this historical Part-3 cohort count unless exact build/schema compatibility is explicitly established.
 
 ## RENDERMETER1C disposition unchanged
 
-The Part-3 field still rejects RENDERMETER1C starvation/lift evidence as a
-standalone DARK selector. Ordinary healthy-looking photographs can receive the
-same nominal scores as true failures.
+RENDERMETER1C remains descriptive evidence only, not standalone DARK authority.
 
-## RENDERGRID1A / INTENTCOLLAPSE1A after correction
+## RENDERGRID1A / INTENTCOLLAPSE1A
 
-The measured Part-3 observation file now uses **Part-3 chronological positions**,
-not claimed global ordinals.
-
-The current descriptive conjunction activates:
-
-- `164048` — DARK_FAIL / likely #73
-- `164019` — DARK candidate
-
-with:
-
-- confirmed GOOD false activations: **0 / 10**
-- confirmed BOUNDARY false activations: **0 / 2**
-
-This remains useful falsification progress but is not independent validation,
-because both statue captures participated in formation of the hypothesis.
+The current Part-3 descriptive conjunction remains research-only. The new direct-sun boundary 084154 should be treated as a prospective hard negative when equivalent finished-render spatial features are available. Its combination of positive intent, low finished body and severe guard binding makes it exactly the kind of photograph a naïve DARK rule could wrongly lift.
 
 ## Immediate next actions
 
-1. Recover a second independent visual anchor inside Part-3 before reconstructing
-   any complete global ordinal offset/order.
-2. Recover a second independently identified same-build DARK_FAIL for recall
-   testing; retained #80 or another known failure would be ideal if it is truly in
-   this archive.
-3. Add at least 14 more confirmed GOOD controls globally.
-4. Keep `164019` as DARK candidate and do not promote it from telemetry alone.
-5. Keep `164035` / `164104` as saturated stress controls without global ordinal
-   identity.
-6. Repeat RENDERGRID1A unchanged on newly identified positives/controls.
-7. Keep M9ness independent from placement.
-8. Frozen remains mandatory fallback.
+1. Continue prospective exact-filename testing rather than archive-order reconstruction.
+2. Add at least **11 more confirmed GOOD** controls globally.
+3. Seek several independently judged DARK_FAIL and BRIGHT_FAIL examples, while retaining intentional silhouettes/direct-sun frames as boundaries.
+4. Judge JPEG placement first, then inspect telemetry.
+5. Do not tune a rule from the same small set used to invent it.
+6. Keep M9ness independent from placement.
+7. Frozen remains mandatory fallback.
 
 No live APK EDGEPLACEMENT correction is authorized from the current state.
