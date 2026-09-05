@@ -17,6 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install RENDERGRID research dependencies
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check 'numpy>=2,<3' 'Pillow>=11,<13'
+
       - name: Compile EDGEPLACEMENT research tools
         run: |
           set -euo pipefail
