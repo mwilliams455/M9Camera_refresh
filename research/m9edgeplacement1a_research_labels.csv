@@ -8,6 +8,9 @@ pattern,label,m9ness,notes
 173219,BOUNDARY,,Very dark coherent woodland; prior visual target approximately +0.3 to +0.5 EV and live FB1 approximately +0.263 EV; dense but not a clear placement failure
 182419,BOUNDARY,,Ordinary indoor person; old positive pressure was a false positive and was moderated to about +0.16 EV; retain as near-neutral boundary rather than force GOOD
 182739,BOUNDARY,,Room with black dog; dark object correctly distinguished from scene underexposure and residual target about +0.19 EV; useful dark-object boundary control
+IMG_20260903_094446_1788425086751_00,DARK_FAIL,,Previously visually assessed dark woodland/protected openings; conservative RAW negative but finished JPEG useful body collapsed and needed development rather than more capture exposure
+IMG_20260903_095258_1788425578865_00,DARK_FAIL,,Previously visually assessed sky-protected foreground; finished JPEG foreground/body development failed despite conservative plausible RAW negative
+IMG_20260904_164019_1788536419887_00,DARK_FAIL,,Recovered September-4 global visual ordinal #40 backlit statue. Part-3 local offset anchored independently by q95==255 stress pair: local #11 positive-MFM equals global #41 and local #13 neutral equals global #43
 184927,BRIGHT_FAIL,,Confirmed bright-tail example from v2.81 too-bright corpus
 184937,BRIGHT_FAIL,,Confirmed bright-tail matched-pair example from v2.81
 190346,BRIGHT_FAIL,,Confirmed bright-tail example from v2.81
