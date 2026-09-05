@@ -5,16 +5,17 @@ v2.81 evening,190346,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright
 v2.81 evening,190401,evening bright-tail highlight-guard case,BRIGHT_FAIL,,confirmed,Important BRIGHT_FAIL branch-diversity control
 v2.81 evening,190429,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright-tail seed
 v2.81 evening,194307,original evening bright-tail,BRIGHT_FAIL,,confirmed,MFM approximately zero and RAW unclipped
-v0.7ZZS 120-frame corpus,#4,fire engine / toy truck by bright window,REVIEW_DARK_CANDIDATE,,high,Prior visual review found especially dense; map exact capture identity before final label
-v0.7ZZS 120-frame corpus,#40,backlit statue,REVIEW_DARK_CANDIDATE,,high,Prior visual review found especially dense
-v0.7ZZS 120-frame corpus,#73,sculpture against bright field,REVIEW_DARK_CANDIDATE,,high,Prior visual review found especially dense
-v0.7ZZS 120-frame corpus,#80,dark lane / bright background,REVIEW_DARK_CANDIDATE,,high,Prior visual review found especially dense
-v0.7ZZS 120-frame corpus,#98,backlit tree,REVIEW_DARK_CANDIDATE,,high,Prior visual review found especially dense
+v0.7ZZS 120-frame corpus,#4,fire engine / toy truck by bright window,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#40,backlit statue,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#73,sculpture against bright field,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#80,dark lane / bright background,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#98,backlit tree,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
 v0.7ZZS 120-frame corpus,#86-87,shaded park / backlight,REVIEW_BOUNDARY,,high,Dense boundary examples; do not force tail label
 v0.7ZZS 120-frame corpus,#9,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; saturation does not determine placement class
 v0.7ZZS 120-frame corpus,#41,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; received positive assist
 v0.7ZZS 120-frame corpus,#43,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,medium,globalQ95==255 stress control
 v0.7ZZS 120-frame corpus,#120,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,medium,globalQ95==255 stress control
 v0.7ZZS 120-frame corpus,#121,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; received positive assist
-September 4 direct diagnostic,080247,very dark finished render,REVIEW_DARK_CANDIDATE,,high,Finished-render telemetry: global median ~17 center median ~11 >80% <=Y64 liftNeed=1 starvation=1 hold=0; requires visual confirmation
+September 4 direct diagnostic,080247,very dark finished render,REVIEW_DARK_CANDIDATE,,high,Finished-render telemetry: global median ~17 center median ~11 >80% <=Y64 liftNeed=1 starvation=1 hold=0; still requires visual confirmation
+September 4 exact control,101204,healthy ordinary frozen result,GOOD,M9_STRONG,confirmed_visual,Prior visual review: balanced exposure; highlights held; dense shadows retain separation; restrained non-HDR rendering; reasonably strong M9 resemblance
 v0.7ZZS 120-frame corpus,ordinary controls,flowers / paths / street scenes / skies / intentional low-key,REVIEW_GOOD_POOL,REVIEW_M9NESS,highest,Populate GOOD heavily and split visually into M9_STRONG vs M9_IMPROVABLE without changing placement class
