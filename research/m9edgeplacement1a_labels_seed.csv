@@ -5,6 +5,9 @@ pattern,label,m9ness,notes
 191403,GOOD,,Globally dark surroundings with adequately placed subject; only small modeled adjustment around +0.13 EV
 194427,GOOD,,Subject already looked adequately placed; later diagnostic modeled only a small adjustment around +0.115 EV
 202704,GOOD,,High-AE healthy ordinary-object neutral control; diagnostic remained effectively neutral
+IMG_20260903_094446_1788425086751_00,DARK_FAIL,,Previously visually assessed dark woodland/protected openings; conservative RAW negative but finished JPEG useful body collapsed and needed development rather than more capture exposure
+IMG_20260903_095258_1788425578865_00,DARK_FAIL,,Previously visually assessed sky-protected foreground; finished JPEG foreground/body development failed despite conservative plausible RAW negative
+IMG_20260904_164019_1788536419887_00,DARK_FAIL,,Recovered September-4 global visual ordinal #40 backlit statue using independently anchored Part-3 offset from q95==255 global #41/#43 stress pair
 184927,BRIGHT_FAIL,,Confirmed bright-tail example from v2.81 too-bright corpus
 184937,BRIGHT_FAIL,,Confirmed bright-tail matched-pair example from v2.81
 190346,BRIGHT_FAIL,,Confirmed bright-tail example from v2.81
