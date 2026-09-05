@@ -1,4 +1,4 @@
-name: Build M9Cam M10RMFMTEST1A
+name: Build M9Cam TC20PLACEMENT1A Offline
 
 on:
   workflow_dispatch:
@@ -13,9 +13,10 @@ jobs:
       - name: Checkout M9 recovery repo
         uses: actions/checkout@v4
 
-      - name: Verify TC20INTENT1A offline harness syntax
+      - name: Verify TC20 offline replay harness syntax
         run: |
           python3 -m py_compile research/tc20intent1a_replay.py
+          python3 -m py_compile research/tc20placement1a_replay.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -125,7 +126,7 @@ jobs:
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-v0.7ZZS-M10RMFMTEST1A-EXACT-INTEGRAL-4x6-PERF3I-recovered
+          name: M9Cam-v0.7ZZS-TC20PLACEMENT1A-OFFLINE-BASELINE
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
