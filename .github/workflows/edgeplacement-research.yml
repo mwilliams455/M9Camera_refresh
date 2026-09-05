@@ -20,12 +20,12 @@ jobs:
       - name: Compile EDGEPLACEMENT research tools
         run: |
           set -euo pipefail
-          python3 -m py_compile research/m9edgeplacement1a_replay.py
-          python3 -m py_compile research/m9edgeplacement1a_m9ness_merge.py
-          python3 -m py_compile research/m9edgeplacement1a_archive_index.py
-          python3 -m py_compile research/m9edgeplacement1a_conjunction_search.py
+          for f in research/m9edgeplacement1a_*.py; do
+            python3 -m py_compile "$f"
+          done
 
-      - name: Run conservative conjunction self-test
+      - name: Run conservative research self-tests
         run: |
           set -euo pipefail
           python3 research/m9edgeplacement1a_conjunction_search.py --self-test
+          python3 research/m9edgeplacement1a_readiness.py --self-test
