@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
-"""Index the September-4 M9 field ZIPs without modifying any image data.
+"""Index the September-4 M9 field ZIPs without modifying image data.
 
 Purpose
 -------
-Recover corpus ordinal -> exact capture identity deterministically once the five
-v0.7ZZS archives are byte-accessible again.  The original visual review retained
-several ordinal labels (#4, #40, #73, #80, #86, #87, #98) but the exact
-IMG_20260904_* mapping was not preserved in the handoff.
+Recover visual-corpus ordinal -> exact capture identity deterministically once
+the five v0.7ZZS archives are byte-accessible again.
 
-The tool deliberately emits multiple orderings rather than assuming how a prior
-viewer enumerated the corpus:
-  * archive/member order: explicit --archive argument order + ZIP member order
-  * archive/sorted order: explicit --archive order + lexical capture identity
-  * global chronological order: timestamp parsed from IMG_YYYYMMDD_HHMMSS and
-    epoch-millis suffix when available
+Critical distinction
+--------------------
+The original visual review covered **121 JPEG instances** but only **120 unique
+complete capture/RAW identities**. Therefore review ordinals such as #4, #40,
+#73, #80, #86, #87 and #98 MUST be reconstructed from JPEG-instance ordering,
+not from a deduplicated capture-stem list. One duplicate/extra JPEG is enough to
+shift every later ordinal.
 
-It also groups JPEG/DNG/_M9.json/_M9_PRIMARY.json/diagnostic-bundle membership by
-capture stem.  No files are extracted and no pixels are decoded.
+The tool emits both domains:
+
+JPEG-instance orderings (authoritative candidates for visual review ordinals):
+  * archive/member JPEG order
+  * archive/lexical JPEG order
+  * global chronological JPEG order
+
+Capture-identity orderings (diagnostic join/reference only):
+  * archive/member capture order
+  * archive/lexical capture order
+  * global chronological capture order
+
+No files are extracted and no pixels are decoded.
 """
 from __future__ import annotations
 
@@ -24,13 +34,15 @@ import argparse
 import csv
 import json
 import re
+import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
 CAP_RE = re.compile(
-    r"(?P<stem>IMG_(?P<date>\d{8})_(?P<time>\d{6})(?:_(?P<epoch>\d+)_\d+)?)(?P<suffix>_M9_PRIMARY|_M9|_M9_PARITY)?(?P<ext>\.[^.\/]+)$",
+    r"(?P<stem>IMG_(?P<date>\d{8})_(?P<time>\d{6})(?:_(?P<epoch>\d+)_\d+)?)"
+    r"(?P<suffix>_M9_PRIMARY|_M9|_M9_PARITY)?(?P<ext>\.[^.\\/]+)$",
     re.I,
 )
 
@@ -67,11 +79,34 @@ class Capture:
 
     @property
     def chronological_key(self):
-        return (self.date, self.time, self.epoch if self.epoch is not None else -1,
-                self.archive_index, self.first_member_index, self.stem)
+        return (
+            self.date, self.time,
+            self.epoch if self.epoch is not None else -1,
+            self.archive_index, self.first_member_index, self.stem,
+        )
 
 
-def classify_member(name: str) -> tuple[str, str, str, str, int | None] | None:
+@dataclass(frozen=True)
+class JpegInstance:
+    archive_index: int
+    archive_name: str
+    member_index: int
+    member_name: str
+    stem: str
+    date: str
+    time: str
+    epoch: int | None
+
+    @property
+    def chronological_key(self):
+        return (
+            self.date, self.time,
+            self.epoch if self.epoch is not None else -1,
+            self.archive_index, self.member_index, self.member_name,
+        )
+
+
+def classify_member(name: str) -> tuple[str, str, str, str, str, int | None] | None:
     base = Path(name).name
     m = CAP_RE.match(base)
     if not m:
@@ -83,8 +118,9 @@ def classify_member(name: str) -> tuple[str, str, str, str, int | None] | None:
     return stem, suffix, ext, m.group("date"), m.group("time"), epoch
 
 
-def index_archive(path: Path, archive_index: int) -> list[Capture]:
+def index_archive(path: Path, archive_index: int) -> tuple[list[Capture], list[JpegInstance]]:
     by_stem: dict[str, Capture] = {}
+    jpegs: list[JpegInstance] = []
     with zipfile.ZipFile(path) as z:
         for member_index, info in enumerate(z.infolist(), start=1):
             if info.is_dir():
@@ -93,29 +129,42 @@ def index_archive(path: Path, archive_index: int) -> list[Capture]:
             if parsed is None:
                 continue
             stem, suffix, ext, date, tm, epoch = parsed
-            c = by_stem.get(stem)
-            if c is None:
-                c = Capture(archive_index, path.name, member_index, stem, date, tm, epoch)
-                by_stem[stem] = c
-            c.members.append(info.filename)
+            capture = by_stem.get(stem)
+            if capture is None:
+                capture = Capture(
+                    archive_index, path.name, member_index,
+                    stem, date, tm, epoch,
+                )
+                by_stem[stem] = capture
+            capture.members.append(info.filename)
+
             if ext in {".jpg", ".jpeg"} and not suffix:
-                c.jpeg_members.append(info.filename)
+                capture.jpeg_members.append(info.filename)
+                jpegs.append(JpegInstance(
+                    archive_index=archive_index,
+                    archive_name=path.name,
+                    member_index=member_index,
+                    member_name=info.filename,
+                    stem=stem,
+                    date=date,
+                    time=tm,
+                    epoch=epoch,
+                ))
             elif ext == ".dng" and not suffix:
-                c.dng_members.append(info.filename)
+                capture.dng_members.append(info.filename)
             elif ext == ".json" and suffix == "_M9":
-                c.capture_json_members.append(info.filename)
+                capture.capture_json_members.append(info.filename)
             elif ext == ".json" and suffix == "_M9_PRIMARY":
-                c.primary_json_members.append(info.filename)
-    return list(by_stem.values())
+                capture.primary_json_members.append(info.filename)
+    return list(by_stem.values()), jpegs
 
 
-def rows_for(order: str, captures: Iterable[Capture]) -> list[dict]:
+def capture_rows_for(order: str, captures: Iterable[Capture]) -> list[dict]:
     out = []
     for ordinal, c in enumerate(captures, start=1):
         out.append({
             "ordering": order,
-            "ordinal": ordinal,
-            "visualOrdinalNote": VISUAL_ORDINALS.get(ordinal, ""),
+            "captureOrdinal": ordinal,
             "captureStem": c.stem,
             "archiveIndex": c.archive_index,
             "archive": c.archive_name,
@@ -136,68 +185,188 @@ def rows_for(order: str, captures: Iterable[Capture]) -> list[dict]:
     return out
 
 
+def jpeg_rows_for(order: str, jpegs: Iterable[JpegInstance], global_capture_counts: dict[str, int]) -> list[dict]:
+    out = []
+    seen_stems: dict[str, int] = {}
+    for ordinal, item in enumerate(jpegs, start=1):
+        seen_stems[item.stem] = seen_stems.get(item.stem, 0) + 1
+        out.append({
+            "ordering": order,
+            "visualJpegOrdinal": ordinal,
+            "visualOrdinalNote": VISUAL_ORDINALS.get(ordinal, ""),
+            "captureStem": item.stem,
+            "jpegOccurrenceForStemInThisOrder": seen_stems[item.stem],
+            "jpegInstancesForStemGlobal": global_capture_counts.get(item.stem, 0),
+            "isRepeatedVisualStem": global_capture_counts.get(item.stem, 0) > 1,
+            "archiveIndex": item.archive_index,
+            "archive": item.archive_name,
+            "memberIndex": item.member_index,
+            "jpegMember": item.member_name,
+            "date": item.date,
+            "time": item.time,
+            "epochMillis": "" if item.epoch is None else item.epoch,
+        })
+    return out
+
+
 def write_csv(path: Path, rows: list[dict]) -> None:
     if not rows:
-        path.write_text("")
+        path.write_text("", encoding="utf-8")
         return
     with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0]))
-        w.writeheader()
-        w.writerows(rows)
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def build_indexes(archives: list[Path]) -> tuple[dict[str, list[Capture]], dict[str, list[JpegInstance]], dict]:
+    all_caps: list[Capture] = []
+    all_jpegs: list[JpegInstance] = []
+    per_archive_caps: list[list[Capture]] = []
+    per_archive_jpegs: list[list[JpegInstance]] = []
+
+    for archive_index, path in enumerate(archives, start=1):
+        if not path.is_file():
+            raise SystemExit(f"archive not found: {path}")
+        caps, jpegs = index_archive(path, archive_index)
+        per_archive_caps.append(caps)
+        per_archive_jpegs.append(jpegs)
+        all_caps.extend(caps)
+        all_jpegs.extend(jpegs)
+
+    capture_orders = {
+        "archive_member": [
+            c for caps in per_archive_caps
+            for c in sorted(caps, key=lambda x: x.first_member_index)
+        ],
+        "archive_lexical": [
+            c for caps in per_archive_caps
+            for c in sorted(caps, key=lambda x: (x.stem, x.first_member_index))
+        ],
+        "global_chronological": sorted(all_caps, key=lambda x: x.chronological_key),
+    }
+
+    jpeg_orders = {
+        "archive_member_jpeg": [
+            j for jpegs in per_archive_jpegs
+            for j in sorted(jpegs, key=lambda x: x.member_index)
+        ],
+        "archive_lexical_jpeg": [
+            j for jpegs in per_archive_jpegs
+            for j in sorted(jpegs, key=lambda x: (x.stem, x.member_index))
+        ],
+        "global_chronological_jpeg": sorted(all_jpegs, key=lambda x: x.chronological_key),
+    }
+
+    jpeg_count_by_stem: dict[str, int] = {}
+    for item in all_jpegs:
+        jpeg_count_by_stem[item.stem] = jpeg_count_by_stem.get(item.stem, 0) + 1
+
+    unique_stems = {c.stem for c in all_caps}
+    complete_stems = {
+        c.stem for c in all_caps
+        if c.dng_members and c.jpeg_members
+    }
+    summary = {
+        "uniqueCaptureStemCount": len(unique_stems),
+        "completeCaptureStemCount": len(complete_stems),
+        "jpegInstanceCount": len(all_jpegs),
+        "uniqueJpegStemCount": len(jpeg_count_by_stem),
+        "repeatedJpegStems": {
+            stem: count for stem, count in sorted(jpeg_count_by_stem.items()) if count > 1
+        },
+        "captureCountByArchive": {
+            str(archives[i]): len(per_archive_caps[i]) for i in range(len(archives))
+        },
+        "jpegInstanceCountByArchive": {
+            str(archives[i]): len(per_archive_jpegs[i]) for i in range(len(archives))
+        },
+    }
+    return capture_orders, jpeg_orders, {**summary, "jpegCountByStem": jpeg_count_by_stem}
+
+
+def self_test() -> None:
+    # Synthetic case intentionally has 4 visual JPEG instances but only 3 unique
+    # capture stems: B is repeated in archive 2. Visual ordinal #4 must therefore
+    # resolve from JPEG order, not from a 3-stem capture list.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        a1 = root / "one.zip"
+        a2 = root / "two.zip"
+        with zipfile.ZipFile(a1, "w") as z:
+            z.writestr("IMG_20260904_080001_1001_00.jpg", b"jpeg-a")
+            z.writestr("IMG_20260904_080001_1001_00.dng", b"dng-a")
+            z.writestr("IMG_20260904_080001_1001_00_M9.json", b"{}")
+            z.writestr("IMG_20260904_080002_1002_00.jpg", b"jpeg-b")
+            z.writestr("IMG_20260904_080002_1002_00.dng", b"dng-b")
+        with zipfile.ZipFile(a2, "w") as z:
+            z.writestr("IMG_20260904_080002_1002_00.jpg", b"jpeg-b-repeat")
+            z.writestr("IMG_20260904_080003_1003_00.jpg", b"jpeg-c")
+            z.writestr("IMG_20260904_080003_1003_00.dng", b"dng-c")
+
+        capture_orders, jpeg_orders, summary = build_indexes([a1, a2])
+        assert summary["jpegInstanceCount"] == 4, summary
+        assert summary["uniqueJpegStemCount"] == 3, summary
+        assert summary["uniqueCaptureStemCount"] == 3, summary
+        assert summary["repeatedJpegStems"]["IMG_20260904_080002_1002_00"] == 2
+        assert len(jpeg_orders["archive_member_jpeg"]) == 4
+        assert jpeg_orders["archive_member_jpeg"][3].stem == "IMG_20260904_080003_1003_00"
+        assert len(capture_orders["global_chronological"]) == 4  # archive-local capture groups include repeated B
+        print("M9EDGEPLACEMENT1A archive-index JPEG-ordinal self-test PASS")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--archive", action="append", type=Path, required=True,
-                    help="ZIP path; repeat in the same order used for the original corpus review")
+    ap.add_argument("--archive", action="append", type=Path,
+                    help="ZIP path; repeat in the same archive order used for the original visual review")
     ap.add_argument("--out", type=Path,
                     default=Path("M9EDGEPLACEMENT1A_ARCHIVE_INDEX"))
+    ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
+
+    if a.self_test:
+        self_test()
+        return
+    if not a.archive:
+        ap.error("at least one --archive is required unless --self-test")
+
     a.out.mkdir(parents=True, exist_ok=True)
+    capture_orders, jpeg_orders, summary_bits = build_indexes(a.archive)
+    jpeg_count_by_stem = summary_bits.pop("jpegCountByStem")
 
-    all_caps: list[Capture] = []
-    per_archive: list[list[Capture]] = []
-    for ai, p in enumerate(a.archive, start=1):
-        if not p.is_file():
-            raise SystemExit(f"archive not found: {p}")
-        caps = index_archive(p, ai)
-        per_archive.append(caps)
-        all_caps.extend(caps)
+    for name, captures in capture_orders.items():
+        write_csv(a.out / f"capture_index_{name}.csv", capture_rows_for(name, captures))
 
-    member_order = [c for caps in per_archive
-                    for c in sorted(caps, key=lambda x: x.first_member_index)]
-    archive_sorted = [c for caps in per_archive
-                      for c in sorted(caps, key=lambda x: x.stem)]
-    chronological = sorted(all_caps, key=lambda x: x.chronological_key)
-
-    orders = {
-        "archive_member": member_order,
-        "archive_lexical": archive_sorted,
-        "global_chronological": chronological,
-    }
-    for name, caps in orders.items():
-        write_csv(a.out / f"capture_index_{name}.csv", rows_for(name, caps))
-
-    candidates = []
-    for name, caps in orders.items():
-        rowset = rows_for(name, caps)
-        candidates.extend(r for r in rowset if r["ordinal"] in VISUAL_ORDINALS)
-    write_csv(a.out / "labelled_ordinal_candidates.csv", candidates)
+    jpeg_candidate_rows = []
+    for name, jpegs in jpeg_orders.items():
+        rows = jpeg_rows_for(name, jpegs, jpeg_count_by_stem)
+        write_csv(a.out / f"visual_jpeg_index_{name}.csv", rows)
+        jpeg_candidate_rows.extend(
+            row for row in rows if row["visualJpegOrdinal"] in VISUAL_ORDINALS
+        )
+    write_csv(a.out / "visual_labelled_ordinal_candidates.csv", jpeg_candidate_rows)
 
     summary = {
-        "schema": "m9edgeplacement1a.archiveindex.v1",
+        "schema": "m9edgeplacement1a.archiveindex.v2.jpegordinal",
         "researchOnly": True,
         "archiveCount": len(a.archive),
         "archives": [str(p) for p in a.archive],
-        "uniqueCaptureStemCount": len({c.stem for c in all_caps}),
-        "captureCountByArchive": {
-            str(a.archive[i]): len(per_archive[i]) for i in range(len(a.archive))
-        },
-        "orderingsEmitted": list(orders),
+        **summary_bits,
+        "captureOrderingsEmitted": list(capture_orders),
+        "visualJpegOrderingsEmitted": list(jpeg_orders),
         "visualOrdinals": VISUAL_ORDINALS,
-        "warning": "Do not choose an ordinal mapping solely because one ordering looks plausible. Reconcile against known scene/time/metadata evidence before copying exact patterns into placement labels.",
+        "ordinalAuthority": "JPEG-instance ordering only; capture-stem ordinals are not valid substitutes for the 121-JPEG visual review",
+        "expectedHistoricalShape": {
+            "jpegInstances": 121,
+            "uniqueCompleteCaptureRawSets": 120,
+        },
+        "warning": (
+            "Do not choose an ordinal mapping solely because one ordering looks plausible. "
+            "First verify 121 JPEG instances / 120 unique complete capture identities, then reconcile "
+            "candidate mappings against known scene/time/telemetry evidence before copying exact patterns into labels."
+        ),
     }
-    (a.out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    (a.out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2))
 
 
