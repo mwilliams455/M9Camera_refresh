@@ -1,0 +1,30 @@
+param,value,count,frames
+sceneSpreadMin,1.2,1,['164436']
+sceneSpreadMin,1.25,1,['164436']
+sceneSpreadMin,1.3,1,['164436']
+sceneSpreadMin,1.35,1,['164436']
+sceneSpreadMin,1.4,1,['164436']
+sceneSpreadMin,1.5,1,['164436']
+brightFracMin,0.15,2,"['163702', '164436']"
+brightFracMin,0.1667,1,['164436']
+brightFracMin,0.2,1,['164436']
+brightFracMin,0.2083,1,['164436']
+brightFracMin,0.25,0,[]
+brightFracMin,0.2917,0,[]
+p75Max,12.0,1,['164436']
+p75Max,15.0,1,['164436']
+p75Max,18.0,1,['164436']
+p75Max,20.0,1,['164436']
+p75Max,25.0,1,['164436']
+p75Max,30.0,1,['164436']
+meanMax,25.0,1,['164436']
+meanMax,30.0,1,['164436']
+meanMax,35.0,1,['164436']
+retentionCollapseEv,-1.4,2,"['164420', '164436']"
+retentionCollapseEv,-1.45,2,"['164420', '164436']"
+retentionCollapseEv,-1.5,1,['164436']
+retentionCollapseEv,-1.55,1,['164436']
+retentionCollapseEv,-1.6,1,['164436']
+minCollapsedRegions,2.0,2,"['164420', '164436']"
+minCollapsedRegions,3.0,1,['164436']
+minCollapsedRegions,4.0,0,[]
