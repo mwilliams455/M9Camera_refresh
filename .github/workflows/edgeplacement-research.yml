@@ -34,3 +34,4 @@ jobs:
           python3 research/m9edgeplacement1a_cohort_metadata.py --self-test
           python3 research/m9edgeplacement1a_cohort_readiness.py --self-test
           python3 research/m9edgeplacement1a_feature_inventory.py --self-test
+          python3 research/m9edgeplacement1a_rendergrid.py --self-test
