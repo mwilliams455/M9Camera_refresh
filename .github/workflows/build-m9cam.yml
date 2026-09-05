@@ -22,6 +22,7 @@ jobs:
           python3 -m py_compile research/tc20placementstage1a_replay.py
           python3 -m py_compile research/m9edgeplacement1a_rendergrid.py
           python3 -m py_compile patches/apply-m9cam-edgeplacementgate1a.py
+          python3 -m py_compile patches/fix-m9cam-edgeplacementgate1a-jsonexception.py
           python3 -m py_compile patches/verify-m9cam-edgeplacementgate1a.py
 
       - name: Clone pinned PhotonCamera baseline
@@ -112,6 +113,7 @@ jobs:
           run_patch apply-m9cam-metadatafix1a.py
           run_patch verify-m9cam-metadatafix1a.py
           run_patch apply-m9cam-edgeplacementgate1a.py
+          run_patch fix-m9cam-edgeplacementgate1a-jsonexception.py
           run_patch verify-m9cam-edgeplacementgate1a.py
 
       - name: Set up JDK 17
@@ -130,9 +132,18 @@ jobs:
 
       - name: Build debug APK
         run: |
+          set -o pipefail
           cd PhotonCamera
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/EDGEPLACEMENTGATE1A_GRADLE.log"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-EDGEPLACEMENTGATE1A-BUILDLOG
+          path: EDGEPLACEMENTGATE1A_GRADLE.log
+          if-no-files-found: ignore
 
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
