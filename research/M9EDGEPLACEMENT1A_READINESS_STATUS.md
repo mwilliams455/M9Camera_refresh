@@ -4,20 +4,46 @@ Research-only status snapshot. No live selector is authorized from this state.
 
 ## Exact placement labels currently joined
 
-### GOOD: 6
+### GOOD: 16
 
-- `IMG_20260904_101204` — `M9_STRONG`; balanced exposure, held highlights, dense-but-separated shadows, restrained M9 rendering.
-- `IMG_20260902_172954_1788366594738_00` — current JPEG explicitly judged already well placed; target approximately 0 to +0.15 EV.
-- `IMG_20260902_174532_1788367532530_00` — intentional silhouette / gray-sky neutral PASS; true 0 EV capture; darkness is intentional.
-- `191403` — globally dark surroundings with adequately placed subject; only a small modeled adjustment around +0.13 EV.
-- `194427` — subject already looked adequately placed; only a small modeled adjustment around +0.115 EV.
-- `202704` — high-AE healthy ordinary-object neutral control.
+Historical/global controls remain joined, and Part-3 now contributes 10 confirmed same-build R3.8 controls:
 
-### BOUNDARY: 3
+- `IMG_20260904_163553_1788536153169_00` (#35)
+- `IMG_20260904_163847_1788536327166_00` (#39)
+- `IMG_20260904_164247_1788536567395_00` (#45)
+- `IMG_20260904_164331_1788536611192_00` (#46)
+- `IMG_20260904_164402_1788536642539_00` (#47)
+- `IMG_20260904_164510_1788536710636_00` (#51)
+- `IMG_20260904_164525_1788536725121_00` (#52)
+- `IMG_20260904_164707_1788536827532_00` (#56)
+- `IMG_20260904_164736_1788536856690_00` (#57)
+- `IMG_20260904_164814_1788536894347_00` (#59)
 
-- `IMG_20260902_173219_1788366739251_00` — very dark coherent woodland; dense but not a clear placement failure.
-- `182419` — ordinary indoor person; old positive pressure was a false positive and later moderated.
-- `182739` — room with black dog; dark object correctly distinguished from global scene underexposure.
+These deliberately include difficult hard negatives such as bright white swans on dark backgrounds and strong sun/shade transitions.
+
+Additional existing GOOD controls:
+
+- `IMG_20260904_101204` — `M9_STRONG`
+- `IMG_20260902_172954_1788366594738_00`
+- `IMG_20260902_174532_1788367532530_00`
+- `191403`
+- `194427`
+- `202704`
+
+### BOUNDARY: 5
+
+New same-build Part-3 boundaries:
+
+- `IMG_20260904_163702_1788536222457_00` (#38) — very dark coherent woodland/backlit path
+- `IMG_20260904_164622_1788536782716_00` (#54) — backlit pond/silhouette relationship
+
+Existing historical boundaries:
+
+- `IMG_20260902_173219_1788366739251_00`
+- `182419`
+- `182739`
+
+Other dense Part-3 frames such as #44/#55/#58 remain unlabelled review material rather than being forced into BOUNDARY.
 
 ### BRIGHT_FAIL: 6
 
@@ -30,15 +56,17 @@ Research-only status snapshot. No live selector is authorized from this state.
 
 ### DARK_FAIL: 3
 
-- `IMG_20260903_094446_1788425086751_00` — dark woodland / protected openings; conservative RAW negative but JPEG useful body collapsed.
-- `IMG_20260903_095258_1788425578865_00` — sky-protected foreground; JPEG foreground/body development failed despite plausible RAW negative.
-- `IMG_20260904_164019_1788536419887_00` — recovered September-4 global #40, backlit statue; exact app render body collapses while bright background is retained.
+- `IMG_20260903_094446_1788425086751_00`
+- `IMG_20260903_095258_1788425578865_00`
+- `IMG_20260904_164019_1788536419887_00` — recovered global #40 backlit statue
 
-Global DARK target count is therefore no longer the immediate blocker.
+Additional unpromoted DARK candidate:
+
+- `IMG_20260904_164048_1788536448208_00` (#42)
 
 ## September-4 Part-3 recovery
 
-Archive bytes for `again again part 3.zip` became available.
+`again again part 3.zip` is now byte-accessible.
 
 Observed archive:
 
@@ -48,51 +76,18 @@ Observed archive:
 - 87 JSONs
 - no JPEG members
 
-The original global visual ordinal offset was recovered independently using the preserved saturated-preview stress pair:
+The original visual offset was recovered from the preserved q95==255 stress pair:
 
-- Part-3 local #11 = `IMG_20260904_164035_1788536435593_00`, q95==255 and positive achieved capture intent -> global #41
-- Part-3 local #13 = `IMG_20260904_164104_1788536464382_00`, q95==255 and neutral achieved intent -> global #43
+- local #11 = `IMG_20260904_164035_1788536435593_00`, q95==255 with positive achieved intent -> global #41
+- local #13 = `IMG_20260904_164104_1788536464382_00`, q95==255 with neutral intent -> global #43
 
 Therefore:
 
 `global visual ordinal = Part-3 local ordinal + 30`
 
-This makes local #10 the retained global #40 backlit-statue DARK_FAIL.
+This establishes local #10 as global #40.
 
-Part-3 is a highly valuable compatible cohort because all sidecar-backed captures share the same 1.61 / sceneexposure-v8 / R3.8-H25-TG1 generation as #40.
-
-## Same-build review pools from Part-3
-
-These are **not yet placement labels**.
-
-Priority GOOD-pool review:
-
-- #32
-- #35
-- #39
-- #45
-- #46
-- #47
-- #51
-- #52
-- #56
-- #57
-- #59
-
-Priority BOUNDARY review:
-
-- #38
-- #44
-- #53
-- #54
-- #55
-- #58
-
-Additional DARK review candidate:
-
-- `IMG_20260904_164048_1788536448208_00` (#42)
-
-#42 remains unpromoted until direct visual judgement is recorded.
+All sidecar-backed Part-3 captures share the same 1.61 / sceneexposure-v8 / frozen R3.8-H25-TG1 generation, making them valid compatible-cohort controls for #40.
 
 ## Global readiness guard
 
@@ -104,18 +99,16 @@ Additional DARK review candidate:
 
 Current confirmed counts:
 
-- GOOD: **6 / 30**
-- BOUNDARY: **3 / 2** — count threshold cleared
-- BRIGHT_FAIL: **6 / 2** — target count cleared
-- DARK_FAIL: **3 / 2** — target count cleared
+- GOOD: **16 / 30**
+- BOUNDARY: **5 / 2** — cleared
+- BRIGHT_FAIL: **6 / 2** — cleared
+- DARK_FAIL: **3 / 2** — cleared
 
-Therefore both tail searches remain **NOT READY for interpretation** because GOOD is still too small.
+Therefore global rule interpretation remains **NOT READY** because GOOD is still short by **14** controls.
 
-The bottleneck has shifted from obtaining DARK positives to proving specificity against a much larger control set.
+This is now the only global-count blocker.
 
-## Compatible-cohort readiness guard
-
-`m9edgeplacement1a_cohort_metadata.py` and `m9edgeplacement1a_cohort_readiness.py` require failure examples to be challenged by compatible controls from the same build/schema generation wherever possible.
+## Compatible-cohort readiness
 
 Default compatible-cohort minima:
 
@@ -123,11 +116,15 @@ Default compatible-cohort minima:
 - BOUNDARY: 2
 - target: 2
 
-Part-3 supplies the right build generation and enough visually promising control candidates, but those candidates are deliberately **not counted as GOOD or BOUNDARY until visual labels are confirmed**.
+For the exact 1.61/v8/R3.8 Part-3 generation containing #40:
 
-So compatible-cohort readiness remains **NOT READY**.
+- compatible GOOD: **10 / 10** — cleared
+- compatible BOUNDARY: **2 / 2** — cleared
+- compatible confirmed DARK_FAIL: **1 / 2** — not cleared
 
-Historical September-2 controls remain valuable global regressions but cannot substitute for 1.61/v8/R3.8 controls when validating #40-like failures.
+So same-build control specificity is now testable, but same-build DARK recall is not yet testable because #40 is the only confirmed positive in this generation.
+
+#42 is intentionally not used to satisfy readiness until its photographic label is independently fixed.
 
 ## RENDERMETER1C disposition
 
@@ -140,80 +137,68 @@ Across the 29 sidecar-backed Part-3 frames:
 - `renderLiftNeedEvidence >= 0.50`: 25 / 29
 - only 4 / 29 have `renderHoldEvidence > 0.10`
 
-Ordinary-looking paths, trees and animal scenes can therefore receive the same nominal starvation/lift signature as confirmed #40.
+Ordinary-looking paths, trees and animal scenes can therefore receive the same nominal starvation/lift signature as #40.
 
-Do not promote either:
+Do not promote `renderLiftNeedEvidence` or `wholeFrameStarvationEvidence` as live authority.
 
-- `renderLiftNeedEvidence == 1`
-- `wholeFrameStarvationEvidence == 1`
+## RENDERGRID1A
 
-as a selector.
+`research/m9edgeplacement1a_rendergrid.py` is now in CI and produces diagnostic-only finished-render spatial evidence using:
 
-The model remains useful as descriptive evidence only.
+- exact firmware BT.601 Q14 Y
+- exact recovered M10-R 16x22 Integral mask at `0x4001349c`, sum 14160
+- the same 4x6 / 24-region integer partition as M10RMFMTEST1A
 
-## Other simple DARK predictors still rejected
+It generates no correction EV and no live selector decision.
 
-No standalone DARK authority from:
+CI dependency handling is explicit (`numpy` + `Pillow`), and the full RENDERGRID self-test is passing.
+
+## INTENTCOLLAPSE1A directional result
+
+Part-3 measured observations are preserved in:
+
+`research/m9edgeplacement1a_part3_intentcollapse_observations.csv`
+
+The current descriptive conjunction is:
+
+- achieved intent >= approximately +0.10 EV
+- upper/lower render-vs-preview separation shift >= approximately +1.5 EV
+- broad render cell body very low (`P75` median approximately <=30)
+- Integral relative shift approximately <=+0.15 EV
+
+On the fixed Part-3 control set it activates:
+
+- #40 — confirmed DARK_FAIL
+- #42 — unconfirmed DARK candidate
+
+and activates:
+
+- confirmed GOOD: **0 / 10**
+- confirmed BOUNDARY: **0 / 2**
+
+This is useful falsification progress but **not validation**. The thresholds were observed in the same small cohort and remain vulnerable to overfitting.
+
+Particularly important hard negatives that remain protected include:
+
+- #47 — positive-intent white swan against dark surroundings
+- #54 — positive-intent backlit pond boundary
+- #41 — saturated-preview stress frame
+
+## Simple DARK predictors remain rejected
+
+No standalone authority from:
 
 - preview darkness
 - preview dark occupancy
 - finished global darkness
 - RAW q99
 - TC20 guard binding
-- TC20 guard-margin severity
-- positive MFM / capture assist
-- RENDERMETER1C starvation / lift scores
+- guard-margin severity
+- positive MFM / capture intent
+- RENDERMETER1C starvation/lift score
+- upper/lower spatial shift alone
 
-The target is specifically **wrong useful-body collapse**, while preserving coherent dense M9 photography and intentional low-key placement.
-
-## RENDERGRID1A
-
-New research extractor:
-
-`m9edgeplacement1a_rendergrid.py`
-
-It is diagnostic-only and produces no EV or live decision.
-
-It applies to the finished frozen JPEG:
-
-- exact firmware BT.601 Q14 Y
-- the exact recovered M10-R 16x22 Integral mask at `0x4001349c`, sum 14160
-- the same 4x6 / 24-region integer partition used by M10RMFMTEST1A
-
-It then compares preview versus finished-render spatial relationships:
-
-- Integral-weighted Y
-- overall grid mean
-- center8
-- lower12
-- upper6
-- edge16
-- inner8
-- retention EVs
-- relative spatial shifts
-- direct 4x6 cell median/q95/dark-occupancy distributions
-
-Part-3 exploratory evidence suggests #40 and #42 share a possible subtype involving positive exposure intent plus large upper/lower separation amplification while broad useful body remains extremely low.
-
-This is only a hypothesis. No threshold is production authority.
-
-## Current exploratory intent-collapse conjunction
-
-Part-3-only research observation, not a rule:
-
-- achieved intent >= about +0.10 EV
-- upper/lower render-vs-preview separation shift >= about +1.5 EV
-- broad render cell body remains very low
-- recovered Integral-weighted field does not improve materially relative to overall mean
-
-Within the currently inspected Part-3 segment this isolates:
-
-- #40 confirmed DARK_FAIL
-- #42 unconfirmed DARK candidate
-
-while avoiding selected hard negatives such as #47 and boundary candidates #54/#55.
-
-This must be tested on more archives and confirmed controls before even being treated as a candidate gate.
+The target remains specifically **wrong useful-body collapse**, while preserving coherent dense M9 photography.
 
 ## Interpretation gate
 
@@ -230,12 +215,12 @@ Frozen remains the mandatory fallback.
 
 ## Immediate next actions
 
-1. Visually confirm enough Part-3 control candidates to create at least 10 same-build GOOD and 2 same-build BOUNDARY controls.
-2. Run RENDERGRID1A on those confirmed controls plus #40 and any confirmed #42 disposition.
-3. Search conservative single-feature / AND2 relationships only after labels are fixed.
-4. Recover additional field archives when byte access becomes available, prioritizing exact mapping of #4, #73, #80, #86/#87 and #98.
-5. Use #9/#41/#43/#120/#121 stress signatures as ordinal/safety anchors, not placement labels.
-6. Keep BRIGHT_FAIL and DARK_FAIL correction treatments asymmetric if the evidence continues to support distinct mechanisms.
-7. Keep M9ness separate from placement.
+1. Add at least **14 more confirmed GOOD** controls globally.
+2. Recover another exact DARK_FAIL from the 1.61/v8/R3.8 generation, preferably one of retained #4/#73/#80/#98 if its archive matches the same build.
+3. Keep #42 as an independent falsification candidate; do not use it to tune and validate the same rule simultaneously.
+4. Repeat RENDERGRID1A on every newly recovered archive before changing the live renderer.
+5. Use #9/#41/#43/#120/#121 as stress/ordinal anchors, not placement labels.
+6. Keep BRIGHT_FAIL and DARK_FAIL treatments asymmetric unless evidence later supports a common treatment.
+7. Keep M9ness independent from placement.
 
 No live APK EDGEPLACEMENT correction is authorized from the current state.
