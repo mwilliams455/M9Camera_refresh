@@ -1,0 +1,13 @@
+ordinal,label,m9ness,scene,exact_pattern,status,notes
+4,DARK_FAIL,,fire engine / toy truck by bright window,,visual_confirmed_exact_id_pending,Original 120-frame visual review: substantially too dense
+40,DARK_FAIL,,backlit statue,,visual_confirmed_exact_id_pending,Original 120-frame visual review: substantially too dense
+73,DARK_FAIL,,sculpture against bright field,,visual_confirmed_exact_id_pending,Original 120-frame visual review: substantially too dense
+80,DARK_FAIL,,dark lane / bright background,,visual_confirmed_exact_id_pending,Original 120-frame visual review: substantially too dense
+86,,,shaded park / backlight,,boundary,Keep Frozen unless later evidence becomes decisive
+87,,,shaded park / backlight,,boundary,Keep Frozen unless later evidence becomes decisive
+98,DARK_FAIL,,backlit tree,,visual_confirmed_exact_id_pending,Original 120-frame visual review: substantially too dense
+9,,,preview-saturated stress frame,,safety_control,globalQ95==255 cohort; not a preference vote
+41,,,preview-saturated stress frame,,safety_control,globalQ95==255 positive-assist cohort
+43,,,preview-saturated stress frame,,safety_control,globalQ95==255 cohort
+120,,,preview-saturated stress frame,,safety_control,globalQ95==255 cohort
+121,,,preview-saturated stress frame,,safety_control,globalQ95==255 positive-assist cohort
