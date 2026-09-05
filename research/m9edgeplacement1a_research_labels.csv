@@ -15,11 +15,15 @@ IMG_20260904_164814_1788536894347_00,GOOD,,Part-3 same-build R3.8 tree/path cont
 191403,GOOD,,Globally dark surroundings with adequately placed subject; only small modeled adjustment around +0.13 EV
 194427,GOOD,,Subject already looked adequately placed; later diagnostic modeled only a small adjustment around +0.115 EV
 202704,GOOD,,High-AE healthy ordinary-object neutral control; diagnostic remained effectively neutral
+IMG_20260905_084106_1788594066806_00,GOOD,,Prospective September-5 visual-first field control; sunny path/tree scene has deep local shadow but coherent M9 placement. Global render median 43 does not imply failure
+IMG_20260905_084129_1788594089422_00,GOOD,,Prospective September-5 visual-first field control; sunny path scene remains balanced despite strong top/bottom luminance split and TC20 guard binding
+IMG_20260905_084146_1788594106149_00,GOOD,,Prospective September-5 visual-first hard negative; healthy sunny path after +0.176 EV actual capture intent. Positive intent must not imply DARK correction
 IMG_20260904_163702_1788536222457_00,BOUNDARY,,Part-3 same-build dense woodland/backlit path boundary; very dark but coherent enough that correction must not be automatic; prior global ordinal annotation retracted
 IMG_20260904_164622_1788536782716_00,BOUNDARY,,Part-3 same-build backlit pond boundary; strong silhouette/bright-sky relationship is photographically ambiguous and must challenge DARK specificity; prior global ordinal annotation retracted
 173219,BOUNDARY,,Very dark coherent woodland; prior visual target approximately +0.3 to +0.5 EV and live FB1 approximately +0.263 EV; dense but not a clear placement failure
 182419,BOUNDARY,,Ordinary indoor person; old positive pressure was a false positive and was moderated to about +0.16 EV; retain as near-neutral boundary rather than force GOOD
 182739,BOUNDARY,,Room with black dog; dark object correctly distinguished from scene underexposure and residual target about +0.19 EV; useful dark-object boundary control
+IMG_20260905_084154_1788594114928_00,BOUNDARY,,Prospective September-5 direct-sun stress frame; foreground is very dense but silhouette/direct-sun intent remains photographically plausible. Hold as boundary unless reviewer explicitly promotes to DARK_FAIL
 IMG_20260903_094446_1788425086751_00,DARK_FAIL,,Previously visually assessed dark woodland/protected openings; conservative RAW negative but finished JPEG useful body collapsed and needed development rather than more capture exposure
 IMG_20260903_095258_1788425578865_00,DARK_FAIL,,Previously visually assessed sky-protected foreground; finished JPEG foreground/body development failed despite conservative plausible RAW negative
 IMG_20260904_164048_1788536448208_00,DARK_FAIL,,Likely recovered September-4 visual #73 per original reviewer recognition; rendered DNG is the sculpture/statue against bright field/sky matching retained #73 description. Previous Part-3 +30 ordinal inference retracted; use exact DARK label while full archive ordering remains under reconstruction
