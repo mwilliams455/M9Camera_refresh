@@ -148,13 +148,23 @@ def extract_capture(obj: dict) -> dict:
 def extract_render(obj: dict) -> dict:
     out: dict[str, Any] = {}
     rd = find_render_diag(obj)
-    if not rd: return out
-    obs = rd.get("observations") if isinstance(rd.get("observations"), dict) else {}
-    for dst, src in {
-        "tc20Gain":"tc20Gain", "tc20GainEv":"tc20GainEv", "baseMedianGain":"baseMedianGain",
-        "tc20GuardGain":"tc20GuardGain", "rawUq99":"rawUq99", "rawHardClipFraction":"rawHardClipFraction",
-        "renderRgbChannelClipFraction":"renderRgbChannelClipFraction", "renderNearWhiteFraction":"renderNearWhiteFraction",
-    }.items(): out[dst] = num(obs.get(src))
+    legacy = obj.get("m9Renderer") if isinstance(obj.get("m9Renderer"), dict) else {}
+    if not rd and not legacy: return out
+    obs = rd.get("observations") if isinstance(rd, dict) and isinstance(rd.get("observations"), dict) else {}
+    # Newer builds expose a dedicated render-meter observation object. Older
+    # frozen controls expose the same TC20/RAW facts directly in m9Renderer.
+    for dst, names in {
+        "tc20Gain":("tc20Gain","gain"), "tc20GainEv":("tc20GainEv",),
+        "baseMedianGain":("baseMedianGain",), "tc20GuardGain":("tc20GuardGain",),
+        "rawUq99":("rawUq99",), "rawHardClipFraction":("rawHardClipFraction",),
+        "renderRgbChannelClipFraction":("renderRgbChannelClipFraction","rgb8ClipFraction"),
+        "renderNearWhiteFraction":("renderNearWhiteFraction",),
+    }.items():
+        v=None
+        for src in names:
+            if src in obs and obs[src] is not None: v=obs[src]; break
+            if src in legacy and legacy[src] is not None: v=legacy[src]; break
+        out[dst] = num(v)
     if out.get("tc20GainEv") is None and out.get("tc20Gain") and out["tc20Gain"] > 0:
         out["tc20GainEv"] = math.log2(out["tc20Gain"])
     b, g = out.get("baseMedianGain"), out.get("tc20GuardGain")
@@ -162,9 +172,9 @@ def extract_render(obj: dict) -> dict:
         out["tc20Binding"] = "guard" if g <= b else "median"
         out["guardMarginAboveBaseEv"] = math.log2(g / b)
 
-    tp = rd.get("tonalPlacement") if isinstance(rd.get("tonalPlacement"), dict) else {}
+    tp = rd.get("tonalPlacement") if isinstance(rd, dict) and isinstance(rd.get("tonalPlacement"), dict) else {}
     if not tp:
-        q = first_named(rd, ("tonalPlacement",))
+        q = first_named(rd, ("tonalPlacement",)) if isinstance(rd, dict) else None
         if isinstance(q, dict): tp = q
     for dst, src in {
         "renderGlobalMedian":"globalMedian", "renderGlobalQ95":"globalQ95", "renderGlobalQ99":"globalQ99",
@@ -174,7 +184,7 @@ def extract_render(obj: dict) -> dict:
         "renderMiddleCenterMedian":"middleCenterMedian", "renderMiddleCenterQ95":"middleCenterQ95",
     }.items(): out[dst] = num(tp.get(src))
 
-    model = first_named(rd, ("renderMeterModel1C",))
+    model = first_named(rd, ("renderMeterModel1C",)) if isinstance(rd, dict) else None
     if isinstance(model, dict):
         for k in ("renderLiftNeedEvidence", "renderHoldEvidence", "wholeFrameStarvationEvidence",
                   "localizedUpperPlacementEvidence", "globalBrightSupportEvidence"):
