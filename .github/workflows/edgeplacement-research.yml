@@ -30,3 +30,4 @@ jobs:
           python3 research/m9edgeplacement1a_conjunction_search.py --self-test
           python3 research/m9edgeplacement1a_readiness.py --self-test
           python3 research/m9edgeplacement1a_rule_coverage.py --self-test
+          python3 research/m9edgeplacement1a_cohort_readiness.py --self-test
