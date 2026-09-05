@@ -1,5 +1,7 @@
 pattern,label,m9ness,notes
 101204,GOOD,M9_STRONG,Visually reviewed September 4 field result: balanced exposure; highlights held; dense shadows retain separation; restrained non-HDR rendering; reasonably strong M9 resemblance
+172954,GOOD,,Prior visual review: current JPEG already well placed; photographic target approximately 0 to +0.15 EV
+174532,GOOD,,Intentional silhouette / gray-sky neutral PASS; true 0 EV capture; darkness is intentional and must not be treated as starvation
 184927,BRIGHT_FAIL,,Confirmed bright-tail example from v2.81 too-bright corpus
 184937,BRIGHT_FAIL,,Confirmed bright-tail matched-pair example from v2.81
 190346,BRIGHT_FAIL,,Confirmed bright-tail example from v2.81
