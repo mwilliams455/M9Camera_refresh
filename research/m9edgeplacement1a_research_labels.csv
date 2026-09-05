@@ -1,10 +1,22 @@
 pattern,label,m9ness,notes
 101204,GOOD,M9_STRONG,Visually reviewed September 4 field result: balanced exposure; highlights held; dense shadows retain separation; restrained non-HDR rendering; reasonably strong M9 resemblance
+IMG_20260904_163553_1788536153169_00,GOOD,,Part-3 global #35 same-build R3.8 control; woodland/tree scene has dense M9 shadows but useful separation and no placement failure
+IMG_20260904_163847_1788536327166_00,GOOD,,Part-3 global #39 same-build R3.8 control; ordinary woodland path remains photographically coherent without corrective need
+IMG_20260904_164247_1788536567395_00,GOOD,,Part-3 global #45 same-build R3.8 control; tree-base/foliage scene has useful body and restrained highlights
+IMG_20260904_164331_1788536611192_00,GOOD,,Part-3 global #46 same-build R3.8 hard negative; bright white swan against dark field is intentionally high-contrast but subject is correctly placed
+IMG_20260904_164402_1788536642539_00,GOOD,,Part-3 global #47 same-build R3.8 hard negative; positive capture intent with white swan behind rail remains photographically plausible and must not trigger DARK solely from dark surroundings
+IMG_20260904_164510_1788536710636_00,GOOD,,Part-3 global #51 same-build R3.8 ordinary path/swan control; placement is healthy
+IMG_20260904_164525_1788536725121_00,GOOD,,Part-3 global #52 same-build R3.8 ordinary path/swan control; placement is healthy
+IMG_20260904_164707_1788536827532_00,GOOD,,Part-3 global #56 same-build R3.8 bench/path control; strong sun and deep shade remain photographically coherent
+IMG_20260904_164736_1788536856690_00,GOOD,,Part-3 global #57 same-build R3.8 swan control; useful subject/body placement retained
+IMG_20260904_164814_1788536894347_00,GOOD,,Part-3 global #59 same-build R3.8 tree/path control; normal dense M9 rendering without placement failure
 172954,GOOD,,Prior visual review: current JPEG already well placed; photographic target approximately 0 to +0.15 EV
 174532,GOOD,,Intentional silhouette / gray-sky neutral PASS; true 0 EV capture; darkness is intentional and must not be treated as starvation
 191403,GOOD,,Globally dark surroundings with adequately placed subject; only small modeled adjustment around +0.13 EV
 194427,GOOD,,Subject already looked adequately placed; later diagnostic modeled only a small adjustment around +0.115 EV
 202704,GOOD,,High-AE healthy ordinary-object neutral control; diagnostic remained effectively neutral
+IMG_20260904_163702_1788536222457_00,BOUNDARY,,Part-3 global #38 same-build dense woodland/backlit path boundary; very dark but coherent enough that correction must not be automatic
+IMG_20260904_164622_1788536782716_00,BOUNDARY,,Part-3 global #54 same-build backlit pond boundary; strong silhouette/bright-sky relationship is photographically ambiguous and must challenge DARK specificity
 173219,BOUNDARY,,Very dark coherent woodland; prior visual target approximately +0.3 to +0.5 EV and live FB1 approximately +0.263 EV; dense but not a clear placement failure
 182419,BOUNDARY,,Ordinary indoor person; old positive pressure was a false positive and was moderated to about +0.16 EV; retain as near-neutral boundary rather than force GOOD
 182739,BOUNDARY,,Room with black dog; dark object correctly distinguished from scene underexposure and residual target about +0.19 EV; useful dark-object boundary control
