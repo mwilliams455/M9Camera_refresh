@@ -4,11 +4,11 @@ Research-only status snapshot. No live selector is authorized from this state.
 
 ## Confirmed placement counts
 
-### GOOD: 23
+### GOOD: 24
 
 Ten Part-3 same-build R3.8 controls remain confirmed by direct visual review, but all previously assigned Part-3 global ordinal numbers are withdrawn. Their placement labels do not depend on the invalid ordinal mapping.
 
-Seven prospective September-5 visual-first controls are now confirmed GOOD:
+Eight prospective September-5 visual-first controls are now confirmed GOOD:
 
 - `IMG_20260905_084106_1788594066806_00` — sunny path/tree; deep local shadow remains coherent
 - `IMG_20260905_084129_1788594089422_00` — sunny path; strong luminance split remains photographically healthy
@@ -17,6 +17,7 @@ Seven prospective September-5 visual-first controls are now confirmed GOOD:
 - `IMG_20260905_084303_1788594183914_00` — playground/grass; healthy strong-sun result and useful TC20 median-limited branch control
 - `IMG_20260905_084325_1788594205278_00` — backlit swing hard negative; deep foreground/shadow density remains intentional and coherent
 - `IMG_20260905_084328_1788594208373_00` — black-dog hard negative; very dark subject retains coat separation and must not be confused with scene underexposure
+- `IMG_20260905_084333_1788594213200_00` — second backlit swing hard negative; foreground remains deliberately dense yet retains readable structure and no visual lift is warranted
 
 Additional historical/global GOOD controls remain joined, including `IMG_20260904_101204` (`M9_STRONG`).
 
@@ -60,7 +61,7 @@ The set strengthens two negatives:
 
 084154 remains a hard boundary because its body is extremely dense after +0.433 EV actual capture offset, but direct sun in frame makes automatic lifting unsafe.
 
-### Second four-frame visual block
+### Second visual block
 
 Visual-first labels:
 
@@ -68,8 +69,9 @@ Visual-first labels:
 - `084303` — **GOOD**
 - `084325` — **GOOD** hard negative, backlit swing
 - `084328` — **GOOD** hard negative, black dog
+- `084333` — **GOOD** hard negative, second backlit swing framing
 
-Telemetry is presently available for the first two:
+Telemetry is presently available for 084224 and 084303 in this block:
 
 | capture | actual offset vs Photon | diagnostic meter request vs Photon | TC20 base gain | TC20 guard gain | limiting branch | finished median | center median | q95 |
 |---|---:|---:|---:|---:|---|---:|---:|---:|
@@ -80,7 +82,7 @@ This adds useful branch diversity. 084303 is a visually healthy **median-limited
 
 084224 is also important because the completed-RAW diagnostic meter requests a negative correction while the actual frozen 0 EV capture already looks right. That reinforces the decision not to promote the diagnostic meter directly into live exposure control.
 
-084325 and 084328 are retained from visual evidence even without matching sidecars in this upload block. They are valuable specificity controls: backlighting and a genuinely black subject can both produce very dark regions without constituting a DARK placement failure.
+084325, 084328 and 084333 are retained from visual evidence. They are valuable specificity controls: backlighting, repeated backlit framing, and a genuinely black subject can all produce very dark regions without constituting a DARK placement failure. No telemetry is inferred for 084333 until its exact matching sidecars are provided.
 
 No thresholds are tuned from this prospective set.
 
@@ -98,12 +100,12 @@ Defaults:
 
 Current counts:
 
-- GOOD: **23 / 30**
+- GOOD: **24 / 30**
 - BOUNDARY: **6 / 2** — cleared
 - BRIGHT_FAIL: **6 / 2** — cleared
 - DARK_FAIL: **3 / 2** — cleared
 
-Global interpretation remains **NOT READY** because GOOD is short by **7** controls.
+Global interpretation remains **NOT READY** because GOOD is short by **6** controls.
 
 ## Compatible-cohort readiness
 
@@ -121,7 +123,7 @@ RENDERMETER1C remains descriptive evidence only, not standalone DARK authority.
 
 ## RENDERGRID1A / INTENTCOLLAPSE1A
 
-The current Part-3 descriptive conjunction remains research-only. Prospective GOOD hard negatives now include low-output scenes, positive-intent scenes, backlit scenes, direct-sun ambiguity, a median-limited healthy scene, and a genuinely black subject. Any future DARK gate must survive all of them.
+The current Part-3 descriptive conjunction remains research-only. Prospective GOOD hard negatives now include low-output scenes, positive-intent scenes, backlit scenes, repeated backlit framing, direct-sun ambiguity, a median-limited healthy scene, and a genuinely black subject. Any future DARK gate must survive all of them.
 
 ## Exposure-direction conclusion becoming stronger
 
@@ -130,14 +132,15 @@ The prospective field sequence increasingly separates **capture exposure** from 
 - correct GOOD JPEGs occur at 0 EV and positive actual capture offsets;
 - correct GOOD JPEGs occur in both TC20 guard-limited and median-limited branches;
 - a diagnostic completed-RAW meter can request positive or negative capture changes on frames that are already visually correct;
-- direct-sun density can remain photographically intentional even after positive capture assist.
+- direct-sun density can remain photographically intentional even after positive capture assist;
+- repeated backlit foreground density can remain correct and should not trigger automatic lifting.
 
 Therefore the remaining edge problem should not be treated as a general live-AE calibration problem. Capture exposure should remain frozen while rare JPEG placement failures are studied independently.
 
 ## Immediate next actions
 
 1. Continue prospective exact-filename testing.
-2. Add at least **7 more confirmed GOOD** controls globally.
+2. Add at least **6 more confirmed GOOD** controls globally.
 3. Seek several independently judged DARK_FAIL and BRIGHT_FAIL examples, while retaining intentional silhouettes/direct-sun/backlit/dark-object frames as specificity controls.
 4. Judge JPEG placement first, then inspect telemetry.
 5. Do not tune a rule from the same small set used to invent it.
