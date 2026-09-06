@@ -35,10 +35,32 @@ new = '''    private static float[] transform(ColorSpaceTransform t) {
 if old not in text:
     raise SystemExit('SOURCECAL1A MATRIXCONVENTION1A transform anchor missing')
 text = text.replace(old, new, 1)
-if 'Converter.convertColorspaceTransform(t, out);' not in text:
-    raise SystemExit('SOURCECAL1A MATRIXCONVENTION1A conversion marker missing')
+
+# Android's org.json implementation on this baseline declares JSONArray.put as checked.
+# These helpers are only called inside captureAndWrite's broad try/catch, so propagate it.
+array_old = '    private static JSONArray array(float[] a) {\n'
+array_new = '    private static JSONArray array(float[] a) throws Exception {\n'
+if array_old not in text:
+    raise SystemExit('SOURCECAL1A JSONEXCEPTION1A array helper anchor missing')
+text = text.replace(array_old, array_new, 1)
+
+matrix_old = '    private static JSONArray matrix(float[] a) {\n'
+matrix_new = '    private static JSONArray matrix(float[] a) throws Exception {\n'
+if matrix_old not in text:
+    raise SystemExit('SOURCECAL1A JSONEXCEPTION1A matrix helper anchor missing')
+text = text.replace(matrix_old, matrix_new, 1)
+
+for marker in [
+    'Converter.convertColorspaceTransform(t, out);',
+    'private static JSONArray array(float[] a) throws Exception',
+    'private static JSONArray matrix(float[] a) throws Exception',
+]:
+    if marker not in text:
+        raise SystemExit('SOURCECAL1A hardening marker missing: ' + marker)
+
 p.write_text(text)
-print('M9SOURCECAL1A MATRIXCONVENTION1A applied')
+print('M9SOURCECAL1A MATRIXCONVENTION1A/JSONEXCEPTION1A applied')
 print(' - native Camera2 matrices use the same internal layout as Parameters.ReCalcColor')
 print(' - native-vs-active comparisons and native sensor->XYZ calculation are convention-aligned')
+print(' - diagnostic JSONArray helpers propagate checked JSONException to existing audit try/catch')
 print(' - diagnostic only; no render input changed')
