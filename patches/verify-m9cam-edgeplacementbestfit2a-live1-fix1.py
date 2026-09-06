@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """FIX1 wrapper for EDGEPLACEMENTBESTFIT2A LIVE1 verifier.
 
-Corrects two development-harness mistakes only:
+Corrects development-harness mistakes only:
 - promoted renderer has four effective-render-gain native colour call sites;
-- exact Q14 BT.601 coefficients sum to 16384, so white maps to 255.
+- exact Q14 BT.601 coefficients sum to 16384, so white maps to 255;
+- prospective ratio sanity constants use the exact Python log2 values.
 """
 from pathlib import Path
 
@@ -19,6 +20,10 @@ replacements = {
         "BESTFIT2A LIVE1 verify expected exactly 4 effectiveRenderGain native call sites",
     "if q14_y(255,255,255) != 254:":
         "if q14_y(255,255,255) != 255:",
+    "math.log2(82/66), 0.3131576356":
+        "math.log2(82/66), 0.3131578853",
+    "math.log2(161/141), 0.1913712411":
+        "math.log2(161/141), 0.1913655257",
 }
 for old, new in replacements.items():
     if old not in text:
