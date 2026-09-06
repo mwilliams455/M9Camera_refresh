@@ -63,6 +63,15 @@ if text.count(old_scaffold_hash) != 1:
     raise SystemExit('SCAFFOLDHASH1A old prospective hash block missing/non-unique')
 text = text.replace(old_scaffold_hash, '', 1)
 
+# CAMERA2TYPE1A: SENSOR_REFERENCE_ILLUMINANT2 is Key<Byte> in the Android API.
+# The historical additive scaffold declared it as Integer, which reaches javac only
+# after the freeze/insertion problems are fixed. Correct the prospective source only.
+old_ref2_decl = "        Integer ref2Obj = characteristics.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);"
+new_ref2_decl = "        Byte ref2Obj = characteristics.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);"
+if text.count(old_ref2_decl) != 1:
+    raise SystemExit('CAMERA2TYPE1A SENSOR_REFERENCE_ILLUMINANT2 declaration missing/non-unique')
+text = text.replace(old_ref2_decl, new_ref2_decl, 1)
+
 # SCAFFOLDINSERT1A: NATIVEPROSPECTIVE1A captured orig_end before adding imports,
 # then used that stale character offset after the imports changed renderer length.
 # Recompute the exact production-method location from its frozen byte sequence at the
@@ -109,8 +118,9 @@ if text.count(old_final) != 1:
 text = text.replace(old_final, new_final, 1)
 
 p.write_text(text)
-print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D applied')
+print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D + CAMERA2TYPE1A applied')
 print(' - prospective sibling insertion offset is recomputed after import edits')
 print(' - prospective separator uses chr(10), avoiding nested string escaping')
 print(' - production renderCore is protected by balanced-brace before/after SHA')
+print(' - SENSOR_REFERENCE_ILLUMINANT2 prospective declaration uses Android Key<Byte>')
 print(' - obsolete historical boundary self-check removed only inside scaffold')
