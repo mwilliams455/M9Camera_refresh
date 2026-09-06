@@ -69,8 +69,8 @@ renderer_start, renderer_end, _ = extract_method(
     renderer, '    private static float[] nativeProspectiveTransform(')
 renderer_helper = '''    private static float[] nativeProspectiveTransform(ColorSpaceTransform transform) {
         // NATIVEAPIORDER1A: Android-safe row-major extraction.
-        // ColorSpaceTransform.getElement is (column,row); copyElements() avoids
-        // accidental transpose and returns the documented row-major sequence.
+        // copyElements() avoids getElement argument-order ambiguity and returns
+        // the documented row-major sequence.
         if (transform == null) return null;
         Rational[] elements = new Rational[9];
         transform.copyElements(elements, 0);
@@ -102,23 +102,26 @@ audit = audit[:audit_start] + audit_helper + audit[audit_end:]
 
 # Correct the misleading SOURCECAL2A convention label. The old text claimed
 # getElement(row,column), which is not Android's method signature/semantics.
-audit = audit.replace(
-    'out.put("matrixStorageConvention", "row_major_getElement_row_column");',
-    'out.put("matrixStorageConvention", "android_ColorSpaceTransform_copyElements_row_major");')
+old_audit_label = 'out.put("matrixStorageConvention", "row_major_getElement_row_column");'
+new_audit_label = 'out.put("matrixStorageConvention", "android_ColorSpaceTransform_copyElements_row_major");'
+if audit.count(old_audit_label) != 1:
+    raise SystemExit('NATIVEAPIORDER1A SOURCECAL matrixStorageConvention anchor missing/non-unique')
+audit = audit.replace(old_audit_label, new_audit_label, 1)
 
-# Replace the experimental diagnostic block inserted by the prior parity attempt.
+# At this point the assembled NATIVEAB1A prospective method has only the base
+# convention fields. Insert the new API-safe diagnostics directly after that stable
+# anchor; do not depend on diagnostics from an older version of this same patch.
 pros_start, pros_end, prospective = extract_method(
     renderer, '    private static RenderCore renderNativeProspectiveCore(')
-old_diag = '''            d.put("nativeMatrixExtractionPolicy", "NATIVEC2PARITY1A_getElement_row_column_direct");
-            d.put("nativeMatrixParityOracle", "M9_SOURCECAL1A_same_capture_nativeInterpolationFactor_and_nativeSensorToXYZD50");
-            d.put("converterConvertColorspaceTransformUsed", false);'''
-new_diag = '''            d.put("nativeMatrixExtractionPolicy", "NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major");
+diag_anchor = '            d.put("forwardMatrixConvention", "D50_normalized_only");\n'
+diag_insert = diag_anchor + '''            d.put("nativeMatrixExtractionPolicy", "NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major");
             d.put("nativeMatrixApiSemantics", "storage_row_major_getElement_signature_column_row_copyElements_used");
             d.put("nativeMatrixParityOracle", "M9_SOURCECAL1A_same_capture_nativeInterpolationFactor_and_nativeSensorToXYZD50");
-            d.put("converterConvertColorspaceTransformUsed", false);'''
-if prospective.count(old_diag) != 1:
-    raise SystemExit('NATIVEAPIORDER1A old prospective matrix diagnostic block missing/non-unique')
-prospective = prospective.replace(old_diag, new_diag, 1)
+            d.put("converterConvertColorspaceTransformUsed", false);
+'''
+if prospective.count(diag_anchor) != 1:
+    raise SystemExit('NATIVEAPIORDER1A prospective forward-matrix diagnostic anchor missing/non-unique')
+prospective = prospective.replace(diag_anchor, diag_insert, 1)
 renderer = renderer[:pros_start] + prospective + renderer[pros_end:]
 
 # Scientific parity guards: both paths must use the identical row-major extraction
@@ -131,8 +134,8 @@ for label, helper in [('renderer', renderer_helper_after), ('audit', audit_helpe
     for required in ['copyElements(elements, 0)', 'Rational[] elements = new Rational[9]']:
         if required not in helper:
             raise SystemExit('NATIVEAPIORDER1A ' + label + ' extraction marker missing: ' + required)
-    if 'getElement(' in helper or 'Converter.convertColorspaceTransform' in helper:
-        raise SystemExit('NATIVEAPIORDER1A ' + label + ' ambiguous matrix accessor survived')
+    if '.getElement(' in helper or 'Converter.convertColorspaceTransform(' in helper:
+        raise SystemExit('NATIVEAPIORDER1A ' + label + ' ambiguous executable matrix accessor survived')
 
 _, _, source_method = extract_method(renderer, '    private static NativeProspectiveSource buildNativeProspectiveSource(')
 for label, body in [('renderer', source_method), ('audit', audit)]:
