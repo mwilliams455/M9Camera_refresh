@@ -139,18 +139,12 @@ jobs:
             run_patch apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
             run_patch fix-m9cam-rawshading1a-minmax1a.py
             run_patch fix-m9cam-rawshading1a-sidecario1a.py
+            # MAPSIZEAPI1A also bootstraps SOURCECAL1A -> matrix convention -> SOURCECAL1C
+            # -> SOURCECAL1B and runs their scientific verifiers. Do not apply them twice.
             run_patch fix-m9cam-rawshading1a-mapsizeapi1a.py
             run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
 
-            # SOURCECAL reproducibility: 1C must run before 1B because 1B deliberately
-            # rewrites the original SOURCECAL1A phase anchor while 1C preserves it.
-            run_patch apply-m9cam-sourcecal1a-nativecamera2audit1a.py
-            run_patch fix-m9cam-sourcecal1a-matrixconvention1a.py
-            run_patch verify-m9cam-sourcecal1a-nativecamera2audit1a.py
-            run_patch fix-m9cam-sourcecal1c-physicalresult1a.py
-            run_patch verify-m9cam-sourcecal1c-physicalresult1a.py
-            run_patch fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py
-            run_patch verify-m9cam-sourcecal1c-physicalresult1a.py
+            # SOURCECAL1D changes diagnostic storage only after the bootstrapped scientific chain.
             run_patch fix-m9cam-sourcecal1d-sidecarspool1a.py
             run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
 
