@@ -55,6 +55,19 @@ def log_ratio(dst: Optional[float], src: Optional[float]) -> Optional[float]:
     return math.log2(dst / src)
 
 
+def opening_sign_class(median_ev: Optional[float], q95_ev: Optional[float]) -> str:
+    """Describe sign consistency only; this is not an eligibility decision."""
+    if median_ev is None or q95_ev is None:
+        return "MISSING"
+    if median_ev > 0 and q95_ev > 0:
+        return "BROAD_POSITIVE"
+    if median_ev > 0 and q95_ev <= 0:
+        return "BODY_POSITIVE_UPPER_NONPOSITIVE"
+    if median_ev <= 0 and q95_ev > 0:
+        return "UPPER_POSITIVE_BODY_NONPOSITIVE"
+    return "RETAINED_OR_DENSER"
+
+
 def stem_of(path: Path) -> str:
     suffix = "_M9.json"
     if not path.name.endswith(suffix) or path.name.endswith("_M9_PRIMARY.json"):
@@ -73,7 +86,6 @@ def match_label(stem: str, labels: list[dict]) -> dict:
     matches = [r for r in labels if r.get("pattern") and r["pattern"] in stem]
     if not matches:
         return {"visualLabel": "", "m9ness": "", "labelNotes": ""}
-    # Prefer the longest/exact-looking pattern when several substrings match.
     r = max(matches, key=lambda x: len(x.get("pattern", "")))
     return {
         "visualLabel": r.get("label", ""),
@@ -114,6 +126,10 @@ def extract(capture: dict, primary: dict) -> dict:
     out["globalQ95OpeningProxyEv"] = log_ratio(out["finishedGlobalQ95Y"], out["previewGlobalQ95Y"])
     out["globalQ99OpeningProxyEv"] = log_ratio(out["finishedGlobalQ99Y"], out["previewGlobalQ99Y"])
     out["centerMedianOpeningProxyEv"] = log_ratio(out["finishedCenterMedianY"], out["previewCenterMedianY"])
+    med = out["globalMedianOpeningProxyEv"]
+    q95 = out["globalQ95OpeningProxyEv"]
+    out["broadOpeningMinProxyEv"] = min(med, q95) if med is not None and q95 is not None else None
+    out["openingSignClass"] = opening_sign_class(med, q95)
     return out
 
 
@@ -159,14 +175,15 @@ def main() -> int:
         rows.append({"frame": stem, **match_label(stem, labels), **x,
                      "lowkeyResearchState": state, "lowkeyReason": reason})
 
-    # Rank likely falsifiers first: labeled GOOD/BOUNDARY with strongest positive opening.
+    # Rank likely falsifiers first: labeled GOOD/BOUNDARY with strongest broad opening.
     rows.sort(key=lambda r: (
         0 if r["visualLabel"] in ("GOOD", "BOUNDARY") else 1,
-        -(r["globalMedianOpeningProxyEv"] if r["globalMedianOpeningProxyEv"] is not None else -999.0),
+        -(r["broadOpeningMinProxyEv"] if r["broadOpeningMinProxyEv"] is not None else -999.0),
         r["frame"],
     ))
 
     states = Counter(r["lowkeyResearchState"] for r in rows)
+    sign_classes = Counter(r["openingSignClass"] for r in rows)
     by_label = defaultdict(list)
     for r in rows:
         by_label[r["visualLabel"] or "UNLABELED"].append(r["globalMedianOpeningProxyEv"])
@@ -180,7 +197,7 @@ def main() -> int:
         }
 
     result = {
-        "schema": "m9edgeplacementbestfit1a.bright_placementopening_retroaudit1a.research.v1",
+        "schema": "m9edgeplacementbestfit1a.bright_placementopening_retroaudit1a.research.v2",
         "mode": "offline_diagnostic_only_no_capture_or_pixel_mutation",
         "authority": "none_proxy_diagnostics_only",
         "warning": "preview and finished Y are different pipeline spaces; log2 ratios are placement proxies, not exposure EV",
@@ -190,9 +207,16 @@ def main() -> int:
             "tc20GainGe": TC20_GAIN_MIN,
             "finishedGlobalMedianYGe": FINISHED_MEDIAN_MIN_Y,
         },
+        "broadOpeningDiagnostic": {
+            "definition": "min(globalMedianOpeningProxyEv, globalQ95OpeningProxyEv)",
+            "signClassOnly": True,
+            "noNumericAuthority": True,
+            "centerAndQ99AreDiagnosticOnly": True,
+        },
         "boundaryOverlay": {"scoreGe": LOWKEY_SCORE_BOUNDARY, "scoreLt": LOWKEY_SCORE_STRONG, "action": "HOLD_FROZEN"},
         "summary": {"pairedFrames": len(rows), "unpairedFrames": len(unpaired),
-                    "stateCounts": dict(states), "byVisualLabel": label_summary},
+                    "stateCounts": dict(states), "openingSignClassCounts": dict(sign_classes),
+                    "byVisualLabel": label_summary},
         "unpaired": unpaired,
         "rows": rows,
     }
