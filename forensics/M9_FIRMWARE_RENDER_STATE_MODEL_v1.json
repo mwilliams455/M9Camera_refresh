@@ -1,0 +1,97 @@
+{
+  "schema": "m9cam.targetmodel.v1.firmware216.renderstates",
+  "camera": "Leica M9",
+  "firmware": "1.216",
+  "purpose": "Separate firmware-authentic M9 target rendering states from Xiaomi source-camera characterization and from Cobalt runtime calibration.",
+  "terminology": {
+    "renderStatesNotSceneRecognition": true,
+    "note": "These are recovered firmware render/control states. Do not label them scene-recognition modes unless a separate firmware trace proves such a selector."
+  },
+  "standardSrgb": {
+    "colorSpace": 0,
+    "saturation": 2,
+    "matrixPair": [4, 5],
+    "contrast": 2,
+    "normalIsoCurve": 2,
+    "status": "proven_by_selector_and_consumer_forensics"
+  },
+  "saturationSelector": {
+    "formula": "pair_index = 5 * nColorSpace + nSaturation",
+    "pairByteStride": 36,
+    "matrixBytes": 18,
+    "matrixFormat": "3x3_signed_int16",
+    "states": {
+      "sRGB": {
+        "nColorSpace": 0,
+        "0": [0, 1],
+        "1": [2, 3],
+        "2_standard": [4, 5],
+        "3": [6, 7],
+        "4": [8, 9]
+      },
+      "AdobeRGB": {
+        "nColorSpace": 1,
+        "0": [10, 11],
+        "1": [12, 13],
+        "2_standard": [14, 15],
+        "3": [16, 17],
+        "4": [18, 19]
+      },
+      "special": {
+        "matrices": [20, 21],
+        "interpretation": "monochrome_or_special",
+        "status": "structurally_recovered_exact_submode_mapping_still_to_be_confirmed"
+      }
+    }
+  },
+  "matrixPairConsumer": {
+    "standardSrgbPair": [4, 5],
+    "selectionDomain": "per_pixel",
+    "selector": "R >= G ? matrix04 : matrix05",
+    "notIlluminantInterpolation": true,
+    "status": "proven_by_BF561_ColorMatrix_execution_trace"
+  },
+  "contrastSelector": {
+    "formula": "curve_index = 10 * pull80_selector + 5 * nColorSpace + nContrast",
+    "normalIsoSelector": 0,
+    "pull80Selector": 1,
+    "families": {
+      "normal_sRGB": [0, 1, 2, 3, 4],
+      "normal_AdobeRGB": [5, 6, 7, 8, 9],
+      "pull80_sRGB": [10, 11, 12, 13, 14],
+      "pull80_AdobeRGB": [15, 16, 17, 18, 19]
+    },
+    "standardPosition": 2,
+    "normalSrgbStandardCurve": 2,
+    "status": "proven"
+  },
+  "colorMatrixExecution": {
+    "wbArithmetic": "Q14_integer_path",
+    "matrixCoefficientFormat": "signed_Q13",
+    "postMatrixShift": 16,
+    "postMatrixClamp": [0, 2047],
+    "standardCurveApplication": "curve02[index] independently per RGB channel",
+    "status": "largely_proven_from_integer_execution_trace"
+  },
+  "bt601": {
+    "domain": "full_range_Q14",
+    "Y": [4899, 9617, 1868],
+    "Cb": [-2765, -5427, 8192],
+    "Cr": [8192, -6860, -1332],
+    "denominator": 16384,
+    "subsampling": "4:2:2_horizontal",
+    "status": "proven"
+  },
+  "pipelineConstraints": {
+    "noSecondNormalCreativeContrastAfterBt601": true,
+    "noRecoveredGenericPostYcbcrCreativeSaturationStage": true,
+    "cobaltRole": "external_reference_or_provisional_Xiaomi_source_adapter_only",
+    "targetDefinitionSource": "Leica_M9_firmware_forensics"
+  },
+  "openTargetForensics": [
+    "confirm exact matrix20/matrix21 monochrome/special submode mapping",
+    "finish any still-unresolved WB preset/auto selector details needed by runtime target state selection",
+    "keep Pull80 exposure/capture policy distinct from its proven tone-bank selector",
+    "trace any additional firmware setting selectors before calling them scene modes"
+  ]
+}
