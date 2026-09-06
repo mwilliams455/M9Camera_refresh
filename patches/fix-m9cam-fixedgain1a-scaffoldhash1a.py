@@ -135,11 +135,29 @@ if text.count(apkname_anchor) != 1:
     raise SystemExit('APKNAME1A gradle write anchor missing/non-unique')
 text = text.replace(apkname_anchor, apkname_replacement, 1)
 
+# NATIVEWPCLIP1A_CHAIN: run the narrow native-channel clip correction immediately
+# after NATIVEAB1A has assembled and verified its additive prospective branch. The
+# patch has its own renderCore SHA guard and touches only the prospective source path.
+wp_chain = r'''
+
+# NATIVEWPCLIP1A_CHAIN
+_wp_patch = P / 'apply-m9cam-nativewpclip1a.py'
+if not _wp_patch.exists():
+    raise SystemExit('NATIVEWPCLIP1A chain file missing: ' + str(_wp_patch))
+_wp_code = compile(_wp_patch.read_text(), str(_wp_patch), 'exec')
+_wp_globals = {'__name__': '__main__', '__file__': str(_wp_patch)}
+exec(_wp_code, _wp_globals, _wp_globals)
+'''
+if 'NATIVEWPCLIP1A_CHAIN' in text:
+    raise SystemExit('NATIVEWPCLIP1A chain already present in apply script')
+text = text.rstrip() + wp_chain + '\n'
+
 p.write_text(text)
-print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D + CAMERA2TYPE1A + APKNAME1A applied')
+print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D + CAMERA2TYPE1A + APKNAME1A + NATIVEWPCLIP1A_CHAIN applied')
 print(' - prospective sibling insertion offset is recomputed after import edits')
 print(' - prospective separator uses chr(10), avoiding nested string escaping')
 print(' - production renderCore is protected by balanced-brace before/after SHA')
 print(' - SENSOR_REFERENCE_ILLUMINANT2 prospective declaration uses Android Key<Byte>')
 print(' - obsolete historical boundary self-check removed only inside scaffold')
 print(' - APK output filename is compact; full Android versionName/provenance remains intact')
+print(' - NATIVEWPCLIP1A runs only after NATIVEAB1A and protects the frozen primary core again')
