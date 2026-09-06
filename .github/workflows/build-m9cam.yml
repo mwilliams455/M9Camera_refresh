@@ -35,7 +35,9 @@ jobs:
           python3 -m py_compile patches/fix-m9cam-sourcecal1d-sidecarspool1a.py
           python3 -m py_compile patches/verify-m9cam-sourcecal1d-sidecarspool1a.py
           python3 -m py_compile patches/apply-m9cam-nativeprospective1a.py
+          python3 -m py_compile patches/apply-m9cam-nativeprospective1a-fix1.py
           python3 -m py_compile patches/verify-m9cam-nativeprospective1a.py
+          python3 -m py_compile patches/verify-m9cam-nativeprospective1a-fix1.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -149,8 +151,8 @@ jobs:
             run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
 
             # Additive experiment only: frozen primary renderCore is hashed and retained.
-            run_patch apply-m9cam-nativeprospective1a.py
-            run_patch verify-m9cam-nativeprospective1a.py
+            run_patch apply-m9cam-nativeprospective1a-fix1.py
+            run_patch verify-m9cam-nativeprospective1a-fix1.py
           } 2>&1 | tee "$GITHUB_WORKSPACE/NATIVEPROSPECTIVE1A_PATCH.log"
 
       - name: Set up JDK 17
