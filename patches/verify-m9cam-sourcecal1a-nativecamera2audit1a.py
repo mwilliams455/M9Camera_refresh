@@ -46,9 +46,23 @@ for marker in [
     'nativeTransformAppliedToRender", false',
     'cobaltRuntimeDependencyChanged", false',
     'Leica_M9_firmware_renderer_separate_and_frozen',
+    'm9cam.sourcecal.v1b.embeddedcalibrationroles1a',
+    'Cobalt_Xiaomi_15_Ultra_Rear_Wide_Camera_Modular_DCP',
+    'sourceAdapterPhysicalCameraScope',
+    'ColorMatrix_A_D65,ForwardMatrix_A_D65,ProfileHueSatMap_A_D65',
+    'sourceAdapterCurrentlyAppliedToRender", true',
+    'targetProvider", "Leica_M9_firmware',
+    'targetComponentsInThisAsset", "curve02',
+    'mixedSourceAndTargetAsset", true',
+    'replace_source_adapter_only_keep_firmware_target_components_frozen',
+    'embedded.put("colorMatrixA", matrix(embeddedCal.colorMatrixA))',
+    'embedded.put("colorMatrixD65", matrix(embeddedCal.colorMatrixD65))',
+    'embedded.put("forwardMatrixA", matrix(embeddedCal.forwardMatrixA))',
+    'embedded.put("forwardMatrixD65", matrix(embeddedCal.forwardMatrixD65))',
+    'nativeReplacementApplied", false',
 ]:
     if marker not in source:
-        raise SystemExit('SOURCECAL1A audit marker missing: ' + marker)
+        raise SystemExit('SOURCECAL1A/1B audit marker missing: ' + marker)
 
 renderer = require(renderer_rel, 'M9SourceCalibrationAudit1A.captureAndWrite(')
 for marker in [
@@ -59,8 +73,9 @@ for marker in [
     if marker not in renderer:
         raise SystemExit('SOURCECAL1A renderer marker missing: ' + marker)
 
-# Phase A must remain observability-only. Native source matrices may be computed/logged,
-# but must not enter the M9 rendering call or replace the existing active source adapter.
+# Phase A/B remains observability-only. Native source matrices may be computed/logged,
+# and the embedded Cobalt source adapter may be identified, but neither audit may enter
+# the M9 rendering call or replace the existing source adapter yet.
 expected_render_call = '''RenderCore out = renderCore(frame.buffer, frame.width, frame.height,
                     encodedBlack, params.whiteLevel, params.whitePoint, cameraRotation, 0.0);'''
 if expected_render_call not in renderer:
@@ -79,10 +94,23 @@ raw = require('app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawS
 if 'CameraCharacteristics.LENS_INFO_SHADING_MAP_SIZE' in raw:
     raise SystemExit('SOURCECAL1A baseline reintroduced unsupported shading-map-size key')
 
-print('M9SOURCECAL1A NATIVECAMERA2AUDIT1A verification OK')
+# The frozen mixed calibration loader is itself the provenance source for SOURCECAL1B.
+cal = require('app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Calibration.java',
+              'Xiaomi 15 Ultra Rear Wide Camera Cobalt Modular.dcp')
+for marker in [
+    'Leica M9 firmware curve_02.bin',
+    'colorMatrixA', 'colorMatrixD65', 'forwardMatrixA', 'forwardMatrixD65',
+    'hsmA', 'hsmD65', 'curve02',
+]:
+    if marker not in cal:
+        raise SystemExit('SOURCECAL1B calibration provenance marker missing: ' + marker)
+
+print('M9SOURCECAL1A/1B verification OK')
 print(' - native Camera2 ColorMatrix/ForwardMatrix/CalibrationTransform/illuminants/neutral captured')
 print(' - native-only dual-illuminant sensor->XYZ D50 calculated using Photon Converter math')
 print(' - matrix convention matches Parameters.ReCalcColor')
-print(' - active Photon metadata/HueSatMap logged only for override comparison')
+print(' - current M9R35CAL mixed asset is explicitly split into Cobalt source-adapter and Leica firmware target roles')
+print(' - embedded Cobalt CM/FM/HSM logged beside native Camera2 source characterization')
+print(' - Leica curve02 remains identified and frozen as a target-camera firmware component')
 print(' - RAWSHADING1A remains diagnostic-only')
-print(' - neither native source transform nor GainMap is applied to renderer in Phase A')
+print(' - neither native source transform nor GainMap is applied to renderer in this audit build')
