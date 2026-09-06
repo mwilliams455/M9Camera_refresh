@@ -62,12 +62,15 @@ for marker in [
     if marker not in renderer:
         raise SystemExit('RAWSHADING1A renderer marker missing: ' + marker)
 
+# BESTFIT2A already adds the final TC20-offset argument. Phase A must retain that
+# exact baseline and must not wire the Camera2 GainMap into the renderer yet.
 expected_render_call = '''RenderCore out = renderCore(frame.buffer, frame.width, frame.height,
-                    encodedBlack, params.whiteLevel, params.whitePoint, cameraRotation);'''
+                    encodedBlack, params.whiteLevel, params.whitePoint, cameraRotation, 0.0);'''
 if expected_render_call not in renderer:
-    raise SystemExit('RAWSHADING1A Phase-A renderCore call changed')
-if 'renderCore(frame.buffer, frame.width, frame.height,\n                    encodedBlack, params.whiteLevel, params.whitePoint, cameraRotation,' in renderer:
-    raise SystemExit('RAWSHADING1A Phase-A renderCore unexpectedly gained extra inputs')
+    raise SystemExit('RAWSHADING1A current BESTFIT2A baseline renderCore call changed')
+for forbidden in ['params.gainMap', 'params.mapSize', 'params.hasGainMap']:
+    if forbidden in renderer:
+        raise SystemExit('RAWSHADING1A Phase A unexpectedly wires shading input into renderer: ' + forbidden)
 
 dng = require(dng_rel, 'M9 DNGGAINMAPFIX1A')
 for marker in [
@@ -84,4 +87,4 @@ print(' - Camera2 lens-shading semantics and live GainMap audit present')
 print(' - four-channel min/max, centre, edge and corner GainMap measurements present')
 print(' - camera/physical IDs, focal length, CFA and sensor/crop geometry recorded for multi-lens mapping')
 print(' - separate *_M9_RAWSHADING1A.json emitted before renderCore')
-print(' - GainMap application remains OFF; TC20/renderCore photographic path unchanged')
+print(' - GainMap application remains OFF; current BESTFIT2A/TC20 photographic path unchanged')
