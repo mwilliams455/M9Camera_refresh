@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 if len(sys.argv) != 2:
@@ -41,8 +42,14 @@ if not app_name_re.search(s):
 s = app_name_re.sub('<string name="app_name" translatable="false">M9Cam DNG Integrity</string>', s, count=1)
 strings_xml.write_text(s)
 
+# DNGGAINMAPFIX1A is deliberately chained only into this side-by-side diagnostic APK.
+# It corrects DNG metadata geometry only; RAW bytes and the photographic pipeline stay frozen.
+gainmap_patch = Path(__file__).with_name("apply-m9cam-dnggainmapfix1a.py")
+subprocess.run([sys.executable, str(gainmap_patch), str(root)], check=True)
+
 print("M9Cam DNGINTEGRITY1A side-by-side identity applied")
 print(" - applicationId: com.particlesdevs.photoncamera.m9dngintegrity1a")
 print(" - launcher label: M9Cam DNG Integrity")
 print(" - APK filename prefix: M9Cam-DNGINTEGRITY1A-")
+print(" - DNGGAINMAPFIX1A chained: corrected DNG GainMap rectangle ordering")
 print(" - namespace/classes unchanged; current M9Cam install remains independent")
