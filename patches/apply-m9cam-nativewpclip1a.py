@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import hashlib
-import re
 import sys
 
 if len(sys.argv) != 2:
@@ -70,21 +69,16 @@ def extract_method(src, marker):
     raise SystemExit('NATIVEWPCLIP1A unterminated method: ' + marker)
 
 
-# Protect the frozen production photographic core byte-for-byte.
 _, _, primary_before = extract_method(renderer, '    private static RenderCore renderCore(')
 primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
 
-# The Camera2/DNG forward-matrix transform already contains the live WB scaling.
-# ctx.cw is NOT another gain stage: in the frozen M9 kernel it is only the
-# pre-transform camera-channel clipping ceiling (min(camera, cw)).  Leaving it
-# [1,1,1] allows R/B values above their scene-neutral saturation ceilings to be
-# amplified by the embedded WB transform, producing false highlight colour.
+# The Camera2/DNG forward-matrix transform already contains live WB scaling.
+# ctx.cw is only the frozen M9 kernel's pre-transform clip ceiling.
 source_start, source_end, source_method = extract_method(
     renderer, '    private static NativeProspectiveSource buildNativeProspectiveSource(')
 old_cw = '        ctx.cw = new double[]{1.0, 1.0, 1.0};'
-new_cw = '''        // NATIVEWPCLIP1A: restore a physical-camera white clipping ceiling without
-        // applying a second white balance.  sensorToXyzD50 below already contains the
-        // DNG reference-neutral WB gains; cw is consumed only by min(channel, cw).
+new_cw = '''        // NATIVEWPCLIP1A: restore physical-camera channel clipping without
+        // applying a second white balance. sensorToXyzD50 already owns WB gain.
         double nativeClipWhiteMax = Math.max(neutral[0], Math.max(neutral[1], neutral[2]));
         if (!Double.isFinite(nativeClipWhiteMax) || nativeClipWhiteMax <= 0.0) {
             throw new IllegalStateException("native prospective invalid clip white maximum");
@@ -100,7 +94,6 @@ if source_method.count(old_cw) != 1:
 source_method = source_method.replace(old_cw, new_cw, 1)
 renderer = renderer[:source_start] + source_method + renderer[source_end:]
 
-# Make the experiment self-describing in the embedded primary diagnostics.
 pros_start, pros_end, prospective = extract_method(
     renderer, '    private static RenderCore renderNativeProspectiveCore(')
 diag_anchor = '            d.put("nativeSensorNeutralB", nativeSource.neutral[2]);\n'
@@ -115,22 +108,23 @@ if prospective.count(diag_anchor) != 1:
 prospective = prospective.replace(diag_anchor, diag_insert, 1)
 renderer = renderer[:pros_start] + prospective + renderer[pros_end:]
 
-# Re-check the frozen production renderCore after both additive edits.
 _, _, primary_after = extract_method(renderer, '    private static RenderCore renderCore(')
 primary_after_sha = hashlib.sha256(primary_after.encode('utf-8')).hexdigest()
 if primary_after_sha != primary_sha:
     raise SystemExit('NATIVEWPCLIP1A changed frozen primary renderCore: before='
                      + primary_sha + ' after=' + primary_after_sha)
 
-# Distinct internal provenance; the workflow already uses a compact physical APK filename.
-old_suffix = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a'
-new_suffix = old_suffix + '-nativewpclip1a'
-if new_suffix not in gradle:
-    if gradle.count(old_suffix) != 1:
-        raise SystemExit('NATIVEWPCLIP1A build identity anchor missing/non-unique')
-    gradle = gradle.replace(old_suffix, new_suffix, 1)
+# Can run either immediately after NATIVEAB1A or after JSONSAFE1A.
+base_suffix = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a'
+jsonsafe_suffix = base_suffix + '-jsonsafe1a'
+if '-nativewpclip1a' not in gradle:
+    if jsonsafe_suffix in gradle:
+        gradle = gradle.replace(jsonsafe_suffix, jsonsafe_suffix + '-nativewpclip1a', 1)
+    elif base_suffix in gradle:
+        gradle = gradle.replace(base_suffix, base_suffix + '-nativewpclip1a', 1)
+    else:
+        raise SystemExit('NATIVEWPCLIP1A build identity anchor missing')
 
-# Static self-checks.
 if 'physical_SENSOR_NEUTRAL_COLOR_POINT_normalized_max1_clip_only' not in renderer:
     raise SystemExit('NATIVEWPCLIP1A diagnostic policy marker missing')
 if 'ctx.cw = new double[]{1.0, 1.0, 1.0};' in source_method:
@@ -142,7 +136,7 @@ renderer_path.write_text(renderer)
 gradle_path.write_text(gradle)
 
 print('M9 NATIVEWPCLIP1A applied')
-print(' - experimental native source branches clip camera channels at normalized live sensor neutral')
+print(' - experimental native source branches clip channels at normalized live sensor neutral')
 print(' - sensorToXYZD50 remains sole white-balance gain owner; no double WB introduced')
 print(' - SOURCE_ONLY / SOURCE+SHADING transform, gain and shading math otherwise unchanged')
 print(' - frozen primary renderCore sha256 preserved:', primary_sha)
