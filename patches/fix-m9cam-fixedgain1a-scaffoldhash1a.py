@@ -68,7 +68,11 @@ text = text.replace(old_scaffold_hash, '', 1)
 # Recompute the exact production-method location from its frozen byte sequence at the
 # moment of insertion. This is the root cause of the run-8 splice into renderCore.finally.
 old_insert_line = "renderer = renderer[:orig_end] + '\\\\n\\\\n' + prospective + renderer[orig_end:]"
-new_insert_block = """actual_primary_start = renderer.find(frozen_render_core)\nif actual_primary_start < 0:\n    raise SystemExit('NATIVEPROSPECTIVE1A frozen primary renderCore bytes missing before sibling insertion')\nactual_primary_end = actual_primary_start + len(frozen_render_core)\nrenderer = renderer[:actual_primary_end] + '\\n\\n' + prospective + renderer[actual_primary_end:]"""
+new_insert_block = r"""actual_primary_start = renderer.find(frozen_render_core)
+if actual_primary_start < 0:
+    raise SystemExit('NATIVEPROSPECTIVE1A frozen primary renderCore bytes missing before sibling insertion')
+actual_primary_end = actual_primary_start + len(frozen_render_core)
+renderer = renderer[:actual_primary_end] + '\n\n' + prospective + renderer[actual_primary_end:]"""
 if text.count(old_insert_line) != 1:
     raise SystemExit('SCAFFOLDINSERT1A stale insertion line missing/non-unique')
 text = text.replace(old_insert_line, new_insert_block, 1)
