@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """M9 BESTFIT1A — BRIGHT PLACEMENTOPENING RETROAUDIT1A.
 
-Research-only. Pairs *_M9.json with *_M9_PRIMARY.json and computes cross-pipeline
-preview->finished placement proxies. It preserves the existing LOWKEY seed and
-adds a BOUNDARY_HOLD reporting state; it never authorizes treatment.
+Research-only. Pairs *_M9.json with matching *_M9_PRIMARY.json and computes
+cross-pipeline preview->finished placement proxies. If a standalone PRIMARY
+sidecar is absent, the tool may recover its exact staged payload from an
+M9_DIAGNOSTICS_BURST_*.json bundle.
+
+It preserves the existing LOWKEY seed, adds BOUNDARY_HOLD and BROADOPENING
+reporting states, and never authorizes treatment.
 
 Preview Y and finished BT.601 Y are different pipeline spaces. The log2 ratios
 below are placement proxies, NOT capture/exposure EV.
@@ -94,6 +98,38 @@ def match_label(stem: str, labels: list[dict]) -> dict:
     }
 
 
+def load_bundle_payloads(root: Path) -> dict[str, dict]:
+    """Index exact staged sidecar payloads by publicFilename.
+
+    Diagnostic bundles are a lossless metadata fallback for cases where the
+    individual deferred sidecar export did not make it into the research copy.
+    If duplicate filenames occur, the latest bundle by path sort wins; payload
+    equality is not assumed and the source bundle is reported per row.
+    """
+    out: dict[str, dict] = {}
+    for path in sorted(root.rglob("M9_DIAGNOSTICS_BURST_*.json")):
+        try:
+            obj = load_json(path)
+        except Exception:
+            continue
+        entries = obj.get("entries")
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("publicFilename")
+            payload = entry.get("payload")
+            if isinstance(name, str) and isinstance(payload, dict):
+                out[name] = {
+                    "payload": payload,
+                    "bundlePath": str(path),
+                    "role": entry.get("role"),
+                    "sequence": entry.get("sequence"),
+                }
+    return out
+
+
 def extract(capture: dict, primary: dict) -> dict:
     renderer = get_path(primary, "renderer") or {}
     direct = renderer.get("directRenderedLuma") or get_path(renderer, "renderMeterDiagnostic", "directRenderedLuma") or {}
@@ -161,19 +197,52 @@ def main() -> int:
     args = ap.parse_args()
 
     labels = load_labels(args.labels)
+    bundle_payloads = load_bundle_payloads(args.root)
     rows, unpaired = [], []
+    standalone_primary_count = 0
+    bundle_primary_count = 0
+
     for cp in sorted(args.root.rglob("*_M9.json")):
         if cp.name.endswith("_M9_PRIMARY.json"):
             continue
         stem = stem_of(cp)
         pp = cp.with_name(stem + "_M9_PRIMARY.json")
-        if not pp.exists():
-            unpaired.append(stem)
-            continue
-        x = extract(load_json(cp), load_json(pp))
+        primary_source = ""
+        primary_source_path = ""
+
+        if pp.exists():
+            primary = load_json(pp)
+            primary_source = "standalone_primary_sidecar"
+            primary_source_path = str(pp)
+            standalone_primary_count += 1
+        else:
+            expected_name = stem + "_M9_PRIMARY.json"
+            recovered = bundle_payloads.get(expected_name)
+            if not recovered:
+                unpaired.append({
+                    "frame": stem,
+                    "captureJson": str(cp),
+                    "missingPrimary": str(pp),
+                    "bundleFallbackFound": False,
+                })
+                continue
+            primary = recovered["payload"]
+            primary_source = "diagnostic_bundle_primary_payload"
+            primary_source_path = recovered["bundlePath"]
+            bundle_primary_count += 1
+
+        x = extract(load_json(cp), primary)
         state, reason = classify(x)
-        rows.append({"frame": stem, **match_label(stem, labels), **x,
-                     "lowkeyResearchState": state, "lowkeyReason": reason})
+        rows.append({
+            "frame": stem,
+            "captureJson": str(cp),
+            "primarySource": primary_source,
+            "primarySourcePath": primary_source_path,
+            **match_label(stem, labels),
+            **x,
+            "lowkeyResearchState": state,
+            "lowkeyReason": reason,
+        })
 
     # Rank likely falsifiers first: labeled GOOD/BOUNDARY with strongest broad opening.
     rows.sort(key=lambda r: (
@@ -197,10 +266,15 @@ def main() -> int:
         }
 
     result = {
-        "schema": "m9edgeplacementbestfit1a.bright_placementopening_retroaudit1a.research.v2",
+        "schema": "m9edgeplacementbestfit1a.bright_placementopening_retroaudit1a.research.v3",
         "mode": "offline_diagnostic_only_no_capture_or_pixel_mutation",
         "authority": "none_proxy_diagnostics_only",
         "warning": "preview and finished Y are different pipeline spaces; log2 ratios are placement proxies, not exposure EV",
+        "primaryRecovery": {
+            "standalonePrimaryCount": standalone_primary_count,
+            "diagnosticBundleFallbackCount": bundle_primary_count,
+            "fallbackSemantics": "exact staged primary payload; no image reconstruction",
+        },
         "existingLowkeySeedUnchanged": {
             "achievedIntentEvLt": INTENT_MAX_EV,
             "structuralLowKeyScoreGe": LOWKEY_SCORE_STRONG,
@@ -214,15 +288,20 @@ def main() -> int:
             "centerAndQ99AreDiagnosticOnly": True,
         },
         "boundaryOverlay": {"scoreGe": LOWKEY_SCORE_BOUNDARY, "scoreLt": LOWKEY_SCORE_STRONG, "action": "HOLD_FROZEN"},
-        "summary": {"pairedFrames": len(rows), "unpairedFrames": len(unpaired),
-                    "stateCounts": dict(states), "openingSignClassCounts": dict(sign_classes),
-                    "byVisualLabel": label_summary},
+        "summary": {
+            "pairedFrames": len(rows),
+            "unpairedFrames": len(unpaired),
+            "stateCounts": dict(states),
+            "openingSignClassCounts": dict(sign_classes),
+            "byVisualLabel": label_summary,
+        },
         "unpaired": unpaired,
         "rows": rows,
     }
     text = json.dumps(result, indent=2, sort_keys=True)
     print(text)
-    if args.json_out: args.json_out.write_text(text, encoding="utf-8")
+    if args.json_out:
+        args.json_out.write_text(text, encoding="utf-8")
     if args.csv_out and rows:
         with args.csv_out.open("w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
