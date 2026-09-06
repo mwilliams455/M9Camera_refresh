@@ -3,7 +3,8 @@ name: Build M9Cam NATIVEPROSPECTIVE1A-SOURCEADAPTER
 on:
   workflow_dispatch:
   push:
-    branches: ['**']
+    branches-ignore:
+      - m9nohdr1a-sourcecal2a-cmfix-fixedgain1a
 
 jobs:
   build:
