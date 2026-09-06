@@ -26,6 +26,8 @@ jobs:
           python3 -m py_compile patches/fix-m9cam-rawshading1a-sidecario1a.py
           python3 -m py_compile patches/fix-m9cam-rawshading1a-mapsizeapi1a.py
           python3 -m py_compile patches/verify-m9cam-rawshading1a-gainmapaudit1a.py
+          python3 -m py_compile patches/fix-m9cam-sourcecal1d-sidecarspool1a.py
+          python3 -m py_compile patches/verify-m9cam-sourcecal1d-sidecarspool1a.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -133,6 +135,11 @@ jobs:
             run_patch fix-m9cam-rawshading1a-sidecario1a.py
             run_patch fix-m9cam-rawshading1a-mapsizeapi1a.py
             run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
+
+            # SOURCECAL1D changes diagnostic storage only, after all existing scientific
+            # SOURCECAL/RAWSHADING verifiers have passed against the run-396 semantics.
+            run_patch fix-m9cam-sourcecal1d-sidecarspool1a.py
+            run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
           } 2>&1 | tee "$GITHUB_WORKSPACE/RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_PATCH.log"
 
       - name: Set up JDK 17
