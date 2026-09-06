@@ -139,9 +139,9 @@ jobs:
             run_patch apply-m9cam-dnggainmapfix1a.py
             run_patch verify-m9cam-dnggainmapfix1a.py
 
-            # CHROMAEXPOSURE stays out of this build. RAWSHADING remains diagnostic on
-            # the frozen primary path; only the additive prospective sidecar may consume
-            # Camera2 LensShadingMap.
+            # CHROMAEXPOSURE stays out of this build. RAWSHADING is diagnostic on the
+            # frozen primary path. The MAPSIZEAPI compatibility patch currently performs
+            # the established SOURCECAL1A/1B/1C bootstrap and its verifiers internally.
             run_patch apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
             run_patch fix-m9cam-rawshading1a-minmax1a.py
             run_patch fix-m9cam-rawshading1a-sidecario1a.py
@@ -153,18 +153,13 @@ jobs:
             run_patch apply-m9cam-nohdr1a-singleframe-contract.py
             run_patch verify-m9cam-nohdr1a-singleframe-contract.py
 
-            # Complete SOURCECAL chain explicitly. This corrects the prior workflow gap
-            # that jumped directly from RAWSHADING to SOURCECAL1D.
-            run_patch apply-m9cam-sourcecal1a-nativecamera2audit1a.py
-            run_patch fix-m9cam-sourcecal1a-matrixconvention1a.py
-            run_patch fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py
-            run_patch verify-m9cam-sourcecal1a-nativecamera2audit1a.py
-            run_patch fix-m9cam-sourcecal1c-physicalresult1a.py
-            run_patch verify-m9cam-sourcecal1c-physicalresult1a.py
+            # SOURCECAL1A/1B/1C already exist and were verified by MAPSIZEAPI above.
+            # Continue forward exactly once rather than destructively reapplying the bootstrap.
             run_patch fix-m9cam-sourcecal1d-sidecarspool1a.py
             run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
 
-            # REVIEWFIX1: do not normalize DNG ColorMatrix with ForwardMatrix row math.
+            # REVIEWFIX1: correct the scientific transform after the legacy bootstrap:
+            # do not normalize DNG ColorMatrix with ForwardMatrix row math.
             run_patch fix-m9cam-sourcecal2a-cmconvention1a.py
             run_patch verify-m9cam-sourcecal2a-cmconvention1a.py
 
