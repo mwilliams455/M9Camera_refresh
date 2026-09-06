@@ -47,12 +47,14 @@ new = '''def extract_method(text, marker):
     if start < 0:
         raise SystemExit('NATIVEPROSPECTIVE1A method marker missing: ' + marker)
     # Renderer source is generated and has stable four-space top-level member indentation.
-    # A lexical brace parser is fragile around Java comments/character literals; use the next
-    # top-level private-static member declaration as the method boundary instead.
+    # Use the next top-level private-static member as the boundary and exclude separator
+    # newlines from both the hash and insertion offset. This keeps the frozen method bytes
+    # identical even after the prospective sibling method is inserted immediately after it.
     end = text.find('\\n    private static ', start + len(marker))
     if end < 0:
         raise SystemExit('NATIVEPROSPECTIVE1A next top-level method marker missing after: ' + marker)
-    return start, end, text[start:end]
+    method = text[start:end].rstrip('\\n')
+    return start, start + len(method), method
 '''
 if old not in text:
     raise SystemExit('NATIVEPROSPECTIVE1A FIX1 original extractor anchor missing')
