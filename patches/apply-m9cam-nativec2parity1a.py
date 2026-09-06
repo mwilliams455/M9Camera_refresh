@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import hashlib
+import sys
+
+if len(sys.argv) != 2:
+    raise SystemExit('usage: apply-m9cam-nativec2parity1a.py <PhotonCamera-root>')
+
+root = Path(sys.argv[1]).resolve()
+if not (root / 'app').is_dir():
+    raise SystemExit('NATIVEC2PARITY1A: not a PhotonCamera root')
+
+renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
+gradle_path = root / 'app/build.gradle'
+if not renderer_path.exists() or not gradle_path.exists():
+    raise SystemExit('NATIVEC2PARITY1A: assembled renderer/build.gradle missing')
+
+renderer = renderer_path.read_text()
+gradle = gradle_path.read_text()
+
+
+def extract_method(src, marker):
+    start = src.find(marker)
+    if start < 0:
+        raise SystemExit('NATIVEC2PARITY1A method marker missing: ' + marker)
+    brace = src.find('{', start)
+    if brace < 0:
+        raise SystemExit('NATIVEC2PARITY1A opening brace missing: ' + marker)
+    depth = 0
+    i = brace
+    state = 'code'
+    quote = ''
+    escape = False
+    while i < len(src):
+        ch = src[i]
+        nxt = src[i + 1] if i + 1 < len(src) else ''
+        if state == 'line_comment':
+            if ch == '\n':
+                state = 'code'
+        elif state == 'block_comment':
+            if ch == '*' and nxt == '/':
+                state = 'code'
+                i += 1
+        elif state == 'string':
+            if escape:
+                escape = False
+            elif ch == '\\':
+                escape = True
+            elif ch == quote:
+                state = 'code'
+        else:
+            if ch == '/' and nxt == '/':
+                state = 'line_comment'
+                i += 1
+            elif ch == '/' and nxt == '*':
+                state = 'block_comment'
+                i += 1
+            elif ch in ('"', "'"):
+                state = 'string'
+                quote = ch
+                escape = False
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return start, i + 1, src[start:i + 1]
+        i += 1
+    raise SystemExit('NATIVEC2PARITY1A unterminated method: ' + marker)
+
+
+# Frozen production photographic core must remain byte-identical.
+_, _, primary_before = extract_method(renderer, '    private static RenderCore renderCore(')
+primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
+
+# Runtime field evidence from NATIVEWPCLIP1A showed that the prospective JPEG branch
+# still produced the exact sensor->XYZ result of a transposed ForwardMatrix, while
+# SOURCECAL2A audit produced the intended getElement(row,column) result from the same
+# CameraCharacteristics/CaptureResult. Remove any ambiguity by replacing the helper
+# wholesale after all historical prospective scaffolding has assembled.
+method_start, method_end, old_method = extract_method(
+    renderer, '    private static float[] nativeProspectiveTransform(')
+new_method = '''    private static float[] nativeProspectiveTransform(ColorSpaceTransform transform) {
+        // NATIVEC2PARITY1A: exact parity with M9SourceCalibrationAudit1A.transform().
+        // Camera2/DNG matrices are copied directly as getElement(row,column), row-major.
+        // Do not use Converter.convertColorspaceTransform(): that helper transposes
+        // getElement(j,i) and was proven by field diagnostics to green-shift the A/B JPEGs.
+        if (transform == null) return null;
+        float[] out = new float[9];
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                Rational v = transform.getElement(r, c);
+                out[r * 3 + c] = v != null ? v.floatValue() : Float.NaN;
+            }
+        }
+        return out;
+    }'''
+renderer = renderer[:method_start] + new_method + renderer[method_end:]
+
+# Make each experimental render self-identifying.  The next field test can compare
+# nativeInterpolationFactor + nativeSensorToXYZD50 against SOURCECAL1A and parity
+# should be numerical, not merely a textual convention claim.
+pros_start, pros_end, prospective = extract_method(
+    renderer, '    private static RenderCore renderNativeProspectiveCore(')
+diag_anchor = '            d.put("forwardMatrixConvention", "D50_normalized_only");\n'
+diag_insert = diag_anchor + '''            d.put("nativeMatrixExtractionPolicy", "NATIVEC2PARITY1A_getElement_row_column_direct");
+            d.put("nativeMatrixParityOracle", "M9_SOURCECAL1A_same_capture_nativeInterpolationFactor_and_nativeSensorToXYZD50");
+            d.put("converterConvertColorspaceTransformUsed", false);
+'''
+if prospective.count(diag_anchor) != 1:
+    raise SystemExit('NATIVEC2PARITY1A prospective convention diagnostic anchor missing/non-unique')
+prospective = prospective.replace(diag_anchor, diag_insert, 1)
+renderer = renderer[:pros_start] + prospective + renderer[pros_end:]
+
+# Verify helper is now direct row-major and contains no transpose helper call.
+_, _, helper_after = extract_method(
+    renderer, '    private static float[] nativeProspectiveTransform(')
+for required in [
+        'transform.getElement(r, c)',
+        'out[r * 3 + c]',
+        'NATIVEC2PARITY1A']:
+    if required not in helper_after:
+        raise SystemExit('NATIVEC2PARITY1A helper marker missing: ' + required)
+if 'Converter.convertColorspaceTransform' in helper_after:
+    raise SystemExit('NATIVEC2PARITY1A transpose helper survived in prospective transform')
+
+# Re-check frozen production renderCore after additive prospective edits.
+_, _, primary_after = extract_method(renderer, '    private static RenderCore renderCore(')
+primary_after_sha = hashlib.sha256(primary_after.encode('utf-8')).hexdigest()
+if primary_after_sha != primary_sha:
+    raise SystemExit('NATIVEC2PARITY1A changed frozen primary renderCore: before='
+                     + primary_sha + ' after=' + primary_after_sha)
+
+# Distinct internal provenance. APKNAME1A keeps physical filename short.
+for old_suffix in [
+        '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-nativewpclip1a-jsonsafe1a',
+        '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativewpclip1a',
+        '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-nativewpclip1a']:
+    if old_suffix in gradle:
+        new_suffix = old_suffix + '-nativec2parity1a'
+        gradle = gradle.replace(old_suffix, new_suffix, 1)
+        break
+else:
+    # Version suffix order has changed repeatedly during this scientific branch;
+    # do not fail a pixel fix merely because JSONSAFE1A is applied later in workflow.
+    if '-nativec2parity1a' not in gradle:
+        marker = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a'
+        if marker not in gradle:
+            raise SystemExit('NATIVEC2PARITY1A build identity anchor missing')
+        gradle = gradle.replace(marker, marker + '-nativec2parity1a', 1)
+
+renderer_path.write_text(renderer)
+gradle_path.write_text(gradle)
+
+print('M9 NATIVEC2PARITY1A applied')
+print(' - prospective Camera2 matrices now copied directly getElement(row,column)')
+print(' - Converter.convertColorspaceTransform transpose path removed from experimental helper')
+print(' - next field test must match SOURCECAL1A interpolation factor + sensorToXYZD50')
+print(' - NATIVEWPCLIP1A channel clipping remains in place')
+print(' - frozen primary renderCore sha256 preserved:', primary_sha)
