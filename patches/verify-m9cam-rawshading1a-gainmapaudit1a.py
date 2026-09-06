@@ -37,6 +37,10 @@ for marker in [
     'focalLengthMm',
     'cfaPattern',
     'cfaPatternName',
+    'gainMapMinPerChannel',
+    'gainMapMaxPerChannel',
+    'channelExtrema(factors, cols, rows, true)',
+    'channelExtrema(factors, cols, rows, false)',
     'gainMapCenterPerChannel',
     'gainMapCornersPerChannel',
     'gainMapEdgeMidpointsPerChannel',
@@ -58,8 +62,6 @@ for marker in [
     if marker not in renderer:
         raise SystemExit('RAWSHADING1A renderer marker missing: ' + marker)
 
-# Phase A must preserve the historical renderCore API. It is a semantics audit, not
-# a hidden shading correction or a TC20/color experiment.
 expected_render_call = '''RenderCore out = renderCore(frame.buffer, frame.width, frame.height,
                     encodedBlack, params.whiteLevel, params.whitePoint, cameraRotation);'''
 if expected_render_call not in renderer:
@@ -67,7 +69,6 @@ if expected_render_call not in renderer:
 if 'renderCore(frame.buffer, frame.width, frame.height,\n                    encodedBlack, params.whiteLevel, params.whitePoint, cameraRotation,' in renderer:
     raise SystemExit('RAWSHADING1A Phase-A renderCore unexpectedly gained extra inputs')
 
-# DNG gain-map coordinate fix remains required and must not be replaced by renderer changes.
 dng = require(dng_rel, 'M9 DNGGAINMAPFIX1A')
 for marker in [
     'parameters.sensorPix.left',
@@ -80,6 +81,7 @@ for marker in [
 
 print('M9RAWSHADING1A GAINMAPAUDIT1A verification OK')
 print(' - Camera2 lens-shading semantics and live GainMap audit present')
+print(' - four-channel min/max, centre, edge and corner GainMap measurements present')
 print(' - camera/physical IDs, focal length, CFA and sensor/crop geometry recorded for multi-lens mapping')
 print(' - separate *_M9_RAWSHADING1A.json emitted before renderCore')
 print(' - GainMap application remains OFF; TC20/renderCore photographic path unchanged')
