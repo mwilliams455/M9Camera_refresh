@@ -145,67 +145,67 @@ jobs:
             # null-safe; do not alter the fixed-gain math or the frozen primary renderCore.
             echo "==> JSONSAFE1A prospective diagnostic serialization"
             python3 - "$ROOT" <<'PY'
-            from pathlib import Path
-            import hashlib
-            import sys
+          from pathlib import Path
+          import hashlib
+          import sys
 
-            root = Path(sys.argv[1]).resolve()
-            renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
-            gradle_path = root / 'app/build.gradle'
-            renderer = renderer_path.read_text()
+          root = Path(sys.argv[1]).resolve()
+          renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
+          gradle_path = root / 'app/build.gradle'
+          renderer = renderer_path.read_text()
 
-            def extract_top_method(src, marker):
-                start = src.find(marker)
-                if start < 0:
-                    raise SystemExit('JSONSAFE1A method marker missing: ' + marker)
-                end = src.find('\n    private static ', start + len(marker))
-                if end < 0:
-                    raise SystemExit('JSONSAFE1A next method marker missing: ' + marker)
-                return start, end, src[start:end]
+          def extract_top_method(src, marker):
+              start = src.find(marker)
+              if start < 0:
+                  raise SystemExit('JSONSAFE1A method marker missing: ' + marker)
+              end = src.find('\n    private static ', start + len(marker))
+              if end < 0:
+                  raise SystemExit('JSONSAFE1A next method marker missing: ' + marker)
+              return start, end, src[start:end]
 
-            _, _, primary_before = extract_top_method(
-                renderer, '    private static RenderCore renderCore(')
-            primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
+          _, _, primary_before = extract_top_method(
+              renderer, '    private static RenderCore renderCore(')
+          primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
 
-            start, end, prospective = extract_top_method(
-                renderer, '    private static RenderCore renderNativeProspectiveCore(')
-            old = '            d.put("legacyP98Proxy", meter.p98);'
-            new = '''            if (Double.isFinite(meter.p98)) {
-                d.put("legacyP98Proxy", meter.p98);
-                d.put("legacyP98ProxyState", "measured");
-            } else {
-                d.put("legacyP98Proxy", JSONObject.NULL);
-                d.put("legacyP98ProxyState", "not_measured_fixed_primary_gain");
-            }'''
-            if prospective.count(old) != 1:
-                raise SystemExit(
-                    'JSONSAFE1A expected exactly one prospective legacyP98Proxy anchor, got '
-                    + str(prospective.count(old)))
-            prospective = prospective.replace(old, new, 1)
-            renderer = renderer[:start] + prospective + renderer[end:]
+          start, end, prospective = extract_top_method(
+              renderer, '    private static RenderCore renderNativeProspectiveCore(')
+          old = '            d.put("legacyP98Proxy", meter.p98);'
+          new = '''            if (Double.isFinite(meter.p98)) {
+              d.put("legacyP98Proxy", meter.p98);
+              d.put("legacyP98ProxyState", "measured");
+          } else {
+              d.put("legacyP98Proxy", JSONObject.NULL);
+              d.put("legacyP98ProxyState", "not_measured_fixed_primary_gain");
+          }'''
+          if prospective.count(old) != 1:
+              raise SystemExit(
+                  'JSONSAFE1A expected exactly one prospective legacyP98Proxy anchor, got '
+                  + str(prospective.count(old)))
+          prospective = prospective.replace(old, new, 1)
+          renderer = renderer[:start] + prospective + renderer[end:]
 
-            _, _, primary_after = extract_top_method(
-                renderer, '    private static RenderCore renderCore(')
-            if hashlib.sha256(primary_after.encode('utf-8')).hexdigest() != primary_sha:
-                raise SystemExit('JSONSAFE1A changed frozen primary renderCore')
-            if 'legacyP98ProxyState", "not_measured_fixed_primary_gain"' not in prospective:
-                raise SystemExit('JSONSAFE1A prospective null-state diagnostic missing')
-            renderer_path.write_text(renderer)
+          _, _, primary_after = extract_top_method(
+              renderer, '    private static RenderCore renderCore(')
+          if hashlib.sha256(primary_after.encode('utf-8')).hexdigest() != primary_sha:
+              raise SystemExit('JSONSAFE1A changed frozen primary renderCore')
+          if 'legacyP98ProxyState", "not_measured_fixed_primary_gain"' not in prospective:
+              raise SystemExit('JSONSAFE1A prospective null-state diagnostic missing')
+          renderer_path.write_text(renderer)
 
-            gradle = gradle_path.read_text()
-            base_suffix = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a'
-            jsonsafe_suffix = base_suffix + '-jsonsafe1a'
-            if base_suffix not in gradle:
-                raise SystemExit('JSONSAFE1A build identity anchor missing')
-            if jsonsafe_suffix not in gradle:
-                gradle = gradle.replace(base_suffix, jsonsafe_suffix, 1)
-                gradle_path.write_text(gradle)
+          gradle = gradle_path.read_text()
+          base_suffix = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a'
+          jsonsafe_suffix = base_suffix + '-jsonsafe1a'
+          if base_suffix not in gradle:
+              raise SystemExit('JSONSAFE1A build identity anchor missing')
+          if jsonsafe_suffix not in gradle:
+              gradle = gradle.replace(base_suffix, jsonsafe_suffix, 1)
+              gradle_path.write_text(gradle)
 
-            print('M9 NATIVEAB1A JSONSAFE1A applied')
-            print(' - prospective unmeasured p98 serializes as JSON null + explicit state')
-            print(' - fixed primary gain remains unchanged')
-            print(' - frozen primary renderCore sha256 preserved:', primary_sha)
-            PY
+          print('M9 NATIVEAB1A JSONSAFE1A applied')
+          print(' - prospective unmeasured p98 serializes as JSON null + explicit state')
+          print(' - fixed primary gain remains unchanged')
+          print(' - frozen primary renderCore sha256 preserved:', primary_sha)
+          PY
 
             run_patch verify-m9cam-nohdr1a-sourcecal2a-fixedgain1a-nativeab1a.py
           } 2>&1 | tee "$GITHUB_WORKSPACE/NOHDR_SOURCECAL2_FIXEDGAIN_NATIVEAB_JSONSAFE_PATCH.log"
