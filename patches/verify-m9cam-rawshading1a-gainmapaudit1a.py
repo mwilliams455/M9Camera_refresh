@@ -25,7 +25,10 @@ audit = require(audit_rel, 'm9cam.rawshading.v1a.gainmapaudit1a.multilens')
 for marker in [
     'SENSOR_INFO_LENS_SHADING_APPLIED',
     'STATISTICS_LENS_SHADING_CORRECTION_MAP',
-    'LENS_INFO_SHADING_MAP_SIZE',
+    'getColumnCount()',
+    'getRowCount()',
+    'advertisedShadingMapSizeSource',
+    'not_exposed_by_CameraCharacteristics_use_live_CaptureResult_LensShadingMap_dimensions',
     'SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE',
     'SCALER_CROP_REGION',
     'SHADING_MODE',
@@ -56,6 +59,8 @@ for marker in [
 ]:
     if marker not in audit:
         raise SystemExit('RAWSHADING1A audit marker missing: ' + marker)
+if 'CameraCharacteristics.LENS_INFO_SHADING_MAP_SIZE' in audit:
+    raise SystemExit('RAWSHADING1A uses unsupported CameraCharacteristics.LENS_INFO_SHADING_MAP_SIZE')
 if 'Files.write(sidecar' in audit:
     raise SystemExit('RAWSHADING1A must not depend on direct Files.write for public sidecar persistence')
 
@@ -90,6 +95,7 @@ for marker in [
 
 print('M9RAWSHADING1A GAINMAPAUDIT1A verification OK')
 print(' - Camera2 lens-shading semantics and live GainMap audit present')
+print(' - live LensShadingMap row/column counts are the map-size authority; no nonexistent characteristic key')
 print(' - four-channel min/max, centre, edge and corner GainMap measurements present')
 print(' - camera/physical IDs, focal length, CFA and sensor/crop geometry recorded for multi-lens mapping')
 print(' - *_M9_RAWSHADING1A.json uses established direct-first/SAF-fallback diagnostic transport')
