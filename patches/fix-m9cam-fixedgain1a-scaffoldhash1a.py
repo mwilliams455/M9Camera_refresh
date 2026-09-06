@@ -117,10 +117,29 @@ if text.count(old_final) != 1:
     raise SystemExit('PRIMARYFREEZE1D final hash block missing/non-unique')
 text = text.replace(old_final, new_final, 1)
 
+# APKNAME1A: retain the full versionName for provenance/verifiers, but decouple the
+# physical APK filename from that ever-growing experiment suffix. Linux filesystems
+# reject a single filename >255 bytes; the prior JSONSAFE1A build compiled cleanly
+# and failed only at :app:packageDebug for that reason.
+apkname_anchor = "write(gradle_rel, gradle)\nwrite(renderer_rel, renderer)"
+apkname_replacement = '''# APKNAME1A: compact output filename only; Android versionName stays fully descriptive.
+output_name_re = re.compile(r'outputFileName\\s*=\\s*"[^"\\n]*\\$\\{versionName\\}[^"\\n]*"')
+output_name_matches = output_name_re.findall(gradle)
+if len(output_name_matches) != 1:
+    raise SystemExit('APKNAME1A expected one versionName-derived outputFileName, got ' + str(len(output_name_matches)))
+gradle = output_name_re.sub(
+        'outputFileName = "M9Cam-NAB1-${versionBuild}-${variant.name}.apk"', gradle, count=1)
+write(gradle_rel, gradle)
+write(renderer_rel, renderer)'''
+if text.count(apkname_anchor) != 1:
+    raise SystemExit('APKNAME1A gradle write anchor missing/non-unique')
+text = text.replace(apkname_anchor, apkname_replacement, 1)
+
 p.write_text(text)
-print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D + CAMERA2TYPE1A applied')
+print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D + CAMERA2TYPE1A + APKNAME1A applied')
 print(' - prospective sibling insertion offset is recomputed after import edits')
 print(' - prospective separator uses chr(10), avoiding nested string escaping')
 print(' - production renderCore is protected by balanced-brace before/after SHA')
 print(' - SENSOR_REFERENCE_ILLUMINANT2 prospective declaration uses Android Key<Byte>')
 print(' - obsolete historical boundary self-check removed only inside scaffold')
+print(' - APK output filename is compact; full Android versionName/provenance remains intact')
