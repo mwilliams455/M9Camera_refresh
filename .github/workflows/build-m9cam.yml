@@ -26,6 +26,8 @@ jobs:
           python3 -m py_compile patches/verify-m9cam-edgeplacementgate1a.py
           python3 -m py_compile patches/apply-m9cam-edgeplacementbestfit2a-live1.py
           python3 -m py_compile patches/verify-m9cam-edgeplacementbestfit2a-live1.py
+          python3 -m py_compile patches/apply-m9cam-edgeplacementbestfit2a-live1-fix1.py
+          python3 -m py_compile patches/verify-m9cam-edgeplacementbestfit2a-live1-fix1.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -117,8 +119,8 @@ jobs:
           run_patch apply-m9cam-edgeplacementgate1a.py
           run_patch fix-m9cam-edgeplacementgate1a-jsonexception.py
           run_patch verify-m9cam-edgeplacementgate1a.py
-          run_patch apply-m9cam-edgeplacementbestfit2a-live1.py
-          run_patch verify-m9cam-edgeplacementbestfit2a-live1.py
+          run_patch apply-m9cam-edgeplacementbestfit2a-live1-fix1.py
+          run_patch verify-m9cam-edgeplacementbestfit2a-live1-fix1.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
