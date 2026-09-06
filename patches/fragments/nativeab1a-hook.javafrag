@@ -1,0 +1,178 @@
+            // NATIVEAB1A: controlled same-RAW scientific A/B. Primary JPEG is already
+            // encoded above and is never replaced by either experimental output.
+            if (primaryRoute) {
+                JSONObject nativeAb1A = new JSONObject();
+                try {
+                    nativeAb1A.put("schema", "m9cam.renderer.nativeab.v1a.main.fixedgain");
+                    nativeAb1A.put("scope", "main_physical_2_same_raw_primary_gain_source_only_vs_source_plus_shading");
+                    nativeAb1A.put("primaryOutputPreserved", true);
+                    nativeAb1A.put("primaryJpegPath", jpgPath != null ? jpgPath.toString() : JSONObject.NULL);
+
+                    String requestedPhysicalId = M9PhysicalCaptureResult1A.requestedPhysicalCameraId(params.cameraID);
+                    nativeAb1A.put("requestedCameraID", params.cameraID);
+                    nativeAb1A.put("requestedPhysicalCameraId",
+                            requestedPhysicalId != null ? requestedPhysicalId : JSONObject.NULL);
+
+                    if (!"2".equals(requestedPhysicalId)) {
+                        nativeAb1A.put("status", "skipped_non_main_physical_camera");
+                        nativeAb1A.put("mainPhysicalCameraRequired", "2");
+                    } else {
+                        CaptureResult physicalResult = M9PhysicalCaptureResult1A.resolve(
+                                captureResult, params.cameraID);
+                        if (M9PhysicalCaptureResult1A.requestsUnderlyingPhysicalCamera(params.cameraID)
+                                && !M9PhysicalCaptureResult1A.resultMatchesRequestedPhysical(
+                                        physicalResult, params.cameraID)) {
+                            throw new IllegalStateException(
+                                    "NATIVEAB1A physical CaptureResult mismatch for main camera 2");
+                        }
+                        String resultCameraId = M9PhysicalCaptureResult1A.resultCameraId(physicalResult);
+                        nativeAb1A.put("captureResultCameraId",
+                                resultCameraId != null ? resultCameraId : JSONObject.NULL);
+                        nativeAb1A.put("cfaPattern", params.cfaPattern & 0xff);
+                        if ((params.cfaPattern & 0xff) != 0) {
+                            throw new IllegalStateException(
+                                    "NATIVEAB1A main physical 2 requires RGGB CFA=0, got "
+                                            + (params.cfaPattern & 0xff));
+                        }
+
+                        JSONObject primaryEdge = diag.optJSONObject("edgePlacementBestFit2A");
+                        String primaryTreatment = primaryEdge != null
+                                ? primaryEdge.optString("treatment", "FROZEN") : "FROZEN";
+                        double primaryEdgeEv = 0.0;
+                        if ("DARK_EXACT_RERENDER_GAIN_OFFSET".equals(primaryTreatment)
+                                && primaryEdge != null
+                                && primaryEdge.optBoolean("applied", false)) {
+                            primaryEdgeEv = primaryEdge.optDouble("appliedEv", 0.0);
+                        }
+                        double primaryTc20Gain = diag.optDouble("gain", Double.NaN);
+                        if (!Double.isFinite(primaryTc20Gain) || primaryTc20Gain <= 0.0) {
+                            throw new IllegalStateException(
+                                    "NATIVEAB1A missing finite positive primary TC20 gain");
+                        }
+                        double fixedPrimaryGain =
+                                primaryTc20Gain * Math.pow(2.0, primaryEdgeEv);
+                        boolean reapplyBrightPivot =
+                                "BRIGHT_RGB_PIVOT".equals(primaryTreatment)
+                                        && primaryEdge != null
+                                        && primaryEdge.optBoolean("applied", false);
+
+                        nativeAb1A.put("tc20DecisionSource", "frozen_primary_same_frame");
+                        nativeAb1A.put("primaryTc20BaselineGain", primaryTc20Gain);
+                        nativeAb1A.put("primaryTreatment", primaryTreatment);
+                        nativeAb1A.put("primaryEdgePlacementGainEv", primaryEdgeEv);
+                        nativeAb1A.put("fixedPrimaryLinearGain", fixedPrimaryGain);
+                        nativeAb1A.put("prospectiveMeterRecomputed", false);
+                        nativeAb1A.put("brightPivotReapplied", reapplyBrightPivot);
+
+                        String[] suffixes = {
+                                "_M9_NATIVE_SOURCE_ONLY",
+                                "_M9_NATIVE_SOURCE_SHADING"
+                        };
+                        boolean[] shadingFlags = {false, true};
+                        JSONArray variants = new JSONArray();
+
+                        for (int variantIndex = 0; variantIndex < suffixes.length; variantIndex++) {
+                            String suffix = suffixes[variantIndex];
+                            boolean applyShading = shadingFlags[variantIndex];
+                            Path variantPath = Paths.get(
+                                    FileManager.sDCIM_CAMERA.getAbsolutePath(),
+                                    stem + suffix + ".jpg");
+                            Path variantJsonPath = Paths.get(
+                                    FileManager.sDCIM_CAMERA.getAbsolutePath(),
+                                    stem + suffix + ".json");
+                            JSONObject variantDiag = new JSONObject();
+                            Bitmap variantBitmap = null;
+                            long variantStartedNs = System.nanoTime();
+                            try {
+                                RenderCore variantCore = renderNativeProspectiveCore(
+                                        frame.buffer, frame.width, frame.height,
+                                        encodedBlack, params.whiteLevel, params.whitePoint,
+                                        cameraRotation, 0.0, characteristics, physicalResult,
+                                        fixedPrimaryGain, applyShading);
+                                variantBitmap = variantCore.bitmap;
+                                variantDiag = variantCore.diagnostics;
+
+                                if (reapplyBrightPivot) {
+                                    Bitmap pivoted = M9EdgePlacementBestFit2AController.applyBrightPivot(
+                                            variantBitmap,
+                                            M9EdgePlacementBestFit2AController.BRIGHT_MILD_STRENGTH);
+                                    if (pivoted == null) {
+                                        throw new IllegalStateException(
+                                                "NATIVEAB1A primary bright-pivot replication failed");
+                                    }
+                                    if (variantBitmap != pivoted
+                                            && variantBitmap != null
+                                            && !variantBitmap.isRecycled()) {
+                                        variantBitmap.recycle();
+                                    }
+                                    variantBitmap = pivoted;
+                                    variantDiag.put("primaryBrightPivotReplication", true);
+                                    variantDiag.put("primaryBrightPivotStrengthEv",
+                                            M9EdgePlacementBestFit2AController.BRIGHT_MILD_STRENGTH);
+                                    variantDiag.put("primaryBrightPivotYNormalized",
+                                            M9EdgePlacementBestFit2AController.BRIGHT_PIVOT);
+                                } else {
+                                    variantDiag.put("primaryBrightPivotReplication", false);
+                                }
+
+                                ParseExif.ExifData variantExif =
+                                        ParseExif.parse(captureResult, captureRequest);
+                                boolean saved = ImageSaver.Util.saveBitmapAsJPG(
+                                        variantPath, variantBitmap, JPEG_QUALITY, variantExif);
+                                if (saved) variantBitmap = null;
+                                if (!saved) {
+                                    throw new IllegalStateException(
+                                            "NATIVEAB1A alternate JPEG save failed: " + suffix);
+                                }
+
+                                variantDiag.put("status", "success");
+                                variantDiag.put("variant",
+                                        applyShading ? "source_plus_shading" : "source_only");
+                                variantDiag.put("outputPath", variantPath.toString());
+                                variantDiag.put("outputJsonPath", variantJsonPath.toString());
+                                variantDiag.put("sameRawAsPrimary", true);
+                                variantDiag.put("fixedPrimaryLinearGain", fixedPrimaryGain);
+                                variantDiag.put("primaryTreatment", primaryTreatment);
+                                variantDiag.put("mainPhysicalCameraId", "2");
+                            } catch (Throwable variantError) {
+                                if (variantBitmap != null && !variantBitmap.isRecycled()) {
+                                    variantBitmap.recycle();
+                                }
+                                variantDiag = new JSONObject();
+                                variantDiag.put("schema",
+                                        "m9cam.renderer.nativeab.v1a.main.fixedgain");
+                                variantDiag.put("status",
+                                        "failed_isolated_primary_preserved");
+                                variantDiag.put("variant",
+                                        applyShading ? "source_plus_shading" : "source_only");
+                                variantDiag.put("error", variantError.toString());
+                                variantDiag.put("outputPath", variantPath.toString());
+                                variantDiag.put("outputJsonPath", variantJsonPath.toString());
+                                variantDiag.put("sameRawAsPrimary", true);
+                            }
+                            variantDiag.put("elapsedMs",
+                                    (System.nanoTime() - variantStartedNs) / 1_000_000.0);
+                            try {
+                                Files.write(variantJsonPath,
+                                        variantDiag.toString(2).getBytes(StandardCharsets.UTF_8));
+                                variantDiag.put("jsonPersisted", true);
+                            } catch (Throwable jsonError) {
+                                variantDiag.put("jsonPersisted", false);
+                                variantDiag.put("jsonError", jsonError.toString());
+                            }
+                            variants.put(variantDiag);
+                        }
+
+                        nativeAb1A.put("variants", variants);
+                        nativeAb1A.put("status", "completed_isolated_experiment");
+                    }
+                } catch (Throwable nativeAbError) {
+                    try {
+                        nativeAb1A.put("status", "failed_isolated_primary_preserved");
+                        nativeAb1A.put("error", nativeAbError.toString());
+                    } catch (Throwable ignored) {}
+                }
+                try {
+                    diag.put("nativeAb1A", nativeAb1A);
+                } catch (Throwable ignored) {}
+            }

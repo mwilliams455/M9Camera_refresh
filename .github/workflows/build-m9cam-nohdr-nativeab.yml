@@ -1,0 +1,179 @@
+name: Build M9Cam NOHDR1A SOURCECAL2A FIXEDGAIN1A NATIVEAB1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - m9nohdr1a-sourcecal2a-cmfix-fixedgain1a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout M9 recovery repo
+        uses: actions/checkout@v4
+
+      - name: Verify new patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-nohdr1a-sourcecal2a-cmfix.py
+          python3 -m py_compile patches/apply-m9cam-fixedgain1a-nativeab1a.py
+          python3 -m py_compile patches/verify-m9cam-nohdr1a-sourcecal2a-fixedgain1a-nativeab1a.py
+
+      - name: Clone pinned PhotonCamera baseline
+        run: |
+          set -euo pipefail
+          PHOTON_SHA=f0e6425d2509fb8ab834d5d3af593183038b778c
+          git clone --depth 1 --branch dev https://github.com/eszdman/PhotonCamera.git PhotonCamera
+          git -C PhotonCamera fetch --depth 1 origin "$PHOTON_SHA"
+          git -C PhotonCamera checkout --detach FETCH_HEAD
+          test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
+          git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
+
+      - name: Apply frozen M9 chain and corrected scientific A/B
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            set -euo pipefail
+            ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+            P="$GITHUB_WORKSPACE/patches"
+            run_patch() { echo "==> $1"; python3 "$P/$1" "$ROOT"; }
+
+            run_patch apply-m9cam-recovery-foundation.py
+            run_patch apply-m9cam-recovered-v0.6.1.py
+            run_patch apply-m9cam-v0.7-r35-parity.py
+            run_patch verify-m9cam-v0.7-r35.py
+
+            run_patch apply-m9cam-exposureaudit1a.py
+            run_patch verify-m9cam-exposureaudit1a.py
+            run_patch apply-m9cam-sceneexposure1a.py
+            run_patch verify-m9cam-sceneexposure1a.py
+            run_patch apply-m9cam-sceneexposure1b.py
+            run_patch verify-m9cam-sceneexposure1b.py
+            run_patch apply-m9cam-sceneexposure1c.py
+            run_patch verify-m9cam-sceneexposure1c.py
+            run_patch apply-m9cam-sceneexposure1d.py
+            run_patch verify-m9cam-sceneexposure1d.py
+            run_patch apply-m9cam-sceneexposure1e.py
+            run_patch verify-m9cam-sceneexposure1e.py
+            run_patch apply-m9cam-sceneexposure1f.py
+            run_patch verify-m9cam-sceneexposure1f.py
+            run_patch apply-m9cam-sceneexposure1g.py
+            run_patch verify-m9cam-sceneexposure1g.py
+            run_patch apply-m9cam-sceneexposure1h.py
+            run_patch verify-m9cam-sceneexposure1h.py
+
+            run_patch apply-m9cam-capturesplit1a.py
+            run_patch verify-m9cam-capturesplit1a.py
+            run_patch apply-m9cam-capturesplit1b.py
+            run_patch verify-m9cam-capturesplit1b.py
+            run_patch apply-m9cam-capturesplit1c.py
+            run_patch verify-m9cam-capturesplit1c.py
+
+            run_patch apply-m9cam-m9negative1a.py
+            run_patch verify-m9cam-m9negative1a.py
+            run_patch apply-m9cam-m9negative1b-scenefingerprint1a.py
+            run_patch verify-m9cam-m9negative1b-scenefingerprint1a.py
+            run_patch apply-m9cam-m9negative1c-signedcal1a.py
+            run_patch verify-m9cam-m9negative1c-signedcal1a.py
+
+            run_patch apply-m9cam-virtualbv1a.py
+            run_patch apply-m9cam-virtualbv1a-cal1a.py
+            run_patch verify-m9cam-virtualbv1a.py
+            run_patch apply-m9cam-constraintsplit1a.py
+            run_patch verify-m9cam-constraintsplit1a.py
+            run_patch apply-m9cam-constraintsplit1a-fix1.py
+            run_patch verify-m9cam-constraintsplit1a-fix1.py
+            run_patch apply-m9cam-exactid1a.py
+            run_patch verify-m9cam-exactid1a.py
+            run_patch apply-m9cam-constraintref1a.py
+            run_patch verify-m9cam-constraintref1a.py
+            run_patch apply-m9cam-virtualbv-spatial1b.py
+            run_patch verify-m9cam-virtualbv-spatial1b.py
+            run_patch apply-m9cam-foregroundguard1a.py
+            run_patch verify-m9cam-foregroundguard1a.py
+            run_patch apply-m9cam-constraintlocal1a.py
+            run_patch verify-m9cam-constraintlocal1a.py
+            run_patch apply-m9cam-photometricnorm1a.py
+            run_patch verify-m9cam-photometricnorm1a.py
+            run_patch apply-m9cam-constraintnearest1a.py
+            run_patch verify-m9cam-constraintnearest1a.py
+            run_patch apply-m9cam-constrainttie1a.py
+            run_patch verify-m9cam-constrainttie1a.py
+            run_patch apply-m9cam-currentframeceiling1a.py
+            run_patch verify-m9cam-currentframeceiling1a.py
+            run_patch apply-m9cam-m10r-mfmtest1a.py
+            run_patch fix-m9cam-m10r-mfmtest1a-jsonarray1a.py
+            run_patch verify-m9cam-m10r-mfmtest1a.py
+
+            run_patch apply-m9cam-metadatafix1a.py
+            run_patch verify-m9cam-metadatafix1a.py
+            run_patch apply-m9cam-edgeplacementgate1a.py
+            run_patch fix-m9cam-edgeplacementgate1a-jsonexception.py
+            run_patch verify-m9cam-edgeplacementgate1a.py
+            run_patch apply-m9cam-edgeplacementbestfit2a-live1-fix1.py
+            run_patch verify-m9cam-edgeplacementbestfit2a-live1-fix1.py
+
+            run_patch apply-m9cam-dnggainmapfix1a.py
+            run_patch verify-m9cam-dnggainmapfix1a.py
+
+            # CHROMAEXPOSURE1A/1B/1C deliberately remain OFF while source/shading is isolated.
+            run_patch apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
+            run_patch fix-m9cam-rawshading1a-minmax1a.py
+            run_patch fix-m9cam-rawshading1a-sidecario1a.py
+
+            # MAPSIZEAPI1A bootstraps SOURCECAL1A -> matrix convention -> SOURCECAL1C
+            # -> SOURCECAL1B and their scientific verifiers.
+            run_patch fix-m9cam-rawshading1a-mapsizeapi1a.py
+            run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
+
+            run_patch fix-m9cam-sourcecal1d-sidecarspool1a.py
+            run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
+
+            # Corrected execution order from M9 handoff v2.89.
+            run_patch apply-m9cam-nohdr1a-sourcecal2a-cmfix.py
+            run_patch apply-m9cam-fixedgain1a-nativeab1a.py
+            run_patch verify-m9cam-nohdr1a-sourcecal2a-fixedgain1a-nativeab1a.py
+          } 2>&1 | tee "$GITHUB_WORKSPACE/NOHDR_SOURCECAL2_FIXEDGAIN_NATIVEAB_PATCH.log"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/NOHDR_SOURCECAL2_FIXEDGAIN_NATIVEAB_GRADLE.log"
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-NOHDR1A-SOURCECAL2A-FIXEDGAIN1A-NATIVEAB1A-BUILDLOG
+          path: |
+            NOHDR_SOURCECAL2_FIXEDGAIN_NATIVEAB_PATCH.log
+            NOHDR_SOURCECAL2_FIXEDGAIN_NATIVEAB_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload APK and upstream commit
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-NOHDR1A-SOURCECAL2A-FIXEDGAIN1A-NATIVEAB1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            PHOTON_UPSTREAM_COMMIT.txt
+          if-no-files-found: error

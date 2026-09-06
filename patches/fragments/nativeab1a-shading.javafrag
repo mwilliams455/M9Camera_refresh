@@ -1,0 +1,128 @@
+    private static final class NativeProspectiveShadingStats {
+        final boolean applied;
+        final int mapWidth;
+        final int mapHeight;
+        final double minGain;
+        final double maxGain;
+        final long correctedPixels;
+        final double representationScale;
+        final long aboveNominalBeforeScale;
+        final long postScaleClipCount;
+
+        NativeProspectiveShadingStats(boolean applied,
+                                      int mapWidth,
+                                      int mapHeight,
+                                      double minGain,
+                                      double maxGain,
+                                      long correctedPixels,
+                                      double representationScale,
+                                      long aboveNominalBeforeScale,
+                                      long postScaleClipCount) {
+            this.applied = applied;
+            this.mapWidth = mapWidth;
+            this.mapHeight = mapHeight;
+            this.minGain = minGain;
+            this.maxGain = maxGain;
+            this.correctedPixels = correctedPixels;
+            this.representationScale = representationScale;
+            this.aboveNominalBeforeScale = aboveNominalBeforeScale;
+            this.postScaleClipCount = postScaleClipCount;
+        }
+
+        static NativeProspectiveShadingStats none() {
+            return new NativeProspectiveShadingStats(
+                    false, 0, 0, 1.0, 1.0, 0L, 1.0, 0L, 0L);
+        }
+    }
+
+    private static NativeProspectiveShadingStats applyNativeProspectiveGainMap(
+            short[] norm16, int width, int height, LensShadingMap map) {
+        if (map == null) {
+            throw new IllegalStateException(
+                    "NATIVEAB1A source+shading requires live physical LensShadingMap");
+        }
+        final int mapW = map.getColumnCount();
+        final int mapH = map.getRowCount();
+        float[] gains = new float[map.getGainFactorCount()];
+        map.copyGainFactors(gains, 0);
+        if (mapW < 1 || mapH < 1 || gains.length != mapW * mapH * 4) {
+            throw new IllegalStateException(
+                    "NATIVEAB1A invalid LensShadingMap dimensions");
+        }
+
+        double minGain = Double.POSITIVE_INFINITY;
+        double maxGain = Double.NEGATIVE_INFINITY;
+        for (float g : gains) {
+            if (!Float.isFinite(g) || g <= 0.0f) {
+                throw new IllegalStateException(
+                        "NATIVEAB1A invalid LensShadingMap factor");
+            }
+            minGain = Math.min(minGain, g);
+            maxGain = Math.max(maxGain, g);
+        }
+        if (!Double.isFinite(maxGain) || maxGain <= 0.0) {
+            throw new IllegalStateException(
+                    "NATIVEAB1A invalid LensShadingMap max gain");
+        }
+
+        // uint16 is used only as a transport representation into OpenCV EA demosaic.
+        // Divide every shading-corrected sample by the same max map gain so a valid
+        // single-frame value above nominal 1.0 is not clipped. Multiplication by this
+        // exact global representationScale is restored at the later linear render-gain
+        // boundary. A global scalar commutes with the linear demosaic/source transform.
+        final double representationScale = maxGain;
+        final double xScale =
+                width > 1 ? (mapW - 1.0) / (width - 1.0) : 0.0;
+        final double yScale =
+                height > 1 ? (mapH - 1.0) / (height - 1.0) : 0.0;
+        long corrected = 0L;
+        long aboveNominal = 0L;
+        long postScaleClip = 0L;
+
+        for (int y = 0; y < height; y++) {
+            double gy = y * yScale;
+            int y0 = (int)Math.floor(gy);
+            int y1 = Math.min(mapH - 1, y0 + 1);
+            double fy = gy - y0;
+            int row = y * width;
+            int planeBase = (y & 1) * 2; // RGGB: R,G0 / G1,B
+            for (int x = 0; x < width; x++) {
+                double gx = x * xScale;
+                int x0 = (int)Math.floor(gx);
+                int x1 = Math.min(mapW - 1, x0 + 1);
+                double fx = gx - x0;
+                int plane = planeBase + (x & 1);
+
+                int i00 = ((y0 * mapW + x0) * 4) + plane;
+                int i01 = ((y0 * mapW + x1) * 4) + plane;
+                int i10 = ((y1 * mapW + x0) * 4) + plane;
+                int i11 = ((y1 * mapW + x1) * 4) + plane;
+                double g0 = gains[i00] + fx * (gains[i01] - gains[i00]);
+                double g1 = gains[i10] + fx * (gains[i11] - gains[i10]);
+                double gain = g0 + fy * (g1 - g0);
+
+                int index = row + x;
+                double normalized = (norm16[index] & 0xffff) / 65535.0;
+                double correctedLinear = normalized * gain;
+                if (correctedLinear > 1.0) aboveNominal++;
+
+                double represented = correctedLinear / representationScale;
+                if (represented < -1.0e-12 || represented > 1.0 + 1.0e-12) {
+                    postScaleClip++;
+                }
+                represented = Math.max(0.0, Math.min(1.0, represented));
+                int q = (int)Math.floor(represented * 65535.0 + 0.5);
+                norm16[index] = (short)(q & 0xffff);
+                corrected++;
+            }
+        }
+
+        if (postScaleClip != 0L) {
+            throw new IllegalStateException(
+                    "NATIVEAB1A representation scaling lost linear headroom: clipCount="
+                            + postScaleClip);
+        }
+        return new NativeProspectiveShadingStats(
+                true, mapW, mapH, minGain, maxGain, corrected,
+                representationScale, aboveNominal, postScaleClip);
+    }
