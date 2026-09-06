@@ -1,4 +1,4 @@
-name: Build M9Cam EDGEPLACEMENTGATE1A
+name: Build M9Cam EDGEPLACEMENTBESTFIT2A-LIVE1
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout M9 recovery repo
         uses: actions/checkout@v4
 
-      - name: Verify offline/research harness syntax
+      - name: Verify offline/research and LIVE1 patch syntax
         run: |
           python3 -m py_compile research/tc20intent1a_replay.py
           python3 -m py_compile research/tc20placement1a_replay.py
@@ -24,6 +24,8 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-edgeplacementgate1a.py
           python3 -m py_compile patches/fix-m9cam-edgeplacementgate1a-jsonexception.py
           python3 -m py_compile patches/verify-m9cam-edgeplacementgate1a.py
+          python3 -m py_compile patches/apply-m9cam-edgeplacementbestfit2a-live1.py
+          python3 -m py_compile patches/verify-m9cam-edgeplacementbestfit2a-live1.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -35,7 +37,7 @@ jobs:
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply and verify cumulative M9 chain through EDGEPLACEMENTGATE1A
+      - name: Apply and verify cumulative M9 chain through EDGEPLACEMENTBESTFIT2A LIVE1
         shell: bash
         run: |
           set -euo pipefail
@@ -115,6 +117,8 @@ jobs:
           run_patch apply-m9cam-edgeplacementgate1a.py
           run_patch fix-m9cam-edgeplacementgate1a-jsonexception.py
           run_patch verify-m9cam-edgeplacementgate1a.py
+          run_patch apply-m9cam-edgeplacementbestfit2a-live1.py
+          run_patch verify-m9cam-edgeplacementbestfit2a-live1.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -135,20 +139,20 @@ jobs:
           set -o pipefail
           cd PhotonCamera
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/EDGEPLACEMENTGATE1A_GRADLE.log"
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/EDGEPLACEMENTBESTFIT2A_LIVE1_GRADLE.log"
 
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-EDGEPLACEMENTGATE1A-BUILDLOG
-          path: EDGEPLACEMENTGATE1A_GRADLE.log
+          name: M9Cam-EDGEPLACEMENTBESTFIT2A-LIVE1-BUILDLOG
+          path: EDGEPLACEMENTBESTFIT2A_LIVE1_GRADLE.log
           if-no-files-found: ignore
 
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-EDGEPLACEMENTGATE1A
+          name: M9Cam-EDGEPLACEMENTBESTFIT2A-LIVE1
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
