@@ -1,4 +1,4 @@
-name: Build M9Cam RAWSHADING1A-GAINMAPAUDIT1A-MULTILENS
+name: Build M9Cam NATIVEPROSPECTIVE1B-SINGLEFRAME-MAIN-REVIEWFIX1
 
 on:
   workflow_dispatch:
@@ -13,21 +13,33 @@ jobs:
       - name: Checkout M9 recovery repo
         uses: actions/checkout@v4
 
-      - name: Verify RAWSHADING1A patch syntax
+      - name: Verify NATIVEPROSPECTIVE1B patch syntax
         run: |
           python3 -m py_compile patches/apply-m9cam-recovery-foundation.py
           python3 -m py_compile patches/apply-m9cam-recovered-v0.6.1.py
           python3 -m py_compile patches/apply-m9cam-v0.7-r35-parity.py
           python3 -m py_compile patches/apply-m9cam-dnggainmapfix1a.py
           python3 -m py_compile patches/verify-m9cam-dnggainmapfix1a.py
-          python3 -m py_compile patches/apply-m9cam-rawshading1a-gainmapaudit1a.py
           python3 -m py_compile patches/apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
           python3 -m py_compile patches/fix-m9cam-rawshading1a-minmax1a.py
           python3 -m py_compile patches/fix-m9cam-rawshading1a-sidecario1a.py
           python3 -m py_compile patches/fix-m9cam-rawshading1a-mapsizeapi1a.py
           python3 -m py_compile patches/verify-m9cam-rawshading1a-gainmapaudit1a.py
+          python3 -m py_compile patches/apply-m9cam-nohdr1a-singleframe-contract.py
+          python3 -m py_compile patches/verify-m9cam-nohdr1a-singleframe-contract.py
+          python3 -m py_compile patches/apply-m9cam-sourcecal1a-nativecamera2audit1a.py
+          python3 -m py_compile patches/fix-m9cam-sourcecal1a-matrixconvention1a.py
+          python3 -m py_compile patches/fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py
+          python3 -m py_compile patches/verify-m9cam-sourcecal1a-nativecamera2audit1a.py
+          python3 -m py_compile patches/fix-m9cam-sourcecal1c-physicalresult1a.py
+          python3 -m py_compile patches/verify-m9cam-sourcecal1c-physicalresult1a.py
           python3 -m py_compile patches/fix-m9cam-sourcecal1d-sidecarspool1a.py
           python3 -m py_compile patches/verify-m9cam-sourcecal1d-sidecarspool1a.py
+          python3 -m py_compile patches/fix-m9cam-sourcecal2a-cmconvention1a.py
+          python3 -m py_compile patches/verify-m9cam-sourcecal2a-cmconvention1a.py
+          python3 -m py_compile patches/apply-m9cam-nativeprospective1a.py
+          python3 -m py_compile patches/fix-m9cam-nativeprospective1b-review1a.py
+          python3 -m py_compile patches/verify-m9cam-nativeprospective1b-review1a.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -39,7 +51,7 @@ jobs:
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply and verify frozen M9 chain through RAWSHADING1A
+      - name: Apply and verify single-frame M9 chain through NATIVEPROSPECTIVE1B
         shell: bash
         run: |
           set -o pipefail
@@ -127,20 +139,40 @@ jobs:
             run_patch apply-m9cam-dnggainmapfix1a.py
             run_patch verify-m9cam-dnggainmapfix1a.py
 
-            # RAWSHADING1A intentionally replaces the active chroma-exposure experiment.
-            # CHROMAEXPOSURE1A/1B/1C scripts remain preserved in the repository but are
-            # NOT applied in this build so the shading audit has no downstream green fix.
+            # CHROMAEXPOSURE stays out of this build. RAWSHADING remains diagnostic on
+            # the frozen primary path; only the additive prospective sidecar may consume
+            # Camera2 LensShadingMap.
             run_patch apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
             run_patch fix-m9cam-rawshading1a-minmax1a.py
             run_patch fix-m9cam-rawshading1a-sidecario1a.py
             run_patch fix-m9cam-rawshading1a-mapsizeapi1a.py
             run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
 
-            # SOURCECAL1D changes diagnostic storage only, after all existing scientific
-            # SOURCECAL/RAWSHADING verifiers have passed against the run-396 semantics.
+            # Enforce the project contract at the actual exposure allocator boundary:
+            # one RAW and no inherited Photon bracketing/HDR exposure perturbation.
+            run_patch apply-m9cam-nohdr1a-singleframe-contract.py
+            run_patch verify-m9cam-nohdr1a-singleframe-contract.py
+
+            # Complete SOURCECAL chain explicitly. This corrects the prior workflow gap
+            # that jumped directly from RAWSHADING to SOURCECAL1D.
+            run_patch apply-m9cam-sourcecal1a-nativecamera2audit1a.py
+            run_patch fix-m9cam-sourcecal1a-matrixconvention1a.py
+            run_patch fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py
+            run_patch verify-m9cam-sourcecal1a-nativecamera2audit1a.py
+            run_patch fix-m9cam-sourcecal1c-physicalresult1a.py
+            run_patch verify-m9cam-sourcecal1c-physicalresult1a.py
             run_patch fix-m9cam-sourcecal1d-sidecarspool1a.py
             run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
-          } 2>&1 | tee "$GITHUB_WORKSPACE/RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_PATCH.log"
+
+            # REVIEWFIX1: do not normalize DNG ColorMatrix with ForwardMatrix row math.
+            run_patch fix-m9cam-sourcecal2a-cmconvention1a.py
+            run_patch verify-m9cam-sourcecal2a-cmconvention1a.py
+
+            # Additive same-RAW prospective JPEG. Primary JPEG/DNG remain frozen controls.
+            run_patch apply-m9cam-nativeprospective1a.py
+            run_patch fix-m9cam-nativeprospective1b-review1a.py
+            run_patch verify-m9cam-nativeprospective1b-review1a.py
+          } 2>&1 | tee "$GITHUB_WORKSPACE/NATIVEPROSPECTIVE1B_SINGLEFRAME_MAIN_REVIEWFIX1_PATCH.log"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -161,22 +193,22 @@ jobs:
           set -o pipefail
           cd PhotonCamera
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_GRADLE.log"
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/NATIVEPROSPECTIVE1B_SINGLEFRAME_MAIN_REVIEWFIX1_GRADLE.log"
 
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-RAWSHADING1A-GAINMAPAUDIT1A-MULTILENS-BUILDLOG
+          name: M9Cam-NATIVEPROSPECTIVE1B-SINGLEFRAME-MAIN-REVIEWFIX1-BUILDLOG
           path: |
-            RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_PATCH.log
-            RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_GRADLE.log
+            NATIVEPROSPECTIVE1B_SINGLEFRAME_MAIN_REVIEWFIX1_PATCH.log
+            NATIVEPROSPECTIVE1B_SINGLEFRAME_MAIN_REVIEWFIX1_GRADLE.log
           if-no-files-found: ignore
 
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-RAWSHADING1A-GAINMAPAUDIT1A-MULTILENS
+          name: M9Cam-NATIVEPROSPECTIVE1B-SINGLEFRAME-MAIN-REVIEWFIX1
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
