@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Regression tests for research-only EDGEPLACEMENTBESTFIT1A selector.
 
-These tests exercise branch semantics only. They do not render pixels and do not
-change capture, TC20, curve02, color science, JPEG quality, or DNG output.
+These tests exercise branch semantics and minimal diagnostic-schema extraction.
+They do not render pixels and do not change capture, TC20, curve02, color
+science, JPEG quality, or DNG output.
 """
 
-from m9edgeplacementbestfit1a_multibranch import evaluate
+from m9edgeplacementbestfit1a_multibranch import evaluate, extract_features
 
 
 def base_features():
@@ -208,6 +209,49 @@ def test_dark_priority_is_unchanged_if_synthetic_features_overlap_bright():
     # Bright LOWKEY is itself OFF because achievedIntentEv=+0.20, but this test
     # also locks the selector priority against future accidental reordering.
     assert r["selector"] == "DARK_INTENT"
+
+
+def test_bright_schema_extraction_matches_181559_shape():
+    # Minimal fixture mirrors the actual diagnostic nesting used by the
+    # prospective 18:15:59 bundle, without copying unrelated telemetry.
+    capture = {
+        "subjectMotion": {
+            "previewLuma": {
+                "schema": "m9cam.previewluma.v2.spatial1",
+                "global": {"median": 66, "q95": 141},
+            }
+        },
+        "m9ExposureAudit": {
+            "derived": {"captureEnergyVsPhotonOnlyEv": -3.6e-8}
+        },
+        "sceneExposureDiagnostic": {
+            "structuralLowKeyScore": 0.876096
+        },
+    }
+    primary = {
+        "renderer": {
+            "tc20": {
+                "gain": 2.0633145986,
+                "baseMedianGain": 2.0633145986,
+                "tc20GuardGain": 3.7034552846,
+            },
+            "directRenderedLuma": {
+                "schema": "m9cam.renderedluma.v1.grid64",
+                "global": {"median": 82, "q95": 161},
+            },
+        }
+    }
+    f = extract_features(capture, primary)
+    assert abs(f["achievedIntentEv"]) < 1e-6
+    assert f["structuralLowKeyScore"] == 0.876096
+    assert f["tc20Gain"] == 2.0633145986
+    assert f["previewGlobalMedianY"] == 66.0
+    assert f["previewGlobalQ95Y"] == 141.0
+    assert f["finishedGlobalMedianY"] == 82.0
+    assert f["finishedGlobalQ95Y"] == 161.0
+    assert f["brightMedianShiftEv"] > 0
+    assert f["brightQ95ShiftEv"] > 0
+    assert evaluate(f)["selector"] == "BRIGHT_LOWKEY_BROAD"
 
 
 def main():
