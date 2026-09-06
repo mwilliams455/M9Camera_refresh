@@ -7,8 +7,7 @@ if not p.exists():
     raise SystemExit('FIXEDGAIN1A SCAFFOLDHASH1A missing apply script')
 text = p.read_text()
 
-# PRIMARYFREEZE1C: extract the actual Java method through balanced braces so the
-# production-method freeze excludes separator/comment bytes around additive siblings.
+# PRIMARYFREEZE1D: extract the actual Java method through balanced braces.
 old_outer_extractor = '''def extract_top_method(text,marker):
     start=text.find(marker)
     if start<0: raise SystemExit('method marker missing: '+marker)
@@ -50,20 +49,29 @@ new_outer_extractor = '''def extract_top_method(text,marker):
     raise SystemExit('unterminated Java method: '+marker)
 '''
 if text.count(old_outer_extractor) != 1:
-    raise SystemExit('PRIMARYFREEZE1C outer extractor block missing/non-unique')
+    raise SystemExit('PRIMARYFREEZE1D outer extractor block missing/non-unique')
 text = text.replace(old_outer_extractor, new_outer_extractor, 1)
 
 needle = "# Execute the transformed additive scaffolding against the assembled Photon tree.\n"
 if text.count(needle) != 1:
     raise SystemExit('FIXEDGAIN1A execution anchor missing/non-unique')
 
-# The reused prospective scaffold has the historical run-409 boundary self-check.
-# Remove only that obsolete inner check. The outer FIXEDGAIN patch remains authoritative.
+# Patch the prospective source text immediately before compile/exec.
 insert = '''# SCAFFOLDHASH1A: remove obsolete prospective self-check only.
 old_scaffold_hash = """_, _, frozen_after = extract_method(renderer, '    private static RenderCore renderCore(')\nif hashlib.sha256(frozen_after.encode('utf-8')).hexdigest() != frozen_render_core_sha:\n    raise SystemExit('NATIVEPROSPECTIVE1A unexpectedly changed frozen renderCore')\n"""
 if text.count(old_scaffold_hash) != 1:
     raise SystemExit('SCAFFOLDHASH1A old prospective hash block missing/non-unique')
 text = text.replace(old_scaffold_hash, '', 1)
+
+# SCAFFOLDINSERT1A: NATIVEPROSPECTIVE1A captured orig_end before adding imports,
+# then used that stale character offset after the imports changed renderer length.
+# Recompute the exact production-method location from its frozen byte sequence at the
+# moment of insertion. This is the root cause of the run-8 splice into renderCore.finally.
+old_insert_line = "renderer = renderer[:orig_end] + '\\\\n\\\\n' + prospective + renderer[orig_end:]"
+new_insert_block = """actual_primary_start = renderer.find(frozen_render_core)\nif actual_primary_start < 0:\n    raise SystemExit('NATIVEPROSPECTIVE1A frozen primary renderCore bytes missing before sibling insertion')\nactual_primary_end = actual_primary_start + len(frozen_render_core)\nrenderer = renderer[:actual_primary_end] + '\\n\\n' + prospective + renderer[actual_primary_end:]"""
+if text.count(old_insert_line) != 1:
+    raise SystemExit('SCAFFOLDINSERT1A stale insertion line missing/non-unique')
+text = text.replace(old_insert_line, new_insert_block, 1)
 
 '''
 text = text.replace(needle, insert + needle, 1)
@@ -81,26 +89,23 @@ _, _, primary_render_core_after = extract_top_method(
 primary_render_core_after_sha = hashlib.sha256(
         primary_render_core_after.encode('utf-8')).hexdigest()
 if primary_render_core_after_sha != primary_render_core_sha:
-    # PRIMARYFREEZE1C diagnostic: bounded unified diff so CI identifies the exact
-    # accidental production mutation instead of weakening the freeze.
     import difflib
     primary_diff = ''.join(difflib.unified_diff(
             primary_render_core_before.splitlines(True),
             primary_render_core_after.splitlines(True),
-            fromfile='primary_renderCore_before',
-            tofile='primary_renderCore_after', n=3))
-    print('PRIMARYFREEZE1C_DIFF_BEGIN')
+            fromfile='primary_renderCore_before', tofile='primary_renderCore_after', n=3))
+    print('PRIMARYFREEZE1D_DIFF_BEGIN')
     print(primary_diff[:16000])
-    print('PRIMARYFREEZE1C_DIFF_END')
+    print('PRIMARYFREEZE1D_DIFF_END')
     raise SystemExit('NATIVEAB1A changed frozen primary renderCore: before='
                      + primary_render_core_sha + ' after=' + primary_render_core_after_sha)
 '''
 if text.count(old_final) != 1:
-    raise SystemExit('PRIMARYFREEZE1C final hash block missing/non-unique')
+    raise SystemExit('PRIMARYFREEZE1D final hash block missing/non-unique')
 text = text.replace(old_final, new_final, 1)
 
 p.write_text(text)
-print('FIXEDGAIN1A SCAFFOLDHASH1A + PRIMARYFREEZE1C applied')
-print(' - balanced-brace primary renderCore extraction active')
-print(' - obsolete prospective boundary self-check removed only inside scaffold')
-print(' - any real production mutation emits a bounded unified diff before failing')
+print('FIXEDGAIN1A SCAFFOLDHASH1A + SCAFFOLDINSERT1A + PRIMARYFREEZE1D applied')
+print(' - prospective sibling insertion offset is recomputed after import edits')
+print(' - production renderCore is protected by balanced-brace before/after SHA')
+print(' - obsolete historical boundary self-check removed only inside scaffold')
