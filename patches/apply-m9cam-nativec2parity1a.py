@@ -8,24 +8,26 @@ if len(sys.argv) != 2:
 
 root = Path(sys.argv[1]).resolve()
 if not (root / 'app').is_dir():
-    raise SystemExit('NATIVEC2PARITY1A: not a PhotonCamera root')
+    raise SystemExit('NATIVEAPIORDER1A: not a PhotonCamera root')
 
 renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
+audit_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceCalibrationAudit1A.java'
 gradle_path = root / 'app/build.gradle'
-if not renderer_path.exists() or not gradle_path.exists():
-    raise SystemExit('NATIVEC2PARITY1A: assembled renderer/build.gradle missing')
+if not renderer_path.exists() or not audit_path.exists() or not gradle_path.exists():
+    raise SystemExit('NATIVEAPIORDER1A: assembled renderer/audit/build.gradle missing')
 
 renderer = renderer_path.read_text()
+audit = audit_path.read_text()
 gradle = gradle_path.read_text()
 
 
 def extract_method(src, marker):
     start = src.find(marker)
     if start < 0:
-        raise SystemExit('NATIVEC2PARITY1A method marker missing: ' + marker)
+        raise SystemExit('NATIVEAPIORDER1A method marker missing: ' + marker)
     brace = src.find('{', start)
     if brace < 0:
-        raise SystemExit('NATIVEC2PARITY1A opening brace missing: ' + marker)
+        raise SystemExit('NATIVEAPIORDER1A opening brace missing: ' + marker)
     depth = 0
     i = brace
     state = 'code'
@@ -35,126 +37,138 @@ def extract_method(src, marker):
         ch = src[i]
         nxt = src[i + 1] if i + 1 < len(src) else ''
         if state == 'line_comment':
-            if ch == '\n':
-                state = 'code'
+            if ch == '\n': state = 'code'
         elif state == 'block_comment':
-            if ch == '*' and nxt == '/':
-                state = 'code'
-                i += 1
+            if ch == '*' and nxt == '/': state = 'code'; i += 1
         elif state == 'string':
-            if escape:
-                escape = False
-            elif ch == '\\':
-                escape = True
-            elif ch == quote:
-                state = 'code'
+            if escape: escape = False
+            elif ch == '\\': escape = True
+            elif ch == quote: state = 'code'
         else:
-            if ch == '/' and nxt == '/':
-                state = 'line_comment'
-                i += 1
-            elif ch == '/' and nxt == '*':
-                state = 'block_comment'
-                i += 1
-            elif ch in ('"', "'"):
-                state = 'string'
-                quote = ch
-                escape = False
-            elif ch == '{':
-                depth += 1
+            if ch == '/' and nxt == '/': state = 'line_comment'; i += 1
+            elif ch == '/' and nxt == '*': state = 'block_comment'; i += 1
+            elif ch in ('"', "'"): state = 'string'; quote = ch; escape = False
+            elif ch == '{': depth += 1
             elif ch == '}':
                 depth -= 1
                 if depth == 0:
                     return start, i + 1, src[start:i + 1]
         i += 1
-    raise SystemExit('NATIVEC2PARITY1A unterminated method: ' + marker)
+    raise SystemExit('NATIVEAPIORDER1A unterminated method: ' + marker)
 
 
-# Frozen production photographic core must remain byte-identical.
+# Frozen production M9 photographic core must remain byte-identical.
 _, _, primary_before = extract_method(renderer, '    private static RenderCore renderCore(')
 primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
 
-# Runtime field evidence from NATIVEWPCLIP1A showed that the prospective JPEG branch
-# still produced the exact sensor->XYZ result of a transposed ForwardMatrix, while
-# SOURCECAL2A audit produced the intended getElement(row,column) result from the same
-# CameraCharacteristics/CaptureResult. Remove any ambiguity by replacing the helper
-# wholesale after all historical prospective scaffolding has assembled.
-method_start, method_end, old_method = extract_method(
+# Android ColorSpaceTransform stores values row-major, but getElement takes
+# (column,row), not (row,column). Avoid that API-order trap entirely by using
+# copyElements(), whose contract is explicitly row-major. Apply the SAME extraction
+# to the experimental renderer and SOURCECAL audit so their numeric oracle can match.
+renderer_start, renderer_end, _ = extract_method(
     renderer, '    private static float[] nativeProspectiveTransform(')
-new_method = '''    private static float[] nativeProspectiveTransform(ColorSpaceTransform transform) {
-        // NATIVEC2PARITY1A: exact parity with M9SourceCalibrationAudit1A.transform().
-        // Camera2/DNG matrices are copied directly as getElement(row,column), row-major.
-        // The historical Converter helper transposes getElement(j,i); field diagnostics
-        // proved that convention green-shifted the A/B JPEGs, so it is bypassed here.
+renderer_helper = '''    private static float[] nativeProspectiveTransform(ColorSpaceTransform transform) {
+        // NATIVEAPIORDER1A: Android-safe row-major extraction.
+        // ColorSpaceTransform.getElement is (column,row); copyElements() avoids
+        // accidental transpose and returns the documented row-major sequence.
         if (transform == null) return null;
+        Rational[] elements = new Rational[9];
+        transform.copyElements(elements, 0);
         float[] out = new float[9];
-        for (int r = 0; r < 3; r++) {
-            for (int c = 0; c < 3; c++) {
-                Rational v = transform.getElement(r, c);
-                out[r * 3 + c] = v != null ? v.floatValue() : Float.NaN;
-            }
+        for (int i = 0; i < 9; i++) {
+            Rational v = elements[i];
+            out[i] = v != null ? v.floatValue() : Float.NaN;
         }
         return out;
     }'''
-renderer = renderer[:method_start] + new_method + renderer[method_end:]
+renderer = renderer[:renderer_start] + renderer_helper + renderer[renderer_end:]
 
-# Make each experimental render self-identifying. The next field test can compare
-# nativeInterpolationFactor + nativeSensorToXYZD50 against SOURCECAL1A and parity
-# should be numerical, not merely a textual convention claim.
+audit_start, audit_end, _ = extract_method(
+    audit, '    private static float[] transform(')
+audit_helper = '''    private static float[] transform(ColorSpaceTransform t) {
+        // NATIVEAPIORDER1A: same Android-safe row-major extraction as renderer.
+        // copyElements() is specified to emit the 3x3 matrix in row-major order.
+        if (t == null) return null;
+        Rational[] elements = new Rational[9];
+        t.copyElements(elements, 0);
+        float[] out = new float[9];
+        for (int i = 0; i < 9; i++) {
+            Rational v = elements[i];
+            out[i] = v != null ? v.floatValue() : Float.NaN;
+        }
+        return out;
+    }'''
+audit = audit[:audit_start] + audit_helper + audit[audit_end:]
+
+# Correct the misleading SOURCECAL2A convention label. The old text claimed
+# getElement(row,column), which is not Android's method signature/semantics.
+audit = audit.replace(
+    'out.put("matrixStorageConvention", "row_major_getElement_row_column");',
+    'out.put("matrixStorageConvention", "android_ColorSpaceTransform_copyElements_row_major");')
+
+# Replace the experimental diagnostic block inserted by the prior parity attempt.
 pros_start, pros_end, prospective = extract_method(
     renderer, '    private static RenderCore renderNativeProspectiveCore(')
-diag_anchor = '            d.put("forwardMatrixConvention", "D50_normalized_only");\n'
-diag_insert = diag_anchor + '''            d.put("nativeMatrixExtractionPolicy", "NATIVEC2PARITY1A_getElement_row_column_direct");
+old_diag = '''            d.put("nativeMatrixExtractionPolicy", "NATIVEC2PARITY1A_getElement_row_column_direct");
             d.put("nativeMatrixParityOracle", "M9_SOURCECAL1A_same_capture_nativeInterpolationFactor_and_nativeSensorToXYZD50");
-            d.put("converterConvertColorspaceTransformUsed", false);
-'''
-if prospective.count(diag_anchor) != 1:
-    raise SystemExit('NATIVEC2PARITY1A prospective convention diagnostic anchor missing/non-unique')
-prospective = prospective.replace(diag_anchor, diag_insert, 1)
+            d.put("converterConvertColorspaceTransformUsed", false);'''
+new_diag = '''            d.put("nativeMatrixExtractionPolicy", "NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major");
+            d.put("nativeMatrixApiSemantics", "storage_row_major_getElement_signature_column_row_copyElements_used");
+            d.put("nativeMatrixParityOracle", "M9_SOURCECAL1A_same_capture_nativeInterpolationFactor_and_nativeSensorToXYZD50");
+            d.put("converterConvertColorspaceTransformUsed", false);'''
+if prospective.count(old_diag) != 1:
+    raise SystemExit('NATIVEAPIORDER1A old prospective matrix diagnostic block missing/non-unique')
+prospective = prospective.replace(old_diag, new_diag, 1)
 renderer = renderer[:pros_start] + prospective + renderer[pros_end:]
 
-# Verify helper is direct row-major and contains no executable transpose-helper call.
-_, _, helper_after = extract_method(
+# Scientific parity guards: both paths must use the identical row-major extraction
+# primitive and the SOURCECAL2A rule of preserving ColorMatrix while normalizing only
+# ForwardMatrix must still be present on both sides.
+_, _, renderer_helper_after = extract_method(
     renderer, '    private static float[] nativeProspectiveTransform(')
-for required in [
-        'transform.getElement(r, c)',
-        'out[r * 3 + c]',
-        'NATIVEC2PARITY1A']:
-    if required not in helper_after:
-        raise SystemExit('NATIVEC2PARITY1A helper marker missing: ' + required)
-if 'Converter.convertColorspaceTransform(transform, out);' in helper_after:
-    raise SystemExit('NATIVEC2PARITY1A executable transpose helper survived in prospective transform')
+_, _, audit_helper_after = extract_method(audit, '    private static float[] transform(')
+for label, helper in [('renderer', renderer_helper_after), ('audit', audit_helper_after)]:
+    for required in ['copyElements(elements, 0)', 'Rational[] elements = new Rational[9]']:
+        if required not in helper:
+            raise SystemExit('NATIVEAPIORDER1A ' + label + ' extraction marker missing: ' + required)
+    if 'getElement(' in helper or 'Converter.convertColorspaceTransform' in helper:
+        raise SystemExit('NATIVEAPIORDER1A ' + label + ' ambiguous matrix accessor survived')
 
-# Re-check frozen production renderCore after additive prospective edits.
+_, _, source_method = extract_method(renderer, '    private static NativeProspectiveSource buildNativeProspectiveSource(')
+for label, body in [('renderer', source_method), ('audit', audit)]:
+    if 'Converter.normalizeFM(ncm1);' in body or 'Converter.normalizeFM(ncm2);' in body:
+        raise SystemExit('NATIVEAPIORDER1A ' + label + ' incorrectly normalizes ColorMatrix')
+    for required in ['Converter.normalizeFM(nfm1);', 'Converter.normalizeFM(nfm2);',
+                     'Converter.findDngInterpolationFactor(',
+                     'Converter.calculateCameraToXYZD50Transform(']:
+        if required not in body:
+            raise SystemExit('NATIVEAPIORDER1A ' + label + ' DNG transform marker missing: ' + required)
+
+# Frozen production core remains untouched.
 _, _, primary_after = extract_method(renderer, '    private static RenderCore renderCore(')
 primary_after_sha = hashlib.sha256(primary_after.encode('utf-8')).hexdigest()
 if primary_after_sha != primary_sha:
-    raise SystemExit('NATIVEC2PARITY1A changed frozen primary renderCore: before='
+    raise SystemExit('NATIVEAPIORDER1A changed frozen primary renderCore: before='
                      + primary_sha + ' after=' + primary_after_sha)
 
-# Distinct internal provenance. APKNAME1A keeps physical filename short.
-for old_suffix in [
-        '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-nativewpclip1a-jsonsafe1a',
-        '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativewpclip1a',
-        '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-nativewpclip1a']:
-    if old_suffix in gradle:
-        new_suffix = old_suffix + '-nativec2parity1a'
-        gradle = gradle.replace(old_suffix, new_suffix, 1)
-        break
-else:
-    # Version suffix order has changed repeatedly during this scientific branch;
-    # do not fail a pixel fix merely because JSONSAFE1A is applied later in workflow.
-    if '-nativec2parity1a' not in gradle:
+# Distinct provenance. APKNAME1A keeps the physical filename short.
+if '-nativeapiorder1a' not in gradle:
+    if '-nativec2parity1a' in gradle:
+        gradle = gradle.replace('-nativec2parity1a', '-nativec2parity1a-nativeapiorder1a', 1)
+    else:
         marker = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a'
         if marker not in gradle:
-            raise SystemExit('NATIVEC2PARITY1A build identity anchor missing')
-        gradle = gradle.replace(marker, marker + '-nativec2parity1a', 1)
+            raise SystemExit('NATIVEAPIORDER1A build identity anchor missing')
+        gradle = gradle.replace(marker, marker + '-nativeapiorder1a', 1)
 
 renderer_path.write_text(renderer)
+audit_path.write_text(audit)
 gradle_path.write_text(gradle)
 
-print('M9 NATIVEC2PARITY1A applied')
-print(' - prospective Camera2 matrices now copied directly getElement(row,column)')
-print(' - executable transpose-helper path removed from experimental helper')
-print(' - next field test must match SOURCECAL1A interpolation factor + sensorToXYZD50')
-print(' - NATIVEWPCLIP1A channel clipping remains in place')
+print('M9 NATIVEAPIORDER1A applied')
+print(' - Android ColorSpaceTransform extracted via copyElements() row-major on BOTH audit and renderer')
+print(' - incorrect getElement(row,column) interpretation removed')
+print(' - SOURCECAL2A ColorMatrix preserved; ForwardMatrix-only normalization retained')
+print(' - next field test must numerically match audit/renderer interpolation + sensorToXYZD50')
+print(' - NATIVEWPCLIP1A remains in place; no exposure/HDR/M9 target changes')
 print(' - frozen primary renderCore sha256 preserved:', primary_sha)
