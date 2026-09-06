@@ -1,4 +1,4 @@
-name: Build M9Cam CHROMAEXPOSURE1C-ARBITRATION1A-FROZENSAMPLES1A-LIVE1
+name: Build M9Cam RAWSHADING1A-GAINMAPAUDIT1A-MULTILENS
 
 on:
   workflow_dispatch:
@@ -13,29 +13,15 @@ jobs:
       - name: Checkout M9 recovery repo
         uses: actions/checkout@v4
 
-      - name: Verify offline/research, LIVE1, DNG and chroma patch syntax
+      - name: Verify RAWSHADING1A patch syntax
         run: |
-          python3 -m py_compile research/tc20intent1a_replay.py
-          python3 -m py_compile research/tc20placement1a_replay.py
-          python3 -m py_compile research/tc20regionalkey1a_replay.py
-          python3 -m py_compile research/tc20lowkey1a_replay.py
-          python3 -m py_compile research/tc20placementstage1a_replay.py
-          python3 -m py_compile research/m9edgeplacement1a_rendergrid.py
-          python3 -m py_compile patches/apply-m9cam-edgeplacementgate1a.py
-          python3 -m py_compile patches/fix-m9cam-edgeplacementgate1a-jsonexception.py
-          python3 -m py_compile patches/verify-m9cam-edgeplacementgate1a.py
-          python3 -m py_compile patches/apply-m9cam-edgeplacementbestfit2a-live1.py
-          python3 -m py_compile patches/verify-m9cam-edgeplacementbestfit2a-live1.py
-          python3 -m py_compile patches/apply-m9cam-edgeplacementbestfit2a-live1-fix1.py
-          python3 -m py_compile patches/verify-m9cam-edgeplacementbestfit2a-live1-fix1.py
+          python3 -m py_compile patches/apply-m9cam-recovery-foundation.py
+          python3 -m py_compile patches/apply-m9cam-recovered-v0.6.1.py
+          python3 -m py_compile patches/apply-m9cam-v0.7-r35-parity.py
           python3 -m py_compile patches/apply-m9cam-dnggainmapfix1a.py
           python3 -m py_compile patches/verify-m9cam-dnggainmapfix1a.py
-          python3 -m py_compile patches/apply-m9cam-chromaexposure1a-greenaxis.py
-          python3 -m py_compile patches/verify-m9cam-chromaexposure1a-greenaxis.py
-          python3 -m py_compile patches/apply-m9cam-chromaexposure1b-localneutral1a.py
-          python3 -m py_compile patches/verify-m9cam-chromaexposure1b-localneutral1a.py
-          python3 -m py_compile patches/apply-m9cam-chromaexposure1c-arbitration1a-frozensamples1a.py
-          python3 -m py_compile patches/verify-m9cam-chromaexposure1c-arbitration1a-frozensamples1a.py
+          python3 -m py_compile patches/apply-m9cam-rawshading1a-gainmapaudit1a.py
+          python3 -m py_compile patches/verify-m9cam-rawshading1a-gainmapaudit1a.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -47,7 +33,7 @@ jobs:
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply and verify cumulative M9 chain through CHROMAEXPOSURE1C
+      - name: Apply and verify frozen M9 chain through RAWSHADING1A
         shell: bash
         run: |
           set -o pipefail
@@ -135,13 +121,12 @@ jobs:
             run_patch apply-m9cam-dnggainmapfix1a.py
             run_patch verify-m9cam-dnggainmapfix1a.py
 
-            run_patch apply-m9cam-chromaexposure1a-greenaxis.py
-            run_patch verify-m9cam-chromaexposure1a-greenaxis.py
-            run_patch apply-m9cam-chromaexposure1b-localneutral1a.py
-            run_patch verify-m9cam-chromaexposure1b-localneutral1a.py
-            run_patch apply-m9cam-chromaexposure1c-arbitration1a-frozensamples1a.py
-            run_patch verify-m9cam-chromaexposure1c-arbitration1a-frozensamples1a.py
-          } 2>&1 | tee "$GITHUB_WORKSPACE/CHROMAEXPOSURE1C_ARBITRATION1A_FROZENSAMPLES1A_LIVE1_PATCH.log"
+            # RAWSHADING1A intentionally replaces the active chroma-exposure experiment.
+            # CHROMAEXPOSURE1A/1B/1C scripts remain preserved in the repository but are
+            # NOT applied in this build so the shading audit has no downstream green fix.
+            run_patch apply-m9cam-rawshading1a-gainmapaudit1a.py
+            run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
+          } 2>&1 | tee "$GITHUB_WORKSPACE/RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_PATCH.log"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -162,22 +147,22 @@ jobs:
           set -o pipefail
           cd PhotonCamera
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/CHROMAEXPOSURE1C_ARBITRATION1A_FROZENSAMPLES1A_LIVE1_GRADLE.log"
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_GRADLE.log"
 
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-CHROMAEXPOSURE1C-ARBITRATION1A-FROZENSAMPLES1A-LIVE1-BUILDLOG
+          name: M9Cam-RAWSHADING1A-GAINMAPAUDIT1A-MULTILENS-BUILDLOG
           path: |
-            CHROMAEXPOSURE1C_ARBITRATION1A_FROZENSAMPLES1A_LIVE1_PATCH.log
-            CHROMAEXPOSURE1C_ARBITRATION1A_FROZENSAMPLES1A_LIVE1_GRADLE.log
+            RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_PATCH.log
+            RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_GRADLE.log
           if-no-files-found: ignore
 
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-CHROMAEXPOSURE1C-ARBITRATION1A-FROZENSAMPLES1A-LIVE1
+          name: M9Cam-RAWSHADING1A-GAINMAPAUDIT1A-MULTILENS
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
