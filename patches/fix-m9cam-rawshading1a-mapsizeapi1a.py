@@ -77,7 +77,8 @@ patch_dir = Path(__file__).resolve().parent
 for script in [
     'apply-m9cam-sourcecal1a-nativecamera2audit1a.py',
     'fix-m9cam-sourcecal1a-matrixconvention1a.py',
+    'fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py',
     'verify-m9cam-sourcecal1a-nativecamera2audit1a.py',
 ]:
-    print('==> SOURCECAL1A bootstrap ' + script)
+    print('==> SOURCECAL1A/1B bootstrap ' + script)
     subprocess.check_call([sys.executable, str(patch_dir / script), str(root)])
