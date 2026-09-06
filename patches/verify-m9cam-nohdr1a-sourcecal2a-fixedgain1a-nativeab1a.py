@@ -74,6 +74,9 @@ require(source,
 require(source,
         'nativeForwardMatrixNormalization", "D50_forward_matrix_only"',
         'ForwardMatrix normalization diagnostic')
+require(source,
+        'matrixStorageConvention", "android_ColorSpaceTransform_copyElements_row_major"',
+        'Android-safe row-major matrix diagnostic')
 for marker in [
     'Converter.normalizeFM(ncm1);',
     'Converter.normalizeFM(ncm2);',
@@ -126,20 +129,36 @@ forbid(renderer,
        'clamp(v, 0.0, 1.0) * 65535.0',
        'old post-shading nominal clamp')
 
-# Correct Camera2 matrix extraction in the experimental source adapter.
+# Correct Camera2 matrix extraction in both the experimental source adapter and
+# SOURCECAL audit. Android ColorSpaceTransform.getElement is column,row; using
+# copyElements() removes that argument-order ambiguity and yields documented row-major.
 for marker in [
-    'Rational v = transform.getElement(r, c);',
-    'out[r * 3 + c] = v != null ? v.floatValue() : Float.NaN;',
+    'Rational[] elements = new Rational[9];',
+    'transform.copyElements(elements, 0);',
+    'out[i] = v != null ? v.floatValue() : Float.NaN;',
     'colorMatrixConvention", "row_major_DNG_XYZ_to_reference_camera_unchanged"',
     'forwardMatrixConvention", "D50_normalized_only"',
+    'nativeMatrixExtractionPolicy", "NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major"',
+    'converterConvertColorspaceTransformUsed", false',
 ]:
-    require(renderer, marker, 'row-major CMFIX source adapter')
+    require(renderer, marker, 'NATIVEAPIORDER1A renderer source adapter')
+for marker in [
+    'Rational[] elements = new Rational[9];',
+    't.copyElements(elements, 0);',
+    'out[i] = v != null ? v.floatValue() : Float.NaN;',
+]:
+    require(source, marker, 'NATIVEAPIORDER1A SOURCECAL audit')
+forbid(renderer, 'Rational v = transform.getElement(r, c);',
+       'wrong getElement(row,column) renderer extraction')
+forbid(source, 'Rational v = t.getElement(r, c);',
+       'wrong getElement(row,column) SOURCECAL extraction')
 forbid(prospective, 'Converter.normalizeFM(ncm1);', 'prospective CM1 normalization')
 forbid(prospective, 'Converter.normalizeFM(ncm2);', 'prospective CM2 normalization')
 
 # Distinct build identity.
 require(gradle, '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a',
         'corrected APK version suffix')
+require(gradle, '-nativeapiorder1a', 'NATIVEAPIORDER1A version suffix')
 
 # Numerical sanity using reviewed Xiaomi main-camera matrices from the v2.89 handoff.
 CM_D65 = [
@@ -219,10 +238,11 @@ cm_bad = normalize_fm(CM_D65)
 if max(abs(cm_bad[i]-CM_D65[i]) for i in range(9)) < 1e-3:
     raise SystemExit('verifier ColorMatrix normalization negative control unexpectedly negligible')
 
-print('M9 NOHDR1A / SOURCECAL2A-CMFIX / FIXEDGAIN1A / NATIVEAB1A verified')
+print('M9 NOHDR1A / SOURCECAL2A-CMFIX / FIXEDGAIN1A / NATIVEAB1A / NATIVEAPIORDER1A verified')
 print(' - M9 still capture requests exactly one RAW and disables bracket exposure allocation')
 print(' - SDR JPEG / no fusion / no Ultra HDR contract is explicit')
 print(' - Xiaomi ColorMatrix rows are preserved; ForwardMatrix-only D50 normalization')
+print(' - Camera2 matrices use copyElements() row-major in both renderer and SOURCECAL audit')
 print(' - native A/B reuses same-frame primary gain and contains no prospective TC20 meter')
 print(' - main physical camera 2 only; source-only and source+shading outputs are isolated')
 print(' - shading preserves >1.0 single-frame linear headroom by global representation scaling')
