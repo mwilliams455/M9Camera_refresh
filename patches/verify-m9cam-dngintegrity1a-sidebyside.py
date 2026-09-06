@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import subprocess
 import sys
 
 if len(sys.argv) != 2:
@@ -30,5 +31,10 @@ for rel, needles in checks.items():
             raise SystemExit(f"FAIL {rel}: missing {needle!r}")
         print(f"OK   {rel}: {needle}")
 
+# Verify the DNG metadata coordinate repair chained by the side-by-side patch.
+gainmap_verify = Path(__file__).with_name("verify-m9cam-dnggainmapfix1a.py")
+subprocess.run([sys.executable, str(gainmap_verify), str(root)], check=True)
+
 print("DNGINTEGRITY1A side-by-side verifier PASS")
 print("Current M9Cam and M9Cam DNG Integrity use distinct application IDs and may coexist.")
+print("DNG GainMap x/y rectangle ordering is corrected in this diagnostic APK only.")
