@@ -23,6 +23,7 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-rawshading1a-gainmapaudit1a.py
           python3 -m py_compile patches/apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
           python3 -m py_compile patches/fix-m9cam-rawshading1a-minmax1a.py
+          python3 -m py_compile patches/fix-m9cam-rawshading1a-sidecario1a.py
           python3 -m py_compile patches/verify-m9cam-rawshading1a-gainmapaudit1a.py
 
       - name: Clone pinned PhotonCamera baseline
@@ -128,6 +129,7 @@ jobs:
             # NOT applied in this build so the shading audit has no downstream green fix.
             run_patch apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
             run_patch fix-m9cam-rawshading1a-minmax1a.py
+            run_patch fix-m9cam-rawshading1a-sidecario1a.py
             run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
           } 2>&1 | tee "$GITHUB_WORKSPACE/RAWSHADING1A_GAINMAPAUDIT1A_MULTILENS_PATCH.log"
 
