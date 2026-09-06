@@ -49,9 +49,15 @@ for marker in [
     'gainMapApplicationEnabled", false',
     'fixedTc20ComparisonEnabled", false',
     'phase", "A_metadata_semantics_audit',
+    'M9DiagnosticSidecarIO.persist(',
+    'M9DiagnosticSidecarIO.SCHEMA',
+    'raw_shading_audit',
+    'sidecarPersisted',
 ]:
     if marker not in audit:
         raise SystemExit('RAWSHADING1A audit marker missing: ' + marker)
+if 'Files.write(sidecar' in audit:
+    raise SystemExit('RAWSHADING1A must not depend on direct Files.write for public sidecar persistence')
 
 renderer = require(renderer_rel, 'M9RawShadingAudit1A.captureAndWrite(')
 for marker in [
@@ -86,5 +92,5 @@ print('M9RAWSHADING1A GAINMAPAUDIT1A verification OK')
 print(' - Camera2 lens-shading semantics and live GainMap audit present')
 print(' - four-channel min/max, centre, edge and corner GainMap measurements present')
 print(' - camera/physical IDs, focal length, CFA and sensor/crop geometry recorded for multi-lens mapping')
-print(' - separate *_M9_RAWSHADING1A.json emitted before renderCore')
+print(' - *_M9_RAWSHADING1A.json uses established direct-first/SAF-fallback diagnostic transport')
 print(' - GainMap application remains OFF; current BESTFIT2A/TC20 photographic path unchanged')
