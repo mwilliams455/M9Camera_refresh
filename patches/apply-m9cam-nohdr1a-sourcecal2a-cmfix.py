@@ -91,8 +91,10 @@ new='''                // SOURCECAL2A_CMFIX: preserve DNG XYZ->camera ColorMatri
                 Converter.normalizeFM(nfm2);
 '''
 source=once(source,old,new,'SOURCECAL2A ColorMatrix normalization')
-phase='            out.put("phase", "A_native_metadata_and_transform_audit");\n'
-source=once(source,phase,phase+'''            out.put("sourceCalibrationRevision", "SOURCECAL2A_CMFIX");
+# SOURCECAL1B deliberately revises the phase string, so anchor the new revision
+# metadata at the invariant schema write rather than an earlier phase literal.
+schema_anchor='            out.put("schema", SCHEMA);\n'
+source=once(source,schema_anchor,schema_anchor+'''            out.put("sourceCalibrationRevision", "SOURCECAL2A_CMFIX");
             out.put("nativeColorMatrixNormalization", "none_preserve_DNG_XYZ_to_reference_camera");
             out.put("nativeForwardMatrixNormalization", "D50_forward_matrix_only");
             out.put("matrixStorageConvention", "row_major_getElement_row_column");
