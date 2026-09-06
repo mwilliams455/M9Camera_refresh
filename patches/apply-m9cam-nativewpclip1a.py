@@ -140,3 +140,15 @@ print(' - experimental native source branches clip channels at normalized live s
 print(' - sensorToXYZD50 remains sole white-balance gain owner; no double WB introduced')
 print(' - SOURCE_ONLY / SOURCE+SHADING transform, gain and shading math otherwise unchanged')
 print(' - frozen primary renderCore sha256 preserved:', primary_sha)
+
+# NATIVEC2PARITY1A_CHAIN: field diagnostics proved the experimental renderer was
+# still feeding the exact transpose of Camera2 ForwardMatrix into the DNG transform,
+# even though SOURCECAL2A audit used getElement(row,column). Run a final assembled-
+# source override so the JPEG branch and SOURCECAL oracle share the same convention.
+c2_patch = Path(__file__).resolve().parent / 'apply-m9cam-nativec2parity1a.py'
+if not c2_patch.exists():
+    raise SystemExit('NATIVEC2PARITY1A chain file missing: ' + str(c2_patch))
+c2_code = compile(c2_patch.read_text(), str(c2_patch), 'exec')
+c2_globals = {'__name__': '__main__', '__file__': str(c2_patch)}
+exec(c2_code, c2_globals, c2_globals)
+print(' - NATIVEC2PARITY1A chained after channel clipping')
