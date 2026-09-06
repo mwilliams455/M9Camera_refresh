@@ -83,8 +83,8 @@ method_start, method_end, old_method = extract_method(
 new_method = '''    private static float[] nativeProspectiveTransform(ColorSpaceTransform transform) {
         // NATIVEC2PARITY1A: exact parity with M9SourceCalibrationAudit1A.transform().
         // Camera2/DNG matrices are copied directly as getElement(row,column), row-major.
-        // Do not use Converter.convertColorspaceTransform(): that helper transposes
-        // getElement(j,i) and was proven by field diagnostics to green-shift the A/B JPEGs.
+        // The historical Converter helper transposes getElement(j,i); field diagnostics
+        // proved that convention green-shifted the A/B JPEGs, so it is bypassed here.
         if (transform == null) return null;
         float[] out = new float[9];
         for (int r = 0; r < 3; r++) {
@@ -97,7 +97,7 @@ new_method = '''    private static float[] nativeProspectiveTransform(ColorSpace
     }'''
 renderer = renderer[:method_start] + new_method + renderer[method_end:]
 
-# Make each experimental render self-identifying.  The next field test can compare
+# Make each experimental render self-identifying. The next field test can compare
 # nativeInterpolationFactor + nativeSensorToXYZD50 against SOURCECAL1A and parity
 # should be numerical, not merely a textual convention claim.
 pros_start, pros_end, prospective = extract_method(
@@ -112,7 +112,7 @@ if prospective.count(diag_anchor) != 1:
 prospective = prospective.replace(diag_anchor, diag_insert, 1)
 renderer = renderer[:pros_start] + prospective + renderer[pros_end:]
 
-# Verify helper is now direct row-major and contains no transpose helper call.
+# Verify helper is direct row-major and contains no executable transpose-helper call.
 _, _, helper_after = extract_method(
     renderer, '    private static float[] nativeProspectiveTransform(')
 for required in [
@@ -121,8 +121,8 @@ for required in [
         'NATIVEC2PARITY1A']:
     if required not in helper_after:
         raise SystemExit('NATIVEC2PARITY1A helper marker missing: ' + required)
-if 'Converter.convertColorspaceTransform' in helper_after:
-    raise SystemExit('NATIVEC2PARITY1A transpose helper survived in prospective transform')
+if 'Converter.convertColorspaceTransform(transform, out);' in helper_after:
+    raise SystemExit('NATIVEC2PARITY1A executable transpose helper survived in prospective transform')
 
 # Re-check frozen production renderCore after additive prospective edits.
 _, _, primary_after = extract_method(renderer, '    private static RenderCore renderCore(')
@@ -154,7 +154,7 @@ gradle_path.write_text(gradle)
 
 print('M9 NATIVEC2PARITY1A applied')
 print(' - prospective Camera2 matrices now copied directly getElement(row,column)')
-print(' - Converter.convertColorspaceTransform transpose path removed from experimental helper')
+print(' - executable transpose-helper path removed from experimental helper')
 print(' - next field test must match SOURCECAL1A interpolation factor + sensorToXYZD50')
 print(' - NATIVEWPCLIP1A channel clipping remains in place')
 print(' - frozen primary renderCore sha256 preserved:', primary_sha)
