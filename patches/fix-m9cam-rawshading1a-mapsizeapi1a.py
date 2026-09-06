@@ -71,14 +71,15 @@ print(' - diagnostic-only change; RAW/JPEG/TC20/DNG pixel behavior untouched')
 
 # This SOURCECAL branch intentionally inherits the already-frozen RAWSHADING workflow.
 # Chain the source-calibration audit here so the existing workflow exercises both diagnostic
-# layers without duplicating the long frozen M9 patch sequence. This branch-only bootstrap can
-# be removed once SOURCECAL is promoted to its own permanent workflow stage.
+# layers without duplicating the long frozen M9 patch sequence. SOURCECAL1C must run before
+# SOURCECAL1B because 1B deliberately replaces the original phase marker used by 1C's audit
+# insertion; the diagnostic fields then survive the 1B role-split replacement unchanged.
 patch_dir = Path(__file__).resolve().parent
 for script in [
     'apply-m9cam-sourcecal1a-nativecamera2audit1a.py',
     'fix-m9cam-sourcecal1a-matrixconvention1a.py',
-    'fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py',
     'fix-m9cam-sourcecal1c-physicalresult1a.py',
+    'fix-m9cam-sourcecal1b-embeddedcalibrationroles1a.py',
     'verify-m9cam-sourcecal1a-nativecamera2audit1a.py',
     'verify-m9cam-sourcecal1c-physicalresult1a.py',
 ]:
