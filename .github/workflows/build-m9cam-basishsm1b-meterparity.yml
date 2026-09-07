@@ -29,7 +29,9 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-basishsm1a-fix2.py
           python3 -m py_compile patches/verify-m9cam-basishsm1a.py
           python3 -m py_compile patches/apply-m9cam-basishsm1b-meterparity1a.py
+          python3 -m py_compile patches/apply-m9cam-basishsm1b-meterparity1a-fix1.py
           python3 -m py_compile patches/verify-m9cam-basishsm1b-meterparity1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1b-meterparity1a-fix1.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -208,8 +210,8 @@ jobs:
             run_patch verify-m9cam-basishsm1a.py
 
             # New experiment: colour role is frozen; only meter ownership is isolated.
-            run_patch apply-m9cam-basishsm1b-meterparity1a.py
-            run_patch verify-m9cam-basishsm1b-meterparity1a.py
+            run_patch apply-m9cam-basishsm1b-meterparity1a-fix1.py
+            run_patch verify-m9cam-basishsm1b-meterparity1a-fix1.py
           } 2>&1 | tee "$GITHUB_WORKSPACE/BASISHSM1B_METERPARITY1A_PATCH.log"
 
       - name: Set up JDK 17
