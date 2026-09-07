@@ -1,0 +1,241 @@
+name: Build M9Cam BRIDGEPROBE1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - m9nohdr1a-sourcecal2a-bridgeprobe1a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout M9 recovery repo
+        uses: actions/checkout@v4
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-nohdr1a-sourcecal2a-cmfix.py
+          python3 -m py_compile patches/apply-m9cam-fixedgain1a-nativeab1a.py
+          python3 -m py_compile patches/fix-m9cam-fixedgain1a-scaffoldhash1a.py
+          python3 -m py_compile patches/apply-m9cam-nativewpclip1a.py
+          python3 -m py_compile patches/apply-m9cam-nativec2parity1a.py
+          python3 -m py_compile patches/apply-m9cam-bridgeprobe1a.py
+          python3 -m py_compile patches/verify-m9cam-bridgeprobe1a.py
+
+      - name: Clone pinned PhotonCamera baseline
+        run: |
+          set -euo pipefail
+          PHOTON_SHA=f0e6425d2509fb8ab834d5d3af593183038b778c
+          git clone --depth 1 --branch dev https://github.com/eszdman/PhotonCamera.git PhotonCamera
+          git -C PhotonCamera fetch --depth 1 origin "$PHOTON_SHA"
+          git -C PhotonCamera checkout --detach FETCH_HEAD
+          test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
+          git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
+
+      - name: Apply frozen M9 chain and BRIDGEPROBE1A
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            set -euo pipefail
+            ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+            P="$GITHUB_WORKSPACE/patches"
+            run_patch() { echo "==> $1"; python3 "$P/$1" "$ROOT"; }
+
+            run_patch apply-m9cam-recovery-foundation.py
+            run_patch apply-m9cam-recovered-v0.6.1.py
+            run_patch apply-m9cam-v0.7-r35-parity.py
+            run_patch verify-m9cam-v0.7-r35.py
+
+            run_patch apply-m9cam-exposureaudit1a.py
+            run_patch verify-m9cam-exposureaudit1a.py
+            run_patch apply-m9cam-sceneexposure1a.py
+            run_patch verify-m9cam-sceneexposure1a.py
+            run_patch apply-m9cam-sceneexposure1b.py
+            run_patch verify-m9cam-sceneexposure1b.py
+            run_patch apply-m9cam-sceneexposure1c.py
+            run_patch verify-m9cam-sceneexposure1c.py
+            run_patch apply-m9cam-sceneexposure1d.py
+            run_patch verify-m9cam-sceneexposure1d.py
+            run_patch apply-m9cam-sceneexposure1e.py
+            run_patch verify-m9cam-sceneexposure1e.py
+            run_patch apply-m9cam-sceneexposure1f.py
+            run_patch verify-m9cam-sceneexposure1f.py
+            run_patch apply-m9cam-sceneexposure1g.py
+            run_patch verify-m9cam-sceneexposure1g.py
+            run_patch apply-m9cam-sceneexposure1h.py
+            run_patch verify-m9cam-sceneexposure1h.py
+
+            run_patch apply-m9cam-capturesplit1a.py
+            run_patch verify-m9cam-capturesplit1a.py
+            run_patch apply-m9cam-capturesplit1b.py
+            run_patch verify-m9cam-capturesplit1b.py
+            run_patch apply-m9cam-capturesplit1c.py
+            run_patch verify-m9cam-capturesplit1c.py
+
+            run_patch apply-m9cam-m9negative1a.py
+            run_patch verify-m9cam-m9negative1a.py
+            run_patch apply-m9cam-m9negative1b-scenefingerprint1a.py
+            run_patch verify-m9cam-m9negative1b-scenefingerprint1a.py
+            run_patch apply-m9cam-m9negative1c-signedcal1a.py
+            run_patch verify-m9cam-m9negative1c-signedcal1a.py
+
+            run_patch apply-m9cam-virtualbv1a.py
+            run_patch apply-m9cam-virtualbv1a-cal1a.py
+            run_patch verify-m9cam-virtualbv1a.py
+            run_patch apply-m9cam-constraintsplit1a.py
+            run_patch verify-m9cam-constraintsplit1a.py
+            run_patch apply-m9cam-constraintsplit1a-fix1.py
+            run_patch verify-m9cam-constraintsplit1a-fix1.py
+            run_patch apply-m9cam-exactid1a.py
+            run_patch verify-m9cam-exactid1a.py
+            run_patch apply-m9cam-constraintref1a.py
+            run_patch verify-m9cam-constraintref1a.py
+            run_patch apply-m9cam-virtualbv-spatial1b.py
+            run_patch verify-m9cam-virtualbv-spatial1b.py
+            run_patch apply-m9cam-foregroundguard1a.py
+            run_patch verify-m9cam-foregroundguard1a.py
+            run_patch apply-m9cam-constraintlocal1a.py
+            run_patch verify-m9cam-constraintlocal1a.py
+            run_patch apply-m9cam-photometricnorm1a.py
+            run_patch verify-m9cam-photometricnorm1a.py
+            run_patch apply-m9cam-constraintnearest1a.py
+            run_patch verify-m9cam-constraintnearest1a.py
+            run_patch apply-m9cam-constrainttie1a.py
+            run_patch verify-m9cam-constrainttie1a.py
+            run_patch apply-m9cam-currentframeceiling1a.py
+            run_patch verify-m9cam-currentframeceiling1a.py
+            run_patch apply-m9cam-m10r-mfmtest1a.py
+            run_patch fix-m9cam-m10r-mfmtest1a-jsonarray1a.py
+            run_patch verify-m9cam-m10r-mfmtest1a.py
+
+            run_patch apply-m9cam-metadatafix1a.py
+            run_patch verify-m9cam-metadatafix1a.py
+            run_patch apply-m9cam-edgeplacementgate1a.py
+            run_patch fix-m9cam-edgeplacementgate1a-jsonexception.py
+            run_patch verify-m9cam-edgeplacementgate1a.py
+            run_patch apply-m9cam-edgeplacementbestfit2a-live1-fix1.py
+            run_patch verify-m9cam-edgeplacementbestfit2a-live1-fix1.py
+
+            run_patch apply-m9cam-dnggainmapfix1a.py
+            run_patch verify-m9cam-dnggainmapfix1a.py
+
+            # Colour-source experiment remains single-frame and independent of chroma exposure work.
+            run_patch apply-m9cam-rawshading1a-gainmapaudit1a-fix1.py
+            run_patch fix-m9cam-rawshading1a-minmax1a.py
+            run_patch fix-m9cam-rawshading1a-sidecario1a.py
+            run_patch fix-m9cam-rawshading1a-mapsizeapi1a.py
+            run_patch verify-m9cam-rawshading1a-gainmapaudit1a.py
+            run_patch fix-m9cam-sourcecal1d-sidecarspool1a.py
+            run_patch verify-m9cam-sourcecal1d-sidecarspool1a.py
+
+            run_patch apply-m9cam-nohdr1a-sourcecal2a-cmfix.py
+            echo "==> fix-m9cam-fixedgain1a-scaffoldhash1a.py"
+            python3 "$P/fix-m9cam-fixedgain1a-scaffoldhash1a.py"
+            run_patch apply-m9cam-fixedgain1a-nativeab1a.py
+
+            # JSONSAFE1A: the fixed-gain diagnostic has no newly measured P98.
+            echo "==> JSONSAFE1A prospective diagnostic serialization"
+            python3 - "$ROOT" <<'PY'
+          from pathlib import Path
+          import hashlib
+          import sys
+
+          root = Path(sys.argv[1]).resolve()
+          renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
+          gradle_path = root / 'app/build.gradle'
+          renderer = renderer_path.read_text()
+
+          def extract_top_method(src, marker):
+              start = src.find(marker)
+              if start < 0:
+                  raise SystemExit('JSONSAFE1A method marker missing: ' + marker)
+              end = src.find('\n    private static ', start + len(marker))
+              if end < 0:
+                  raise SystemExit('JSONSAFE1A next method marker missing: ' + marker)
+              return start, end, src[start:end]
+
+          _, _, primary_before = extract_top_method(renderer, '    private static RenderCore renderCore(')
+          primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
+          start, end, prospective = extract_top_method(renderer, '    private static RenderCore renderNativeProspectiveCore(')
+          old = '            d.put("legacyP98Proxy", meter.p98);'
+          new = '''            if (Double.isFinite(meter.p98)) {
+              d.put("legacyP98Proxy", meter.p98);
+              d.put("legacyP98ProxyState", "measured");
+          } else {
+              d.put("legacyP98Proxy", JSONObject.NULL);
+              d.put("legacyP98ProxyState", "not_measured_fixed_primary_gain");
+          }'''
+          if prospective.count(old) != 1:
+              raise SystemExit('JSONSAFE1A expected exactly one prospective legacyP98Proxy anchor, got ' + str(prospective.count(old)))
+          prospective = prospective.replace(old, new, 1)
+          renderer = renderer[:start] + prospective + renderer[end:]
+          _, _, primary_after = extract_top_method(renderer, '    private static RenderCore renderCore(')
+          if hashlib.sha256(primary_after.encode('utf-8')).hexdigest() != primary_sha:
+              raise SystemExit('JSONSAFE1A changed frozen primary renderCore')
+          renderer_path.write_text(renderer)
+
+          gradle = gradle_path.read_text()
+          base_suffix = '-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a'
+          jsonsafe_suffix = base_suffix + '-jsonsafe1a'
+          if base_suffix not in gradle:
+              raise SystemExit('JSONSAFE1A build identity anchor missing')
+          if jsonsafe_suffix not in gradle:
+              gradle = gradle.replace(base_suffix, jsonsafe_suffix, 1)
+              gradle_path.write_text(gradle)
+          print('M9 NATIVEAB1A JSONSAFE1A applied')
+          print(' - frozen primary renderCore sha256 preserved:', primary_sha)
+          PY
+
+            # Make the v2.91 field-validated source path explicit in this workflow.
+            # NATIVEWPCLIP1A chains NATIVEAPIORDER1A (copyElements row-major parity).
+            run_patch apply-m9cam-nativewpclip1a.py
+            run_patch verify-m9cam-nohdr1a-sourcecal2a-fixedgain1a-nativeab1a.py
+
+            # New colour-role isolation only after the validated source path is assembled.
+            run_patch apply-m9cam-bridgeprobe1a.py
+            run_patch verify-m9cam-bridgeprobe1a.py
+          } 2>&1 | tee "$GITHUB_WORKSPACE/BRIDGEPROBE1A_PATCH.log"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/BRIDGEPROBE1A_GRADLE.log"
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BRIDGEPROBE1A-BUILDLOG
+          path: |
+            BRIDGEPROBE1A_PATCH.log
+            BRIDGEPROBE1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload APK and upstream commit
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BRIDGEPROBE1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            PHOTON_UPSTREAM_COMMIT.txt
+          if-no-files-found: error
