@@ -1,0 +1,63 @@
+    // BASISHSM1L-SHADINGLUMADECOMP1A. Diagnostic candidate only.
+    // Decompose each physical RGGB LensShadingMap sample into a multiplicative common
+    // illumination gain and relative per-channel gains. Alpha controls only the common
+    // term: 0=chroma-only, 0.5=diagnostic midpoint, 1=full physical luminance authority.
+    private static JSONObject shadingLumaDecomp1ASummary(double[] values, int count) throws Exception {
+        JSONObject o = new JSONObject();
+        o.put("count", count);
+        if (count <= 0) { o.put("min", JSONObject.NULL); o.put("median", JSONObject.NULL); o.put("max", JSONObject.NULL); o.put("mean", JSONObject.NULL); return o; }
+        double[] a = new double[count]; System.arraycopy(values, 0, a, 0, count);
+        java.util.Arrays.sort(a);
+        double sum = 0.0; for (double v : a) sum += v;
+        o.put("min", a[0]);
+        o.put("median", (count & 1) != 0 ? a[count/2] : 0.5 * (a[count/2 - 1] + a[count/2]));
+        o.put("max", a[count-1]); o.put("mean", sum / count); return o;
+    }
+
+    private static JSONObject shadingLumaDecomp1ASkipped(String reason) throws Exception {
+        JSONObject o = new JSONObject();
+        o.put("schema", "m9cam.renderer.shadinglumadecomp.v1a");
+        o.put("valid", false); o.put("reason", reason); o.put("diagnosticOnly", true);
+        o.put("sourceLensShadingMapMutation", false); return o;
+    }
+
+    private static JSONObject shadingLumaDecomp1AAudit(
+            LensShadingMap map, double alpha) throws Exception {
+        if (map == null) throw new IllegalStateException("SHADINGLUMADECOMP1A requires physical LensShadingMap");
+        if (!Double.isFinite(alpha) || alpha < 0.0 || alpha > 1.0) throw new IllegalArgumentException("SHADINGLUMADECOMP1A alpha out of range: " + alpha);
+        final int mapW = map.getColumnCount(), mapH = map.getRowCount(), cells = mapW * mapH;
+        float[] gains = new float[map.getGainFactorCount()]; map.copyGainFactors(gains, 0);
+        if (mapW < 1 || mapH < 1 || gains.length != cells * 4) throw new IllegalStateException("SHADINGLUMADECOMP1A invalid map dimensions");
+        double[] common = new double[cells], appliedCommon = new double[cells], suppressionEv = new double[cells];
+        double[] centerCommon = new double[cells], edgeCommon = new double[cells], centerSupp = new double[cells], edgeSupp = new double[cells];
+        double[] relAll = new double[cells*4], reconAll = new double[cells*4], sourceAll = new double[cells*4];
+        double[][] relChannel = new double[4][cells]; int cN=0,eN=0, relN=0;
+        double parityMaxAbs=0.0, parityMaxRel=0.0, ratioMaxAbs=0.0, ratioMaxRel=0.0;
+        for (int y=0; y<mapH; y++) for (int x=0; x<mapW; x++) {
+            int cell=y*mapW+x, base=cell*4; double logSum=0.0;
+            for (int p=0;p<4;p++) { double g=gains[base+p]; if (!Double.isFinite(g)||g<=0.0) throw new IllegalStateException("SHADINGLUMADECOMP1A invalid gain"); logSum += Math.log(g); sourceAll[base+p]=g; }
+            double gc=Math.exp(0.25*logSum), gca=Math.exp(alpha*Math.log(gc)); common[cell]=gc; appliedCommon[cell]=gca; suppressionEv[cell]=(1.0-alpha)*Math.log(gc)/Math.log(2.0);
+            boolean center = x >= mapW*0.25 && x < mapW*0.75 && y >= mapH*0.25 && y < mapH*0.75;
+            if (center) { centerCommon[cN]=gc; centerSupp[cN]=suppressionEv[cell]; cN++; } else { edgeCommon[eN]=gc; edgeSupp[eN]=suppressionEv[cell]; eN++; }
+            double[] rel = new double[4];
+            for (int p=0;p<4;p++) {
+                double g=gains[base+p]; rel[p]=g/gc; relAll[relN]=rel[p]; relChannel[p][cell]=rel[p];
+                double recon=rel[p]*gca; reconAll[relN]=recon; relN++;
+                double alpha1=rel[p]*gc; double ae=Math.abs(alpha1-g); parityMaxAbs=Math.max(parityMaxAbs,ae); parityMaxRel=Math.max(parityMaxRel,ae/Math.max(Math.abs(g),1e-15));
+            }
+            for (int a=0;a<4;a++) for (int b=a+1;b<4;b++) {
+                double sr=gains[base+a]/(double)gains[base+b], cr=rel[a]/rel[b]; double ae=Math.abs(sr-cr); ratioMaxAbs=Math.max(ratioMaxAbs,ae); ratioMaxRel=Math.max(ratioMaxRel,ae/Math.max(Math.abs(sr),1e-15));
+            }
+        }
+        JSONObject o=new JSONObject(); o.put("schema","m9cam.renderer.shadinglumadecomp.v1a"); o.put("valid",true); o.put("diagnosticOnly",true); o.put("pixelMutation",false); o.put("gainMutation",false); o.put("photographicDecisionMutation",false);
+        o.put("sourceLensShadingMapPreservedExact",true); o.put("decomposition","geometric_mean_common_gain_plus_relative_RGGB_ratios"); o.put("lumaAuthorityAlpha",alpha); o.put("mapWidth",mapW); o.put("mapHeight",mapH);
+        o.put("commonGain", shadingLumaDecomp1ASummary(common,cells)); o.put("commonGainCenter50", shadingLumaDecomp1ASummary(centerCommon,cN)); o.put("commonGainOutsideCenter50", shadingLumaDecomp1ASummary(edgeCommon,eN));
+        o.put("commonAppliedGain", shadingLumaDecomp1ASummary(appliedCommon,cells));
+        JSONObject rel=new JSONObject(); rel.put("all",shadingLumaDecomp1ASummary(relAll,relN)); String[] names={"R","G1","G2","B"}; for(int p=0;p<4;p++) rel.put(names[p],shadingLumaDecomp1ASummary(relChannel[p],cells)); o.put("relativeChannelGain",rel);
+        o.put("reconstructedGainRequestedAlpha",shadingLumaDecomp1ASummary(reconAll,relN)); o.put("sourceGain",shadingLumaDecomp1ASummary(sourceAll,relN));
+        JSONObject parity=new JSONObject(); parity.put("alpha1ReconstructionMaxAbsError",parityMaxAbs); parity.put("alpha1ReconstructionMaxRelativeError",parityMaxRel); parity.put("alpha1ParityWithin1e12",parityMaxRel<=1e-12); o.put("reconstructedGainMapParity",parity);
+        JSONObject ratio=new JSONObject(); ratio.put("chromaOnlyPairwiseRatioMaxAbsError",ratioMaxAbs); ratio.put("chromaOnlyPairwiseRatioMaxRelativeError",ratioMaxRel); ratio.put("chromaOnlyPreservesChannelRatiosWithin1e12",ratioMaxRel<=1e-12); o.put("chromaOnlyRatioPreservation",ratio);
+        JSONObject suppression=new JSONObject(); suppression.put("units","EV_of_common_gain_intentionally_not_applied"); suppression.put("all",shadingLumaDecomp1ASummary(suppressionEv,cells)); suppression.put("center50",shadingLumaDecomp1ASummary(centerSupp,cN)); suppression.put("outsideCenter50",shadingLumaDecomp1ASummary(edgeSupp,eN)); o.put("commonLuminanceSuppressionByRegion",suppression);
+        return o;
+    }
+
