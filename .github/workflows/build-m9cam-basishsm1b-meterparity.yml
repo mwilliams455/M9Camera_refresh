@@ -203,9 +203,8 @@ jobs:
             run_patch verify-m9cam-bridgeprobe1a.py
 
             # Rebuild the exact field-validated BASISHSM1A FIX2 state first.
+            # The verifier intentionally applies FIX1 and FIX2 itself, preserving the proven sequence.
             run_patch apply-m9cam-basishsm1a.py
-            run_patch apply-m9cam-basishsm1a-fix1.py
-            run_patch apply-m9cam-basishsm1a-fix2.py
             run_patch verify-m9cam-basishsm1a.py
 
             # New experiment: colour role is frozen; only meter ownership is isolated.
