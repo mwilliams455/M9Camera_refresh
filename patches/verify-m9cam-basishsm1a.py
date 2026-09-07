@@ -8,27 +8,29 @@ if len(sys.argv) != 2:
     raise SystemExit('usage: verify-m9cam-basishsm1a.py <PhotonCamera-root>')
 root = Path(sys.argv[1]).resolve()
 if not (root / 'app').is_dir():
-    raise SystemExit('BASISHSM1A-FIX1 verifier: not a PhotonCamera root')
+    raise SystemExit('BASISHSM1A-FIX2 verifier: not a PhotonCamera root')
 
 renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
 gradle_path = root / 'app/build.gradle'
 frames_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/FrameNumberSelector.java'
 for p in (renderer_path, gradle_path, frames_path):
-    if not p.exists(): raise SystemExit('BASISHSM1A-FIX1 verifier missing: ' + str(p))
+    if not p.exists(): raise SystemExit('BASISHSM1A-FIX2 verifier missing: ' + str(p))
 
-# Apply the diagnostics-only field-test fix here so the existing workflow sequence
+# Apply the diagnostics-only field-test fixes here so the existing workflow sequence
 # stays reproducible without changing any earlier photographic patch stage.
-fix = Path(__file__).with_name('apply-m9cam-basishsm1a-fix1.py')
-subprocess.run([sys.executable, str(fix), str(root)], check=True)
+fix1 = Path(__file__).with_name('apply-m9cam-basishsm1a-fix1.py')
+fix2 = Path(__file__).with_name('apply-m9cam-basishsm1a-fix2.py')
+subprocess.run([sys.executable, str(fix1), str(root)], check=True)
+subprocess.run([sys.executable, str(fix2), str(root)], check=True)
 
 renderer = renderer_path.read_text()
 gradle = gradle_path.read_text()
 frames = frames_path.read_text()
 
 def require(src, marker, label):
-    if marker not in src: raise SystemExit('BASISHSM1A-FIX1 verifier missing ' + label + ': ' + marker)
+    if marker not in src: raise SystemExit('BASISHSM1A-FIX2 verifier missing ' + label + ': ' + marker)
 def forbid(src, marker, label):
-    if marker in src: raise SystemExit('BASISHSM1A-FIX1 verifier forbidden ' + label + ': ' + marker)
+    if marker in src: raise SystemExit('BASISHSM1A-FIX2 verifier forbidden ' + label + ': ' + marker)
 
 def extract_method(src, marker):
     start = src.find(marker)
@@ -62,38 +64,49 @@ for marker in [
     'NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major',
     'physical_SENSOR_NEUTRAL_COLOR_POINT_normalized_max1_clip_only',
     'sensorToXYZD50_forward_matrix_path_only_no_double_WB',
-    'tc20DecisionSource", "frozen_primary_same_frame"',
-    'prospectiveMeterRecomputed", false',
+    'tc20DecisionSource\", \"frozen_primary_same_frame\"',
+    'prospectiveMeterRecomputed\", false',
     'int[] bridgeProbeModes = {0, 3};',
-    '"_M9_NATIVE_SOURCE_ONLY"',
-    '"_M9_NATIVE_BASIS_HSM"',
+    '\"_M9_NATIVE_SOURCE_ONLY\"',
+    '\"_M9_NATIVE_BASIS_HSM\"',
     'bridgeProbeMode == 3',
-    'bridgeProbeName = "native_plus_historical_basis_hsm";',
+    'bridgeProbeName = \"native_plus_historical_basis_hsm\";',
     'ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);',
     'ctx.hsm = new double[cal.hsmA.length];',
-    '"identity_passthrough_source_only"',
-    '"historical_interpolated_table"',
+    '\"identity_passthrough_source_only\"',
+    '\"historical_interpolated_table\"',
     'checkpointHistoricalHsmAvailable',
+    'checkpointIdentityHsmSentinel',
+    'ctx.hsm.length == 12',
     'checkpointActualHsmLength',
-    'd.put("basisHsmCheckpointSamples", basisHsmCheckpoints);',
+    'd.put(\"basisHsmCheckpointSamples\", basisHsmCheckpoints);',
 ]: require(renderer, marker, 'renderer invariant')
 
 basis_pos = prospective.find('ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);', prospective.find('bridgeProbeMode == 3'))
 hsm_pos = prospective.find('ctx.hsm = new double[cal.hsmA.length];', basis_pos)
 if basis_pos < 0 or hsm_pos < 0 or basis_pos >= hsm_pos:
-    raise SystemExit('BASISHSM1A-FIX1 ordering failure: basis must precede historical HSM')
+    raise SystemExit('BASISHSM1A-FIX2 ordering failure: basis must precede historical HSM')
+
+# The exact regression we observed in the field: the 12-value SOURCE_ONLY sentinel
+# must be explicitly rejected from historical applyHsm() indexing.
+sentinel_pos = prospective.find('final boolean checkpointIdentityHsmSentinel = ctx.hsm != null && ctx.hsm.length == 12;')
+available_pos = prospective.find('final boolean checkpointHistoricalHsmAvailable = ctx.hsm != null', sentinel_pos)
+reject_pos = prospective.find('&& !checkpointIdentityHsmSentinel', available_pos)
+apply_pos = prospective.find('applyHsm(hsmInput[0], hsmInput[1], hsmInput[2], ctx.hsm, hsmOut);', available_pos)
+if min(sentinel_pos, available_pos, reject_pos, apply_pos) < 0 or not (sentinel_pos < available_pos < reject_pos < apply_pos):
+    raise SystemExit('BASISHSM1A-FIX2 sentinel classification/order failure')
 
 for marker in ['tc20MeterNative(', 'tc20MeterNativeDirect(', 'METER_TARGET /']:
     forbid(prospective, marker, 'prospective re-metering')
 require(prospective, 'final double effectiveRenderGain = fixedPrimaryGain * nativeShading.representationScale;', 'fixed gain')
 for marker in ['M9_NOHDR1A_SINGLE_FRAME_BOUNDARY','frameCount = 1;','throwCount = 0;','IsoExpoSelector.HDR = false;']:
     require(frames, marker, 'NOHDR1A boundary')
-for marker in ['"_M9_NATIVE_HSM_ONLY"','"_M9_NATIVE_BASIS_ONLY"','"_M9_NATIVE_SOURCE_SHADING"']:
+for marker in ['\"_M9_NATIVE_HSM_ONLY\"','\"_M9_NATIVE_BASIS_ONLY\"','\"_M9_NATIVE_SOURCE_SHADING\"']:
     forbid(renderer, marker, 'retired output')
-require(gradle, '-nativeapiorder1a-basishsm1a-fix1', 'FIX1 build provenance')
+require(gradle, '-nativeapiorder1a-basishsm1a-fix2', 'FIX2 build provenance')
 
-print('M9 BASISHSM1A-FIX1 verified')
-print(' - SOURCE_ONLY checkpoint uses identity pass-through instead of historical HSM indexing')
+print('M9 BASISHSM1A-FIX2 verified')
+print(' - SOURCE_ONLY 12-value identity sentinel cannot reach historical HSM indexing')
 print(' - BASIS_HSM historical basis -> HSM order retained')
 print(' - frozen Primary, fixed gain, NOHDR1A, shading-off experiment and downstream M9 stages retained')
 print(' - primary renderCore sha256:', hashlib.sha256(primary.encode('utf-8')).hexdigest())
