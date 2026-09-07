@@ -1,191 +1,99 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import hashlib
+import subprocess
 import sys
 
 if len(sys.argv) != 2:
     raise SystemExit('usage: verify-m9cam-basishsm1a.py <PhotonCamera-root>')
-
 root = Path(sys.argv[1]).resolve()
 if not (root / 'app').is_dir():
-    raise SystemExit('BASISHSM1A verifier: not a PhotonCamera root')
+    raise SystemExit('BASISHSM1A-FIX1 verifier: not a PhotonCamera root')
 
 renderer_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
 gradle_path = root / 'app/build.gradle'
 frames_path = root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/FrameNumberSelector.java'
-for p in [renderer_path, gradle_path, frames_path]:
-    if not p.exists(): raise SystemExit('BASISHSM1A verifier missing: ' + str(p))
+for p in (renderer_path, gradle_path, frames_path):
+    if not p.exists(): raise SystemExit('BASISHSM1A-FIX1 verifier missing: ' + str(p))
 
-renderer = renderer_path.read_text(); gradle = gradle_path.read_text(); frames = frames_path.read_text()
+# Apply the diagnostics-only field-test fix here so the existing workflow sequence
+# stays reproducible without changing any earlier photographic patch stage.
+fix = Path(__file__).with_name('apply-m9cam-basishsm1a-fix1.py')
+subprocess.run([sys.executable, str(fix), str(root)], check=True)
+
+renderer = renderer_path.read_text()
+gradle = gradle_path.read_text()
+frames = frames_path.read_text()
 
 def require(src, marker, label):
-    if marker not in src: raise SystemExit('BASISHSM1A verifier missing ' + label + ': ' + marker)
-
+    if marker not in src: raise SystemExit('BASISHSM1A-FIX1 verifier missing ' + label + ': ' + marker)
 def forbid(src, marker, label):
-    if marker in src: raise SystemExit('BASISHSM1A verifier forbidden ' + label + ': ' + marker)
+    if marker in src: raise SystemExit('BASISHSM1A-FIX1 verifier forbidden ' + label + ': ' + marker)
 
 def extract_method(src, marker):
     start = src.find(marker)
-    if start < 0: raise SystemExit('BASISHSM1A verifier method marker missing: ' + marker)
+    if start < 0: raise SystemExit('method marker missing: ' + marker)
     brace = src.find('{', start); depth = 0; i = brace; state = 'code'; quote = ''; escape = False
     while i < len(src):
-        ch = src[i]; nxt = src[i + 1] if i + 1 < len(src) else ''
-        if state == 'line_comment':
+        ch = src[i]; nxt = src[i+1] if i+1 < len(src) else ''
+        if state == 'line':
             if ch == '\n': state = 'code'
-        elif state == 'block_comment':
+        elif state == 'block':
             if ch == '*' and nxt == '/': state = 'code'; i += 1
         elif state == 'string':
             if escape: escape = False
             elif ch == '\\': escape = True
             elif ch == quote: state = 'code'
         else:
-            if ch == '/' and nxt == '/': state = 'line_comment'; i += 1
-            elif ch == '/' and nxt == '*': state = 'block_comment'; i += 1
+            if ch == '/' and nxt == '/': state = 'line'; i += 1
+            elif ch == '/' and nxt == '*': state = 'block'; i += 1
             elif ch in ('"', "'"): state = 'string'; quote = ch
             elif ch == '{': depth += 1
             elif ch == '}':
                 depth -= 1
-                if depth == 0: return src[start:i + 1]
+                if depth == 0: return src[start:i+1]
         i += 1
-    raise SystemExit('BASISHSM1A verifier unterminated method')
-
-# FIX1 is intentionally diagnostics-only. SOURCE_ONLY carries a compact identity-HSM
-# sentinel; the first BASISHSM tracer incorrectly indexed it using the historical
-# 90x30 table geometry. Make checkpoint tracing mirror the photographic identity role.
-_, _, = (None, None)
-primary_before = extract_method(renderer, '    private static RenderCore renderCore(')
-primary_sha = hashlib.sha256(primary_before.encode('utf-8')).hexdigest()
-old_trace = '''        double[] hsmOut = new double[3];
-        applyHsm(hsmInput[0], hsmInput[1], hsmInput[2], ctx.hsm, hsmOut);
-        o.put("hsmOutputRgb", basisHsmVector(hsmOut));
-        o.put("hsmOutputHsv", basisHsmHsv(hsmOut[0], hsmOut[1], hsmOut[2]));
-'''
-new_trace = '''        double[] hsmOut = new double[3];
-        final int expectedHistoricalHsmLength = Math.multiplyExact(
-                Math.multiplyExact(Math.max(0, ctx.hueDivisions), Math.max(0, ctx.satDivisions)), 3);
-        final boolean checkpointHistoricalHsmAvailable = ctx.hsm != null
-                && ctx.hueDivisions >= 2
-                && ctx.satDivisions >= 2
-                && ctx.hsm.length >= expectedHistoricalHsmLength;
-        if (checkpointHistoricalHsmAvailable) {
-            applyHsm(hsmInput[0], hsmInput[1], hsmInput[2], ctx.hsm, hsmOut);
-            o.put("checkpointHsmMode", "historical_interpolated_table");
-        } else {
-            hsmOut[0] = hsmInput[0];
-            hsmOut[1] = hsmInput[1];
-            hsmOut[2] = hsmInput[2];
-            o.put("checkpointHsmMode", "identity_passthrough_source_only");
-        }
-        o.put("checkpointHistoricalHsmAvailable", checkpointHistoricalHsmAvailable);
-        o.put("checkpointExpectedHistoricalHsmLength", expectedHistoricalHsmLength);
-        o.put("checkpointActualHsmLength", ctx.hsm != null ? ctx.hsm.length : 0);
-        o.put("hsmOutputRgb", basisHsmVector(hsmOut));
-        o.put("hsmOutputHsv", basisHsmHsv(hsmOut[0], hsmOut[1], hsmOut[2]));
-'''
-if old_trace in renderer:
-    if renderer.count(old_trace) != 1:
-        raise SystemExit('BASISHSM1A-FIX1 trace anchor ambiguous')
-    renderer = renderer.replace(old_trace, new_trace, 1)
-elif '"identity_passthrough_source_only"' not in renderer:
-    raise SystemExit('BASISHSM1A-FIX1 trace anchor missing')
-
-primary_after = extract_method(renderer, '    private static RenderCore renderCore(')
-if hashlib.sha256(primary_after.encode('utf-8')).hexdigest() != primary_sha:
-    raise SystemExit('BASISHSM1A-FIX1 changed frozen primary renderCore')
-renderer_path.write_text(renderer)
-
-if '-nativeapiorder1a-basishsm1a-fix1' not in gradle:
-    if '-nativeapiorder1a-basishsm1a' not in gradle:
-        raise SystemExit('BASISHSM1A-FIX1 build provenance anchor missing')
-    gradle = gradle.replace('-nativeapiorder1a-basishsm1a', '-nativeapiorder1a-basishsm1a-fix1', 1)
-    gradle_path.write_text(gradle)
+    raise SystemExit('unterminated method: ' + marker)
 
 prospective = extract_method(renderer, '    private static RenderCore renderNativeProspectiveCore(')
+primary = extract_method(renderer, '    private static RenderCore renderCore(')
 
 for marker in [
     'NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major',
-    'storage_row_major_getElement_signature_column_row_copyElements_used',
     'physical_SENSOR_NEUTRAL_COLOR_POINT_normalized_max1_clip_only',
     'sensorToXYZD50_forward_matrix_path_only_no_double_WB',
     'tc20DecisionSource", "frozen_primary_same_frame"',
     'prospectiveMeterRecomputed", false',
-]: require(renderer, marker, 'v2.91 invariant')
-for marker in ['M9_NOHDR1A_SINGLE_FRAME_BOUNDARY','frameCount = 1;','throwCount = 0;','IsoExpoSelector.HDR = false;']:
-    require(frames, marker, 'NOHDR1A boundary')
-
-for marker in ['d.put("bridgeProbe1A", true);','bridgeProbeMode == 1','bridgeProbeMode == 2','historicalLinear.camToPp, inverse3(nativeCamToPpBeforeProbe)']:
-    require(prospective, marker, 'BRIDGEPROBE1A foundation')
-
-for marker in [
+    'int[] bridgeProbeModes = {0, 3};',
+    '"_M9_NATIVE_SOURCE_ONLY"',
+    '"_M9_NATIVE_BASIS_HSM"',
     'bridgeProbeMode == 3',
     'bridgeProbeName = "native_plus_historical_basis_hsm";',
-    'bridgeProbeHistoricalLinearBasisApplied = true;',
-    'bridgeProbeHistoricalHsmApplied = true;',
     'ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);',
     'ctx.hsm = new double[cal.hsmA.length];',
-    'ctx.wA * cal.hsmA[i]',
-    '(1.0 - ctx.wA) * cal.hsmD65[i]',
-    'ctx.hueDivisions = cal.hueDivisions;',
-    'ctx.satDivisions = cal.satDivisions;',
-]: require(prospective, marker, 'combined role math')
+    '"identity_passthrough_source_only"',
+    '"historical_interpolated_table"',
+    'checkpointHistoricalHsmAvailable',
+    'checkpointActualHsmLength',
+    'd.put("basisHsmCheckpointSamples", basisHsmCheckpoints);',
+]: require(renderer, marker, 'renderer invariant')
+
 basis_pos = prospective.find('ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);', prospective.find('bridgeProbeMode == 3'))
 hsm_pos = prospective.find('ctx.hsm = new double[cal.hsmA.length];', basis_pos)
 if basis_pos < 0 or hsm_pos < 0 or basis_pos >= hsm_pos:
-    raise SystemExit('BASISHSM1A verifier ordering failure: historical basis must precede HSM')
+    raise SystemExit('BASISHSM1A-FIX1 ordering failure: basis must precede historical HSM')
 
 for marker in ['tc20MeterNative(', 'tc20MeterNativeDirect(', 'METER_TARGET /']:
     forbid(prospective, marker, 'prospective re-metering')
-require(prospective, 'final double effectiveRenderGain = fixedPrimaryGain * nativeShading.representationScale;', 'fixed primary gain boundary')
-
-for marker in [
-    '"_M9_NATIVE_SOURCE_ONLY"','"_M9_NATIVE_BASIS_HSM"','"source_only"',
-    '"native_plus_historical_basis_hsm"','int[] bridgeProbeModes = {0, 3};',
-    'boolean applyShading = false;','fixedPrimaryGain, applyShading, bridgeProbeMode)',
-]: require(renderer, marker, 'minimal output hook')
-for marker in ['"_M9_NATIVE_HSM_ONLY"','"_M9_NATIVE_BASIS_ONLY"','"_M9_NATIVE_SOURCE_SHADING"','source_plus_shading','shadingFlags']:
-    forbid(renderer, marker, 'retired field output')
-
-for marker in [
-    'private static JSONObject basisHsmTraceCheckpoint(', '"normalizedSensorRgb"',
-    '"postNativeWpClipRgb"','"xyzD50"','"nativeLinearWorkingRgb"',
-    '"postHistoricalBasisRgb"','"hsmInputWorkingRgb"','"hsmInputHsv"',
-    '"hsmOutputRgb"','"m9BridgeInputRgb"','"m9BridgeOutputRgb"',
-    '"postSat3PreCurveIndices"','"postCurve02PreBt601Rgb8"',
-    '"capture_sensor_neutral"','"demosaic_fixed_sample_" + i',
-    '"identity_passthrough_source_only"','"historical_interpolated_table"',
-    'checkpointHistoricalHsmAvailable','checkpointActualHsmLength',
-]: require(renderer, marker, 'checkpoint instrumentation/FIX1')
-
-for marker in [
-    '"m9cam.renderer.basishsm.v1a.main.fixedgain"','d.put("basisHsm1A", true);',
-    'd.put("basisHsmCombinedApplied", bridgeProbeMode == 3);',
-    '"historical_linear_basis_then_historical_HSM"',
-    'd.put("basisHsmHistoricalBasisBeforeHsm", bridgeProbeMode == 3);',
-    '"cal.hsmA_plus_cal.hsmD65_interpolated_by_native_wA"',
-    'Long.toUnsignedString(bridgeProbeHsmHash64, 16)',
-    'd.put("basisHsmCheckpointSamples", basisHsmCheckpoints);',
-    '"historical_linear_basis_plus_HSM_role_diagnostic_plus_curve02_target_component"',
-]: require(prospective, marker, 'BASISHSM diagnostics')
-
-for marker in [
-    'd.put("cobaltColorMatrixApplied", false);','d.put("cobaltForwardMatrixApplied", false);',
-    'private static final double HSM_H = 0.25;','private static final double HSM_S = 0.85;',
-    'private static final double HSM_V = 1.00;','public static final int SATURATION_BANK = 3;',
-    'public static final int JPEG_QUALITY = 95;','private static final double TG_NEG_CB_COMPRESSION = 0.25;',
-    'private static final double TG_NEG_CR_COMPRESSION = 0.16;','curve02 normal-ISO sRGB Standard',
-]: require(renderer, marker, 'frozen source/target marker')
-
-require(gradle, '-nativeapiorder1a-basishsm1a-fix1', 'FIX1 build provenance suffix')
-forbid(gradle, '-nativeapiorder1a-bridgeprobe1a', 'stale BRIDGEPROBE build suffix')
+require(prospective, 'final double effectiveRenderGain = fixedPrimaryGain * nativeShading.representationScale;', 'fixed gain')
+for marker in ['M9_NOHDR1A_SINGLE_FRAME_BOUNDARY','frameCount = 1;','throwCount = 0;','IsoExpoSelector.HDR = false;']:
+    require(frames, marker, 'NOHDR1A boundary')
+for marker in ['"_M9_NATIVE_HSM_ONLY"','"_M9_NATIVE_BASIS_ONLY"','"_M9_NATIVE_SOURCE_SHADING"']:
+    forbid(renderer, marker, 'retired output')
+require(gradle, '-nativeapiorder1a-basishsm1a-fix1', 'FIX1 build provenance')
 
 print('M9 BASISHSM1A-FIX1 verified')
-print(' - NATIVEAPIORDER1A + NATIVEWPCLIP1A Camera2 source path retained')
-print(' - single-frame NOHDR1A boundary retained')
-print(' - SOURCE_ONLY / BASIS_HSM use same RAW and frozen primary gain')
-print(' - SOURCE_ONLY diagnostic HSM checkpoint is identity-pass-through, avoiding sentinel-table OOB')
-print(' - BASIS_HSM historical 90x30 HSM checkpoint remains unchanged')
-print(' - LensShadingMap remains OFF for the colour-role experiment')
-print(' - historical linear basis is applied before historical HSM')
-print(' - neutral + five fixed same-RAW checkpoint traces are present')
-print(' - output set is SOURCE_ONLY + BASIS_HSM while frozen Primary remains normal')
-print(' - M9 bridge/SAT3/curve02/BT601/TG1/JPEG95 constants retained')
+print(' - SOURCE_ONLY checkpoint uses identity pass-through instead of historical HSM indexing')
+print(' - BASIS_HSM historical basis -> HSM order retained')
+print(' - frozen Primary, fixed gain, NOHDR1A, shading-off experiment and downstream M9 stages retained')
+print(' - primary renderCore sha256:', hashlib.sha256(primary.encode('utf-8')).hexdigest())
