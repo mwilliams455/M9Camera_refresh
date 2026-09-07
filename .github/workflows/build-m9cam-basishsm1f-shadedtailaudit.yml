@@ -1,0 +1,109 @@
+name: Build M9Cam BASISHSM1F SHADEDTAILAUDIT1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - m9nohdr1a-sourcecal2a-basishsm1f-shadedtailaudit1a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout M9 recovery repo
+        uses: actions/checkout@v4
+
+      - name: Verify shaded-tail audit patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-basishsm1f-shadedtailaudit1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1f-shadedtailaudit1a.py
+
+      - name: Clone pinned PhotonCamera baseline
+        run: |
+          set -euo pipefail
+          PHOTON_SHA=f0e6425d2509fb8ab834d5d3af593183038b778c
+          git clone --depth 1 --branch dev https://github.com/eszdman/PhotonCamera.git PhotonCamera
+          git -C PhotonCamera fetch --depth 1 origin "$PHOTON_SHA"
+          git -C PhotonCamera checkout --detach FETCH_HEAD
+          test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
+          git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
+
+      - name: Apply frozen SHADINGDOMAIN1A chain plus diagnostic tail audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/build-m9cam-basishsm1e-shadingdomain.yml').read_text()
+          step_marker = '      - name: Apply frozen M9 chain and SHADINGDOMAIN1A\n'
+          start = workflow.find(step_marker)
+          if start < 0:
+              raise SystemExit('SHADEDTAILAUDIT1A could not find frozen SHADINGDOMAIN1A workflow step')
+          run_marker = '        run: |\n'
+          run_start = workflow.find(run_marker, start)
+          if run_start < 0:
+              raise SystemExit('SHADEDTAILAUDIT1A could not find SHADINGDOMAIN1A run block')
+          run_start += len(run_marker)
+          next_step = workflow.find('\n      - name: Set up JDK 17', run_start)
+          if next_step < 0:
+              raise SystemExit('SHADEDTAILAUDIT1A could not bound SHADINGDOMAIN1A run block')
+          shell = textwrap.dedent(workflow[run_start:next_step])
+          anchor = '            run_patch verify-m9cam-basishsm1e-shadingdomain1a.py\n'
+          if anchor not in shell:
+              anchor = '  run_patch verify-m9cam-basishsm1e-shadingdomain1a.py\n'
+          if anchor not in shell:
+              raise SystemExit('SHADEDTAILAUDIT1A could not find final SHADINGDOMAIN1A verifier call')
+          indent = anchor[:len(anchor)-len(anchor.lstrip())]
+          insertion = (anchor
+                       + indent + 'run_patch apply-m9cam-basishsm1f-shadedtailaudit1a.py\n'
+                       + indent + 'run_patch verify-m9cam-basishsm1f-shadedtailaudit1a.py\n')
+          shell = shell.replace(anchor, insertion, 1)
+          shell = shell.replace('BASISHSM1E_SHADINGDOMAIN1A_PATCH.log',
+                                'BASISHSM1F_SHADEDTAILAUDIT1A_PATCH.log')
+          Path('/tmp/run_basishsm1f_chain.sh').write_text(shell)
+          PY
+          bash /tmp/run_basishsm1f_chain.sh
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/BASISHSM1F_SHADEDTAILAUDIT1A_GRADLE.log"
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BASISHSM1F-SHADEDTAILAUDIT1A-BUILDLOG
+          path: |
+            BASISHSM1F_SHADEDTAILAUDIT1A_PATCH.log
+            BASISHSM1F_SHADEDTAILAUDIT1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload APK and upstream commit
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BASISHSM1F-SHADEDTAILAUDIT1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            PHOTON_UPSTREAM_COMMIT.txt
+          if-no-files-found: error
