@@ -1,10 +1,10 @@
-name: Build M9Cam BRIDGEPROBE1A
+name: Build M9Cam BASISHSM1A
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - m9nohdr1a-sourcecal2a-bridgeprobe1a
+      - m9nohdr1a-sourcecal2a-basishsm1a
 
 jobs:
   build:
@@ -24,6 +24,8 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-nativec2parity1a.py
           python3 -m py_compile patches/apply-m9cam-bridgeprobe1a.py
           python3 -m py_compile patches/verify-m9cam-bridgeprobe1a.py
+          python3 -m py_compile patches/apply-m9cam-basishsm1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1a.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -35,7 +37,7 @@ jobs:
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply frozen M9 chain and BRIDGEPROBE1A
+      - name: Apply frozen M9 chain and BASISHSM1A
         shell: bash
         run: |
           set -o pipefail
@@ -190,14 +192,15 @@ jobs:
           print(' - frozen primary renderCore sha256 preserved:', primary_sha)
           PY
 
-            # SCAFFOLDHASH1A already chains NATIVEWPCLIP1A + NATIVEAPIORDER1A after
-            # NATIVEAB1A assembly. Verify that exact v2.91 foundation before probing.
+            # SCAFFOLDHASH1A already chains NATIVEWPCLIP1A + NATIVEAPIORDER1A after NATIVEAB1A assembly.
             run_patch verify-m9cam-nohdr1a-sourcecal2a-fixedgain1a-nativeab1a.py
 
-            # New colour-role isolation only after the validated source path is assembled.
+            # Preserve BRIDGEPROBE1A as the proven role-isolation scaffold, then recombine.
             run_patch apply-m9cam-bridgeprobe1a.py
             run_patch verify-m9cam-bridgeprobe1a.py
-          } 2>&1 | tee "$GITHUB_WORKSPACE/BRIDGEPROBE1A_PATCH.log"
+            run_patch apply-m9cam-basishsm1a.py
+            run_patch verify-m9cam-basishsm1a.py
+          } 2>&1 | tee "$GITHUB_WORKSPACE/BASISHSM1A_PATCH.log"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -218,22 +221,22 @@ jobs:
           set -o pipefail
           cd PhotonCamera
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/BRIDGEPROBE1A_GRADLE.log"
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/BASISHSM1A_GRADLE.log"
 
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-BRIDGEPROBE1A-BUILDLOG
+          name: M9Cam-BASISHSM1A-BUILDLOG
           path: |
-            BRIDGEPROBE1A_PATCH.log
-            BRIDGEPROBE1A_GRADLE.log
+            BASISHSM1A_PATCH.log
+            BASISHSM1A_GRADLE.log
           if-no-files-found: ignore
 
       - name: Upload APK and upstream commit
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-BRIDGEPROBE1A
+          name: M9Cam-BASISHSM1A
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
