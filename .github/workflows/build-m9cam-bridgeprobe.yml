@@ -190,9 +190,8 @@ jobs:
           print(' - frozen primary renderCore sha256 preserved:', primary_sha)
           PY
 
-            # Make the v2.91 field-validated source path explicit in this workflow.
-            # NATIVEWPCLIP1A chains NATIVEAPIORDER1A (copyElements row-major parity).
-            run_patch apply-m9cam-nativewpclip1a.py
+            # SCAFFOLDHASH1A already chains NATIVEWPCLIP1A + NATIVEAPIORDER1A after
+            # NATIVEAB1A assembly. Verify that exact v2.91 foundation before probing.
             run_patch verify-m9cam-nohdr1a-sourcecal2a-fixedgain1a-nativeab1a.py
 
             # New colour-role isolation only after the validated source path is assembled.
