@@ -64,22 +64,22 @@ for marker in [
     'NATIVEAPIORDER1A_ColorSpaceTransform_copyElements_row_major',
     'physical_SENSOR_NEUTRAL_COLOR_POINT_normalized_max1_clip_only',
     'sensorToXYZD50_forward_matrix_path_only_no_double_WB',
-    'tc20DecisionSource\", \"frozen_primary_same_frame\"',
-    'prospectiveMeterRecomputed\", false',
+    'tc20DecisionSource", "frozen_primary_same_frame"',
+    'prospectiveMeterRecomputed", false',
     'int[] bridgeProbeModes = {0, 3};',
-    '\"_M9_NATIVE_SOURCE_ONLY\"',
-    '\"_M9_NATIVE_BASIS_HSM\"',
+    '"_M9_NATIVE_SOURCE_ONLY"',
+    '"_M9_NATIVE_BASIS_HSM"',
     'bridgeProbeMode == 3',
-    'bridgeProbeName = \"native_plus_historical_basis_hsm\";',
+    'bridgeProbeName = "native_plus_historical_basis_hsm";',
     'ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);',
     'ctx.hsm = new double[cal.hsmA.length];',
-    '\"identity_passthrough_source_only\"',
-    '\"historical_interpolated_table\"',
+    '"identity_passthrough_source_only"',
+    '"historical_interpolated_table"',
     'checkpointHistoricalHsmAvailable',
     'checkpointIdentityHsmSentinel',
     'ctx.hsm.length == 12',
     'checkpointActualHsmLength',
-    'd.put(\"basisHsmCheckpointSamples\", basisHsmCheckpoints);',
+    'd.put("basisHsmCheckpointSamples", basisHsmCheckpoints);',
 ]: require(renderer, marker, 'renderer invariant')
 
 basis_pos = prospective.find('ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);', prospective.find('bridgeProbeMode == 3'))
@@ -87,7 +87,7 @@ hsm_pos = prospective.find('ctx.hsm = new double[cal.hsmA.length];', basis_pos)
 if basis_pos < 0 or hsm_pos < 0 or basis_pos >= hsm_pos:
     raise SystemExit('BASISHSM1A-FIX2 ordering failure: basis must precede historical HSM')
 
-# The exact regression we observed in the field: the 12-value SOURCE_ONLY sentinel
+# The exact regression observed in the field: the 12-value SOURCE_ONLY sentinel
 # must be explicitly rejected from historical applyHsm() indexing.
 sentinel_pos = prospective.find('final boolean checkpointIdentityHsmSentinel = ctx.hsm != null && ctx.hsm.length == 12;')
 available_pos = prospective.find('final boolean checkpointHistoricalHsmAvailable = ctx.hsm != null', sentinel_pos)
@@ -101,7 +101,7 @@ for marker in ['tc20MeterNative(', 'tc20MeterNativeDirect(', 'METER_TARGET /']:
 require(prospective, 'final double effectiveRenderGain = fixedPrimaryGain * nativeShading.representationScale;', 'fixed gain')
 for marker in ['M9_NOHDR1A_SINGLE_FRAME_BOUNDARY','frameCount = 1;','throwCount = 0;','IsoExpoSelector.HDR = false;']:
     require(frames, marker, 'NOHDR1A boundary')
-for marker in ['\"_M9_NATIVE_HSM_ONLY\"','\"_M9_NATIVE_BASIS_ONLY\"','\"_M9_NATIVE_SOURCE_SHADING\"']:
+for marker in ['"_M9_NATIVE_HSM_ONLY"','"_M9_NATIVE_BASIS_ONLY"','"_M9_NATIVE_SOURCE_SHADING"']:
     forbid(renderer, marker, 'retired output')
 require(gradle, '-nativeapiorder1a-basishsm1a-fix2', 'FIX2 build provenance')
 
