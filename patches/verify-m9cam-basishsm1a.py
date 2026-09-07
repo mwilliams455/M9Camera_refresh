@@ -87,12 +87,12 @@ hsm_pos = prospective.find('ctx.hsm = new double[cal.hsmA.length];', basis_pos)
 if basis_pos < 0 or hsm_pos < 0 or basis_pos >= hsm_pos:
     raise SystemExit('BASISHSM1A-FIX2 ordering failure: basis must precede historical HSM')
 
-# The exact regression observed in the field: the 12-value SOURCE_ONLY sentinel
-# must be explicitly rejected from historical applyHsm() indexing.
-sentinel_pos = prospective.find('final boolean checkpointIdentityHsmSentinel = ctx.hsm != null && ctx.hsm.length == 12;')
-available_pos = prospective.find('final boolean checkpointHistoricalHsmAvailable = ctx.hsm != null', sentinel_pos)
-reject_pos = prospective.find('&& !checkpointIdentityHsmSentinel', available_pos)
-apply_pos = prospective.find('applyHsm(hsmInput[0], hsmInput[1], hsmInput[2], ctx.hsm, hsmOut);', available_pos)
+# The exact regression observed in the field lives in the checkpoint helper, which is
+# intentionally outside renderNativeProspectiveCore. Verify the helper globally.
+sentinel_pos = renderer.find('final boolean checkpointIdentityHsmSentinel = ctx.hsm != null && ctx.hsm.length == 12;')
+available_pos = renderer.find('final boolean checkpointHistoricalHsmAvailable = ctx.hsm != null', sentinel_pos)
+reject_pos = renderer.find('&& !checkpointIdentityHsmSentinel', available_pos)
+apply_pos = renderer.find('applyHsm(hsmInput[0], hsmInput[1], hsmInput[2], ctx.hsm, hsmOut);', available_pos)
 if min(sentinel_pos, available_pos, reject_pos, apply_pos) < 0 or not (sentinel_pos < available_pos < reject_pos < apply_pos):
     raise SystemExit('BASISHSM1A-FIX2 sentinel classification/order failure')
 
