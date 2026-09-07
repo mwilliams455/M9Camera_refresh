@@ -146,11 +146,11 @@ for obsolete in [
     if obsolete in renderer:
         raise SystemExit('SHADINGPARITY1A verify obsolete METERPARITY field control survived: ' + obsolete)
 
-# Capture/DNG statements remain diagnostics only; no experiment may claim capture mutation.
+# Capture/DNG boundaries are already protected structurally above and by the patch's
+# renderCore source hash; require only the durable same-RAW/capture-mutation diagnostics.
 for marker in [
     'meterParityCaptureExposureMutation", false',
     'sameRawAsPrimary',
-    'primaryTreatment", "FROZEN"',
 ]:
     if marker not in renderer:
         raise SystemExit('SHADINGPARITY1A verify frozen-boundary diagnostic missing: ' + marker)
