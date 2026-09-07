@@ -76,18 +76,27 @@ for forbidden in [
     if forbidden in primary:
         raise SystemExit('SHADINGPARITY1A verify leaked experiment into frozen Primary: ' + forbidden)
 
-# Validated colour and meter architecture remains present.
+# Validated colour and meter architecture remains present in the prospective renderer.
 for marker in [
     'historical_linear_basis_then_historical_HSM',
     'basisHsmCombinedApplied',
-    'historical_interpolated_table',
     'meterParity1A',
     'native_basis_hsm_same_frame_tc20',
     'meterParitySelfMeter',
     'm9cam.renderer.basishsm.shadingparity.v1a.main',
 ]:
     if marker not in prospective:
-        raise SystemExit('SHADINGPARITY1A verify validated architecture marker missing: ' + marker)
+        raise SystemExit('SHADINGPARITY1A verify prospective architecture marker missing: ' + marker)
+
+# The historical-table interpolation label lives in the shared checkpoint/helper code,
+# outside renderNativeProspectiveCore; verify it at renderer scope rather than mis-scoping it.
+for marker in [
+    'historical_interpolated_table',
+    'checkpointHsmMode',
+    'checkpointIdentityHsmSentinel',
+]:
+    if marker not in renderer:
+        raise SystemExit('SHADINGPARITY1A verify shared BASIS/HSM marker missing: ' + marker)
 
 # LensShadingMap must be optional and must be consumed on normalized Bayer before demosaic.
 for marker in [
