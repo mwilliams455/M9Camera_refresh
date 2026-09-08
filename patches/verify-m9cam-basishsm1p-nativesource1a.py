@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 if len(sys.argv) != 2:
     raise SystemExit('usage: verify-m9cam-basishsm1p-nativesource1a.py <PhotonCamera-root>')
@@ -55,8 +56,10 @@ if f.exists():
     ft=f.read_text()
     for marker in ['M9_NOHDR1A_SINGLE_FRAME_BOUNDARY','frameCount = 1;','throwCount = 0;']:
         if marker not in ft: raise SystemExit('verify NOHDR frame marker missing: '+marker)
-if i.exists() and 'IsoExpoSelector.HDR = false;' not in i.read_text():
-    raise SystemExit('verify IsoExpoSelector HDR=false missing')
+if i.exists():
+    it=i.read_text()
+    if not re.search(r'\bHDR\s*=\s*false\s*;', it):
+        raise SystemExit('verify IsoExpoSelector HDR=false assignment missing')
 # Capture-time Primary provenance and production wrapper must advertise native source.
 if r.count('NORM030 physical LensShadingMap -> native Xiaomi SOURCECAL2A') < 3:
     raise SystemExit('verify native production pipeline provenance missing')
