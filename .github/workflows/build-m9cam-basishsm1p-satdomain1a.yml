@@ -42,7 +42,7 @@ jobs:
           test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
           git -C PhotonCamera rev-parse HEAD | tee PHOTON_UPSTREAM_COMMIT.txt
 
-      - name: Apply exact 1P scaffold through SKYSAT1A then SATDOMAIN1A
+      - name: Apply exact 1P scaffold through SKYSAT1A
         shell: bash
         run: |
           set -euo pipefail
@@ -99,7 +99,17 @@ jobs:
           python3 patches/verify-m9cam-basishsm1p-skydown1a-contextmode1a.py "$ROOT"
           python3 patches/apply-m9cam-basishsm1p-skysat1a.py "$ROOT"
           python3 patches/verify-m9cam-basishsm1p-skysat1a.py "$ROOT"
+
+      - name: Apply SATDOMAIN1A read-only audit
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           python3 patches/apply-m9cam-basishsm1p-satdomain1a.py "$ROOT"
+
+      - name: Verify SATDOMAIN1A invariants
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           python3 patches/verify-m9cam-basishsm1p-satdomain1a.py "$ROOT"
 
       - name: Snapshot assembled SATDOMAIN1A source
@@ -117,7 +127,6 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -133,6 +142,12 @@ jobs:
           cd PhotonCamera
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/BASISHSM1P_SATDOMAIN1A_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          set -euo pipefail
+          sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee SATDOMAIN1A_APK_SHA256.txt
 
       - name: Upload build logs
         if: always()
@@ -157,4 +172,5 @@ jobs:
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             PHOTON_UPSTREAM_COMMIT.txt
+            SATDOMAIN1A_APK_SHA256.txt
           if-no-files-found: error
