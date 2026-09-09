@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import sys
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('PhotonCamera')
+CPP = ROOT / 'app/src/main/cpp/m9color_jni.cpp'
+GRADLE = ROOT / 'app/build.gradle'
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    n = text.count(old)
+    if n != 1:
+        raise SystemExit(f'CURVEDOMAIN1A {label}: expected exactly 1 anchor, found {n}')
+    return text.replace(old, new, 1)
+
+t = CPP.read_text()
+
+# CURVEDOMAIN1A is deliberately an extension of SATDOMAIN1A telemetry only.
+# It does not alter m9CurvePixel(), renderStripScalar(), TC20, HSM, curve02,
+# BT.601/TG1, capture, exposure, or any rendered pixel.
+t = replace_once(t,
+'''    uint64_t magentaUnclamped = 0;\n    uint64_t magentaClamped = 0;\n    uint64_t spatialCount[9]{};''',
+'''    uint64_t magentaUnclamped = 0;\n    uint64_t magentaClamped = 0;\n    uint64_t magentaCurve = 0;\n    uint64_t magentaCreatedByCurve = 0;\n    uint64_t magentaRemovedByCurve = 0;\n    uint64_t curveClip[3]{};\n    double sumHueClampedToCurve = 0.0;\n    double sumHuePreToCurve = 0.0;\n    double maxHueClampedToCurve = 0.0;\n    double sumChromaCurve = 0.0;\n    uint64_t hueSectorCount[12]{};\n    double hueSectorMatrixShift[12]{};\n    double hueSectorCurveShift[12]{};\n    double hueSectorTotalShift[12]{};\n    uint64_t hueSectorMagentaClamped[12]{};\n    uint64_t hueSectorMagentaCurve[12]{};\n    uint64_t spatialCount[9]{};''', 'aggregate fields')
+
+t = replace_once(t,
+'''inline bool satMagentaProxy(double r, double g, double b) {\n    constexpr double k = LUT_MAX * 0.02;\n    return g <= r && g <= b && (r - g) > k && (b - g) > k;\n}\n''',
+'''inline bool satMagentaProxy(double r, double g, double b) {\n    constexpr double k = LUT_MAX * 0.02;\n    return g <= r && g <= b && (r - g) > k && (b - g) > k;\n}\n\ninline bool satMagentaProxy8(double r, double g, double b) {\n    constexpr double k = 255.0 * 0.02;\n    return g <= r && g <= b && (r - g) > k && (b - g) > k;\n}\n\ninline int satHueSector12(double hueDeg, double chroma11) {\n    // Hue is unstable close to neutral. Exclude <=2% LUT chroma from sector metrics.\n    if (chroma11 <= LUT_MAX * 0.02) return -1;\n    int sector = static_cast<int>(std::floor(hueDeg / 30.0));\n    if (sector < 0) sector = 0;\n    if (sector > 11) sector = 11;\n    return sector;\n}\n''', 'curve proxy helpers')
+
+t = replace_once(t,
+'''inline void satDomainAccumulateFamily(const std::array<int64_t, 9>& q,\n                                      const int64_t pre[3],\n                                      double huePre,\n                                      double chromaPre,\n                                      int spatialBin,\n                                      SatDomainFamilyAgg* agg,\n                                      SatDomainSample* sampleOut) {''',
+'''inline void satDomainAccumulateFamily(const std::array<int64_t, 9>& q,\n                                      const std::array<uint8_t, 2048>& curve,\n                                      const int64_t pre[3],\n                                      double huePre,\n                                      double chromaPre,\n                                      int spatialBin,\n                                      SatDomainFamilyAgg* agg,\n                                      SatDomainSample* sampleOut) {''', 'audit family signature')
+
+t = replace_once(t,
+'''    const int64_t clamped[3] = {\n        clipl(shifted[0], 0, LUT_MAX),\n        clipl(shifted[1], 0, LUT_MAX),\n        clipl(shifted[2], 0, LUT_MAX)\n    };\n\n    int mask = 0;''',
+'''    const int64_t clamped[3] = {\n        clipl(shifted[0], 0, LUT_MAX),\n        clipl(shifted[1], 0, LUT_MAX),\n        clipl(shifted[2], 0, LUT_MAX)\n    };\n    const double curveRgb[3] = {\n        static_cast<double>(curve[static_cast<size_t>(clamped[0])]),\n        static_cast<double>(curve[static_cast<size_t>(clamped[1])]),\n        static_cast<double>(curve[static_cast<size_t>(clamped[2])])\n    };\n\n    int mask = 0;''', 'post-curve read-only sample')
+
+t = replace_once(t,
+'''    agg->sumChromaPre += chromaPre;\n    agg->sumChromaUnclamped += satChroma(unclamped[0], unclamped[1], unclamped[2]);\n    agg->sumChromaClamped += satChroma(static_cast<double>(clamped[0]), static_cast<double>(clamped[1]), static_cast<double>(clamped[2]));\n    if (satMagentaProxy(unclamped[0], unclamped[1], unclamped[2])) ++agg->magentaUnclamped;\n    if (satMagentaProxy(static_cast<double>(clamped[0]), static_cast<double>(clamped[1]), static_cast<double>(clamped[2]))) ++agg->magentaClamped;\n\n    if (sampleOut) {''',
+'''    agg->sumChromaPre += chromaPre;\n    agg->sumChromaUnclamped += satChroma(unclamped[0], unclamped[1], unclamped[2]);\n    agg->sumChromaClamped += satChroma(static_cast<double>(clamped[0]), static_cast<double>(clamped[1]), static_cast<double>(clamped[2]));\n    const bool magentaUnclamped = satMagentaProxy(unclamped[0], unclamped[1], unclamped[2]);\n    const bool magentaClamped = satMagentaProxy(static_cast<double>(clamped[0]), static_cast<double>(clamped[1]), static_cast<double>(clamped[2]));\n    const bool magentaCurve = satMagentaProxy8(curveRgb[0], curveRgb[1], curveRgb[2]);\n    if (magentaUnclamped) ++agg->magentaUnclamped;\n    if (magentaClamped) ++agg->magentaClamped;\n    if (magentaCurve) ++agg->magentaCurve;\n    if (!magentaClamped && magentaCurve) ++agg->magentaCreatedByCurve;\n    if (magentaClamped && !magentaCurve) ++agg->magentaRemovedByCurve;\n    for (int ch = 0; ch < 3; ++ch) {\n        if (curveRgb[ch] <= 0.0 || curveRgb[ch] >= 255.0) ++agg->curveClip[ch];\n    }\n    const double hueCurve = satHueDegrees(curveRgb[0], curveRgb[1], curveRgb[2]);\n    const double dClampedCurve = satHueDistance(hueClamped, hueCurve);\n    const double dPreCurve = satHueDistance(huePre, hueCurve);\n    agg->sumHueClampedToCurve += dClampedCurve;\n    agg->sumHuePreToCurve += dPreCurve;\n    if (dClampedCurve > agg->maxHueClampedToCurve) agg->maxHueClampedToCurve = dClampedCurve;\n    agg->sumChromaCurve += satChroma(curveRgb[0], curveRgb[1], curveRgb[2]);\n    const int hueSector = satHueSector12(huePre, chromaPre);\n    if (hueSector >= 0) {\n        ++agg->hueSectorCount[hueSector];\n        agg->hueSectorMatrixShift[hueSector] += dPreClamped;\n        agg->hueSectorCurveShift[hueSector] += dClampedCurve;\n        agg->hueSectorTotalShift[hueSector] += dPreCurve;\n        if (magentaClamped) ++agg->hueSectorMagentaClamped[hueSector];\n        if (magentaCurve) ++agg->hueSectorMagentaCurve[hueSector];\n    }\n\n    if (sampleOut) {''', 'curve accumulation')
+
+t = replace_once(t,
+'''        satDomainAccumulateFamily(even ? Q2E : Q2O, pre, huePre, chromaPre, bin, &fam[0], nullptr);\n        satDomainAccumulateFamily(even ? QE : QO, pre, huePre, chromaPre, bin, &fam[1], &s3);\n        satDomainAccumulateFamily(even ? Q4E : Q4O, pre, huePre, chromaPre, bin, &fam[2], nullptr);''',
+'''        satDomainAccumulateFamily(even ? Q2E : Q2O, ctx.curve, pre, huePre, chromaPre, bin, &fam[0], nullptr);\n        satDomainAccumulateFamily(even ? QE : QO, ctx.curve, pre, huePre, chromaPre, bin, &fam[1], &s3);\n        satDomainAccumulateFamily(even ? Q4E : Q4O, ctx.curve, pre, huePre, chromaPre, bin, &fam[2], nullptr);''', 'curve argument calls')
+
+t = replace_once(t,
+'''    os << "\\\"schema\\\":\\\"m9cam.satdomain1a.v1\\\",";\n    os << "\\\"readOnly\\\":true,\\\"renderedPixelsModified\\\":false,";''',
+'''    os << "\\\"schema\\\":\\\"m9cam.curvedomain1a.v1\\\",";\n    os << "\\\"parentDiagnostic\\\":\\\"SATDOMAIN1A\\\",";\n    os << "\\\"readOnly\\\":true,\\\"renderedPixelsModified\\\":false,";''', 'schema')
+
+t = replace_once(t,
+'''    os << "\\\"firstSatClamp\\\":\\\"arithmetic_shift_16_then_independent_0_2047_curve02_index_clamp\\\",";\n    os << "\\\"branchDecision\\\":\\\"r>=g => even M04/M06/M08; else odd M05/M07/M09\\\",";\n    os << "\\\"magentaProxyDefinition\\\":\\\"G_is_min_and_R-G_gt_2pct_LUT_and_B-G_gt_2pct_LUT\\\",";''',
+'''    os << "\\\"firstSatClamp\\\":\\\"arithmetic_shift_16_then_independent_0_2047_curve02_index_clamp\\\",";\n    os << "\\\"curveStage\\\":\\\"same_curve02_2048x_u8_applied_independently_per_clamped_RGB_index\\\",";\n    os << "\\\"branchDecision\\\":\\\"r>=g => even M04/M06/M08; else odd M05/M07/M09\\\",";\n    os << "\\\"magentaProxyDefinition11\\\":\\\"G_is_min_and_R-G_gt_2pct_2047_and_B-G_gt_2pct_2047\\\",";\n    os << "\\\"magentaProxyDefinition8\\\":\\\"G_is_min_and_R-G_gt_2pct_255_and_B-G_gt_2pct_255\\\",";\n    os << "\\\"hueSectorDefinition\\\":\\\"12x30deg_preSAT_HSV_hue_excluding_chroma_below_2pct_LUT\\\",";''', 'diagnostic definitions')
+
+t = replace_once(t,
+'''        os << "\\\"magentaProxyUnclampedCount\\\":" << a.magentaUnclamped << ",\\\"magentaProxyClampedCount\\\":" << a.magentaClamped << ",";\n        os << "\\\"magentaProxyUnclampedFraction\\\":" << (a.magentaUnclamped / den) << ",\\\"magentaProxyClampedFraction\\\":" << (a.magentaClamped / den) << ",";\n        os << "\\\"spatial3x3\\\":{\\\"pixelCount\\\":[";''',
+'''        os << "\\\"magentaProxyUnclampedCount\\\":" << a.magentaUnclamped << ",\\\"magentaProxyClampedCount\\\":" << a.magentaClamped << ",";\n        os << "\\\"magentaProxyUnclampedFraction\\\":" << (a.magentaUnclamped / den) << ",\\\"magentaProxyClampedFraction\\\":" << (a.magentaClamped / den) << ",";\n        os << "\\\"meanAbsHueClampedToCurveDeg\\\":" << (a.sumHueClampedToCurve / den) << ",";\n        os << "\\\"meanAbsHuePreToCurveDeg\\\":" << (a.sumHuePreToCurve / den) << ",";\n        os << "\\\"maxAbsHueClampedToCurveDeg\\\":" << a.maxHueClampedToCurve << ",";\n        os << "\\\"meanChromaCurve8\\\":" << (a.sumChromaCurve / den) << ",";\n        os << "\\\"curveClipCountRGB\\\":[" << a.curveClip[0] << "," << a.curveClip[1] << "," << a.curveClip[2] << "],";\n        os << "\\\"magentaProxyCurveCount\\\":" << a.magentaCurve << ",\\\"magentaProxyCurveFraction\\\":" << (a.magentaCurve / den) << ",";\n        os << "\\\"magentaCreatedByCurveCount\\\":" << a.magentaCreatedByCurve << ",\\\"magentaCreatedByCurveFraction\\\":" << (a.magentaCreatedByCurve / den) << ",";\n        os << "\\\"magentaRemovedByCurveCount\\\":" << a.magentaRemovedByCurve << ",\\\"magentaRemovedByCurveFraction\\\":" << (a.magentaRemovedByCurve / den) << ",";\n        os << "\\\"hueSector30deg\\\":{\\\"labels\\\":[\\\"0_30\\\",\\\"30_60\\\",\\\"60_90\\\",\\\"90_120\\\",\\\"120_150\\\",\\\"150_180\\\",\\\"180_210\\\",\\\"210_240\\\",\\\"240_270\\\",\\\"270_300\\\",\\\"300_330\\\",\\\"330_360\\\"],\\\"pixelCount\\\":[";\n        for (int s = 0; s < 12; ++s) { if (s) os << ","; os << a.hueSectorCount[s]; }\n        os << "],\\\"meanMatrixHueShiftDeg\\\":[";\n        for (int s = 0; s < 12; ++s) { if (s) os << ","; const double sd = a.hueSectorCount[s] ? static_cast<double>(a.hueSectorCount[s]) : 1.0; os << (a.hueSectorMatrixShift[s] / sd); }\n        os << "],\\\"meanCurveHueShiftDeg\\\":[";\n        for (int s = 0; s < 12; ++s) { if (s) os << ","; const double sd = a.hueSectorCount[s] ? static_cast<double>(a.hueSectorCount[s]) : 1.0; os << (a.hueSectorCurveShift[s] / sd); }\n        os << "],\\\"meanTotalPreToCurveHueShiftDeg\\\":[";\n        for (int s = 0; s < 12; ++s) { if (s) os << ","; const double sd = a.hueSectorCount[s] ? static_cast<double>(a.hueSectorCount[s]) : 1.0; os << (a.hueSectorTotalShift[s] / sd); }\n        os << "],\\\"magentaClampedFraction\\\":[";\n        for (int s = 0; s < 12; ++s) { if (s) os << ","; const double sd = a.hueSectorCount[s] ? static_cast<double>(a.hueSectorCount[s]) : 1.0; os << (a.hueSectorMagentaClamped[s] / sd); }\n        os << "],\\\"magentaCurveFraction\\\":[";\n        for (int s = 0; s < 12; ++s) { if (s) os << ","; const double sd = a.hueSectorCount[s] ? static_cast<double>(a.hueSectorCount[s]) : 1.0; os << (a.hueSectorMagentaCurve[s] / sd); }\n        os << "]},";\n        os << "\\\"spatial3x3\\\":{\\\"pixelCount\\\":[";''', 'JSON curve fields')
+
+CPP.write_text(t)
+
+g = GRADLE.read_text()
+g = replace_once(g, '-satdomain1a-nativewpclip1a', '-curvedomain1a-nativewpclip1a', 'version suffix')
+GRADLE.write_text(g)
+print('CURVEDOMAIN1A applied read-only curve02 telemetry; rendered kernels unchanged')
