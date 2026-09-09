@@ -38,6 +38,7 @@ def extract_method(src, marker):
 
 active=extract_method(r,'    private static RenderCore renderNativeProspectiveCore(')
 legacy=extract_method(r,'    private static RenderCore renderCore(')
+production=extract_method(r,'    private static RenderCore renderNativeSourceProduction1P(')
 checks = {
     'native audit helper': 'auditSatDomainJson(const ColorContext& ctx' in c,
     'native JNI entry': 'M9NativeColorCore_auditSatDomainJsonDirect' in c,
@@ -52,7 +53,10 @@ checks = {
     'exact effective gain audited': 'effectiveRenderGain);' in active and 'meter.gain);' not in active[active.find('auditSatDomainJsonDirect('):active.find('auditSatDomainJsonDirect(')+400],
     'diagnostic JSON': active.count('d.put("satDomainTelemetry", new JSONObject(satDomainTelemetryJson1A))') == 1,
     'no rendered-pixel claim': active.count('d.put("satDomainRenderedPixelsModified", false)') == 1,
-    'native source provenance': 'renderNativeProspectiveCore_active_native_SOURCECAL2A_path' in active,
+    # Ground provenance in the actual 1P production wrapper rather than a synthetic marker.
+    # 1P is authoritative: production calls renderNativeProspectiveCore and declares the
+    # native SOURCECAL2A transform applied; the dormant legacy renderCore is not called here.
+    'native source provenance': production.count('renderNativeProspectiveCore(') == 1 and 'renderCore(' not in production and 'd.put("nativeSourceTransformApplied", true)' in production and 'Xiaomi_Camera2_DNG_SOURCECAL2A_CMFIX' in production,
     'legacy core untouched by SATDOMAIN': 'satDomainTelemetry' not in legacy and 'SATDOMAIN1A' not in legacy,
     'SATDOMAIN version': '-basishsm1p-satdomain1a-nativewpclip1a' in b,
 }
@@ -63,5 +67,6 @@ print('SATDOMAIN1A verification OK')
 print(' - exact SAT2/SAT3/SAT4 family math retained')
 print(' - causal hue audit uses exact signed a>>16 coordinate before first 0..2047 clamp')
 print(' - instrumentation is confined to active native SOURCECAL2A render core')
+print(' - 1P production wrapper proves native SOURCECAL2A route to renderNativeProspectiveCore')
 print(' - dormant legacy Cobalt-source core contains no SATDOMAIN instrumentation')
 print(' - rendered pixels / capture / DNG / HDR boundary remain unchanged')
