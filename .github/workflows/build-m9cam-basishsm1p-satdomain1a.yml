@@ -131,18 +131,36 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           t=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java').read_text()
+          marker = 'nativeContextForFrame'
+          marker_positions = []
+          start = 0
+          while True:
+              p = t.find(marker, start)
+              if p < 0:
+                  break
+              marker_positions.append(p)
+              start = p + 1
+          assert marker_positions, 'active native-source renderer marker missing'
+
           needles = [
               'long fullRenderStartedNs = System.nanoTime();',
               'd.put("satBank", SATURATION_BANK);',
           ]
           for needle in needles:
-              count=t.count(needle)
-              print('ANCHOR', repr(needle), 'count=', count)
-              pos=t.find(needle)
-              if pos >= 0:
-                  print(t[max(0,pos-240):min(len(t),pos+len(needle)+320)])
-          assert t.count(needles[0]) == 1
-          assert t.count(needles[1]) == 1
+              positions = []
+              start = 0
+              while True:
+                  p = t.find(needle, start)
+                  if p < 0:
+                      break
+                  positions.append(p)
+                  start = p + 1
+              print('ANCHOR', repr(needle), 'globalCount=', len(positions), 'positions=', positions)
+              assert len(positions) == 2, f'expected dormant+active renderer anchors, found {len(positions)} for {needle!r}'
+              scored = sorted((min(abs(p-m) for m in marker_positions), p) for p in positions)
+              assert scored[0][0] < scored[1][0], f'active renderer selection ambiguous for {needle!r}: {scored}'
+              assert scored[0][0] <= 120000, f'active renderer anchor too far from native marker for {needle!r}: {scored[0]}'
+              print('ACTIVE', repr(needle), 'position=', scored[0][1], 'distance=', scored[0][0])
           PY
 
       - name: Probe SATDOMAIN version anchor
