@@ -100,6 +100,48 @@ jobs:
           python3 patches/apply-m9cam-basishsm1p-skysat1a.py "$ROOT"
           python3 patches/verify-m9cam-basishsm1p-skysat1a.py "$ROOT"
 
+      - name: Probe SATDOMAIN native include anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('PhotonCamera/app/src/main/cpp/m9color_jni.cpp').read_text()
+          assert t.count('#include <new>\n#include <vector>') == 1
+          PY
+
+      - name: Probe SATDOMAIN native insertion anchors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('PhotonCamera/app/src/main/cpp/m9color_jni.cpp').read_text()
+          assert t.count('void throwIllegalArgument(JNIEnv* env, const char* message) {') == 1
+          assert t.count('extern "C" JNIEXPORT jlong JNICALL\nJava_com_particlesdevs_photoncamera_m9_render_M9NativeColorCore_createContext(') == 1
+          PY
+
+      - name: Probe SATDOMAIN Java bridge anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java').read_text()
+          assert t.count('    static native void renderStrip(long handle,') == 1
+          PY
+
+      - name: Probe SATDOMAIN renderer anchors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java').read_text()
+          assert t.count('            long fullRenderStartedNs = System.nanoTime();') == 1
+          assert t.count('            d.put("satBank", SATURATION_BANK);') == 1
+          PY
+
+      - name: Probe SATDOMAIN version anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('PhotonCamera/app/build.gradle').read_text()
+          assert t.count('-basishsm1p-skysat1a-nativewpclip1a') == 1
+          PY
+
       - name: Apply SATDOMAIN1A read-only audit
         run: |
           set -euxo pipefail
