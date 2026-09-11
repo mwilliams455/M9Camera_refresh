@@ -9,6 +9,7 @@ on:
       - '.github/workflows/m9-sharpness-gateb-forensics.yml'
       - 'tools/recover_m9_key_from_shared_body.py'
       - 'tools/m9_sharpness_gateb_probe.py'
+      - 'tools/m9_sharpness_gateb_context.py'
 
 permissions:
   contents: read
@@ -62,6 +63,26 @@ jobs:
             --out "$RUNNER_TEMP/m9_gateb/report"
           cat "$RUNNER_TEMP/m9_gateb/report/gateb_report.json"
 
+      - name: Decode five-state consumer contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpness_gateb_context.py \
+            "$RUNNER_TEMP/m9_gateb/m9-1_216.decrypted.upd" \
+            --out "$RUNNER_TEMP/m9_gateb/report/gateb_context.json"
+          python3 - <<'PY'
+          import json, os
+          p=os.path.join(os.environ['RUNNER_TEMP'],'m9_gateb/report/gateb_context.json')
+          d=json.load(open(p))
+          print(json.dumps({
+            'table': d['table'],
+            'consumers': [
+              {'table_xref': x['table_xref'], 'nearby_named_xrefs': x['nearby_named_xrefs']}
+              for x in d['table_consumer_contexts']
+            ]
+          }, indent=2))
+          PY
+
       - name: Publish evidence only
         uses: actions/upload-artifact@v4
         with:
@@ -71,6 +92,7 @@ jobs:
           path: |
             ${{ runner.temp }}/m9_gateb/recovery_meta.json
             ${{ runner.temp }}/m9_gateb/report/gateb_report.json
+            ${{ runner.temp }}/m9_gateb/report/gateb_context.json
 
       - name: Remove firmware/key material from runner workspace
         if: always()
