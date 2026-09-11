@@ -88,9 +88,48 @@ It:
 
 It embeds no Leica firmware bytes.
 
+### Firmware-direct pass added
+
+`tools/m9_sharpnessforensics1a_firmwarepass.py` now provides a second, firmware-direct pass.
+
+It:
+
+- accepts the decrypted M9 updater/container directly and recursively walks nested PWAD payloads;
+- locates BF547 payloads without assuming a hard-coded file offset;
+- identifies map candidates only when their fixed-width symbol records actually contain both `Process_Sharpness` and `Process_Noise`;
+- identifies possible BF561 LDR payloads structurally, scores map/LDR pairs by whether the LDR really covers mapped imaging symbols, and keeps overlay candidates separate rather than flattening them;
+- runs the existing function extractor only on plausible map/LDR pairs;
+- scans BF547 for `Sharp`, `Noise`, the JPEG-property field-name family, and pointer xrefs under known M-generation RAM deltas;
+- finds exact Low / Medium low / Standard / Medium high / High menu tables and reports their own pointer xrefs, while keeping their property identity explicitly UNASSIGNED;
+- records literal breadcrumbs for the 68-byte record stride, 956-byte processing-list size and 14-record capacity;
+- never promotes xref proximity alone to proof of `+13=nSharpness` or `Standard=2`.
+
+The firmware-direct pass was syntax-checked before commit. It contains no Leica firmware bytes and modifies no renderer code.
+
+## Historical-boundary check
+
+A fresh search of the preserved M9 project material found no later hidden solution for the Sharp job ID or the BF547 ordered-list builder. The historical investigation genuinely stopped with:
+
+```text
+g_CurrentProcessingSetting = 68 bytes
+g_ProcessingList           = 956 bytes = 4 + 14*68
+```
+
+plus the BF547 stage-name family containing `Noise`, `Sharp`, `ColorMatrix`, `ConvertYCrCb`, etc.
+
+Therefore the job-ID / ordered-list problem remains a real open gate; no older result should be promoted by inference.
+
 ## Next decisive run
 
-Run the extractor against the actual M9 1.216 decrypted assets:
+Preferred direct run against the decrypted M9 updater:
+
+```bash
+python tools/m9_sharpnessforensics1a_firmwarepass.py \
+  /path/to/m9-1_216.decrypted.upd \
+  --out SHARPNESSFORENSICS1A_FIRMWAREPASS
+```
+
+The original extractor remains available for already-separated assets:
 
 ```bash
 python tools/m9_sharpnessforensics1a.py \
