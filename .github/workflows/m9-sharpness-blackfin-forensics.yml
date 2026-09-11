@@ -9,6 +9,7 @@ on:
       - '.github/workflows/m9-sharpness-blackfin-forensics.yml'
       - 'tools/m9_sharpnessforensics1a.py'
       - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_iso_sharp_consumer_probe.py'
       - 'tools/recover_m9_key_from_shared_body.py'
 
 permissions:
@@ -77,6 +78,56 @@ jobs:
           mkdir -p "$RUNNER_TEMP/m9sharp/evidence"
           cp "$RUNNER_TEMP/m9sharp/pass/report.json" "$RUNNER_TEMP/m9sharp/evidence/firmwarepass_report.json"
           cp "$RUNNER_TEMP/radare2-architectures.txt" "$RUNNER_TEMP/m9sharp/evidence/radare2-architectures.txt"
+
+      - name: Run M9 ISO / Sharp reverse-callgraph probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"
+          P="$RUNNER_TEMP/m9sharp/pass"
+          python3 - <<'PY'
+          import json, os, pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/pass/report.json'
+          d=json.load(open(p))
+          best=None
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              if x.get('covered',0)>0 and 'error' not in x.get('detail',{}):
+                  best=i; break
+          if best is None:
+              raise SystemExit('no coherent BF561 deep pair')
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/pass'/f'bf561_pair_{best:02d}'
+          ldrs=list(root.glob('*.bin'))
+          maps=list(root.glob('*.map'))
+          # Prefer the copied original pair inputs if present; otherwise recover
+          # their paths from pair metadata in report.json.
+          pair=d['bf561_deep'][best]
+          detail=pair.get('detail',{})
+          ldr=detail.get('ldr') or pair.get('ldr')
+          mp=detail.get('map') or pair.get('map')
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/evidence/selected_pair_paths.json'
+          out.write_text(json.dumps({'best_pair': best, 'ldr': ldr, 'map': mp}, indent=2))
+          print(json.dumps({'best_pair': best, 'ldr': ldr, 'map': mp}))
+          PY
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          temp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          meta=json.load(open(temp/'m9sharp/evidence/selected_pair_paths.json'))
+          p=temp/'m9sharp/pass/report.json'
+          d=json.load(open(p))
+          pair=d['bf561_deep'][meta['best_pair']]
+          # firmwarepass stores concrete extracted pair inputs in its output;
+          # discover the bf0.bin/bf0.map pair under that selected pair directory.
+          root=temp/'m9sharp/pass'/f"bf561_pair_{meta['best_pair']:02d}"
+          candidates_bin=list(root.rglob('bf0.bin'))
+          candidates_map=list(root.rglob('bf0.map'))
+          if not candidates_bin or not candidates_map:
+              raise SystemExit(f'probe inputs missing under {root}')
+          cmd=['python3','tools/m9_iso_sharp_consumer_probe.py',
+               '--ldr',str(candidates_bin[0]),'--map',str(candidates_map[0]),
+               '--out',str(temp/'m9sharp/evidence/iso_sharp_consumer_probe.json')]
+          print(' '.join(cmd))
+          subprocess.run(cmd, check=True)
+          PY
 
       - name: Disassemble selected BF561 functions
         shell: bash
