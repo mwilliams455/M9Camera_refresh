@@ -20,6 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicmhc1a.py
+          python3 -m py_compile patches/fix-m9cam-basishsm1p-demosaicmhc1a-lifetime1a.py
           python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhc1a.py
 
       - name: Replay exact UPSTREAMAXIS1A parent assembly
@@ -71,6 +72,7 @@ jobs:
           set -euxo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           python3 patches/apply-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+          python3 patches/fix-m9cam-basishsm1p-demosaicmhc1a-lifetime1a.py "$ROOT"
           python3 patches/verify-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
 
       - name: Verify photographic scope anchors
@@ -79,6 +81,7 @@ jobs:
           R=PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
           C=PhotonCamera/app/src/main/cpp/m9color_jni.cpp
           grep -n "DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct" "$R"
+          grep -n "reachabilityFence(mhcRgbBuffer)" "$R"
           grep -n "demosaicMhcRggb" "$R" PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java "$C"
           grep -n "16754, -7632, -922" "$C"
           grep -n "18160, -9034, -922" "$C"
