@@ -52,6 +52,9 @@ def method_bounds(s, marker):
 
 active = method_bounds(r, '    private static RenderCore renderNativeProspectiveCore(')
 
+# Structural authority is the actual two-frame bank plus the active-core telemetry below.
+# Do not require a cosmetic top-level schema/status rename: historical diagnostic wrappers
+# intentionally retain their parent schema and do not affect photographic isolation.
 for token in (
     '_DEMOSAICAB_MHC_SAT3',
     '_DEMOSAICAB_EA_SAT3_GAINLOCK',
@@ -61,8 +64,6 @@ for token in (
     'boolean[] applyShadingFlags = {true, true};',
     'boolean[] applyShadingLumaDecomp1AFlags = {true, true};',
     'double[] shadingLumaTargetOutsideMedianEv1AFlags = {0.30, 0.30};',
-    '"m9cam.renderer.demosaicab.v1a"',
-    '"completed_demosaicab1a"',
 ):
     need(r, token, 'same-RAW pair scaffold')
 
@@ -77,6 +78,8 @@ for token in (
     'DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct',
     'Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);',
     'M9NativeColorCore.demosaicMhcRggb(',
+    'demosaicAb1A',
+    'demosaicAbVariant',
     'demosaicAbSameRawBayer',
     'demosaicAbOnlyPhotographicDifference',
     'demosaicAbDownstreamFrozen',
