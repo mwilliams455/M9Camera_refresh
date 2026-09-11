@@ -17,17 +17,31 @@ permissions:
 jobs:
   disasm:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Blackfin-capable Radare2
+      - name: Build current Blackfin-capable Radare2 from source
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq radare2
-          rasm2 -L | grep -i blackfin
+          sudo apt-get install -y -qq git build-essential pkg-config python3
+          R2SRC="$RUNNER_TEMP/radare2-src"
+          R2PREFIX="$RUNNER_TEMP/radare2-prefix"
+          rm -rf "$R2SRC" "$R2PREFIX"
+          mkdir -p "$R2PREFIX"
+          git clone --depth 1 https://github.com/radareorg/radare2.git "$R2SRC"
+          cd "$R2SRC"
+          sys/install.sh --without-pull --install --prefix="$R2PREFIX"
+          echo "$R2PREFIX/bin" >> "$GITHUB_PATH"
+          export PATH="$R2PREFIX/bin:$PATH"
+          r2 -v
+          rasm2 -L | tee "$RUNNER_TEMP/radare2-architectures.txt"
+          if ! rasm2 -L | grep -Eiq 'blackfin|bfin'; then
+            echo 'Radare2 source build completed but no Blackfin architecture plugin was listed.' >&2
+            exit 2
+          fi
 
       - name: Download and verify public firmware
         shell: bash
@@ -62,6 +76,7 @@ jobs:
             --out "$RUNNER_TEMP/m9sharp/pass"
           mkdir -p "$RUNNER_TEMP/m9sharp/evidence"
           cp "$RUNNER_TEMP/m9sharp/pass/report.json" "$RUNNER_TEMP/m9sharp/evidence/firmwarepass_report.json"
+          cp "$RUNNER_TEMP/radare2-architectures.txt" "$RUNNER_TEMP/m9sharp/evidence/radare2-architectures.txt"
 
       - name: Disassemble selected BF561 functions
         shell: bash
@@ -90,11 +105,11 @@ jobs:
               [ -e "$f" ] || continue
               base=$(basename "$f" | sed -E 's/^.*_([0-9a-fA-F]{8})\.bin$/\1/')
               out="$E/$(basename "$f" .bin).dis.txt"
-              # Raw function bytes are mapped at their real BF561 address.
-              r2 -q -a blackfin -b 16 -m "0x$base" -c 'e asm.bytes=true; e asm.lines=false; pd 4096; q' "$f" > "$out" 2>&1 || true
+              r2 -q -a blackfin -b 16 -m "0x$base" \
+                -c 'e asm.bytes=true; e asm.lines=false; pd 4096; q' "$f" > "$out" 2>&1
             done
           done
-          ls -lh "$E"/*.dis.txt || true
+          ls -lh "$E"/*.dis.txt
 
       - name: Recreate historical BF547 controller disassembly windows
         shell: bash
@@ -103,11 +118,12 @@ jobs:
           E="$RUNNER_TEMP/m9sharp/evidence"
           BF=$(find "$RUNNER_TEMP/m9sharp/pass" -path '*/bf547_00/BF547.bin' -print -quit)
           test -n "$BF"
-          # Canonical static BF547 mapping used by the menu/property work: file + 0x20000.
           for off in 0x494b0 0x4c800; do
             addr=$(printf '0x%x' $((off + 0x20000)))
             name=$(printf '%x' $((off)))
-            r2 -q -a blackfin -b 16 -m 0x20000 -c "e asm.bytes=true; e asm.lines=false; s $addr; pd 1024; q" "$BF" > "$E/bf547_${name}.dis.txt" 2>&1 || true
+            r2 -q -a blackfin -b 16 -m 0x20000 \
+              -c "e asm.bytes=true; e asm.lines=false; s $addr; pd 1024; q" "$BF" \
+              > "$E/bf547_${name}.dis.txt" 2>&1
           done
 
       - name: Publish derived forensic evidence only
