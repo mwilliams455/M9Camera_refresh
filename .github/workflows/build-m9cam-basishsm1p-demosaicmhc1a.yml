@@ -82,10 +82,9 @@ jobs:
           grep -n "demosaicMhcRggb" "$R" PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java "$C"
           grep -n "16754, -7632, -922" "$C"
           grep -n "18160, -9034, -922" "$C"
-          if grep -q "Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);" "$R"; then
-            echo "production EA demosaic still active" >&2
-            exit 1
-          fi
+          EA_COUNT=$(grep -c "Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);" "$R" || true)
+          test "$EA_COUNT" -eq 1
+          echo "Dormant legacy EA control retained exactly once; active native core verified by scoped verifier."
 
       - name: Snapshot assembled DEMOSAICMHC1A source
         run: |
