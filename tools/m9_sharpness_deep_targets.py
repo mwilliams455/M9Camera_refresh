@@ -19,6 +19,7 @@ TARGETS = (
     "CalculateNoiseParameter",
     "Process_Sharpness",
     "Process_Noise",
+    "Set",
 )
 
 
