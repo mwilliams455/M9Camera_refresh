@@ -124,32 +124,44 @@ descriptor + 0x5C + 4*slot
 
 Therefore the M9 helper is not byte-identical to the Monochrom helper and its descriptor layout is evolved/different. Cross-generation symbol-map identity does not license transfer of helper offsets or photographic constants.
 
-## 6. SetStructParameter changes the +13 hypothesis
+## 6. Offset-notation correction: decimal +13 remains the missing scalar
 
-In the two clean M9 `SetStructParameter` implementations, bytes `+13` and `+14` are read as an adjacent byte pair and combined into one 16-bit word:
+A previous revision of this note incorrectly conflated hexadecimal disassembler offsets with the decimal byte offsets used in the historical process-record field map. That interpretation is withdrawn.
 
-```text
-lo = B[src + 0x13]
-hi = B[src + 0x14]
-W[dst + 0x234] = lo | (hi << 8)
-```
-
-The same code similarly packs:
+The clean M9 `SetStructParameter` scalar reads are:
 
 ```text
-+0x0F/+0x10 -> W[dst + 0x230]
-+0x11/+0x12 -> W[dst + 0x232]
-+0x13/+0x14 -> W[dst + 0x234]
+src + 0x09 (decimal 9)  -> ISO handling / dst +0x78
+src + 0x0A (decimal 10) -> dst +0x790     # historical nContrast
+src + 0x0B (decimal 11) -> dst +0x798     # historical nSaturation
+src + 0x0C (decimal 12) -> dst +0x65C     # historical nNoise
+src + 0x0E (decimal 14) -> dst +0x78C     # historical nColorSpace
 ```
 
-`Run` reads all three destination words on entry, but in the clean `Run` disassembly the local copies of `0x230`, `0x232`, and `0x234` are not subsequently referenced.
+Crucially, source byte:
+
+```text
+src + 0x0D (decimal 13)
+```
+
+is not read by this clean `SetStructParameter` implementation.
+
+The later packed pairs are different fields entirely:
+
+```text
+src +0x0F/+0x10 -> W[dst +0x230]
+src +0x11/+0x12 -> W[dst +0x232]
+src +0x13/+0x14 -> W[dst +0x234]
+```
+
+Here `0x13/0x14` are hexadecimal offsets 19/20 decimal and must not be confused with historical decimal fields +13/+14.
 
 Consequences:
 
-- `+13 = nSharpness` remains **unproven**.
-- The old cross-generation gap argument is no longer sufficient by itself.
-- This specific BF561 setter treats +13/+14 as one 16-bit packed value, so the controller/list-builder trace must determine the true source-record semantics.
-- This does not by itself disprove that one byte encodes sharpness in a different controller-side structure; it means the structures/traces must not be conflated.
+- historical **decimal `+13 = nSharpness` remains unproven but is materially strengthened**;
+- it remains exactly the one-byte scalar hole between proven/homologous Noise at decimal +12 and ColorSpace at decimal +14;
+- this BF561 setter does not itself reveal the consumer of decimal +13, so the controller/list-builder path still has to close the field identity;
+- the packed words at destination +0x230/+0x232/+0x234 are unrelated evidence and must not be used against the +13 hypothesis.
 
 ## 7. Current evidence levels
 
@@ -164,18 +176,18 @@ Consequences:
 - `ASMUMGauss3LUT` implements a Gaussian/residual/signed-LUT correction path with fixed-point limiting.
 - `Run` calls `LoadAndModifySharpnessDa...` during preparation.
 - M9 `LoadISODataL1` uses a descriptor layout different from M Monochrom.
-- The clean M9 `SetStructParameter` packs source +13/+14 into one 16-bit destination word at +0x234.
+- Decimal source +9/+10/+11/+12/+14 align with ISO/Contrast/Saturation/Noise/ColorSpace handling; decimal +13 remains the missing scalar.
 
 ### Still open
 
-- Controller/list-builder destination of Sharpening control `0x1005` and whether it proves/rejects `+13=nSharpness` in the historical 68-byte process record.
+- Direct consumer/proof of historical decimal `record +13 = nSharpness`.
+- Controller/list-builder destination of Sharpening control `0x1005`.
 - Exact BF547 ordered-list insertion position for Sharp.
 - Exact semantics of every `Process_Sharpness` / `ASMUMGauss3LUT` argument.
-- Exact `LoadAndModifySharpnessDa...` arithmetic and source tables.
-- Exact consumer of the M9 13 x 4100-byte ISO bank.
-- Whether and how ISO/noise state modifies the Sharp LUT.
+- Exact Sharp UI -> internal seven-mode mapping.
+- Final identity of the M9 13 x 4100-byte ISO bank, pending the LUT-count link.
 - Border behavior and every rounding/clipping detail needed for a bit-faithful offline implementation.
 
 ## Freeze rule
 
-Do not implement or promote `SHARPNESSSTD1A` yet. Production remains frozen. The next decisive evidence is the full `LoadAndModifySharpnessDa...` disassembly plus the controller/list-builder trace from `0x1005` into the 68-byte process record.
+Do not implement or promote `SHARPNESSSTD1A` yet. Production remains frozen. The next decisive evidence is the controller/list-builder trace from Sharpening control `0x1005` / decimal record +13 plus the exact Sharp LUT-bank count/identity.
