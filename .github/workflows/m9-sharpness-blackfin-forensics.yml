@@ -1,0 +1,127 @@
+name: M9 Sharpness Blackfin Forensics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-blackfin-forensics.yml'
+      - 'tools/m9_sharpnessforensics1a.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  disasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blackfin-capable Radare2
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq radare2
+          rasm2 -L | grep -i blackfin
+
+      - name: Download and verify public firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors \
+            -o "$RUNNER_TEMP/m9sharp/m9.upd" \
+            'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors \
+            -o "$RUNNER_TEMP/m9sharp/mm.upm" \
+            'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+
+      - name: Recover canonical decrypted M9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/recover_m9_key_from_shared_body.py \
+            "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" \
+            --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" \
+            --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Extract coherent BF561 functions and BF547
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py \
+            "$RUNNER_TEMP/m9sharp/m9.dec" \
+            --out "$RUNNER_TEMP/m9sharp/pass"
+          mkdir -p "$RUNNER_TEMP/m9sharp/evidence"
+          cp "$RUNNER_TEMP/m9sharp/pass/report.json" "$RUNNER_TEMP/m9sharp/evidence/firmwarepass_report.json"
+
+      - name: Disassemble selected BF561 functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"
+          P="$RUNNER_TEMP/m9sharp/pass"
+          python3 - <<'PY'
+          import json, os, pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/pass/report.json'
+          d=json.load(open(p))
+          best=None
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              if x.get('covered',0)>0 and 'error' not in x.get('detail',{}):
+                  best=i; break
+          if best is None: raise SystemExit('no coherent BF561 deep pair')
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/evidence/best_pair.txt'
+          out.write_text(str(best)+'\n')
+          print('best_pair',best)
+          PY
+          PAIR=$(cat "$E/best_pair.txt")
+          FDIR="$P/bf561_pair_$(printf '%02d' "$PAIR")/bf561_functions"
+          test -d "$FDIR"
+          for stem in Run Process_Sharpness Process_Noise Process_DNGNoise SetStructParameter LoadISODataL1 CalculateNoiseParameter LoadLutArchiveL3; do
+            for f in "$FDIR"/${stem}_*.bin; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f" | sed -E 's/^.*_([0-9a-fA-F]{8})\.bin$/\1/')
+              out="$E/$(basename "$f" .bin).dis.txt"
+              # Raw function bytes are mapped at their real BF561 address.
+              r2 -q -a blackfin -b 16 -m "0x$base" -c 'e asm.bytes=true; e asm.lines=false; pd 4096; q' "$f" > "$out" 2>&1 || true
+            done
+          done
+          ls -lh "$E"/*.dis.txt || true
+
+      - name: Recreate historical BF547 controller disassembly windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"
+          BF=$(find "$RUNNER_TEMP/m9sharp/pass" -path '*/bf547_00/BF547.bin' -print -quit)
+          test -n "$BF"
+          # Canonical static BF547 mapping used by the menu/property work: file + 0x20000.
+          for off in 0x494b0 0x4c800; do
+            addr=$(printf '0x%x' $((off + 0x20000)))
+            name=$(printf '%x' $((off)))
+            r2 -q -a blackfin -b 16 -m 0x20000 -c "e asm.bytes=true; e asm.lines=false; s $addr; pd 1024; q" "$BF" > "$E/bf547_${name}.dis.txt" 2>&1 || true
+          done
+
+      - name: Publish derived forensic evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-BLACKFIN-FORENSICS
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+
+      - name: Remove firmware and extracted binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
