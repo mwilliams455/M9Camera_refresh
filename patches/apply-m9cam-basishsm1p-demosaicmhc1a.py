@@ -7,6 +7,7 @@ RENDERER = ROOT / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9
 CORE = ROOT / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java'
 CPP = ROOT / 'app/src/main/cpp/m9color_jni.cpp'
 GRADLE = ROOT / 'app/build.gradle'
+ACTIVE_METHOD = '    private static RenderCore renderNativeProspectiveCore('
 
 for p in (RENDERER, CORE, CPP, GRADLE):
     if not p.exists():
@@ -17,6 +18,60 @@ def replace_once(text, old, new, label):
     if n != 1:
         raise SystemExit(f'DEMOSAICMHC1A {label}: expected exactly 1 anchor, found {n}')
     return text.replace(old, new, 1)
+
+def method_bounds(text, marker):
+    start = text.find(marker)
+    if start < 0:
+        raise SystemExit('DEMOSAICMHC1A active native method marker missing')
+    brace = text.find('{', start)
+    if brace < 0:
+        raise SystemExit('DEMOSAICMHC1A active native method opening brace missing')
+    depth = 0
+    i = brace
+    state = 'code'
+    quote = ''
+    esc = False
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ''
+        if state == 'line':
+            if ch == '\n':
+                state = 'code'
+        elif state == 'block':
+            if ch == '*' and nxt == '/':
+                state = 'code'; i += 1
+        elif state == 'string':
+            if esc:
+                esc = False
+            elif ch == '\\':
+                esc = True
+            elif ch == quote:
+                state = 'code'
+        else:
+            if ch == '/' and nxt == '/':
+                state = 'line'; i += 1
+            elif ch == '/' and nxt == '*':
+                state = 'block'; i += 1
+            elif ch in ('"', "'"):
+                state = 'string'; quote = ch; esc = False
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return start, i + 1
+        i += 1
+    raise SystemExit('DEMOSAICMHC1A active native method unterminated')
+
+def replace_active_once(text, old, new, label):
+    start, end = method_bounds(text, ACTIVE_METHOD)
+    method = text[start:end]
+    scoped = method.count(old)
+    if scoped != 1:
+        raise SystemExit(f'DEMOSAICMHC1A {label}: expected 1 active-native scoped anchor, found {scoped}; global={text.count(old)}')
+    pos = start + method.find(old)
+    print(f'DEMOSAICMHC1A {label}: active renderNativeProspectiveCore occurrence at {pos}; globalCount={text.count(old)}')
+    return text[:pos] + new + text[pos + len(old):]
 
 # Java JNI bridge.
 t = CORE.read_text()
@@ -61,7 +116,6 @@ inline int64_t mhcAt(const jshort* raw, int width, int height, int y, int x) {
 }
 
 inline uint16_t mhcSat16From16ths(int64_t numerator16) {
-    // Symmetric round-to-nearest before divide-by-16, then unsigned saturation.
     const int64_t q = numerator16 >= 0 ? (numerator16 + 8) / 16 : -((-numerator16 + 8) / 16);
     return static_cast<uint16_t>(clipl(q, 0, 65535));
 }
@@ -90,14 +144,9 @@ inline void mhcPixelRggb(const jshort* raw, int width, int height,
     const bool evenY = (y & 1) == 0;
     const bool evenX = (x & 1) == 0;
 
-    // Kernel for G at an R/B site, canonical /8 form.
     const int64_t greenAtRb8 = 4 * C + 2 * (N + S + W + E) - (NN + SS + WW + EE);
-    // Kernel for the opposite colour at an R/B site, expressed in sixteenths
-    // to represent the +/-1.5 coefficients exactly.
     const int64_t oppositeAtRb16 = 12 * C + 4 * (NW + NE + SW + SE)
                                  - 3 * (NN + SS + WW + EE);
-    // Missing colour at a green site. h16 uses horizontal same-colour neighbours;
-    // v16 is its transpose for vertical same-colour neighbours.
     const int64_t h16 = 10 * C + 8 * (W + E) + (NN + SS)
                       - 2 * (NW + NE + SW + SE) - 2 * (WW + EE);
     const int64_t v16 = 10 * C + 8 * (N + S) + (WW + EE)
@@ -184,25 +233,24 @@ if 'M9NativeColorCore_demosaicMhcRggb' not in t:
     t = replace_once(t, jni_anchor, jni + jni_anchor, 'native JNI insertion')
 CPP.write_text(t)
 
-# Replace only the demosaic transport. Everything upstream of norm16 and everything
-# downstream of cam16 is left byte-for-byte assembled by the existing branch.
+# Replace demosaic only inside the promoted native SOURCECAL2A production core.
+# The dormant legacy renderCore deliberately retains OpenCV EA as a forensic control.
 t = RENDERER.read_text()
 old_decl = '''        Mat rawMat = new Mat(height, width, CvType.CV_16UC1);\n        Mat cam16 = new Mat();\n        Mat meterCam16 = new Mat();\n'''
-new_decl = '''        // DEMOSAICMHC1A owns one direct RGB16 frame. The backing ByteBuffer must\n        // stay strongly reachable until cam16.release() because OpenCV wraps, not copies, it.\n        final int mhcBytes = Math.multiplyExact(Math.multiplyExact(width, height), 6);\n        ByteBuffer mhcRgbBuffer = ByteBuffer.allocateDirect(mhcBytes).order(ByteOrder.nativeOrder());\n        Mat rawMat = new Mat(); // retained only for frozen finally-block compatibility; no RAW copy required.\n        Mat cam16 = new Mat(height, width, CvType.CV_16UC3, mhcRgbBuffer);\n        Mat meterCam16 = new Mat();\n'''
+new_decl = '''        // DEMOSAICMHC1A owns one direct RGB16 frame. The backing ByteBuffer must\n        // stay strongly reachable until cam16.release() because OpenCV wraps, not copies, it.\n        final int mhcBytes = Math.multiplyExact(Math.multiplyExact(width, height), 6);\n        ByteBuffer mhcRgbBuffer = ByteBuffer.allocateDirect(mhcBytes).order(ByteOrder.nativeOrder());\n        Mat rawMat = new Mat(); // dormant compatibility handle; production MHC needs no Bayer Mat copy.\n        Mat cam16 = new Mat(height, width, CvType.CV_16UC3, mhcRgbBuffer);\n        Mat meterCam16 = new Mat();\n'''
 if 'DEMOSAICMHC1A owns one direct RGB16 frame' not in t:
-    t = replace_once(t, old_decl, new_decl, 'renderer Mat declaration')
+    t = replace_active_once(t, old_decl, new_decl, 'renderer Mat declaration')
 old_demo = '''            long demosaicStartedNs = System.nanoTime();\n            rawMat.put(0, 0, norm16);\n            norm16 = null;\n            Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);\n            rawMat.release();\n            demosaicElapsedMs = (System.nanoTime() - demosaicStartedNs) / 1_000_000L;\n'''
 new_demo = '''            long demosaicStartedNs = System.nanoTime();\n            long[] mhcStats = new long[2];\n            long mhcNativeNs = M9NativeColorCore.demosaicMhcRggb(\n                    norm16, width, height, mhcRgbBuffer, NATIVE_COLOR_WORKERS, mhcStats);\n            if (mhcNativeNs < 0) {\n                throw new IllegalStateException("DEMOSAICMHC1A native failure: " + mhcNativeNs);\n            }\n            norm16 = null;\n            demosaicElapsedMs = (System.nanoTime() - demosaicStartedNs) / 1_000_000L;\n'''
 if 'DEMOSAICMHC1A native failure' not in t:
-    t = replace_once(t, old_demo, new_demo, 'renderer demosaic replacement')
-# Audit fields immediately after existing demosaic timing. This does not affect pixels.
+    t = replace_active_once(t, old_demo, new_demo, 'renderer demosaic replacement')
 audit_anchor = '            d.put("demosaicElapsedMs", demosaicElapsedMs);\n'
-audit_add = '''            d.put("demosaicMode", "DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct");\n            d.put("demosaicControl", "OpenCV_COLOR_BayerRG2BGR_EA_not_rendered");\n            d.put("demosaicInputDomain", "existing_NORM030_normalized_linear_Bayer");\n            d.put("demosaicOutputDomain", "CV_16UC3_RGB_memory_order_frozen_downstream");\n            d.put("demosaicPhotographicChangeScope", "demosaic_only_WB_shading_SOURCECAL_HSM_TC20_SAT3_curve02_BT601_TG1_frozen");\n'''
+audit_add = '''            d.put("demosaicMode", "DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct");\n            d.put("demosaicControl", "dormant_legacy_OpenCV_COLOR_BayerRG2BGR_EA_retained");\n            d.put("demosaicInputDomain", "existing_NORM030_normalized_linear_Bayer");\n            d.put("demosaicOutputDomain", "CV_16UC3_RGB_memory_order_frozen_downstream");\n            d.put("demosaicPhotographicChangeScope", "demosaic_only_WB_shading_SOURCECAL_HSM_TC20_SAT3_curve02_BT601_TG1_frozen");\n'''
 if 'DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct' not in t:
-    t = replace_once(t, audit_anchor, audit_anchor + audit_add, 'renderer diagnostics')
+    t = replace_active_once(t, audit_anchor, audit_anchor + audit_add, 'renderer diagnostics')
 RENDERER.write_text(t)
 
-# Make the APK self-identifying while retaining all prior production naming.
+# Make APK self-identifying while retaining prior build provenance.
 g = GRADLE.read_text()
 if 'demosaicmhc1a' not in g.lower():
     m = re.search(r'(?m)^(\s*versionName\s+[\'\"])([^\'\"]+)([\'\"]\s*)$', g)
@@ -213,3 +261,6 @@ if 'demosaicmhc1a' not in g.lower():
 GRADLE.write_text(g)
 
 print('DEMOSAICMHC1A applied')
+print(' - active renderNativeProspectiveCore uses native MHC 5x5')
+print(' - dormant legacy renderCore retains OpenCV EA control')
+print(' - downstream WB/shading/SOURCECAL/HSM/TC20/SAT3/curve02/BT601/TG1 untouched')
