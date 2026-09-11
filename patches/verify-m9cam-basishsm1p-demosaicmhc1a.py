@@ -45,6 +45,9 @@ checks = {
     'legacy EA control retained': ea in legacy,
     'exactly one global EA control remains': r.count(ea) == 1,
     'diagnostic identity active only': 'DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct' in active and 'DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct' not in legacy,
+    'direct buffer reachability fenced': 'java.lang.ref.Reference.reachabilityFence(mhcRgbBuffer);' in active,
+    'native demosaic timing telemetry': 'demosaicNativeElapsedMs' in active and 'demosaicWorkersUsed' in active,
+    'lifetime telemetry': 'direct_ByteBuffer_reachabilityFence_through_Mat_release' in active,
     'JNI declaration': 'static native long demosaicMhcRggb(' in c,
     'native kernel': 'mhcPixelRggb(' in n,
     'native JNI': 'M9NativeColorCore_demosaicMhcRggb' in n,
@@ -57,4 +60,4 @@ checks = {
 failed = [k for k,v in checks.items() if not v]
 for k,v in checks.items(): print(('OK  ' if v else 'FAIL') + k)
 if failed: raise SystemExit('DEMOSAICMHC1A verifier failed: ' + ', '.join(failed))
-print('DEMOSAICMHC1A verifier passed: MHC active only; dormant legacy EA retained')
+print('DEMOSAICMHC1A verifier passed: MHC active only; dormant legacy EA retained; direct-buffer lifetime fenced')
