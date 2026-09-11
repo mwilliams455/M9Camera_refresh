@@ -1,0 +1,151 @@
+name: Build M9Cam BASISHSM1P DEMOSAICMHC1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - m9nohdr1a-sourcecal2a-basishsm1p-demosaicmhc1a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout M9 recovery repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify DEMOSAICMHC1A patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicmhc1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhc1a.py
+
+      - name: Replay exact UPSTREAMAXIS1A parent assembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-basishsm1p-curvedomain1c-upstreamaxis1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact CURVEDOMAIN1B parent assembly',
+              'Apply CURVEDOMAIN1C UPSTREAMAXIS1A read-only extension',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              try:
+                  i = lines.index(target)
+              except ValueError:
+                  raise SystemExit('parent step missing: ' + name)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('parent run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected parent indentation in ' + name + ': ' + line)
+                  i += 1
+              p = Path(f'/tmp/upstreamaxis_parent_{idx}.sh')
+              p.write_text('\n'.join(out) + '\n')
+              print(p, name)
+          PY
+          for s in /tmp/upstreamaxis_parent_*.sh; do
+            echo "===== replay $s ====="
+            bash "$s"
+          done
+
+      - name: Apply DEMOSAICMHC1A only-change extension
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+
+      - name: Verify photographic scope anchors
+        run: |
+          set -euo pipefail
+          R=PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+          C=PhotonCamera/app/src/main/cpp/m9color_jni.cpp
+          grep -n "DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_native_direct" "$R"
+          grep -n "demosaicMhcRggb" "$R" PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java "$C"
+          grep -n "16754, -7632, -922" "$C"
+          grep -n "18160, -9034, -922" "$C"
+          if grep -q "Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);" "$R"; then
+            echo "production EA demosaic still active" >&2
+            exit 1
+          fi
+
+      - name: Snapshot assembled DEMOSAICMHC1A source
+        run: |
+          set -euo pipefail
+          mkdir -p assembled-demosaicmhc1a
+          cp PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java assembled-demosaicmhc1a/
+          cp PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java assembled-demosaicmhc1a/
+          cp PhotonCamera/app/src/main/cpp/m9color_jni.cpp assembled-demosaicmhc1a/
+          cp PhotonCamera/app/build.gradle assembled-demosaicmhc1a/app-build.gradle
+          sha256sum assembled-demosaicmhc1a/* | tee assembled-demosaicmhc1a/SHA256SUMS.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/BASISHSM1P_DEMOSAICMHC1A_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          set -euo pipefail
+          sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee DEMOSAICMHC1A_APK_SHA256.txt
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BASISHSM1P-DEMOSAICMHC1A-BUILDLOG
+          path: BASISHSM1P_DEMOSAICMHC1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BASISHSM1P-DEMOSAICMHC1A-ASSEMBLED-SOURCE
+          path: assembled-demosaicmhc1a/
+          if-no-files-found: ignore
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-BASISHSM1P-DEMOSAICMHC1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            DEMOSAICMHC1A_APK_SHA256.txt
+          if-no-files-found: error
