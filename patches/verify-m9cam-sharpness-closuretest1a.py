@@ -17,14 +17,27 @@ need=[
  'const int dr=m9ClosureQ14(base[0])-g14',
  'const int db=m9ClosureQ14(base[2])-g14',
  'm9ClosureClamp14(sg+dr)', 'm9ClosureClamp14(sg+db)',
+ '[=, &greenPlane, &closureSharp14]',
 ]
 for x in need:
     if x not in s: raise SystemExit('CLOSURETEST1A missing anchor: '+x)
 if 'closureSharp14[p]' not in s: raise SystemExit('CLOSURETEST1A sharpened green not consumed')
+
+# Regression gate: closure helpers are ordinary C++ file-scope helpers and must
+# appear before the JNI demosaic function. The first closure build inserted them
+# after `if (neutralAware) {`, which presence-only checks failed to catch.
+helper=s.index('inline uint16_t m9ClosureQ14')
+jni=s.index('Java_com_particlesdevs_photoncamera_m9_render_M9NativeColorCore_demosaicMhcRggb(')
+if helper >= jni:
+    raise SystemExit('CLOSURETEST1A helper block is not at file scope before JNI demosaic entry')
+seam=s.index('// SPLITDEMOSAIC1A research seam')
+if not (helper < jni < seam):
+    raise SystemExit('CLOSURETEST1A unexpected helper/JNI/seam ordering')
+
 if re.search(r'Auto.?ISO|autoIso|AUTO_ISO', s):
     # Existing unrelated source may mention AutoISO; only reject inside our helper block.
     a=s.index('// SHARPNESS_CLOSURETEST1A')
-    b=s.index('// SPLITDEMOSAIC1A research seam',a)
+    b=jni
     if re.search(r'Auto.?ISO|autoIso|AUTO_ISO',s[a:b]):
         raise SystemExit('CLOSURETEST1A unexpectedly depends on Auto ISO')
 
@@ -42,6 +55,7 @@ expected='2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9'
 if digest!=expected: raise SystemExit(f'CLOSURETEST1A slot0 hash mismatch {digest}')
 if expected not in s: raise SystemExit('CLOSURETEST1A source does not pin canonical slot0 hash')
 print('CLOSURETEST1A verify PASS')
+print(' helper_scope=file')
 print(' fixed_iso=160 slot=0 menu=Standard scale=1x')
 print(' slot0_sha256='+digest)
 print(' quantization=endpoint-nearest norm16<->14 (explicit mobile-port choice)')
