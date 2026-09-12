@@ -29,6 +29,28 @@ EXACT_TARGETS = (
 )
 KEYWORDS = ("sharp", "lut", "iso", "noise")
 
+# Canonical BF547 disassembly at runtime 0x6c800 comes from BF547.bin file
+# offset 0x4c800, establishing the +0x20000 image base used by these pointers.
+BF547_RUNTIME_BASE = 0x20000
+
+# The controller diagnostic at runtime ~0x6ca38 reads individual processing-
+# record bytes and passes each to a field-specific firmware string.  These are
+# the string pointers paired with the observed record offsets in that routine.
+# Keeping the mapping explicit lets the firmware itself name record +0x0d.
+RECORD_FIELD_LABEL_PTRS = {
+    "0x07": 0x0F52F0,
+    "0x08": 0x0F52FC,
+    "0x09": 0x0F530C,
+    "0x0a": 0x0F5314,
+    "0x0b": 0x0F5320,
+    "0x0d": 0x0F532C,
+    "0x0e": 0x0F5334,
+    "0x15": 0x0F5340,
+    "0x17_0x18": 0x0F5350,
+    "0x16": 0x0F5358,
+    "0x19": 0x0F5360,
+}
+
 
 def load_base(path: Path):
     spec = importlib.util.spec_from_file_location("m9sharp_base", path)
@@ -42,6 +64,48 @@ def load_base(path: Path):
 
 def safe_name(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", s)[:80]
+
+
+def read_c_string(data: bytes, off: int, max_len: int = 96) -> dict[str, object]:
+    if off < 0 or off >= len(data):
+        return {"in_range": False, "file_offset": hex(off)}
+    end = min(len(data), off + max_len)
+    raw = data[off:end].split(b"\0", 1)[0]
+    printable = all((0x20 <= b < 0x7f) or b in (9, 10, 13) for b in raw)
+    return {
+        "in_range": True,
+        "file_offset": hex(off),
+        "raw_hex": raw.hex(" "),
+        "ascii": raw.decode("ascii", "replace") if printable else None,
+        "printable_ascii": printable,
+    }
+
+
+def bf547_record_field_labels(ldr_path: Path) -> dict[str, object]:
+    pass_root = ldr_path.parent.parent
+    bf547 = pass_root / "bf547_00" / "BF547.bin"
+    if not bf547.exists():
+        return {"available": False, "path": str(bf547)}
+    data = bf547.read_bytes()
+    rows = {}
+    for field_off, runtime in RECORD_FIELD_LABEL_PTRS.items():
+        file_off = runtime - BF547_RUNTIME_BASE
+        rows[field_off] = {
+            "runtime_address": hex(runtime),
+            **read_c_string(data, file_off),
+        }
+    return {
+        "available": True,
+        "bf547_path": str(bf547),
+        "bf547_size": len(data),
+        "runtime_base": hex(BF547_RUNTIME_BASE),
+        "evidence_scope": (
+            "Direct strings paired by the BF547 diagnostic routine with the listed "
+            "processing-record offsets; names the field but does not by itself prove "
+            "the later BF561 consumer."
+        ),
+        "fields": rows,
+    }
 
 
 def main() -> None:
@@ -73,6 +137,7 @@ def main() -> None:
             {"name": s["name"], "addr": hex(s["addr"]), "size": s["size"], "mapoff": hex(s["mapoff"])}
             for s in keyword_syms
         ],
+        "bf547_record_field_labels": bf547_record_field_labels(args.ldr),
         "targets": {},
     }
     for name in names:
@@ -96,6 +161,7 @@ def main() -> None:
         "out": str(args.out),
         "keyword_symbol_count": len(keyword_syms),
         "keyword_symbols": [s["name"] for s in keyword_syms],
+        "bf547_field_labels_available": report["bf547_record_field_labels"].get("available", False),
         "targets": sorted(report["targets"]),
     }, indent=2))
 
