@@ -51,10 +51,7 @@ new = '''def extract_method(text, marker):
     if brace < 0:
         raise SystemExit('NATIVEPROSPECTIVE1A method opening brace missing')
 
-    # Parse the exact Java method body. The original extractor counted braces inside
-    # comments; the previous FIX1 used the next top-level member as a boundary, which
-    # was too broad for a byte-for-byte frozen-method hash. Keep the safety check strict
-    # while ignoring braces that cannot affect Java block structure.
+    # Parse the exact Java method body while ignoring braces in comments/quotes.
     depth = 0
     i = brace
     state = 'code'
@@ -116,6 +113,20 @@ new = '''def extract_method(text, marker):
 if old not in text:
     raise SystemExit('NATIVEPROSPECTIVE1A FIX1 original extractor anchor missing')
 text = text.replace(old, new, 1)
+
+# The original harness records orig_end before inserting imports above renderCore.
+# That makes orig_end stale and can insert the prospective sibling into the frozen
+# method. Re-resolve the exact method boundary immediately before insertion and
+# verify the method bytes still match the frozen snapshot.
+old_insert = "renderer = renderer[:orig_end] + '\\n\\n' + prospective + renderer[orig_end:]"
+new_insert = '''_, current_orig_end, current_frozen_render_core = extract_method(
+    renderer, '    private static RenderCore renderCore(')
+if hashlib.sha256(current_frozen_render_core.encode('utf-8')).hexdigest() != frozen_render_core_sha:
+    raise SystemExit('NATIVEPROSPECTIVE1A frozen renderCore changed before prospective insertion')
+renderer = renderer[:current_orig_end] + '\\n\\n' + prospective + renderer[current_orig_end:]'''
+if old_insert not in text:
+    raise SystemExit('NATIVEPROSPECTIVE1A FIX1 stale insertion anchor missing')
+text = text.replace(old_insert, new_insert, 1)
 
 code = compile(text, str(source), 'exec')
 g = {'__name__': '__main__', '__file__': str(source)}
