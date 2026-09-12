@@ -1,0 +1,105 @@
+name: M9 Sharpness RBCLOSURE1B Symbol Map
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1a-forensics]
+    paths:
+      - '.github/workflows/m9-sharpness-rbclosure1b-symbolmap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  symbolmap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recover canonical M9 BF561 map
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbclosure1b"
+          mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbclosure1b'
+          d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
+              t=det.get('targets',{}) if isinstance(det,dict) else {}
+              score=sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB'))
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((score,x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          shutil.copy2(next(pdir.rglob('bf0.map')),root/'bf0.map')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          PY
+
+      - name: Extract colour and interpolation symbol context
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbclosure1b"
+          python3 - <<'PY'
+          import os,pathlib,re,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbclosure1b'
+          text=(root/'bf0.map').read_text(errors='replace')
+          lines=text.splitlines()
+          pat=re.compile(r'(Red|Blue|Green|RGB|Color|Colour|Demosa|Interpol|Differ|Sharp|Noise|White|WB|Matrix|YCC|YCbCr|DNG|Output|Develop|Process)',re.I)
+          selected=[]
+          for i,l in enumerate(lines):
+              if pat.search(l):
+                  selected.extend(range(max(0,i-2),min(len(lines),i+3)))
+          idx=sorted(set(selected))
+          (root/'evidence'/'colour_symbol_context.txt').write_text('\n'.join(f'{i+1:06d}: {lines[i]}' for i in idx)+'\n')
+
+          # Parse address/name pairs wherever the map exposes them, then retain
+          # a wide neighbourhood around the recovered interpolation cluster.
+          addr=[]
+          rx=re.compile(r'\b(0x[0-9a-fA-F]{6,8})\b.*?([A-Za-z_][A-Za-z0-9_.$:@<>~]*)\s*$')
+          for i,l in enumerate(lines):
+              m=rx.search(l)
+              if m:
+                  try: a=int(m.group(1),16)
+                  except: continue
+                  addr.append((a,i+1,l))
+          clusters=[]
+          for a,n,l in addr:
+              if (0xff5ff000<=a<=0xff616000) or (0xff9ff000<=a<=0xffa05000) or (0xfeb0f000<=a<=0xfeb12000):
+                  clusters.append((a,n,l))
+          clusters.sort()
+          (root/'evidence'/'address_neighbourhood.txt').write_text('\n'.join(f'{a:08x} mapline={n}: {l}' for a,n,l in clusters)+'\n')
+
+          # Explicitly collect all map lines mentioning the key firmware routines.
+          keys=['ASMRedBlueAndGreenDiffer','ASMRedBlueInterpolation1','GreenInterpolationWithCo','Run','StartInterpolation','InitInterpolation']
+          out={k:[{'line':i+1,'text':l} for i,l in enumerate(lines) if k in l] for k in keys}
+          (root/'evidence'/'key_symbol_occurrences.json').write_text(json.dumps(out,indent=2)+'\n')
+          PY
+          sha256sum "$ROOT/evidence"/* | tee "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish symbol-map evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-RBCLOSURE1B-SYMBOLMAP
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/rbclosure1b/evidence/*.txt
+            ${{ runner.temp }}/rbclosure1b/evidence/*.json
+
+      - name: Remove firmware/map working material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rbclosure1b/pass" "$RUNNER_TEMP/rbclosure1b/m9.upd" "$RUNNER_TEMP/rbclosure1b/mm.upm" "$RUNNER_TEMP/rbclosure1b/m9.dec" "$RUNNER_TEMP/rbclosure1b/bf0.map"
