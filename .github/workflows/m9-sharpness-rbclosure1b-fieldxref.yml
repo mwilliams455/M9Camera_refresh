@@ -1,0 +1,85 @@
+name: M9 Sharpness RBCLOSURE1B Field Xref
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1a-forensics]
+    paths:
+      - 'tools/m9_bf561_framefield_xref.py'
+      - '.github/workflows/m9-sharpness-rbclosure1b-fieldxref.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fieldxref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Recover canonical BF561 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbfieldxref"
+          mkdir -p "$ROOT/out"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbfieldxref'
+          d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              score=sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB'))
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((score,x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          shutil.copy2(next(pdir.rglob('bf0.bin')),root/'bf0.bin'); shutil.copy2(next(pdir.rglob('bf0.map')),root/'bf0.map')
+          (root/'out'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          PY
+
+      - name: Cross-reference closure frame fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbfieldxref"
+          python3 tools/m9_bf561_framefield_xref.py --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" --objdump "$OBJDUMP" --out "$ROOT/out" | tee "$ROOT/out/stdout.txt"
+          sha256sum "$ROOT/out"/* | tee "$ROOT/out/SHA256SUMS.txt"
+
+      - name: Publish field xref
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-RBCLOSURE1B-FIELDXREF
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rbfieldxref/out/*
+
+      - name: Remove firmware material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rbfieldxref/pass" "$RUNNER_TEMP/rbfieldxref/m9.upd" "$RUNNER_TEMP/rbfieldxref/mm.upm" "$RUNNER_TEMP/rbfieldxref/m9.dec" "$RUNNER_TEMP/rbfieldxref/bf0.bin" "$RUNNER_TEMP/rbfieldxref/bf0.map"
