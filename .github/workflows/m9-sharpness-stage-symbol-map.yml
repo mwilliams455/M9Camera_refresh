@@ -1,0 +1,71 @@
+name: M9 Sharpness Stage Symbol Map
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-stage-symbol-map.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+
+permissions:
+  contents: read
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download decrypt and map stage symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'; d=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(root/'bf0.map'),key=lambda s:s['addr'])
+          ranges=[(0xffa00000,0xffa05000),(0xffa10000,0xffa15000),(0xfeb10000,0xfeb18000)]
+          out=[]
+          for lo,hi in ranges:
+              out.append({'lo':hex(lo),'hi':hex(hi),'symbols':[s for s in syms if lo<=s['addr']<hi]})
+          ev=rt/'evidence';ev.mkdir(exist_ok=True)
+          (ev/'stage_symbol_map.json').write_text(json.dumps({'pair':pair,'ranges':out},indent=2)+'\n')
+          with open(ev/'stage_symbol_map.txt','w') as f:
+              for r in out:
+                  f.write(f"\n=== {r['lo']}..{r['hi']} ===\n")
+                  for s in r['symbols']: f.write(f"{s['addr']:#010x} {s['size']:6d} {s['name']}\n")
+          print((ev/'stage_symbol_map.txt').read_text())
+          PY
+      - name: Publish text evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-STAGE-SYMBOL-MAP
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+      - name: Remove firmware
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
