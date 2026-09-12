@@ -1,0 +1,120 @@
+name: M9 Sharpness Auto ISO Resolution
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpnessforensics1a]
+    paths:
+      - '.github/workflows/m9-sharpness-autoiso-resolution.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+      - name: Download verify decrypt canonical firmware and extract BF547
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9auto/evidence"
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9auto/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9auto/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9auto/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9auto/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9auto/m9.upd" "$RUNNER_TEMP/m9auto/mm.upm" --m9-out "$RUNNER_TEMP/m9auto/m9.dec" --meta-out "$RUNNER_TEMP/m9auto/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9auto/m9.dec" | sha256sum -c --strict
+          python3 - <<'PY'
+          import importlib.util,os,pathlib,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9auto'
+          spec=importlib.util.spec_from_file_location('gateb',pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          bf=m.get_bf547((root/'m9.dec').read_bytes())
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('BF547 mismatch')
+          (root/'BF547.bin').write_bytes(bf)
+          PY
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$RUNNER_TEMP/m9auto/BF547.bin" > "$RUNNER_TEMP/m9auto/BF547.full.gnu.dis.txt"
+      - name: Trace ISO table lookup callers and nIso state writers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,pathlib,re,json,struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9auto';ev=root/'evidence'
+          lines=(root/'BF547.full.gnu.dis.txt').read_text(errors='replace').splitlines(); bf=(root/'BF547.bin').read_bytes()
+          are=re.compile(r'^\s*([0-9a-f]+):',re.I)
+          def a(i):
+            m=are.match(lines[i]);return int(m.group(1),16) if m else None
+          def windows(indices,before=35,after=65):
+            return [{'line':i+1,'addr':hex(a(i) or 0),'text':lines[i],'context':'\n'.join(lines[max(0,i-before):min(len(lines),i+after)])} for i in indices]
+          # The two proven 17-entry table lookup funcs.
+          funcs=[(0x70de0,0x70e10,'lookup_physical_iso'),(0x70e88,0x70ec0,'lookup_gain_or_calibration')]
+          for lo,hi,name in funcs:
+            body=[]
+            for l in lines:
+              m=are.match(l)
+              if m and lo<=int(m.group(1),16)<hi:body.append(l)
+            (ev/f'{name}_{lo:05x}_{hi:05x}.txt').write_text('\n'.join(body)+'\n')
+          # Direct CALL/JUMP references to exact lookup entries.
+          refs={}
+          for target in [0x70de0,0x70e88]:
+            patt=re.compile(r'\b(?:CALL|JUMP(?:\.L|\.S)?)\s+0x0*'+format(target,'x')+r'\b',re.I)
+            ids=[i for i,l in enumerate(lines) if patt.search(l)]
+            refs[hex(target)]=windows(ids,50,90)
+          # All +0x80 accesses, especially stores; this field in the 0xAC settings row feeds nIso.
+          off80=[]
+          for i,l in enumerate(lines):
+            if re.search(r'\+ 0x80\]',l,re.I):off80.append(i)
+          # All writes to +0x40 state and reads thereof.
+          off40=[]
+          for i,l in enumerate(lines):
+            if re.search(r'\+ 0x40\]',l,re.I):off40.append(i)
+          # Comparisons/constants 0xff near ISO semantic strings/functions.
+          ff=[]
+          for i,l in enumerate(lines):
+            if re.search(r'0xff\b',l,re.I):
+              ctx='\n'.join(lines[max(0,i-20):min(len(lines),i+40)])
+              if any(x in ctx.lower() for x in ['0x70d','0x70e','0xe99','0xf3a','0xf56','0x488','0x80]):-0
+              ff.append(i)
+          # Exact ISO table records at E99EC, interpreted 17*16.
+          start=0xc99ec; recs=[]
+          for i in range(17):
+            d=bf[start+i*16:start+(i+1)*16]
+            recs.append({'i':i,'offset':hex(start+i*16),'runtime':hex(start+i*16+0x20000),'u32':list(struct.unpack('<4I',d))})
+          out={'schema':'m9.sharpness.autoiso-resolution.v1','lookup_callers':refs,
+               'off80_accesses':windows(off80,35,65),'off40_accesses':windows(off40,30,55),
+               'ff_contexts':windows(ff[:300],20,40),'iso_table_records':recs,
+               'known_chain':'settings row +0x80 -> active +0x40 -> JPEG record +9 (nIso) -> BF561 Sharp LUT selector'}
+          (ev/'autoiso_resolution_report.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps({'callers':{k:len(v) for k,v in refs.items()},'off80':len(off80),'off40':len(off40),'ff':len(ff)},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-AUTOISO-RESOLUTION
+          retention-days: 30
+          path: ${{ runner.temp }}/m9auto/evidence/*
+      - name: Cleanup
+        if: always()
+        run: rm -f "$RUNNER_TEMP/m9auto/m9.upd" "$RUNNER_TEMP/m9auto/mm.upm" "$RUNNER_TEMP/m9auto/m9.dec" "$RUNNER_TEMP/m9auto/BF547.bin" "$RUNNER_TEMP/m9auto/BF547.full.gnu.dis.txt"
