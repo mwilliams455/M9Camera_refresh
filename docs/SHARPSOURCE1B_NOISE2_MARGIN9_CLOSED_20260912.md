@@ -68,23 +68,33 @@ Regression-frame (`IMG_20260912_124558_1789213558532_00.dng`) exact-margin means
 - edge B->0: 19.6371% -> 13.0660%
 - edge cyan: 0.32461% -> 0.23545%
 
+## Important new gate: Noise mode 2 is an active image-processing stage
+
+The BF561 `Process_Noise` dispatch shows that `nNoise=2` is not only a border/support selector. Mode 2 dispatches the real `ASMBox9CDI` path. The recovered mode dispatch is:
+
+- mode 1 -> `Gauss5CDI`
+- **mode 2 -> `ASMBox9CDI`**
+- mode 3 -> `Gauss13CDI`
+- mode 4 -> `Gauss17CDI`
+- mode 5 -> `Gauss21CDI`
+
+Therefore the Leica stage order `GreenInterpolationWithCo -> Noise(mode2) -> Sharp` contains an active filtering stage between the recovered green source and Sharp. The current SHARPSOURCE1A offline discriminator intentionally omitted Leica Noise pixel processing and used only its now-proven support-margin effect.
+
+Before claiming a device candidate is firmware-faithful, trace the Noise2 buffer flow and determine whether the `ASMBox9CDI` result becomes the `frame+0x3c` signal consumed by `Process_Sharpness`. If it does, either port/emulate the required Noise2 source behavior or explicitly label a device build as a diagnostic approximation.
+
 ## Interpretation
 
-This closes the remaining whole-frame support-margin ambiguity for the controlled ISO160/Standard sharpness validation path. The evidence continues to support the SHARPSOURCE approach: retain the validated neutral-MHC RGB foundation, derive the Leica Standard mode-4/x2 Sharp correction from the recovered Leica-style green source, and apply that correction to the frozen RGB foundation rather than sharpening MHC green directly.
+This closes the whole-frame support-margin ambiguity for the controlled ISO160/Standard sharpness validation path. The evidence continues to support the SHARPSOURCE direction: retain the validated neutral-MHC RGB foundation and derive the Sharp correction from the Leica-side source domain rather than sharpening MHC green directly.
 
 Do not weaken the recovered Leica x2 Standard LUT to address the green/cyan halo. The current evidence points to Sharp source-domain mismatch as the dominant problem.
 
-## Next device gate
+## Next fidelity gate before device promotion
 
-Build an isolated `SHARPSOURCE1B` candidate with:
-
-1. frozen production renderer as parent;
-2. frozen neutral-MHC RGB output;
-3. Leica-style 14-bit green Sharp source for interior pixels;
-4. ISO160 Standard mode-4/x2 Sharp LUT unchanged;
-5. exact 9-pixel valid support/border policy for this controlled path;
-6. explicit diagnostic metadata identifying SHARPSOURCE1B, Sharp menu/mode, nNoise=2, and supportMargin=9;
-7. no exposure, SOURCECAL, HSM, TC20, JPEG-quality, or saturation changes.
+1. Trace `Process_Noise` mode-2 (`ASMBox9CDI`) input/output buffer identity through `Run`.
+2. Prove whether its output is the signal subsequently presented as Sharp `frame+0x3c`.
+3. If yes, reproduce the minimum Noise2 source-domain behavior offline on the same five RAWs and re-run the halo/clamp gate.
+4. Only then build/promote `SHARPSOURCE1B` as a firmware-fidelity candidate. A diagnostic APK may be built earlier if explicitly labelled as such.
+5. Keep exposure, SOURCECAL, HSM, TC20, JPEG-quality, and saturation frozen throughout.
 
 ## Later app-control requirement (not part of this fidelity gate)
 
