@@ -1,0 +1,188 @@
+name: M9 Sharpness Off Semantics Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-off-semantics.yml'
+      - 'tools/m9_sharpnessforensics1a.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpness_deep_targets.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Extract coherent imaging overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+          mkdir -p "$RUNNER_TEMP/m9sharp/evidence"
+          python3 - <<'PY'
+          import json, os, pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          d=json.load(open(root/'pass/report.json'))
+          candidates=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              targets=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              score=sum(k in targets for k in ('Run','Process_Sharpness','Process_Noise','SetStructParameter'))
+              candidates.append((score,x.get('covered',0),i))
+          candidates.sort(reverse=True)
+          if not candidates or candidates[0][0] < 3: raise SystemExit(f'no coherent imaging pair: {candidates[:8]}')
+          pair=candidates[0][2]
+          (root/'evidence/best_pair.txt').write_text(str(pair)+'\n')
+          (root/'evidence/pair_selection.json').write_text(json.dumps({'selected':pair,'candidates':candidates[:10]},indent=2)+'\n')
+          print('selected',pair,candidates[:8])
+          PY
+
+      - name: Extract and disassemble target BF561 functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"; P="$RUNNER_TEMP/m9sharp/pass"
+          PAIR=$(cat "$E/best_pair.txt"); ROOT="$P/bf561_pair_$(printf '%02d' "$PAIR")"
+          python3 tools/m9_sharpness_deep_targets.py --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" --out "$ROOT/deep_helpers"
+          cp "$ROOT/deep_helpers/deep_targets.json" "$E/deep_targets.json"
+          python3 - <<'PY'
+          import importlib.util,json,os,pathlib,sys,re
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          pair=int((rt/'evidence/best_pair.txt').read_text().strip())
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=m.parse_map(root/'bf0.map'); _,blocks=m.parse_ldr(root/'bf0.bin')
+          targets=('Run','SetStructParameter','Set','Process_Sharpness','LoadAndModifySharpnessDa','InitL1MemoryProcessing')
+          out=rt/'evidence/functions';out.mkdir(exist_ok=True)
+          manifest=[]
+          for s in syms:
+              if s['name'] not in targets: continue
+              code=m.read_overlay(blocks,s['addr'],s['size'])
+              p=out/f"{s['name']}_{s['addr']:08x}.bin";p.write_bytes(code)
+              manifest.append({'name':s['name'],'addr':hex(s['addr']),'size':s['size'],'file':p.name})
+          (rt/'evidence/function_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          print(json.dumps(manifest,indent=2))
+          PY
+          for f in "$E/functions"/*.bin; do
+            bn=$(basename "$f" .bin); base=$(printf '%s' "$bn" | sed -nE 's/^.*_([0-9a-fA-F]{8})$/\1/p')
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$E/${bn}.gnu.dis.txt"
+          done
+
+      - name: Analyze Off/bypass evidence in BF561
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/evidence'
+          files=list(root.glob('*.gnu.dis.txt'))
+          evidence=[]
+          for p in files:
+              lines=p.read_text(errors='replace').splitlines()
+              # Keep all locations mentioning known selector/mode offsets or literal 0x80,
+              # with sufficient local context to inspect zero tests and process-bit gating.
+              for i,l in enumerate(lines):
+                  low=l.lower()
+                  if any(k in low for k in ('0x65c','0x658','0x80','0x7f','0x100','bitset','bitclr')):
+                      evidence.append({'file':p.name,'line':i+1,'text':l,'context':'\n'.join(lines[max(0,i-10):min(len(lines),i+16)])})
+          (root/'bf561_off_candidate_contexts.json').write_text(json.dumps(evidence,indent=2)+'\n')
+
+          # Extract full target texts into one compact corpus with section labels.
+          sections=[]
+          for p in sorted(files):
+              sections.append('===== '+p.name+' =====');sections.extend(p.read_text(errors='replace').splitlines());sections.append('')
+          (root/'bf561_off_target_disassembly.txt').write_text('\n'.join(sections)+'\n')
+          print('candidate contexts',len(evidence),'target disassemblies',len(files))
+          PY
+
+      - name: Analyze BF547 reads/tests of Sharpness state and process-list clues
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"
+          BF=$(find "$RUNNER_TEMP/m9sharp/pass" -path '*/bf547_00/BF547.bin' -print -quit)
+          test -n "$BF"
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$BF" > "$RUNNER_TEMP/m9sharp/BF547.full.gnu.dis.txt"
+          python3 - <<'PY'
+          import json,os,pathlib,re
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'; root=rt/'evidence'
+          lines=(rt/'BF547.full.gnu.dis.txt').read_text(errors='replace').splitlines()
+          are=re.compile(r'^\s*([0-9a-f]+):')
+          def adr(i):
+              m=are.match(lines[i]); return int(m.group(1),16) if m else None
+          # P5+0x444 is the now-proven staged Sharp UI enum. Capture every read and
+          # nearby compare/branch. Also capture process/list-named strings/symbol clues.
+          hits=[]
+          rx=re.compile(r'\b(?:B|W)?\[P[0-7] \+ 0x444\]')
+          for i,l in enumerate(lines):
+              if rx.search(l):
+                  hits.append({'line':i+1,'runtime':hex(adr(i) or 0),'text':l,'context':'\n'.join(lines[max(0,i-20):min(len(lines),i+35)])})
+          (root/'bf547_sharp444_all_accesses.json').write_text(json.dumps(hits,indent=2)+'\n')
+
+          # Exact serializer is already proven. Search wider for tests against zero in
+          # neighborhoods that access +0x444, and literal bit 7 / 0x80 operations.
+          interesting=[]
+          for h in hits:
+              i=h['line']-1; ctx='\n'.join(lines[max(0,i-30):min(len(lines),i+50)])
+              low=ctx.lower()
+              if ('== 0x0' in low or 'cc =' in low or '0x80' in low or '0x7' in low):
+                  interesting.append(h)
+          (root/'bf547_sharp444_conditional_contexts.json').write_text(json.dumps(interesting,indent=2)+'\n')
+          print('sharp +0x444 accesses',len(hits),'conditional neighborhoods',len(interesting))
+          PY
+
+      - name: Publish derived text evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-OFF-SEMANTICS-PROOF
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp"/*.bin "$RUNNER_TEMP/m9sharp"/m9.upd "$RUNNER_TEMP/m9sharp"/mm.upm "$RUNNER_TEMP/m9sharp"/m9.dec
