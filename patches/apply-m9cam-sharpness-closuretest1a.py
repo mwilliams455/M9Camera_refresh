@@ -73,10 +73,15 @@ inline void m9ClosureSharpIso160Standard(const std::vector<uint16_t>& src,
 }
 '''
 
-anchor = '// SPLITDEMOSAIC1A research seam: retain a 16-bit completed-green frame\n'
-idx = cpp.find(anchor)
+# Helpers must be at C++ file scope. The previous version inserted them at the
+# split-seam comment, which lives inside demosaicMhcRggb() and caused Clang's
+# "function definition is not allowed here" error. Insert immediately before
+# the JNI demosaic entry point instead, where all helpers are visible to it.
+file_scope_anchor = '''extern "C" JNIEXPORT jlong JNICALL
+Java_com_particlesdevs_photoncamera_m9_render_M9NativeColorCore_demosaicMhcRggb('''
+idx = cpp.find(file_scope_anchor)
 if idx < 0:
-    raise SystemExit('CLOSURETEST1A split seam anchor missing')
+    raise SystemExit('CLOSURETEST1A file-scope JNI anchor missing')
 cpp = cpp[:idx] + helpers + '\n' + cpp[idx:]
 
 old = '''        for (auto& thread : threads) thread.join();
@@ -100,6 +105,20 @@ new = '''        for (auto& thread : threads) thread.join();
 if cpp.count(old) != 1:
     raise SystemExit('CLOSURETEST1A pass-boundary anchor count=' + str(cpp.count(old)))
 cpp = cpp.replace(old,new,1)
+
+# The second pass reads the full sharpened plane. Capture it by reference so we
+# do not copy a 12 MP uint16_t frame into every worker closure.
+old_capture = '''            threads.emplace_back([=, &greenPlane]() {
+                for (int y = y0; y < y1; ++y) {
+                    for (int x = 0; x < width; ++x) {
+                        const size_t p=static_cast<size_t>(y)*static_cast<size_t>(width)+static_cast<size_t>(x);'''
+new_capture = '''            threads.emplace_back([=, &greenPlane, &closureSharp14]() {
+                for (int y = y0; y < y1; ++y) {
+                    for (int x = 0; x < width; ++x) {
+                        const size_t p=static_cast<size_t>(y)*static_cast<size_t>(width)+static_cast<size_t>(x);'''
+if cpp.count(old_capture) != 1:
+    raise SystemExit('CLOSURETEST1A second-pass capture anchor count=' + str(cpp.count(old_capture)))
+cpp = cpp.replace(old_capture,new_capture,1)
 
 old2 = '''                        uint16_t* dst=out+p*3u;
                         mhcPixelNeutralRbCompleteRggb(raw,width,height,y,x,greenPlane[p],dst,nr,nb,invR,invB);'''
