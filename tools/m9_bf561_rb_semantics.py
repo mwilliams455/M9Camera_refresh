@@ -2,9 +2,12 @@
 """Prove the BF561 post-Sharp red/blue stage is green + colour-difference reconstruction.
 
 Consumes GNU Blackfin disassembly emitted by m9-sharpness-bf561-dataflow.yml.
-No firmware bytes are embedded or emitted. The proof deliberately separates:
-  * algorithm semantics (closed here), from
-  * exact Run-time pointer alias across Sharp -> R/B (still a separate gate).
+No firmware bytes are embedded or emitted.
+
+This file proves the R/B arithmetic semantics. Exact Sharp->R/B pointer identity
+is now CLOSED by the companion tool m9_bf561_sharp_rb_alias.py: ASMUM sharpens
+frame+0x3c in place and ASMRedBlueInterpolation1 receives that same frame+0x3c
+as R1, the packed green/base plane. frame+0x38 is Gaussian scratch.
 """
 from __future__ import annotations
 
@@ -22,8 +25,7 @@ def hits(ls: list[str], pats: list[str]) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for p in pats:
         rx = re.compile(p)
-        m = [ln.strip() for ln in ls if rx.search(ln)]
-        out[p] = m
+        out[p] = [ln.strip() for ln in ls if rx.search(ln)]
     return out
 
 
@@ -60,11 +62,15 @@ def main() -> None:
     for p in d_pats:
         require("difference:" + p, dh[p])
 
-    # R/B reconstruction: R0 is expanded into four 16-bit word streams; the
-    # code averages neighbouring words, vector-adds them to packed samples
-    # loaded through the R1-derived streams, clamps to [0,0x3fff], and stores.
+    # R/B reconstruction: R1 is the packed green/base plane (its exact identity
+    # with Sharp's frame+0x3c is proven by the companion alias tool). R0 is
+    # expanded into 16-bit word streams, neighbouring words are averaged, then
+    # packed +|+ combines the interpolated difference with the R1-derived base.
+    # Final values are clamped to [0,0x3fff].
     r_pats = [
         r"R7 = 0x3fff",
+        r"R5 = R1 \+ R7 \(S\)",
+        r"P0 = R5",
         r"R6 = R0 \+ R7 \(S\)",
         r"I0 = R6",
         r"I1 = R5",
@@ -83,7 +89,7 @@ def main() -> None:
         require("reconstruction:" + p, rh[p])
 
     report = {
-        "schema": "m9.bf561-rb-semantics.v1",
+        "schema": "m9.bf561-rb-semantics.v2",
         "difference_function": diff.name,
         "reconstruction_function": rb.name,
         "difference_anchors": dh,
@@ -91,23 +97,25 @@ def main() -> None:
         "closed": {
             "difference_plane_exists": True,
             "difference_plane_is_16bit_storage": True,
-            "rb_reconstruction_uses_r0_derived_16bit_word_plane": True,
-            "rb_reconstruction_adds_averaged_r0_plane_to_packed_values": True,
+            "rb_R1_is_packed_green_base": True,
+            "rb_R0_supplies_interpolated_difference_word_streams": True,
+            "rb_adds_interpolated_difference_to_green_base": True,
             "rb_reconstruction_clamps_14bit": True,
             "rb_numeric_max": 16383,
             "algorithm_is_green_plus_colour_difference_family": True,
+            "sharp_to_rb_green_alias_closed_by_companion_proof": True,
+            "sharp_green_frame_field": "frame+0x3c",
+            "sharp_gaussian_scratch_frame_field": "frame+0x38",
         },
         "still_open": {
-            "run_pointer_alias_postsharp_to_rb_r0": True,
-            "exact_semantic_identity_of_each_packed_difference_lane": True,
+            "exact_semantic_identity_and_layout_of_each_red_vs_blue_difference_lane": True,
         },
+        "companion_proof": "tools/m9_bf561_sharp_rb_alias.py",
         "conclusion": (
-            "Firmware proves the post-Sharp R/B stage is not an independent CFA-only MHC-style completion. "
-            "It reconstructs packed colour samples by adding an averaged 16-bit R0-derived plane to packed "
-            "difference-like values and clamps the result to 0..16383. GreenInterpolationWithCo separately "
-            "invokes ASMRedBlueAndGreenDiffer, which explicitly forms a signed R0-R1 difference and writes a "
-            "16-bit intermediate. Exact Run-time pointer alias from Process_Sharpness output to the R/B R0 "
-            "argument remains a separate proof obligation."
+            "Firmware proves the post-Sharp R/B stage reconstructs colour by adding interpolated 16-bit "
+            "difference streams to the packed green/base plane and clamps to 0..16383. The companion "
+            "pointer/ABI proof closes that R1 base plane as the exact frame+0x3c plane sharpened in place "
+            "by ASMUMGauss3LUT; frame+0x38 is only Gaussian scratch."
         ),
     }
     a.out.parent.mkdir(parents=True, exist_ok=True)
