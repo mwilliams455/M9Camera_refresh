@@ -61,3 +61,5 @@ def main():
     a.out.parent.mkdir(parents=True,exist_ok=True); a.out.write_text('\n'.join(lines)+'\n')
     print('resource',path); print('standard_modes',modes); print('row_hashes',hashes); print('out',a.out)
 if __name__=='__main__': main()
+
+# STANDARD_FULLISO1A dedicated-build trigger; no runtime effect.
