@@ -42,20 +42,77 @@ old = '''def extract_method(text, marker):
         i += 1
     raise SystemExit('NATIVEPROSPECTIVE1A unterminated method')
 '''
+
 new = '''def extract_method(text, marker):
     start = text.find(marker)
     if start < 0:
         raise SystemExit('NATIVEPROSPECTIVE1A method marker missing: ' + marker)
-    # Renderer source is generated and has stable four-space top-level member indentation.
-    # Use the next top-level private-static member as the boundary and exclude separator
-    # newlines from both the hash and insertion offset. This keeps the frozen method bytes
-    # identical even after the prospective sibling method is inserted immediately after it.
-    end = text.find('\\n    private static ', start + len(marker))
-    if end < 0:
-        raise SystemExit('NATIVEPROSPECTIVE1A next top-level method marker missing after: ' + marker)
-    method = text[start:end].rstrip('\\n')
-    return start, start + len(method), method
+    brace = text.find('{', start)
+    if brace < 0:
+        raise SystemExit('NATIVEPROSPECTIVE1A method opening brace missing')
+
+    # Parse the exact Java method body. The original extractor counted braces inside
+    # comments; the previous FIX1 used the next top-level member as a boundary, which
+    # was too broad for a byte-for-byte frozen-method hash. Keep the safety check strict
+    # while ignoring braces that cannot affect Java block structure.
+    depth = 0
+    i = brace
+    state = 'code'
+    quote = ''
+    escape = False
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ''
+
+        if state == 'line_comment':
+            if ch == '\\n':
+                state = 'code'
+            i += 1
+            continue
+
+        if state == 'block_comment':
+            if ch == '*' and nxt == '/':
+                state = 'code'
+                i += 2
+            else:
+                i += 1
+            continue
+
+        if state == 'quoted':
+            if escape:
+                escape = False
+            elif ch == '\\\\':
+                escape = True
+            elif ch == quote:
+                state = 'code'
+            i += 1
+            continue
+
+        if ch == '/' and nxt == '/':
+            state = 'line_comment'
+            i += 2
+            continue
+        if ch == '/' and nxt == '*':
+            state = 'block_comment'
+            i += 2
+            continue
+        if ch in ('"', "'"):
+            state = 'quoted'
+            quote = ch
+            escape = False
+            i += 1
+            continue
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return start, i + 1, text[start:i + 1]
+        i += 1
+
+    raise SystemExit('NATIVEPROSPECTIVE1A unterminated method')
 '''
+
 if old not in text:
     raise SystemExit('NATIVEPROSPECTIVE1A FIX1 original extractor anchor missing')
 text = text.replace(old, new, 1)
