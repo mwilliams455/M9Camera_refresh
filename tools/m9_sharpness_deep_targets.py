@@ -21,6 +21,11 @@ EXACT_TARGETS = (
     "Process_Sharpness",
     "Process_Noise",
     "Set",
+    # Run calls InitL1MemoryProcessing before the processing-bit dispatcher.
+    # These two functions are the best firmware-side candidates for seeding the
+    # Sharp working-LUT pointer/count that LoadLutDataL3 itself does not write.
+    "InitL1MemoryProcessing",
+    "CheckL1MemoryProcessing",
 )
 KEYWORDS = ("sharp", "lut", "iso", "noise")
 
