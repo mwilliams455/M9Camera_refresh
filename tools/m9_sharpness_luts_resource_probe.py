@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Prove M9 Sharp LUT archive geometry from the canonical decrypted firmware.
+"""Prove M9 Sharp LUT archive geometry and calibration modes.
 
-Evidence-only. No firmware bytes are embedded or retained.  LoadLutDataL3 is
-already disassembled and proves:
+Evidence-only. No firmware bytes are embedded or retained.
 
+LoadLutDataL3 disassembly proves:
   archive + 0x5f0 -> process + 0x66c, length 0x10c
-  therefore process Sharp count +0x670 <- archive u32[0x5f4]
-
-and:
-
+  process Sharp count +0x670 <- archive u32[0x5f4]
   process Sharp source +0x664 <- archive_base + archive u32[0x10]
 
-This probe follows those exact offsets into PROCESS/LUTS and reports only
-metadata/hashes, never the Leica payload itself.
+Set disassembly proves the internal Sharp modification mode is selected as:
+  process[0x658] <- process[0x674 + 52*selector + 4*iso_slot]
+
+Because process+0x674 is inside the proven archive+0x5f0 -> process+0x66c
+copy, the corresponding firmware table begins at archive+0x5f8 and is exactly
+5 selector rows x 13 ISO slots of u32 mode values.
 """
 from __future__ import annotations
 
@@ -25,6 +26,9 @@ EXPECTED_LUTS_SIZE = 427744
 EXPECTED_BANK_OFF = 0xACF8
 EXPECTED_COUNT = 2050
 ISO_ROWS = 13
+SHARP_SELECTOR_ROWS = 5
+SHARP_MODE_TABLE_OFF = 0x5F8
+SHARP_MODE_ROW_BYTES = ISO_ROWS * 4  # 52 bytes
 
 
 def sha(b: bytes) -> str:
@@ -59,6 +63,26 @@ def u32(b: bytes, off: int) -> int:
     return struct.unpack_from("<I", b, off)[0]
 
 
+def decode_sharp_mode_table(payload: bytes) -> list[dict]:
+    end = SHARP_MODE_TABLE_OFF + SHARP_SELECTOR_ROWS * SHARP_MODE_ROW_BYTES
+    if end > len(payload):
+        return []
+    rows = []
+    for selector in range(SHARP_SELECTOR_ROWS):
+        row_off = SHARP_MODE_TABLE_OFF + selector * SHARP_MODE_ROW_BYTES
+        vals = [u32(payload, row_off + 4*iso) for iso in range(ISO_ROWS)]
+        rows.append({
+            "selector": selector,
+            "ui_label_if_gate_b_mapping_holds": (
+                ("Off", "Low", "Standard", "Medium high", "High")[selector]
+            ),
+            "archive_offset": hex(row_off),
+            "mode_values_by_iso_slot": vals,
+            "all_modes_in_loadandmodify_domain_1_to_7": all(1 <= x <= 7 for x in vals),
+        })
+    return rows
+
+
 def candidate_report(path: str, payload: bytes) -> dict:
     bank_off = u32(payload, 0x10) if len(payload) >= 0x14 else None
     count = u32(payload, 0x5F4) if len(payload) >= 0x5F8 else None
@@ -71,6 +95,7 @@ def candidate_report(path: str, payload: bytes) -> dict:
             lo = bank_off + i*row_bytes
             hi = lo + row_bytes
             rows.append({"iso_slot": i, "offset": hex(lo), "size": row_bytes, "sha256": sha(payload[lo:hi])})
+    mode_table = decode_sharp_mode_table(payload)
     return {
         "path": path,
         "size": len(payload),
@@ -87,6 +112,14 @@ def candidate_report(path: str, payload: bytes) -> dict:
         "matches_count_2050": count == EXPECTED_COUNT,
         "matches_13x4100_geometry": row_bytes == 4100 and total_bytes == 53300,
         "row_hashes": rows,
+        "sharp_mode_table": {
+            "archive_offset": hex(SHARP_MODE_TABLE_OFF),
+            "layout": "5 selector rows x 13 ISO slots x u32",
+            "row_stride_bytes": SHARP_MODE_ROW_BYTES,
+            "derived_from_set": "process+0x674 + 52*selector + 4*iso_slot -> process+0x658",
+            "rows": mode_table,
+            "standard_selector_2_modes": mode_table[2]["mode_values_by_iso_slot"] if len(mode_table) == 5 else None,
+        },
     }
 
 
@@ -102,19 +135,25 @@ def main() -> None:
     entries = list(walk(root))
     candidates = []
     for path, name, payload in entries:
-        # Keep the path-based candidate and the exact historic size as independent
-        # discovery criteria. This avoids silently assuming either one is correct.
         if name.upper() == "LUTS" or path.upper().endswith("/PROCESS/LUTS") or len(payload) == EXPECTED_LUTS_SIZE:
-            if len(payload) >= 0x5F8:
+            if len(payload) >= SHARP_MODE_TABLE_OFF + SHARP_SELECTOR_ROWS * SHARP_MODE_ROW_BYTES:
                 candidates.append(candidate_report(path, payload))
 
     report = {
-        "schema": "m9.sharpness.luts-resource-probe.v1",
+        "schema": "m9.sharpness.luts-resource-probe.v2",
         "firmware_sha256": sha(root),
         "loadlutdata_l3_proven_mapping": {
             "metadata_copy": "archive+0x5f0 -> process+0x66c length 0x10c",
             "sharp_count_mapping": "process+0x670 <- archive u32[0x5f4]",
             "sharp_source_mapping": "process+0x664 <- archive_base + archive u32[0x10]",
+        },
+        "set_proven_mode_mapping": {
+            "selector_source": "process+0x65c",
+            "iso_source": "process+0x78",
+            "process_table_base": "process+0x674",
+            "archive_table_base_via_metadata_copy": "archive+0x5f8",
+            "index": "52*selector + 4*iso_slot",
+            "destination": "process+0x658",
         },
         "candidates": candidates,
         "proof_rule": (
@@ -129,12 +168,14 @@ def main() -> None:
         "out": str(a.out),
         "candidate_count": len(candidates),
         "summary": [
-            {k: c[k] for k in (
-                "path", "size", "header_u32_0x00",
-                "sharp_source_bank_offset_from_header_0x10",
-                "sharp_lut_count_from_archive_0x5f4",
-                "matches_historical_bank_offset_0xacf8",
-                "matches_count_2050", "matches_13x4100_geometry")}
+            {
+                "path": c["path"],
+                "size": c["size"],
+                "sharp_source_bank_offset": c["sharp_source_bank_offset_from_header_0x10"],
+                "sharp_lut_count": c["sharp_lut_count_from_archive_0x5f4"],
+                "matches_13x4100_geometry": c["matches_13x4100_geometry"],
+                "standard_selector_2_modes": c["sharp_mode_table"]["standard_selector_2_modes"],
+            }
             for c in candidates
         ],
     }, indent=2))
