@@ -80,7 +80,7 @@ jobs:
           f=d['falsifiers']
           print('structural_pass=',d['structural_pass'])
           print('unexpected_sharp_symbol_names=',d['unexpected_sharp_symbol_names'])
-          print('unexplained_exact_sharp_xrefs_for_review=',len(f['unexplained_exact_sharp_xrefs_for_review']))
+          print('unexplained_exact_sharp_xrefs=',len(f['unexplained_exact_sharp_xrefs']))
           print('still_open_by_design:')
           for x in d['still_open_by_design']: print(' -',x)
           PY
