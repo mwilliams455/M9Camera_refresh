@@ -1,4 +1,4 @@
-# SHARPSOURCE1B — nNoise=2 / exact 9-pixel support gate closed
+# SHARPSOURCE1B — nNoise=2 / exact 9-pixel support + Noise2→Sharp handoff closed
 
 Date: 2026-09-12
 Branch: `research/sharpness-rbclosure1a-forensics`
@@ -68,33 +68,59 @@ Regression-frame (`IMG_20260912_124558_1789213558532_00.dng`) exact-margin means
 - edge B->0: 19.6371% -> 13.0660%
 - edge cyan: 0.32461% -> 0.23545%
 
-## Important new gate: Noise mode 2 is an active image-processing stage
+## Noise mode 2 is active processing, but does not replace the Sharp source
 
-The BF561 `Process_Noise` dispatch shows that `nNoise=2` is not only a border/support selector. Mode 2 dispatches the real `ASMBox9CDI` path. The recovered mode dispatch is:
+The BF561 `Process_Noise` dispatch shows that `nNoise=2` is a real image-processing stage: mode 2 dispatches `ASMBox9CDI`.
 
-- mode 1 -> `Gauss5CDI`
-- **mode 2 -> `ASMBox9CDI`**
-- mode 3 -> `Gauss13CDI`
-- mode 4 -> `Gauss17CDI`
-- mode 5 -> `Gauss21CDI`
+Dedicated canonical-firmware trace:
 
-Therefore the Leica stage order `GreenInterpolationWithCo -> Noise(mode2) -> Sharp` contains an active filtering stage between the recovered green source and Sharp. The current SHARPSOURCE1A offline discriminator intentionally omitted Leica Noise pixel processing and used only its now-proven support-margin effect.
+- workflow: `M9 Sharpness Noise2 Sharp Handoff`
+- run: `34701166891`
+- artifact: `M9-SHARPNESS-NOISE2-SHARP-HANDOFF`
+- artifact id: `10299344841`
+- artifact digest: `sha256:d84bc11c15b9dd901753175fbe2303de6090aa4c7e77b26e1eb14e783cdc1322`
 
-Before claiming a device candidate is firmware-faithful, trace the Noise2 buffer flow and determine whether the `ASMBox9CDI` result becomes the `frame+0x3c` signal consumed by `Process_Sharpness`. If it does, either port/emulate the required Noise2 source behavior or explicitly label a device build as a diagnostic approximation.
+The recovered `Run` ABI closes the important pointer identities:
+
+- before `Process_Sharpness` (`0xff610dc0`), `Run` loads `R2 = [frame + 0x3c]`;
+- `Process_Sharpness` preserves that primary image pointer into the Sharp kernel path;
+- before `Process_Noise` (`0xff602bd0`), `Run` loads direct `R2 = [frame + 0x34]`;
+- the additional stack argument mapping gives `Process_Noise [FP+0x14] = frame+0x3c`, with `frame+0x38/+0x40` supplied as support/scratch fields.
+
+For the mode-2 `ASMBox9CDI` call, the primary `R2` argument is reloaded from `Process_Noise [FP+0x2c]`, which is the entry `R2` home and therefore **`frame+0x34`**, not `frame+0x3c`.
+
+The common Noise postprocessing does access `frame+0x3c`, but the observed write through that pointer is the explicit 14-bit clamp:
+
+`value = min(value, 0x3fff)`
+
+It is not the `ASMBox9CDI` filtered output. The adaptive/filter result writes through other working/output buffers.
+
+### Closed consequence
+
+**Noise mode 2 does not replace or filter the `frame+0x3c` green/base signal subsequently consumed by Sharp.** For Sharp-source fidelity, the required Noise2 effects are:
+
+1. carry the exact +4 support-border contribution, producing the proven cumulative 9-pixel valid margin;
+2. preserve Leica's 14-bit `0..16383` clamp on the green/base source.
+
+There is therefore no requirement to port `ASMBox9CDI` solely to generate the Sharp source for SHARPSOURCE1B.
 
 ## Interpretation
 
-This closes the whole-frame support-margin ambiguity for the controlled ISO160/Standard sharpness validation path. The evidence continues to support the SHARPSOURCE direction: retain the validated neutral-MHC RGB foundation and derive the Sharp correction from the Leica-side source domain rather than sharpening MHC green directly.
+This closes the remaining source-domain and whole-frame support ambiguity for the controlled ISO160/Standard sharpness validation path. The evidence supports the SHARPSOURCE direction: retain the validated neutral-MHC RGB foundation, derive the Sharp correction from the recovered Leica green source, and apply that correction to the frozen RGB foundation rather than sharpening MHC green directly.
 
-Do not weaken the recovered Leica x2 Standard LUT to address the green/cyan halo. The current evidence points to Sharp source-domain mismatch as the dominant problem.
+Do not weaken the recovered Leica x2 Standard LUT to address the green/cyan halo. The evidence points to Sharp source-domain mismatch as the dominant problem.
 
-## Next fidelity gate before device promotion
+## Next device gate
 
-1. Trace `Process_Noise` mode-2 (`ASMBox9CDI`) input/output buffer identity through `Run`.
-2. Prove whether its output is the signal subsequently presented as Sharp `frame+0x3c`.
-3. If yes, reproduce the minimum Noise2 source-domain behavior offline on the same five RAWs and re-run the halo/clamp gate.
-4. Only then build/promote `SHARPSOURCE1B` as a firmware-fidelity candidate. A diagnostic APK may be built earlier if explicitly labelled as such.
-5. Keep exposure, SOURCECAL, HSM, TC20, JPEG-quality, and saturation frozen throughout.
+Build an isolated `SHARPSOURCE1B` candidate with:
+
+1. frozen neutral-MHC RGB foundation;
+2. recovered Leica-style 14-bit green Sharp source for valid interior pixels;
+3. ISO160 slot0 / Standard internal mode 4 / x2 LUT unchanged;
+4. exact 9-pixel valid support policy;
+5. derive the Sharp correction from Leica green and apply only that correction to frozen MHC RGB;
+6. explicit metadata: `SHARPSOURCE1B`, Standard, slot0, mode4, x2, `nNoise=2`, `supportMargin=9`, Leica-green Sharp source and frozen neutral-MHC RGB foundation;
+7. no exposure, SOURCECAL, HSM, TC20, JPEG-quality or saturation changes.
 
 ## Later app-control requirement (not part of this fidelity gate)
 
