@@ -1,0 +1,164 @@
+name: M9 Sharpness Bit12 Contrast Closure
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-bit12-contrast-closure.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+
+      - name: Extract coherent BF561 overlay blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, importlib.util, sys
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          report=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(report.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','SetStructParameter','Set')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(root/'bf0.map'),key=lambda s:(s['addr'],s['name']))
+          _,blocks=m.parse_ldr(root/'bf0.bin')
+          ev=rt/'evidence'; ev.mkdir(exist_ok=True)
+          bd=rt/'blocks'; bd.mkdir(exist_ok=True)
+          manifest=[]
+          for i,b in enumerate(blocks):
+              # tolerate tuple- or dict-shaped parser output
+              if isinstance(b,dict):
+                  addr=int(b.get('addr',b.get('address',0))); data=b.get('data',b.get('bytes',b''))
+              else:
+                  addr=int(b[0]); data=b[1]
+              if not data: continue
+              p=bd/f'block_{i:03d}_{addr:08x}.bin'; p.write_bytes(bytes(data))
+              manifest.append({'file':p.name,'addr':hex(addr),'size':len(data)})
+          (ev/'block_manifest.json').write_text(json.dumps({'pair':pair,'blocks':manifest,'symbols':syms},indent=2)+'\n')
+          print(json.dumps({'pair':pair,'block_count':len(manifest),'symbol_count':len(syms)},indent=2))
+          PY
+          for f in "$RUNNER_TEMP/m9sharp/blocks"/*.bin; do
+            bn=$(basename "$f" .bin)
+            base=$(printf '%s' "$bn" | sed -nE 's/^block_[0-9]+_([0-9a-fA-F]{8})$/\1/p')
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$RUNNER_TEMP/m9sharp/blocks/${bn}.dis.txt"
+          done
+
+      - name: Close bit12 setup semantics and Contrast callers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re, bisect
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'; ev=rt/'evidence'; bd=rt/'blocks'
+          meta=json.load(open(ev/'block_manifest.json'))
+          syms=meta['symbols']
+          exact={}
+          for s in syms: exact.setdefault(int(s['addr']),[]).append(s)
+          starts=sorted(set(int(s['addr']) for s in syms))
+          def resolve(a):
+              if a in exact:
+                  return {'kind':'exact','symbols':[{'name':x['name'],'addr':hex(int(x['addr'])),'size':x['size']} for x in exact[a]]}
+              j=bisect.bisect_right(starts,a)-1
+              if j<0: return {'kind':'none'}
+              st=starts[j]; ss=exact[st]
+              return {'kind':'nearest','offset':a-st,'symbols':[{'name':x['name'],'addr':hex(st),'size':x['size']} for x in ss]}
+          contrast_names={'Process_Contrast','ExecuteContrast_11LUT8_7','ExecuteContrast_11LUT8_2','ExecuteContrast_11LUT8_3'}
+          contrast_addrs={int(s['addr']):s['name'] for s in syms if s['name'] in contrast_names}
+          setup_names={'IsVignettingNew_T','GetVignettingData_T','CalculateWhiteRefImage1','CalculateWhiteRefImage2'}
+          setup_addrs={int(s['addr']):s['name'] for s in syms if s['name'] in setup_names}
+          are=re.compile(r'^\s*([0-9a-f]+):')
+          callre=re.compile(r'\b(?:CALL|JUMP(?:\.S)?)\s+0x0*([0-9a-f]+)',re.I)
+          records=[]; r7=[]; bit12=[]
+          for p in sorted(bd.glob('*.dis.txt')):
+              lines=p.read_text(errors='replace').splitlines()
+              for i,l in enumerate(lines):
+                  am=are.match(l); addr=int(am.group(1),16) if am else None
+                  if 'R7' in l:
+                      r7.append({'file':p.name,'line':i+1,'addr':hex(addr) if addr is not None else None,'text':l})
+                  if ('0xc)' in l.lower() and 'BITTST' in l) or '0x1000' in l.lower():
+                      bit12.append({'file':p.name,'line':i+1,'addr':hex(addr) if addr is not None else None,'context':'\n'.join(lines[max(0,i-14):min(len(lines),i+26)])})
+                  cm=callre.search(l)
+                  if not cm: continue
+                  tgt=int(cm.group(1),16); rs=resolve(tgt)
+                  names={x['name'] for x in rs.get('symbols',[])}
+                  if tgt in contrast_addrs or names & contrast_names or tgt in setup_addrs or names & setup_names:
+                      caller=resolve(addr or 0)
+                      records.append({'file':p.name,'line':i+1,'site':hex(addr) if addr is not None else None,'text':l,'target':hex(tgt),'target_resolution':rs,'caller_resolution':caller,'context':'\n'.join(lines[max(0,i-12):min(len(lines),i+20)])})
+          # Focused symbol inventory, including unusual overlapping aliases.
+          focus=[s for s in syms if s['name'] in contrast_names|setup_names|{'Run','Set','Process_FPGA_Y','Process_FPGA_YCrCb','Process_Y','ExecuteColorMatrix_14FM1','Process_Sharpness','Process_Noise'}]
+          report={'schema':'m9.sharpness.bit12-contrast-closure.v1','pair':meta['pair'],'contrast_symbol_addrs':{hex(k):v for k,v in contrast_addrs.items()},'setup_symbol_addrs':{hex(k):v for k,v in setup_addrs.items()},'focus_symbols':focus,'interesting_control_transfers':records,'bit12_references':bit12,'all_r7_reference_count':len(r7),'conclusion_guard':'Do not identify bit12 or Contrast placement unless supported by exact target/caller evidence.'}
+          (ev/'bit12_contrast_closure_report.json').write_text(json.dumps(report,indent=2)+'\n')
+          with open(ev/'bit12_contrast_closure.txt','w') as f:
+              f.write('=== FOCUS SYMBOLS ===\n')
+              for s in focus: f.write(f"{int(s['addr']):#010x} {s['size']:6d} {s['name']}\n")
+              f.write('\n=== BIT12 REFERENCES ===\n')
+              for x in bit12: f.write(x['context']+'\n\n')
+              f.write('\n=== CONTRAST / VIGNETTING CONTROL TRANSFERS ===\n')
+              for x in records:
+                  f.write(json.dumps({k:v for k,v in x.items() if k!='context'},indent=2)+'\n'+x['context']+'\n\n')
+          print(json.dumps({'bit12_refs':len(bit12),'interesting_transfers':len(records),'contrast_symbols':len(contrast_addrs),'setup_symbols':len(setup_addrs)},indent=2))
+          PY
+
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-BIT12-CONTRAST-CLOSURE
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp/blocks" "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
