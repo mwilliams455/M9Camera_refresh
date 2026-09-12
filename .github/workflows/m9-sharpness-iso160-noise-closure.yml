@@ -1,0 +1,181 @@
+name: M9 Sharpness ISO160 Noise Closure
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpness-rbclosure1a-forensics
+    paths:
+      - '.github/workflows/m9-sharpness-iso160-noise-closure.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9noise"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9noise/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9noise/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9noise/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9noise/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9noise/m9.upd" "$RUNNER_TEMP/m9noise/mm.upm" --m9-out "$RUNNER_TEMP/m9noise/m9.dec" --meta-out "$RUNNER_TEMP/m9noise/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9noise/m9.dec" | sha256sum -c --strict
+
+      - name: Extract and disassemble canonical BF547
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, os, pathlib, sys, hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9noise'
+          spec=importlib.util.spec_from_file_location('gateb', pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          fw=(root/'m9.dec').read_bytes(); bf=m.get_bf547(fw)
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('canonical BF547 hash mismatch')
+          (root/'BF547.bin').write_bytes(bf)
+          print('BF547_SHA256', hashlib.sha256(bf).hexdigest())
+          PY
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$RUNNER_TEMP/m9noise/BF547.bin" > "$RUNNER_TEMP/m9noise/BF547.full.gnu.dis.txt"
+
+      - name: Trace nNoise record byte and adjacent fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9noise'
+          lines=(root/'BF547.full.gnu.dis.txt').read_text(errors='replace').splitlines()
+          are=re.compile(r'^\s*([0-9a-f]+):', re.I)
+          def addr(i):
+              m=are.match(lines[i]); return int(m.group(1),16) if m else None
+          def merged_windows(indices,before,after):
+              spans=[]
+              for i in sorted(set(indices)):
+                  lo=max(0,i-before); hi=min(len(lines),i+after+1)
+                  if spans and lo <= spans[-1][1]+6: spans[-1]=(spans[-1][0],max(spans[-1][1],hi))
+                  else: spans.append((lo,hi))
+              return spans
+          def write_windows(indices,before,after,name):
+              out=[]; spans=merged_windows(indices,before,after)
+              for n,(lo,hi) in enumerate(spans):
+                  out.append(f'===== WINDOW {n} runtime {hex(addr(lo) or 0)}..{hex(addr(hi-1) or 0)} lines {lo+1}-{hi} =====')
+                  out.extend(lines[lo:hi]); out.append('')
+              (root/name).write_text('\n'.join(out)+'\n')
+              return [{'lo':hex(addr(lo) or 0),'hi':hex(addr(hi-1) or 0),'lines':[lo+1,hi]} for lo,hi in spans]
+
+          # Processing-record semantics already proven by firmware diagnostic strings:
+          # +0x0D nNoise, +0x0E Interpolation, +0x0F Sharp.
+          stores=[]; loads=[]; store_idx=[]; load_idx=[]
+          store_re=re.compile(r'B\[P([0-7]) \+ 0x(d|e|f)\] = R([0-7])', re.I)
+          load_re=re.compile(r'R([0-7])(?:\.B)? = B\[P([0-7]) \+ 0x(d|e|f)\]', re.I)
+          for i,l in enumerate(lines):
+              ms=store_re.search(l)
+              if ms:
+                  stores.append({'line':i+1,'runtime':hex(addr(i) or 0),'field':int(ms.group(2),16),'base':'P'+ms.group(1),'src':'R'+ms.group(3),'text':l})
+                  store_idx.append(i)
+              ml=load_re.search(l)
+              if ml:
+                  loads.append({'line':i+1,'runtime':hex(addr(i) or 0),'field':int(ml.group(3),16),'base':'P'+ml.group(2),'dst':'R'+ml.group(1),'text':l})
+                  load_idx.append(i)
+
+          store_spans=write_windows(store_idx,180,220,'record_0d_0f_store_contexts.txt')
+          load_spans=write_windows(load_idx,100,140,'record_0d_0f_load_contexts.txt')
+
+          # Byte +0x0D only, with a compact backward dataflow excerpt for its source register.
+          noise=[]
+          for s in stores:
+              if s['field'] != 0x0d: continue
+              i=s['line']-1; reg=s['src']; lo=max(0,i-100)
+              relevant=[]
+              # Retain source-register definitions, branches, calls, pointer loads and immediate constants.
+              reg_rx=re.compile(r'\b'+re.escape(reg)+r'\b', re.I)
+              for j in range(lo,i+1):
+                  lj=lines[j]
+                  if reg_rx.search(lj) or 'call' in lj.lower() or 'jump' in lj.lower() or 'if ' in lj.lower():
+                      relevant.append({'line':j+1,'runtime':hex(addr(j) or 0),'text':lj})
+              noise.append({**s,'backward_excerpt':relevant})
+
+          # Preserve known record-builder / setter regions already implicated by earlier forensics.
+          regions=[]
+          for lo,hi,name in [
+              (0x36f00,0x37d00,'processing_builders_36f00_37d00.txt'),
+              (0x68f00,0x69c80,'setter_cluster_68f00_69c80.txt'),
+              (0x9b800,0x9bc80,'record_runtime_cluster_9b800_9bc80.txt'),
+              (0xc4b00,0xc5d00,'processing_list_cluster_c4b00_c5d00.txt')]:
+              buf=[]
+              for l in lines:
+                  m=are.match(l)
+                  if m and lo <= int(m.group(1),16) < hi: buf.append(l)
+              (root/name).write_text('\n'.join(buf)+'\n')
+              regions.append({'name':name,'lo':hex(lo),'hi':hex(hi),'lines':len(buf)})
+
+          report={
+            'schema':'m9.sharpness.iso160-noise-closure.v1',
+            'field_map':{'0x0d':'nNoise','0x0e':'Interpolation','0x0f':'Sharp'},
+            'stores':stores,
+            'loads':loads,
+            'noise_store_backward_dataflow':noise,
+            'store_spans':store_spans,
+            'load_spans':load_spans,
+            'regions':regions,
+            'question':'Resolve the actual nNoise value/mode on the ISO160 Standard path; do not infer Noise=off from low ISO.'
+          }
+          (root/'iso160_noise_closure_report.json').write_text(json.dumps(report,indent=2)+'\n')
+          summary={
+             'store_0d':sum(s['field']==0x0d for s in stores),
+             'store_0e':sum(s['field']==0x0e for s in stores),
+             'store_0f':sum(s['field']==0x0f for s in stores),
+             'load_0d':sum(s['field']==0x0d for s in loads),
+             'load_0e':sum(s['field']==0x0e for s in loads),
+             'load_0f':sum(s['field']==0x0f for s in loads),
+          }
+          print(json.dumps(summary,indent=2))
+          PY
+
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-ISO160-NOISE-CLOSURE
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9noise/iso160_noise_closure_report.json
+            ${{ runner.temp }}/m9noise/record_0d_0f_store_contexts.txt
+            ${{ runner.temp }}/m9noise/record_0d_0f_load_contexts.txt
+            ${{ runner.temp }}/m9noise/processing_builders_36f00_37d00.txt
+            ${{ runner.temp }}/m9noise/setter_cluster_68f00_69c80.txt
+            ${{ runner.temp }}/m9noise/record_runtime_cluster_9b800_9bc80.txt
+            ${{ runner.temp }}/m9noise/processing_list_cluster_c4b00_c5d00.txt
+            ${{ runner.temp }}/m9noise/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9noise/m9.upd" "$RUNNER_TEMP/m9noise/mm.upm" "$RUNNER_TEMP/m9noise/m9.dec" "$RUNNER_TEMP/m9noise/BF547.bin" "$RUNNER_TEMP/m9noise/BF547.full.gnu.dis.txt"
