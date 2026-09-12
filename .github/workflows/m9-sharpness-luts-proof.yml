@@ -1,0 +1,55 @@
+name: M9 Sharpness LUTS Metadata Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-luts-proof.yml'
+      - 'tools/m9_sharpness_luts_resource_probe.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Prove Sharp LUT archive geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpness_luts_resource_probe.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/M9_SHARPNESS_LUTS_PROOF.json"
+          cat "$RUNNER_TEMP/m9sharp/M9_SHARPNESS_LUTS_PROOF.json"
+
+      - name: Publish derived metadata only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-LUTS-PROOF
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+            ${{ runner.temp }}/m9sharp/M9_SHARPNESS_LUTS_PROOF.json
+
+      - name: Remove firmware bytes
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
