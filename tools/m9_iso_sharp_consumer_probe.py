@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M9 ISO/Sharp reverse-callgraph probe.
+"""M9 ISO/Sharp reverse-callgraph and Sharp-structure write probe.
 
 Research-only. Embeds no Leica firmware bytes and changes no renderer code.
 
@@ -10,7 +10,9 @@ Purpose:
 - compare LoadISODataL1 against the independently decoded M Monochrom helper;
 - build a strict direct CALL/JUMP.L reverse callgraph from every mapped symbol;
 - report which mapped functions directly reference the ISO helper and the Sharp/
-  Noise functions.
+  Noise functions;
+- scan every fully covered mapped symbol for Blackfin long-displacement stores
+  into the proven Sharp descriptor fields, especially process +0x670 (LUT count).
 
 A matching Monochrom LoadISODataL1 hash proves byte identity of that helper only;
 it does not by itself assign the M9 13x4100-byte bank to sharpening or noise.
@@ -33,6 +35,21 @@ TARGETS = {
     "Process_DNGNoise",
     "CalculateNoiseParameter",
     "Run",
+}
+
+# Proven processing-structure fields relevant to the Sharp path. Blackfin's
+# 32-bit long-displacement load/store format used here encodes byte_offset/4 in
+# the trailing little-endian 16-bit displacement.  Known examples:
+#   [P4 + 0x668] = R2 -> 22 e6 9a 01  (0x668 / 4 = 0x19a)
+#   R3 = [P4 + 0x670] -> 23 e4 9c 01  (0x670 / 4 = 0x19c)
+# The store scan below therefore requires opcode byte 0xe6 plus the exact
+# displacement; the first byte is retained but not interpreted heuristically.
+STRUCT_STORE_OFFSETS = {
+    "sharp_mode": 0x658,
+    "sharp_selector": 0x65C,
+    "sharp_source_ptr": 0x664,
+    "sharp_work_ptr": 0x668,
+    "sharp_lut_count": 0x670,
 }
 
 
@@ -105,6 +122,26 @@ def long_branches(code: bytes, base: int) -> list[dict[str, int | str]]:
     return out
 
 
+def long_disp_store_hits(code: bytes, base: int, byte_offset: int) -> list[dict[str, Any]]:
+    if byte_offset % 4:
+        raise ValueError(f"long displacement must be word aligned: 0x{byte_offset:x}")
+    disp = byte_offset // 4
+    tail = struct.pack("<H", disp)
+    hits = []
+    # Blackfin instructions are 16-bit aligned; this long form is 4 bytes.
+    for off in range(0, len(code) - 3, 2):
+        ins = code[off:off+4]
+        if ins[1] == 0xE6 and ins[2:4] == tail:
+            hits.append({
+                "pc": hex(base + off),
+                "function_offset": hex(off),
+                "bytes": ins.hex(" "),
+                "byte_offset": hex(byte_offset),
+                "encoded_displacement": hex(disp),
+            })
+    return hits
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ldr", type=Path, required=True)
@@ -121,6 +158,9 @@ def main() -> None:
     functions = []
     reverse: dict[int, list[dict[str, Any]]] = defaultdict(list)
     target_instances: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    structure_stores: dict[str, list[dict[str, Any]]] = {
+        name: [] for name in STRUCT_STORE_OFFSETS
+    }
 
     for s in syms:
         code, covered = overlay(blocks, s["addr"], s["size"])
@@ -148,6 +188,15 @@ def main() -> None:
         if s["name"] in TARGETS:
             target_instances[s["name"]].append(entry)
 
+        for field_name, byte_offset in STRUCT_STORE_OFFSETS.items():
+            for hit in long_disp_store_hits(code, s["addr"], byte_offset):
+                structure_stores[field_name].append({
+                    "function": s["name"],
+                    "function_addr": hex(s["addr"]),
+                    "function_size": s["size"],
+                    **hit,
+                })
+
     targets_report: dict[str, Any] = {}
     for name, entries in target_instances.items():
         enriched = []
@@ -165,7 +214,7 @@ def main() -> None:
         targets_report[name] = enriched
 
     report = {
-        "schema": "m9.iso_sharp_consumer_probe.v1",
+        "schema": "m9.iso_sharp_consumer_probe.v2",
         "ldr_sha256": sha256(args.ldr.read_bytes()),
         "map_sha256": sha256(args.map_path.read_bytes()),
         "mm_reference": {
@@ -174,15 +223,21 @@ def main() -> None:
             "semantics": "descriptor + 0x5C + 4*iso_slot -> uint32 entry",
         },
         "targets": targets_report,
+        "sharp_structure_long_displacement_stores": structure_stores,
         "evidence_policy": [
             "Exact helper hash match proves helper byte identity only.",
             "Direct xref proves a code reference, not photographic execution order.",
+            "Long-displacement store hits are exact instruction-shape matches and are mapped to fully covered firmware symbols; inspect disassembly before assigning source-value semantics.",
             "Do not label the M9 13x4100 bank Sharp or Noise without a closed pointer/data consumer trace.",
             "Do not infer runtime list order from Run dispatcher case order.",
         ],
     }
     args.out.write_text(json.dumps(report, indent=2))
-    print(json.dumps({"out": str(args.out), "targets": sorted(targets_report)}, indent=2))
+    print(json.dumps({
+        "out": str(args.out),
+        "targets": sorted(targets_report),
+        "sharp_structure_store_counts": {k: len(v) for k, v in structure_stores.items()},
+    }, indent=2))
 
 
 if __name__ == "__main__":
