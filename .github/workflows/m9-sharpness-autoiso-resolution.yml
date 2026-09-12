@@ -78,9 +78,9 @@ jobs:
             (ev/f'{name}_{lo:05x}_{hi:05x}.txt').write_text('\n'.join(body)+'\n')
           refs={}
           for target in [0x70de0,0x70e88]:
-            patt=re.compile(r'\b(?:CALL|JUMP(?:\.L|\.S)?)\s+0x0*'+format(target,'x')+r'\b',re.I)
+            patt=re.compile(r'\b(?:CALL|JUMP(?:\.L|\.S)?)\s+0x(?:0x)?0*'+format(target,'x')+r'\b',re.I)
             ids=[i for i,l in enumerate(lines) if patt.search(l)]
-            refs[hex(target)]=windows(ids,50,90)
+            refs[hex(target)]=windows(ids,60,110)
           off80=[i for i,l in enumerate(lines) if re.search(r'\+ 0x80\]',l,re.I)]
           off40=[i for i,l in enumerate(lines) if re.search(r'\+ 0x40\]',l,re.I)]
           ff=[]
@@ -93,7 +93,7 @@ jobs:
           for i in range(17):
             d=bf[start+i*16:start+(i+1)*16]
             recs.append({'i':i,'offset':hex(start+i*16),'runtime':hex(start+i*16+0x20000),'u32':list(struct.unpack('<4I',d))})
-          out={'schema':'m9.sharpness.autoiso-resolution.v2','lookup_callers':refs,
+          out={'schema':'m9.sharpness.autoiso-resolution.v3','lookup_callers':refs,
                'off80_accesses':windows(off80,35,65),'off40_accesses':windows(off40,30,55),
                'ff_contexts':windows(ff[:300],20,40),'iso_table_records':recs,
                'known_chain':'settings row +0x80 -> active +0x40 -> JPEG record +9 (nIso) -> BF561 Sharp LUT selector'}
