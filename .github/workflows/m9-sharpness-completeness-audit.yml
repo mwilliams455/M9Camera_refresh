@@ -1,0 +1,102 @@
+name: M9 Sharpness Completeness Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-splitdemosaic1a]
+    paths:
+      - '.github/workflows/m9-sharpness-completeness-audit.yml'
+      - 'tools/m9_sharpness_completeness_audit.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  completeness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify audit syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/m9_sharpness_completeness_audit.py
+
+      - name: Recover canonical M9 firmware and BF561 pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9sharpcomplete"
+          mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json, os, pathlib, shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharpcomplete'
+          d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
+              t=det.get('targets',{}) if isinstance(det,dict) else {}
+              score=sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB'))
+              if x.get('covered',0)>0 and 'error' not in det:
+                  cand.append((score,x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          ldr=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          shutil.copy2(ldr, root/'bf0.bin'); shutil.copy2(mp, root/'bf0.map')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          print('selected pair',pair)
+          PY
+
+      - name: Falsify Sharp completeness hypothesis
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9sharpcomplete"
+          python3 tools/m9_sharpness_completeness_audit.py \
+            --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" \
+            --out "$ROOT/evidence/sharpness_completeness_audit.json" \
+            | tee "$ROOT/evidence/sharpness_completeness_audit.stdout.txt"
+
+      - name: Summarize remaining review items
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharpcomplete/evidence/sharpness_completeness_audit.json'
+          d=json.load(open(p))
+          f=d['falsifiers']
+          print('structural_pass=',d['structural_pass'])
+          print('unexpected_sharp_symbol_names=',d['unexpected_sharp_symbol_names'])
+          print('unexplained_exact_sharp_xrefs_for_review=',len(f['unexplained_exact_sharp_xrefs_for_review']))
+          print('still_open_by_design:')
+          for x in d['still_open_by_design']: print(' -',x)
+          PY
+
+      - name: Publish completeness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-COMPLETENESS-AUDIT
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharpcomplete/evidence/*.json
+            ${{ runner.temp }}/m9sharpcomplete/evidence/*.txt
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharpcomplete/pass" "$RUNNER_TEMP/m9sharpcomplete/m9.upd" "$RUNNER_TEMP/m9sharpcomplete/mm.upm" "$RUNNER_TEMP/m9sharpcomplete/m9.dec" "$RUNNER_TEMP/m9sharpcomplete/bf0.bin" "$RUNNER_TEMP/m9sharpcomplete/bf0.map"
