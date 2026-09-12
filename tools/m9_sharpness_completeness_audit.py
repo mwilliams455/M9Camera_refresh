@@ -7,10 +7,8 @@ Process_Sharpness -> ASMUMGauss3LUT chain. It embeds no firmware bytes and
 changes no renderer code.
 
 A PASS means the *manual-ISO Sharp processing math/path* is structurally
-accounted for in this firmware image. It deliberately does NOT close two
-separate integration gates:
-  1. Auto-ISO final nIso writer/active-object value.
-  2. Exact post-Sharp buffer/lane alias into red/blue reconstruction.
+accounted for in this firmware image. It deliberately keeps separate the
+remaining Auto-ISO and mobile-port quantization questions.
 """
 from __future__ import annotations
 
@@ -50,9 +48,12 @@ def symbol_extent(s: dict) -> int:
     return n if n > 0 else ZERO_WINDOW
 
 
-def source_symbol(pc: int, syms: list[dict]) -> dict | None:
-    # Prefer an explicit non-zero map extent. Fall back to the closest preceding
-    # zero-size assembly label within the same forensic window.
+def nearest_map_label(pc: int, syms: list[dict]) -> dict | None:
+    """Return the nearest map label for diagnostics only.
+
+    Leica's map contains nested/alias labels inside larger C functions, so this
+    label must NOT be treated as the owning function without an extent check.
+    """
     exact = [s for s in syms if int(s["size"]) > 0 and s["addr"] <= pc < s["addr"] + int(s["size"])]
     if exact:
         exact.sort(key=lambda s: (s["addr"], s["size"]), reverse=True)
@@ -70,6 +71,12 @@ def calls_for_symbol(s: dict, blocks: list[dict], exact: dict[int, list[str]]) -
     for x in out:
         x["target_names"] = exact.get(x["target"], [])
     return out
+
+
+def in_row(pc: int, row: dict) -> bool:
+    start = int(row["address"], 16)
+    size = int(row["size"])
+    return size > 0 and start <= pc < start + size
 
 
 def main() -> None:
@@ -95,30 +102,7 @@ def main() -> None:
     inventory_names = sorted({x["name"] for x in sharp_inventory})
     unexpected_symbol_names = sorted(set(inventory_names) - KNOWN_SHARP_NAMES)
 
-    # Build a global exact-target xref index. Only branches landing exactly on a
-    # Sharp-related mapped address are retained, which makes data false positives
-    # very unlikely and also exposes alternate callers outside the known wrappers.
-    sharp_addrs = {s["addr"] for s in syms if s["name"] in KNOWN_SHARP_NAMES}
-    global_xrefs: list[dict] = []
-    for b in blocks:
-        if not b["data"]:
-            continue
-        for x in long_branches(b["data"], b["addr"]):
-            if x["target"] not in sharp_addrs:
-                continue
-            src = source_symbol(x["pc"], syms)
-            global_xrefs.append({
-                "pc": hex(x["pc"]),
-                "type": x["type"],
-                "target": hex(x["target"]),
-                "target_names": exact.get(x["target"], []),
-                "source_name": src["name"] if src else None,
-                "source_address": hex(src["addr"]) if src else None,
-            })
-
-    # Enumerate every Run variant and score it by the known photographic stage
-    # calls. This intentionally reports mirror/overlay chains instead of silently
-    # discarding them.
+    # Enumerate every Run variant and score it by the known photographic chain.
     run_rows = []
     for s in by_name.get("Run", []):
         calls = calls_for_symbol(s, blocks, exact)
@@ -154,39 +138,76 @@ def main() -> None:
             "um_gauss_calls": [c for c in named_calls if "UM_Gauss3LUT" in c["target_names"]],
         })
 
-    # Resolve only Process_Sharpness variants reached by production-like Runs.
     active_process_addrs = {
         int(t["target"], 16)
         for r in production_like_runs for t in r["sharp_targets"]
     }
     active_process = [r for r in process_rows if int(r["address"], 16) in active_process_addrs]
 
+    # Build a global exact-target xref index, then assign the *owning function*
+    # by the proven active Run/Process extents. This avoids false extra callers
+    # caused by nested Leica map labels such as DoubleColumnCorrection or
+    # StartInterpolation_Aoi that sit inside those functions.
+    sharp_addrs = {s["addr"] for s in syms if s["name"] in KNOWN_SHARP_NAMES}
+    global_xrefs: list[dict] = []
+    for b in blocks:
+        if not b["data"]:
+            continue
+        for x in long_branches(b["data"], b["addr"]):
+            if x["target"] not in sharp_addrs:
+                continue
+            pc = int(x["pc"])
+            near = nearest_map_label(pc, syms)
+            owner = None
+            for r in active_process:
+                if in_row(pc, r):
+                    owner = "Process_Sharpness"
+                    break
+            if owner is None:
+                for r in production_like_runs:
+                    if in_row(pc, r):
+                        owner = "Run"
+                        break
+            if owner is None:
+                owner = near["name"] if near else None
+            global_xrefs.append({
+                "pc": hex(pc),
+                "type": x["type"],
+                "target": hex(x["target"]),
+                "target_names": exact.get(x["target"], []),
+                "owner_function": owner,
+                "nearest_map_label": near["name"] if near else None,
+                "nearest_map_label_address": hex(near["addr"]) if near else None,
+            })
+
     direct_run_to_um = [
         x for x in global_xrefs
-        if x["source_name"] == "Run" and any(n in ("ASMUMGauss3LUT", "UM_Gauss3LUT") for n in x["target_names"])
+        if x["owner_function"] == "Run"
+        and any(n in ("ASMUMGauss3LUT", "UM_Gauss3LUT") for n in x["target_names"])
     ]
     active_without_asmum = [r for r in active_process if len(r["asmum_calls"]) != 1]
     active_with_alt_um = [r for r in active_process if r["um_gauss_calls"]]
 
-    # Xrefs are grouped rather than forced into a brittle allowed-list. Any
-    # caller not belonging to the normal Run / Process / load-modify families is
-    # surfaced as a review item, not hidden.
-    unexplained_xrefs = [
-        x for x in global_xrefs
-        if x["source_name"] not in {
-            "Run", "Process_Sharpness", "LoadAndModifySharpnessDa",
-            "Set", "LoadLutDataL3", "CheckL1MemoryProcessing", "InitL1MemoryProcessing",
-        }
-    ]
+    allowed_owner_functions = {
+        "Run", "Process_Sharpness", "LoadAndModifySharpnessDa",
+        "Set", "LoadLutDataL3", "CheckL1MemoryProcessing", "InitL1MemoryProcessing",
+    }
+    unexplained_xrefs = [x for x in global_xrefs if x["owner_function"] not in allowed_owner_functions]
 
-    structural_pass = bool(production_like_runs) and bool(active_process) \
-        and not active_without_asmum and not active_with_alt_um and not direct_run_to_um
+    structural_pass = (
+        bool(production_like_runs)
+        and bool(active_process)
+        and not active_without_asmum
+        and not active_with_alt_um
+        and not direct_run_to_um
+        and not unexplained_xrefs
+    )
 
     report = {
-        "schema": "m9.sharpness-completeness-audit.v1",
+        "schema": "m9.sharpness-completeness-audit.v2",
         "ldr_sha256": h(a.ldr.read_bytes()),
         "map_sha256": h(a.map_path.read_bytes()),
-        "scope": "BF561 manual-ISO Sharp processing structure; Auto ISO and post-Sharp R/B pointer alias are separate gates",
+        "scope": "BF561 manual-ISO Sharp processing structure; Auto ISO and Xiaomi port quantization are separate gates",
         "sharp_symbol_inventory": sharp_inventory,
         "unexpected_sharp_symbol_names": unexpected_symbol_names,
         "global_exact_sharp_xrefs": global_xrefs,
@@ -198,20 +219,23 @@ def main() -> None:
             "active_process_without_exactly_one_ASMUMGauss3LUT": active_without_asmum,
             "active_process_calls_UM_Gauss3LUT": active_with_alt_um,
             "Run_directly_calls_UM_or_ASMUM": direct_run_to_um,
-            "unexplained_exact_sharp_xrefs_for_review": unexplained_xrefs,
+            "unexplained_exact_sharp_xrefs": unexplained_xrefs,
         },
         "closed_if_structural_pass": {
             "production_like_Run_reaches_Process_Sharpness": bool(production_like_runs),
             "active_Process_Sharpness_variants_resolved": bool(active_process),
-            "active_Process_Sharpness_uses_ASMUMGauss3LUT": not active_without_asmum,
+            "active_Process_Sharpness_uses_exactly_one_ASMUMGauss3LUT": not active_without_asmum,
             "no_active_alternate_UM_Gauss3LUT_path": not active_with_alt_um,
             "no_Run_bypass_direct_to_kernel": not direct_run_to_um,
+            "no_unexplained_exact_Sharp_xrefs": not unexplained_xrefs,
+            "nested_map_labels_normalized_to_enclosing_function": True,
+            "postsharp_green_to_rb_alias": "closed separately by m9_bf561_sharp_rb_alias.py",
         },
         "structural_pass": structural_pass,
         "still_open_by_design": [
             "Auto ISO final active-object +0x34 / concrete BF561 nIso value",
-            "exact Sharp-output buffer and packed lane alias into ASMRedBlueInterpolation1",
-            "Xiaomi normalized16 -> Leica 14-bit quantization policy (firmware ceiling is known; conversion policy is not)",
+            "exact semantic identity/layout of individual red vs blue colour-difference lanes",
+            "Xiaomi normalized16 -> Leica 14-bit quantization policy (port choice; Leica 14-bit stage domain itself is proven)",
         ],
     }
 
@@ -224,7 +248,7 @@ def main() -> None:
         "production_like_runs": len(production_like_runs),
         "active_process_variants": len(active_process),
         "global_sharp_xrefs": len(global_xrefs),
-        "unexplained_xrefs_for_review": len(unexplained_xrefs),
+        "unexplained_exact_sharp_xrefs": len(unexplained_xrefs),
     }, indent=2, sort_keys=True))
     if not structural_pass:
         raise SystemExit("Sharp completeness structural hypothesis falsified")
