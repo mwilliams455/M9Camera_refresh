@@ -7,8 +7,8 @@ Purpose:
   BF561 GreenInterpolationWithCo filter weights.
 
 This is NOT claimed bit-for-bit Leica GreenInterpolationWithCo parity yet.
-The recovered arithmetic/weights are firmware-derived; packed pointer/border
-mapping still needs final parity closure.
+The recovered arithmetic/weights and interior CFA phase mapping are firmware-derived;
+packed border/tile traversal still needs final parity closure.
 """
 from __future__ import annotations
 import argparse, json
@@ -93,14 +93,16 @@ def leica_green_source14(raw16,R,B,Gr,Gb):
     Measured-G sites:
       ASMFilter_101_040_101_An -> center/2 + four diagonals/8.
     """
-    g=raw16.astype(np.int64).copy()
-    cross=(shift(raw16,-1,0).astype(np.int64)+shift(raw16,1,0)+
-           shift(raw16,0,-1)+shift(raw16,0,1))//4
+    # Leica firmware stages operate in the 14-bit stored signal domain.
+    raw14=q14(raw16)
+    g=raw14.astype(np.int64).copy()
+    cross=(shift(raw14,-1,0).astype(np.int64)+shift(raw14,1,0)+
+           shift(raw14,0,-1)+shift(raw14,0,1))//4
     g[R|B]=cross[R|B]
-    diag=(4*raw16.astype(np.int64)+shift(raw16,-1,-1)+shift(raw16,-1,1)+
-          shift(raw16,1,-1)+shift(raw16,1,1))//8
+    diag=(4*raw14.astype(np.int64)+shift(raw14,-1,-1)+shift(raw14,-1,1)+
+          shift(raw14,1,-1)+shift(raw14,1,1))//8
     g[Gr|Gb]=diag[Gr|Gb]
-    return q14(np.clip(g,0,65535).astype(np.int32))
+    return np.clip(g,0,16383).astype(np.int32)
 
 def metrics(g,r,b):
     gx=np.abs(shift(g,0,1)-shift(g,0,-1)); gy=np.abs(shift(g,1,0)-shift(g,-1,0)); grad=gx+gy
@@ -159,7 +161,7 @@ def main():
                                     'p50':float(np.percentile(core,50)),'p99':float(np.percentile(core,99)),
                                     'min':int(core.min()),'max':int(core.max())}})
     report={'schema':'m9.sharpsource1a-replay.v1','dng':a.dng.name,
-            'status':'offline diagnostic; firmware-derived weights, image-space mapping not yet packed-pointer parity',
+            'status':'offline diagnostic; firmware-derived weights and interior CFA phase mapping; border/tile traversal parity still open',
             'neutralRoverG':nr,'neutralBoverG':nb,'tiles':rows,'mean':{}}
     for k in ('r0_pct','b0_pct','edge_r0_pct','edge_b0_pct','cyan_pct','edge_cyan_pct','rmax_pct','bmax_pct'):
       report['mean']['old_1b_'+k]=float(np.mean([r['old_1b'][k] for r in rows]))
