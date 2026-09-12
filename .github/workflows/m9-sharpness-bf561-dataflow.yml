@@ -1,0 +1,150 @@
+name: M9 Sharpness BF561 Dataflow
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-splitdemosaic1a]
+    paths:
+      - '.github/workflows/m9-sharpness-bf561-dataflow.yml'
+      - 'tools/m9_bf561_sharp_dataflow.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  dataflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+          "$OBJDUMP" -i | grep -Ei 'bfin|blackfin' | head -20 || true
+
+      - name: Recover canonical M9 firmware and BF561 pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9bf561df"
+          mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json, os, pathlib, shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9bf561df'
+          d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
+              t=det.get('targets',{}) if isinstance(det,dict) else {}
+              score=sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB'))
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((score,x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          ldr=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          shutil.copy2(ldr, root/'bf0.bin'); shutil.copy2(mp, root/'bf0.map')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair,'ldr':str(ldr),'map':str(mp)},indent=2)+'\n')
+          print('selected pair',pair)
+          PY
+
+      - name: Extract focused stage functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9bf561df"
+          python3 tools/m9_bf561_sharp_dataflow.py --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" --out "$ROOT/evidence/functions" | tee "$ROOT/evidence/extractor.stdout.txt"
+
+      - name: GNU-disassemble exact stage functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9bf561df"
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9bf561df'
+          man=json.load(open(root/'evidence/functions/manifest.json'))
+          obj=os.environ['OBJDUMP']
+          outdir=root/'evidence/disassembly'; outdir.mkdir(parents=True,exist_ok=True)
+          for e in man['targets']:
+              src=root/'evidence/functions'/e['file']
+              dst=outdir/(src.stem+'.gnu.dis.txt')
+              cmd=[obj,'-D','-b','binary','-m','bfin',f"--adjust-vma={e['address']}",str(src)]
+              r=subprocess.run(cmd,text=True,capture_output=True,check=True)
+              dst.write_text(r.stdout)
+          PY
+          ls -lh "$ROOT/evidence/disassembly"
+
+      - name: Build domain and buffer-access evidence summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9bf561df"
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9bf561df'
+          man=json.load(open(root/'evidence/functions/manifest.json'))
+          ddir=root/'evidence/disassembly'
+          report={'schema':'m9.bf561-sharp-stage-evidence.v1','stages':{}}
+          tokens=[r'0x3fff',r'0x4000',r'W\[',r'= W\[',r'W\[[^\n]*\] =',r'>>>',r' >> ',r' << ',r'MIN',r'MAX',r'CALL',r'JUMP']
+          for e in man['targets']:
+              p=ddir/(pathlib.Path(e['file']).stem+'.gnu.dis.txt')
+              text=p.read_text(errors='replace')
+              hits=[]
+              for ln in text.splitlines():
+                  if any(re.search(t,ln,re.I) for t in tokens): hits.append(ln)
+              key=f"{e['name']}@{e['address']}"
+              report['stages'][key]={
+                  'map_size':e['map_size'],'extracted_size':e['extracted_size'],
+                  'calls_or_long_jumps':e['calls_or_long_jumps'],
+                  'evidence_lines':hits,
+              }
+          (root/'evidence'/'stage_access_summary.json').write_text(json.dumps(report,indent=2)+'\n')
+          with open(root/'evidence'/'stage_access_summary.txt','w') as f:
+              for k,v in report['stages'].items():
+                  f.write('\n=== '+k+' ===\n')
+                  for x in v['calls_or_long_jumps']:
+                      f.write('FLOW '+hex(x['pc'])+' '+x['type']+' -> '+hex(x['target'])+' '+','.join(x.get('target_names',[]))+'\n')
+                  for ln in v['evidence_lines']: f.write(ln+'\n')
+          print((root/'evidence'/'stage_access_summary.txt').read_text())
+          PY
+
+      - name: Publish BF561 dataflow evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-BF561-DATAFLOW
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9bf561df/recovery_meta.json
+            ${{ runner.temp }}/m9bf561df/evidence/**/*.json
+            ${{ runner.temp }}/m9bf561df/evidence/**/*.txt
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9bf561df/pass" "$RUNNER_TEMP/m9bf561df/m9.upd" "$RUNNER_TEMP/m9bf561df/mm.upm" "$RUNNER_TEMP/m9bf561df/m9.dec" "$RUNNER_TEMP/m9bf561df/bf0.bin" "$RUNNER_TEMP/m9bf561df/bf0.map" "$RUNNER_TEMP/m9bf561df/evidence/functions"
