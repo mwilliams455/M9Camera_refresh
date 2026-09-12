@@ -1,0 +1,113 @@
+name: M9 Sharpness Processing List Helper Closure
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-processinglist-helper-closure.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+      - name: Extract exact runtime-list callees and symbol neighborhoods
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'; d=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              cand.append((sum(k in t for k in ('Run','SetProcess','SetStructParameter')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=m.parse_map(root/'bf0.map');_,blocks=m.parse_ldr(root/'bf0.bin')
+          out=rt/'evidence';out.mkdir(exist_ok=True)
+          ordered=sorted([s for s in syms if s['addr']>0],key=lambda q:q['addr'])
+          targets=[0xfeb13940,0xffa12786,0xffa11326,0xffa1263c,0xfeb1389e,0xfeb13846]
+          rows=[]
+          for a in targets:
+              exact=[s for s in ordered if s['addr']==a]
+              prev=max((s for s in ordered if s['addr']<=a),key=lambda s:s['addr'],default=None)
+              nxt=min((s for s in ordered if s['addr']>a),key=lambda s:s['addr'],default=None)
+              if exact and exact[0]['size']>0:
+                  start=a; size=exact[0]['size']; label=exact[0]['name']
+              else:
+                  start=a; size=(nxt['addr']-a if nxt else 0); label=(exact[0]['name'] if exact else f'addr_{a:08x}')
+              if not (0<size<=4096): size=512
+              try: code=m.read_overlay(blocks,start,size)
+              except Exception as ex:
+                  rows.append({'addr':hex(a),'error':str(ex),'prev':prev,'exact':exact,'next':nxt}); continue
+              p=out/f"helper_{a:08x}.bin";p.write_bytes(code)
+              rows.append({'addr':hex(a),'label':label,'size':size,'sha256':hashlib.sha256(code).hexdigest(),'prev':prev,'exact':exact,'next':nxt,'file':p.name})
+          # Retain all map symbols in neighborhoods for semantic naming.
+          neighborhoods=[]
+          for lo,hi in ((0xfeb13700,0xfeb13a80),(0xffa11200,0xffa12880)):
+              neighborhoods.append({'lo':hex(lo),'hi':hex(hi),'symbols':[s for s in ordered if lo<=s['addr']<hi]})
+          (out/'helper_manifest.json').write_text(json.dumps({'pair':pair,'targets':rows,'neighborhoods':neighborhoods},indent=2)+'\n')
+          with open(out/'helper_symbol_neighborhoods.txt','w') as f:
+              for n in neighborhoods:
+                  f.write(f"\n=== {n['lo']}..{n['hi']} ===\n")
+                  for s in n['symbols']: f.write(f"{s['addr']:#010x} {s['size']:6d} {s['name']}\n")
+          print(json.dumps({'pair':pair,'targets':rows},indent=2))
+          PY
+          for f in "$RUNNER_TEMP/m9sharp/evidence"/helper_*.bin; do
+            bn=$(basename "$f" .bin); base=${bn#helper_}
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$RUNNER_TEMP/m9sharp/evidence/${bn}.gnu.dis.txt"
+          done
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-PROCESSINGLIST-HELPER-CLOSURE
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp/evidence"/*.bin "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
