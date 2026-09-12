@@ -1,0 +1,166 @@
+name: M9 Sharpness ISO160 Noise Field Map
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpness-rbclosure1a-forensics
+    paths:
+      - '.github/workflows/m9-sharpness-iso160-noise-fieldmap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9field"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9field/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9field/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9field/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9field/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9field/m9.upd" "$RUNNER_TEMP/m9field/mm.upm" --m9-out "$RUNNER_TEMP/m9field/m9.dec" --meta-out "$RUNNER_TEMP/m9field/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9field/m9.dec" | sha256sum -c --strict
+
+      - name: Extract and disassemble canonical BF547
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, os, pathlib, sys, hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9field'
+          spec=importlib.util.spec_from_file_location('gateb', pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          fw=(root/'m9.dec').read_bytes(); bf=m.get_bf547(fw)
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('canonical BF547 hash mismatch')
+          (root/'BF547.bin').write_bytes(bf)
+          PY
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$RUNNER_TEMP/m9field/BF547.bin" > "$RUNNER_TEMP/m9field/BF547.full.gnu.dis.txt"
+
+      - name: Prove record origin and field labels
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9field'
+          lines=(root/'BF547.full.gnu.dis.txt').read_text(errors='replace').splitlines()
+          are=re.compile(r'^\s*([0-9a-f]+):',re.I)
+          def A(i):
+              m=are.match(lines[i]); return int(m.group(1),16) if m else None
+          def slice_addr(lo,hi,name):
+              out=[]
+              for l in lines:
+                  m=are.match(l)
+                  if m and lo <= int(m.group(1),16) < hi: out.append(l)
+              (root/name).write_text('\n'.join(out)+'\n')
+          def contexts_for_low16(vals,name,before=90,after=120):
+              idx=[]
+              needles=[f'0x{v & 0xffff:x}' for v in vals]
+              for i,l in enumerate(lines):
+                  ll=l.lower()
+                  if any(n in ll for n in needles): idx.append(i)
+              spans=[]
+              for i in idx:
+                  lo=max(0,i-before); hi=min(len(lines),i+after+1)
+                  if spans and lo<=spans[-1][1]+4: spans[-1]=(spans[-1][0],max(spans[-1][1],hi))
+                  else: spans.append((lo,hi))
+              out=[]
+              for n,(lo,hi) in enumerate(spans):
+                  out.append(f'===== WINDOW {n} {hex(A(lo) or 0)}..{hex(A(hi-1) or 0)} =====')
+                  out.extend(lines[lo:hi]); out.append('')
+              (root/name).write_text('\n'.join(out)+'\n')
+              return [{'lo':hex(A(lo) or 0),'hi':hex(A(hi-1) or 0)} for lo,hi in spans]
+
+          # Exact serializer and source-state function discovered by prior closure.
+          slice_addr(0x37070,0x37170,'photo_serializer_37070_37170.txt')
+          slice_addr(0x378e0,0x37990,'photo_state_transfer_378e0_37990.txt')
+
+          # Firmware debug labels for the profile table fields and processing-setting names.
+          profile_labels={
+            'ISO':0xf6124,'Contrast':0xf623c,'Saturation':0xf6274,
+            'Sharpness':0xf62ac,'ColorSpace':0xf631c,
+          }
+          proc_labels={
+            'nIso':0xf530c,'nContrast':0xf5314,'nSaturation':0xf5320,
+            'nNoise':0xf532c,'nColorSpace':0xf5334,
+          }
+          pspans=contexts_for_low16(list(profile_labels.values()),'profile_debug_label_xrefs.txt')
+          nspans=contexts_for_low16(list(proc_labels.values()),'processing_name_label_xrefs.txt')
+
+          # Direct serializer source mapping is unambiguous from the disassembly.
+          mapping={
+            'record_origin':'P5+0x12c (four-byte marker copied at 0x3708c)',
+            'record_plus_09':'state +0x40',
+            'record_plus_0a':'state +0x440',
+            'record_plus_0b':'state +0x44c',
+            'record_plus_0c':'state +0x444',
+            'record_plus_0d':'literal 2',
+            'record_plus_0e':'state +0x448',
+            'state_plus_440':'active profile +0x14',
+            'state_plus_444':'active profile +0x10',
+            'state_plus_44c':'active profile +0x38',
+            'state_plus_448':'active profile +0x64',
+            'active_profile_stride':'0xac',
+          }
+          report={
+            'schema':'m9.sharpness.iso160-noise-fieldmap.v1',
+            'profile_label_runtime':{k:hex(v) for k,v in profile_labels.items()},
+            'processing_label_runtime':{k:hex(v) for k,v in proc_labels.items()},
+            'serializer_mapping':mapping,
+            'profile_debug_xref_spans':pspans,
+            'processing_name_xref_spans':nspans,
+            'decision_rule':[
+              'Close +0x64 as ColorSpace only if the profile debug consumer reads active-profile +0x64 for the ColorSpace row.',
+              'Close record +0x0d as nNoise only if the processing-settings diagnostic consumer associates record +0x0d with nNoise or the neighboring sequence nIso/nContrast/nSaturation/nNoise/nColorSpace is directly decoded.',
+              'Do not infer labels from adjacency alone.'
+            ]
+          }
+          (root/'iso160_noise_fieldmap_report.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(mapping,indent=2))
+          PY
+
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-ISO160-NOISE-FIELDMAP
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9field/iso160_noise_fieldmap_report.json
+            ${{ runner.temp }}/m9field/photo_serializer_37070_37170.txt
+            ${{ runner.temp }}/m9field/photo_state_transfer_378e0_37990.txt
+            ${{ runner.temp }}/m9field/profile_debug_label_xrefs.txt
+            ${{ runner.temp }}/m9field/processing_name_label_xrefs.txt
+            ${{ runner.temp }}/m9field/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9field/m9.upd" "$RUNNER_TEMP/m9field/mm.upm" "$RUNNER_TEMP/m9field/m9.dec" "$RUNNER_TEMP/m9field/BF547.bin" "$RUNNER_TEMP/m9field/BF547.full.gnu.dis.txt"
