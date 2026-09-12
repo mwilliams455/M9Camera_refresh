@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/m9-sharpness-bf561-dataflow.yml'
       - 'tools/m9_bf561_sharp_dataflow.py'
+      - 'tools/m9_bf561_sharp_rb_alias.py'
+      - 'tools/m9_bf561_rb_semantics.py'
       - 'tools/m9_sharpnessforensics1a.py'
       - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
       - 'tools/recover_m9_key_from_shared_body.py'
@@ -132,6 +134,16 @@ jobs:
                   for ln in v['evidence_lines']: f.write(ln+'\n')
           print((root/'evidence'/'stage_access_summary.txt').read_text())
           PY
+
+      - name: Prove Sharp output aliases R/B green input
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/m9bf561df"
+          python3 tools/m9_bf561_sharp_rb_alias.py \
+            --disassembly "$ROOT/evidence/disassembly" \
+            --out "$ROOT/evidence/sharp_rb_alias.json" \
+            | tee "$ROOT/evidence/sharp_rb_alias.stdout.txt"
 
       - name: Publish BF561 dataflow evidence
         uses: actions/upload-artifact@v4
