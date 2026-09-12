@@ -39,15 +39,75 @@ old = '''def extract_method(text, marker):
         i += 1
     raise SystemExit('verifier unterminated method')
 '''
+
 new = '''def extract_method(text, marker):
     start = text.find(marker)
     if start < 0:
         raise SystemExit('verifier method marker missing: ' + marker)
-    end = text.find('\\n    private static ', start + len(marker))
-    if end < 0:
-        raise SystemExit('verifier next top-level method marker missing after: ' + marker)
-    return text[start:end]
+    brace = text.find('{', start)
+    if brace < 0:
+        raise SystemExit('verifier method opening brace missing: ' + marker)
+
+    # Must match the apply harness exactly: hash only the Java method body,
+    # ignoring braces in strings/chars and comments while keeping all bytes.
+    depth = 0
+    i = brace
+    state = 'code'
+    quote = ''
+    escape = False
+    while i < len(text):
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < len(text) else ''
+
+        if state == 'line_comment':
+            if ch == '\\n':
+                state = 'code'
+            i += 1
+            continue
+
+        if state == 'block_comment':
+            if ch == '*' and nxt == '/':
+                state = 'code'
+                i += 2
+            else:
+                i += 1
+            continue
+
+        if state == 'quoted':
+            if escape:
+                escape = False
+            elif ch == '\\\\':
+                escape = True
+            elif ch == quote:
+                state = 'code'
+            i += 1
+            continue
+
+        if ch == '/' and nxt == '/':
+            state = 'line_comment'
+            i += 2
+            continue
+        if ch == '/' and nxt == '*':
+            state = 'block_comment'
+            i += 2
+            continue
+        if ch in ('"', "'"):
+            state = 'quoted'
+            quote = ch
+            escape = False
+            i += 1
+            continue
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+        i += 1
+
+    raise SystemExit('verifier unterminated method')
 '''
+
 if old not in text:
     raise SystemExit('NATIVEPROSPECTIVE1A verifier FIX1 original extractor anchor missing')
 text = text.replace(old, new, 1)
