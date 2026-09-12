@@ -1,0 +1,174 @@
+name: M9 Sharpness Selector4 Metadata Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-selector4-metadata.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Decode selector-4 metadata and destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, json, os, pathlib, struct, sys, hashlib
+
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'm9sharp'
+          spec = importlib.util.spec_from_file_location('gateb', pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = m
+          spec.loader.exec_module(m)
+
+          fw = (root / 'm9.dec').read_bytes()
+          bf = m.get_bf547(fw)
+          if hashlib.sha256(bf).hexdigest() != m.BF_SHA:
+              raise SystemExit('canonical BF547 hash mismatch')
+
+          RAM = m.RAM
+          META_BASE = 0x103EE4
+          META_STRIDE = 24
+          SELECTOR = 4
+          BOUNDS_BASE = 0xE9BCC
+          BOUNDS_STRIDE = 12
+
+          def u32_rt(addr):
+              off = addr - RAM
+              if off < 0 or off + 4 > len(bf):
+                  return None
+              return struct.unpack_from('<I', bf, off)[0]
+
+          def hex_window_rt(addr, before=32, after=64):
+              off = addr - RAM
+              if off < 0 or off >= len(bf):
+                  return None
+              lo = max(0, off-before); hi = min(len(bf), off+after)
+              return {
+                  'runtime_lo': hex(lo + RAM),
+                  'runtime_hi': hex(hi + RAM),
+                  'center_runtime': hex(addr),
+                  'hex': bf[lo:hi].hex(' '),
+              }
+
+          def refs_u32(value):
+              pat = struct.pack('<I', value)
+              hits=[]; p=0
+              while True:
+                  p=bf.find(pat,p)
+                  if p<0: break
+                  hits.append(p+RAM); p+=1
+              return [hex(x) for x in hits]
+
+          entries=[]
+          for s in range(0, 51):
+              addr = META_BASE + META_STRIDE*s
+              off = addr - RAM
+              if off < 0 or off + META_STRIDE > len(bf):
+                  break
+              raw = bf[off:off+META_STRIDE]
+              words = list(struct.unpack('<6I', raw))
+              entries.append({
+                  'selector': s,
+                  'runtime_addr': hex(addr),
+                  'u32_words': [hex(x) for x in words],
+                  'destination_word_plus04': hex(words[1]),
+                  'flag_plus0a': raw[0x0a],
+                  'word_plus10': hex(words[4]),
+                  'word_plus14': hex(words[5]),
+              })
+
+          meta_addr = META_BASE + META_STRIDE*SELECTOR
+          meta_off = meta_addr - RAM
+          raw = bf[meta_off:meta_off+META_STRIDE]
+          words = list(struct.unpack('<6I', raw))
+          dest = words[1]
+          flag = raw[0x0a]
+
+          bounds_addr = BOUNDS_BASE + BOUNDS_STRIDE*SELECTOR
+          bounds_off = bounds_addr - RAM
+          bounds_words = list(struct.unpack_from('<3I', bf, bounds_off))
+
+          report = {
+              'schema': 'm9.sharpness.selector4-metadata-proof.v1',
+              'bf547_sha256': hashlib.sha256(bf).hexdigest(),
+              'setter_proven_formula': {
+                  'metadata': '0x103ee4 + 24*selector',
+                  'bounds': '0xe9bcc + 12*selector',
+                  'selector': SELECTOR,
+              },
+              'selector4': {
+                  'runtime_addr': hex(meta_addr),
+                  'raw_hex': raw.hex(' '),
+                  'u32_words': [hex(x) for x in words],
+                  'destination_word_plus04': hex(dest),
+                  'flag_plus0a': flag,
+                  'word_plus10': hex(words[4]),
+                  'word_plus14': hex(words[5]),
+                  'destination_in_bf547_image': RAM <= dest < RAM+len(bf),
+                  'destination_window': hex_window_rt(dest, 48, 96),
+                  'destination_direct_u32_refs': refs_u32(dest),
+              },
+              'selector4_bounds': {
+                  'runtime_addr': hex(bounds_addr),
+                  'u32_words': [hex(x) for x in bounds_words],
+                  'setter_interpretation': {'word_plus04_lower_bound': bounds_words[1], 'word_plus08_upper_bound': bounds_words[2]},
+              },
+              'neighbor_metadata_entries_0_to_50': entries,
+              'evidence_notes': [
+                  'Setter 0x753ac reads byte metadata+0x0a before deciding whether destination +0x04 is direct or slot-relative.',
+                  'When flag+0x0a is nonzero, setter adds 0xac * context[+0x488] to destination word +0x04 before loading/storing.',
+                  'When flag+0x0a is zero, setter dereferences/stores destination word +0x04 directly.',
+                  'Do not label record+0x0c until this destination is linked to the 68-byte processing-setting record or its backing state.'
+              ],
+          }
+          out = root / 'selector4_metadata_proof.json'
+          out.write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps({
+              'selector4_runtime': hex(meta_addr),
+              'selector4_words': [hex(x) for x in words],
+              'selector4_flag_plus0a': flag,
+              'selector4_destination': hex(dest),
+              'selector4_destination_refs': refs_u32(dest),
+              'selector4_bounds': [hex(x) for x in bounds_words],
+          }, indent=2))
+          PY
+
+      - name: Publish derived text evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-SELECTOR4-METADATA-PROOF
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/selector4_metadata_proof.json
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+
+      - name: Remove firmware material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
