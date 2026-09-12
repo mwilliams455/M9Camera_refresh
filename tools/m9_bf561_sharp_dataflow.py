@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Extract the BF561 green/noise/sharp/red-blue stage functions for dataflow forensics.
+"""Extract BF561 green/noise/sharp/red-blue stages for dataflow forensics.
 
-No firmware bytes are embedded. Input is the recovered BF561 LDR/map pair.
-For zero-sized assembly labels, extraction extends to the next mapped symbol so
-small trampolines remain visible. Long CALL/JUMP.L targets are decoded to make
-stage transitions explicit before full disassembly.
+No firmware bytes are embedded. Input is a recovered BF561 LDR/map pair.
+Some hand-written assembly labels are zero-sized in the map and overlap later
+mapped symbols, so selected ASM labels are deliberately extracted through a
+fixed forensic window rather than being truncated at the next symbol.
 """
 from __future__ import annotations
 import argparse, hashlib, json
@@ -19,9 +19,18 @@ TARGETS = [
     "Process_Sharpness",
     "ASMUMGauss3LUT",
     "ASMRedBlueInterpolation1",
+    "ASMRedBlueAndGreenDiffer",
+    "ASMFilter_010_101_010_2",
+    "ASMFilter_101_040_101_An",
+    "ASMFilter_101_000_101_2",
     "InitInterpolation",
     "StartInterpolation",
 ]
+
+# Map size zero does not imply zero executable extent for Leica's hand-written
+# assembly labels. Use a broad read-only window so the disassembler can expose
+# the body/return and any nested aliases. We never republish the binary bytes.
+ZERO_SIZE_WINDOW = 0x800
 
 
 def sha(b: bytes) -> str:
@@ -42,7 +51,6 @@ def main() -> None:
     for s in syms:
         exact.setdefault(s["addr"], []).append(s["name"])
 
-    # Address -> next strictly greater mapped address, used for zero-size labels.
     addrs = sorted(set(s["addr"] for s in syms))
     nxt = {v: addrs[i + 1] if i + 1 < len(addrs) else v + 0x100 for i, v in enumerate(addrs)}
 
@@ -51,7 +59,7 @@ def main() -> None:
         matches = [s for s in syms if s["name"] == wanted]
         for idx, s in enumerate(matches):
             natural = int(s["size"])
-            size = natural if natural > 0 else max(2, min(0x400, nxt[s["addr"]] - s["addr"]))
+            size = natural if natural > 0 else ZERO_SIZE_WINDOW
             code = read_overlay(blocks, s["addr"], size)
             calls = long_branches(code, s["addr"])
             for c in calls:
@@ -65,7 +73,7 @@ def main() -> None:
                 "address": f"0x{s['addr']:08x}",
                 "map_size": natural,
                 "extracted_size": size,
-                "zero_size_extended_to_next_symbol": natural == 0,
+                "zero_size_fixed_window": natural == 0,
                 "next_symbol_address": f"0x{nxt[s['addr']]:08x}",
                 "sha256": sha(code),
                 "file": fn.name,
@@ -75,13 +83,14 @@ def main() -> None:
     candidates = []
     for s in syms:
         n = s["name"].lower()
-        if any(k in n for k in ("green", "redblue", "red_blue", "interpol", "sharp", "noise", "gauss")):
+        if any(k in n for k in ("green", "redblue", "red_blue", "interpol", "sharp", "noise", "gauss", "filter")):
             candidates.append({"name": s["name"], "address": f"0x{s['addr']:08x}", "size": s["size"]})
 
     report = {
-        "schema": "m9.bf561-sharp-dataflow.v1",
+        "schema": "m9.bf561-sharp-dataflow.v2",
         "ldr_sha256": sha(a.ldr.read_bytes()),
         "map_sha256": sha(a.map_path.read_bytes()),
+        "zero_size_window": ZERO_SIZE_WINDOW,
         "targets": entries,
         "related_symbols": candidates,
     }
