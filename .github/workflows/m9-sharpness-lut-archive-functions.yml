@@ -1,0 +1,113 @@
+name: M9 Sharpness LUT Archive Functions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpnessforensics1a]
+    paths:
+      - '.github/workflows/m9-sharpness-lut-archive-functions.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+      - name: Extract and disassemble exact LUT functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'; d=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              cand.append((sum(k in t for k in ('Run','Set','SetStructParameter','Process_Sharpness')),x.get('covered',0),i))
+          cand.sort(reverse=True);pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=m.parse_map(root/'bf0.map');_,blocks=m.parse_ldr(root/'bf0.bin')
+          ev=rt/'evidence';ev.mkdir(exist_ok=True)
+          wanted={'SetLutL3','LoadLutDataL3','LoadLutArchiveL3','LutsFile','IM_GetLutSpace','IM_GetLut','InitL1MemoryProcessing','LoadAndModifySharpnessDa','Set','Run','DMACopyWindow','DMAmemcpy'}
+          manifest=[]
+          for s in syms:
+              if s['name'] not in wanted or int(s['size'])<=0: continue
+              code=m.read_overlay(blocks,int(s['addr']),int(s['size']))
+              p=ev/f"{s['name']}_{int(s['addr']):08x}.bin";p.write_bytes(code)
+              manifest.append({'name':s['name'],'addr':hex(int(s['addr'])),'size':int(s['size']),'file':p.name,'sha256':hashlib.sha256(code).hexdigest()})
+          json.dump({'pair':pair,'functions':manifest},open(ev/'lut_function_manifest.json','w'),indent=2)
+          print(json.dumps({'pair':pair,'functions':len(manifest)},indent=2))
+          PY
+          for f in "$RUNNER_TEMP/m9sharp/evidence"/*.bin; do
+            bn=$(basename "$f" .bin); base=$(printf '%s' "$bn" | sed -nE 's/^.*_([0-9a-fA-F]{8})$/\1/p')
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$RUNNER_TEMP/m9sharp/evidence/${bn}.gnu.dis.txt"
+          done
+      - name: Summarize LUT archive structure operations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,pathlib,re,json
+          ev=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/evidence'
+          out=[]
+          keys=('0x664','0x668','0x670','0x658','0x10]','0x14]','0x18]','0x2c]','0x802','0x801','DMACopy','DMAmemcpy')
+          for p in sorted(ev.glob('*.gnu.dis.txt')):
+              ls=p.read_text(errors='replace').splitlines(); hits=[]
+              for i,l in enumerate(ls):
+                  if any(k.lower() in l.lower() for k in keys):
+                      hits.append({'line':i+1,'text':l,'context':'\n'.join(ls[max(0,i-12):min(len(ls),i+22)])})
+              out.append({'file':p.name,'hits':hits,'text':'\n'.join(ls)})
+          json.dump(out,open(ev/'lut_function_summary.json','w'),indent=2)
+          print(json.dumps({x['file']:len(x['hits']) for x in out},indent=2))
+          PY
+      - name: Publish derived text evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-LUT-ARCHIVE-FUNCTIONS
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp/evidence"/*.bin "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"
