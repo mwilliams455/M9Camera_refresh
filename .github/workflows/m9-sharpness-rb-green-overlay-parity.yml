@@ -1,0 +1,109 @@
+name: M9 R/B Green Overlay Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-sharpness-rb-green-overlay-parity.yml'
+      - 'tools/verify_m9_rb_green_overlay_parity.py'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Recover canonical M9 BF561 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbparity"; mkdir -p "$ROOT/evidence" "$ROOT/bin"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json, os, pathlib, shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbparity'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          shutil.copy2(next(pdir.rglob('bf0.bin')),root/'bf0.bin'); shutil.copy2(next(pdir.rglob('bf0.map')),root/'bf0.map')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          PY
+
+      - name: Extract and disassemble both 810-byte Green copies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbparity"
+          python3 - <<'PY'
+          import os,pathlib,importlib.util,sys,hashlib,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbparity'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py')); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=m.parse_map(root/'bf0.map'); _,blocks=m.parse_ldr(root/'bf0.bin'); exact={(s['name'],s['addr']):s for s in syms}
+          entries=[('active',0xfeb10660),('linked',0xff613558)]; out=[]
+          for label,addr in entries:
+              s=exact.get(('GreenInterpolationWithCo',addr))
+              if not s or int(s['size'])!=810: raise SystemExit(f'Green copy mismatch {label} addr={addr:#x} symbol={s}')
+              data=m.read_overlay(blocks,addr,810); p=root/'bin'/f'{label}_{addr:08x}.bin';p.write_bytes(data)
+              out.append({'label':label,'addr':f'0x{addr:08x}','size':810,'sha256':hashlib.sha256(data).hexdigest()})
+          (root/'evidence'/'green_copy_manifest.json').write_text(json.dumps(out,indent=2)+'\n')
+          PY
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0xfeb10660 "$ROOT/bin/active_feb10660.bin" > "$ROOT/evidence/active_feb10660.gnu.dis.txt"
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0xff613558 "$ROOT/bin/linked_ff613558.bin" > "$ROOT/evidence/linked_ff613558.gnu.dis.txt"
+
+      - name: Verify relocation-only parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbparity"
+          python3 tools/verify_m9_rb_green_overlay_parity.py \
+            "$ROOT/evidence/active_feb10660.gnu.dis.txt" \
+            "$ROOT/evidence/linked_ff613558.gnu.dis.txt" \
+            | tee "$ROOT/evidence/green_overlay_parity.json"
+          grep -q '"status": "PASS"' "$ROOT/evidence/green_overlay_parity.json"
+          grep -q '"non_call_bytes_identical": true' "$ROOT/evidence/green_overlay_parity.json"
+          sha256sum "$ROOT/evidence"/* | tee "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish derived parity evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREEN-OVERLAY-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rbparity/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rbparity/pass" "$RUNNER_TEMP/rbparity/bin" "$RUNNER_TEMP/rbparity/m9.upd" "$RUNNER_TEMP/rbparity/mm.upm" "$RUNNER_TEMP/rbparity/m9.dec" "$RUNNER_TEMP/rbparity/bf0.bin" "$RUNNER_TEMP/rbparity/bf0.map"
