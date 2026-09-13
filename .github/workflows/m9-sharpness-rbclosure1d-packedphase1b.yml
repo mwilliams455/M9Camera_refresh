@@ -1,0 +1,112 @@
+name: M9 Sharpness RBCLOSURE1D Packed Phase ABI 1B
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-sharpness-rbclosure1d-packedphase1b.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+      - name: Recover canonical BF561 pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb1b"; mkdir -p "$ROOT/evidence" "$ROOT/bin"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb1b'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          shutil.copy2(next(pdir.rglob('bf0.bin')),root/'bf0.bin'); shutil.copy2(next(pdir.rglob('bf0.map')),root/'bf0.map')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          PY
+      - name: Extract canonical caller and complete optimized kernels
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb1b"
+          python3 - <<'PY'
+          import os,pathlib,importlib.util,sys,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb1b'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py')); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=m.parse_map(root/'bf0.map'); _,blocks=m.parse_ldr(root/'bf0.bin')
+          expect={'GreenInterpolationWithCo':0xfeb10660,'ASMRedBlueAndGreenDiffer':0xffa00008,'ASMFilter_101_040_101_An':0xffa000be,'ASMFilter_101_000_101_2':0xffa0024e,'ASMRedBlueInterpolation1':0xffa03410}
+          exact={(s['name'],s['addr']):s for s in syms}
+          man=[]
+          for name,addr in expect.items():
+              if (name,addr) not in exact: raise SystemExit(f'canonical symbol mismatch {name} {addr:#x}')
+              s=exact[(name,addr)]; size=int(s['size']) if int(s['size'])>0 else 0x1000
+              data=m.read_overlay(blocks,addr,size); p=root/'bin'/f'{name}_{addr:08x}.bin';p.write_bytes(data)
+              man.append({'name':name,'addr':f'0x{addr:08x}','map_size':int(s['size']),'extract_size':size,'sha256':hashlib.sha256(data).hexdigest()})
+          (root/'evidence'/'manifest.json').write_text(json.dumps(man,indent=2)+'\n')
+          PY
+          for f in "$ROOT/bin"/*.bin; do bn=$(basename "$f" .bin); base=$(printf '%s' "$bn" | sed -nE 's/^.*_([0-9a-fA-F]{8})$/\1/p'); "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$ROOT/evidence/${bn}.gnu.dis.txt"; done
+      - name: Emit exact Green call windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb1b"
+          python3 - <<'PY'
+          import os,pathlib,re,json
+          ev=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb1b/evidence'; p=next(ev.glob('GreenInterpolationWithCo_*.gnu.dis.txt')); ls=p.read_text(errors='replace').splitlines()
+          targets={0xffa000be:'ASMFilter_101_040_101_An',0xffa00008:'ASMRedBlueAndGreenDiffer',0xffa0024e:'ASMFilter_101_000_101_2'}
+          rx=re.compile(r'^\s*([0-9a-f]+):.*\bCALL\s+0x0*([0-9a-f]+)',re.I); calls=[]
+          for i,l in enumerate(ls):
+              m=rx.match(l)
+              if not m: continue
+              t=int(m.group(2),16)
+              if t in targets: calls.append({'target':targets[t],'site':f'0x{int(m.group(1),16):08x}','window':'\n'.join(ls[max(0,i-42):min(len(ls),i+18)])})
+          if len([c for c in calls if c['target']=='ASMRedBlueAndGreenDiffer']) != 2: raise SystemExit('expected two difference calls')
+          if len([c for c in calls if c['target']=='ASMFilter_101_000_101_2']) != 2: raise SystemExit('expected two post-difference filter calls')
+          (ev/'green_call_windows.json').write_text(json.dumps({'schema':'m9.rbclosure1d.packedphase1b.v1','calls':calls},indent=2)+'\n')
+          with (ev/'green_call_windows.txt').open('w') as f:
+              for c in calls:f.write(f"\n===== {c['target']} {c['site']} =====\n{c['window']}\n")
+          print([(c['target'],c['site']) for c in calls])
+          PY
+          sha256sum "$ROOT/evidence"/* | tee "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Publish derived evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-RBCLOSURE1D-PACKEDPHASE1B
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb1b/evidence/*
+      - name: Remove firmware/binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb1b/pass" "$RUNNER_TEMP/rb1b/bin" "$RUNNER_TEMP/rb1b/m9.upd" "$RUNNER_TEMP/rb1b/mm.upm" "$RUNNER_TEMP/rb1b/m9.dec" "$RUNNER_TEMP/rb1b/bf0.bin" "$RUNNER_TEMP/rb1b/bf0.map"
