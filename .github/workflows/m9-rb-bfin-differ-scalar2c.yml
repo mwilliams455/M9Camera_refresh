@@ -57,7 +57,7 @@ jobs:
             except Exception: pass
           else: raise SystemExit('canonical differ body not found')
           PY
-      - name: Execute multi-row stride corpus and compare scalar
+      - name: Execute multi-row stride corpus and compare physical scalar model
         shell: bash
         run: |
           set -euo pipefail
@@ -76,9 +76,9 @@ jobs:
           cd "$ROOT"
           PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
           import hashlib,json,os,pathlib,random,re,subprocess
-          from redblue_differ_scalar_exact import differ_sample
-          configs=[(1,1,1,2),(2,2,3,0),(3,2,5,1),(4,3,6,2),(5,4,8,4),(7,3,10,7)]
-          report={'schema':'m9.bfinscalar2c.differ-geometry-parity.v1','routine_sha256':'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1','cases':{}}
+          from redblue_differ_scalar_exact import differ_geometry_memory
+          configs=[(1,1,1,2),(2,2,3,0),(3,2,5,1),(4,3,6,2),(5,4,8,4),(7,3,10,7),(2,2,2,3),(3,3,3,5)]
+          report={'schema':'m9.bfinscalar2c.differ-geometry-parity.v2','routine_sha256':'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1','cases':{}}
           for ci,(inner,outer,stride,shift) in enumerate(configs):
             name=f'i{inner}_o{outer}_s{stride}_q{shift}'; rng=random.Random(0x4d394743+ci); n=256
             a=[rng.randrange(16384) for _ in range(n)]; b=[rng.randrange(16384) for _ in range(n)]; t=[rng.randrange(65536) for _ in range(n)]
@@ -88,18 +88,16 @@ jobs:
             subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','--defsym',f'SHIFTVAL={shift}','redblue_differ_oracle_geometry.s','-o',f'{name}.o'],check=True)
             subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
             p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+            (pathlib.Path('evidence')/f'{name}.out').write_text(p.stdout); (pathlib.Path('evidence')/f'{name}.err').write_text(p.stderr)
             if p.returncode: raise SystemExit(f'{name}: simulator rc={p.returncode}: {p.stderr}')
             vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
             if len(vals)!=128: raise SystemExit(f'{name}: DBG count={len(vals)}')
-            lows=[v&0xffff for v in vals]; highs=[(v>>16)&0xffff for v in vals]
-            target={r*stride+c for r in range(outer) for c in range(inner)}
-            mism=[]
-            for idx in range(128):
-              exp=differ_sample(a[idx],b[idx],t[idx],shift) if idx in target else 0x1357
-              if lows[idx]!=exp: mism.append((idx,lows[idx],exp))
-              if highs[idx]!=0x5a5a: mism.append((idx,'high',highs[idx],0x5a5a))
-            if mism: raise SystemExit(f'{name}: mismatches={mism[:12]}')
-            report['cases'][name]={'inner':inner,'outer':outer,'stride':stride,'shift':shift,'target_count':len(target),'exact_match':True,'interleaved_lane_preserved':True}
+            machine_lows=[v&0xffff for v in vals]; machine_highs=[(v>>16)&0xffff for v in vals]
+            scalar_lows,scalar_highs=differ_geometry_memory(a,b,t,inner,outer,stride,shift,128)
+            ml=[(i,x,y) for i,(x,y) in enumerate(zip(machine_lows,scalar_lows)) if x!=y]
+            mh=[(i,x,y) for i,(x,y) in enumerate(zip(machine_highs,scalar_highs)) if x!=y]
+            if ml or mh: raise SystemExit(f'{name}: low={ml[:12]} high={mh[:12]}')
+            report['cases'][name]={'inner':inner,'outer':outer,'stride':stride,'shift':shift,'exact_match':True,'companion_halfword_preserved':True}
           report['case_count']=len(report['cases']); report['exact_match']=True
           ev=pathlib.Path('evidence'); raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'differ_geometry_parity.json').write_bytes(raw); (ev/'differ_geometry_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  differ_geometry_parity.json\n'); print(json.dumps(report,indent=2))
           PY
