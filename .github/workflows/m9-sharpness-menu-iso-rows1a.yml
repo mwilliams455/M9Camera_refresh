@@ -1,0 +1,60 @@
+name: M9 Sharpness Menu ISO Rows 1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpness-menu-iso-rows1a
+    paths:
+      - '.github/workflows/m9-sharpness-menu-iso-rows1a.yml'
+      - 'tools/m9_sharpness_export_menu_iso_rows.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/menurows/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/menurows/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/menurows/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/menurows/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/menurows/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py \
+            "$RUNNER_TEMP/menurows/m9.upd" "$RUNNER_TEMP/menurows/mm.upm" \
+            --m9-out "$RUNNER_TEMP/menurows/m9.dec" \
+            --meta-out "$RUNNER_TEMP/menurows/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/menurows/m9.dec" | sha256sum -c --strict
+
+      - name: Extract exact Sharp menu x ISO mode matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpness_export_menu_iso_rows.py \
+            "$RUNNER_TEMP/menurows/m9.dec" \
+            --out "$RUNNER_TEMP/menurows/evidence/sharp_menu_iso_rows.json" \
+            | tee "$RUNNER_TEMP/menurows/evidence/stdout.txt"
+
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-MENU-ISO-ROWS1A
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/menurows/evidence/*.json
+            ${{ runner.temp }}/menurows/evidence/*.txt
+
+      - name: Remove firmware material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/menurows/m9.upd" "$RUNNER_TEMP/menurows/mm.upm" "$RUNNER_TEMP/menurows/m9.dec"
