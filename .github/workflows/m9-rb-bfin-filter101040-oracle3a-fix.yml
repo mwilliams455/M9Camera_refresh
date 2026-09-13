@@ -1,0 +1,124 @@
+name: M9 R/B BFINORACLE3A FIX Filter101040 Observe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-filter101040-oracle3a-fix.yml'
+      - 'research/bfin/filter101040_oracle_observe.s'
+
+permissions:
+  contents: read
+
+jobs:
+  filter-observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"; echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"; echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true); test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Recover exact Leica filter body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter3af"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinfilter3af'; d=json.load(open(root/'pass/report.json')); addr=0xffa000be; size=0x190; expected='c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          found=None; rows=[]
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size); sha=hashlib.sha256(body).hexdigest(); rows.append({'pair':i,'sha256':sha,'match':sha==expected})
+              if sha==expected and found is None: found=(i,body)
+            except Exception as e: rows.append({'pair':i,'error':str(e)})
+          (root/'evidence'/'routine_selection.json').write_text(json.dumps({'address':hex(addr),'size':size,'expected_sha256':expected,'candidates':rows},indent=2)+'\n')
+          if found is None: raise SystemExit('canonical filter body not found')
+          i,body=found; (root/'ASMFilter_101_040_101_An.bin').write_bytes(body); (root/'evidence'/'routine_manifest.json').write_text(json.dumps({'pair':i,'address':hex(addr),'size':size,'sha256':expected},indent=2)+'\n')
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xffa000be "$ROOT/ASMFilter_101_040_101_An.bin" > "$ROOT/evidence/ASMFilter_101_040_101_An.gnu.dis.txt"
+          grep -q '^ffa0024c:.*RTS' "$ROOT/evidence/ASMFilter_101_040_101_An.gnu.dis.txt"
+      - name: Execute alignment-safe observation bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter3af"; cp research/bfin/filter101040_oracle_observe.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .source : { *(.source) }
+            . = 0x7000; .out1 : { *(.out1) }
+            . = 0x8000; .out2 : { *(.out2) }
+            . = 0x9800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,re,subprocess
+          N=2048; CENTER=512
+          def enc(v): return v & 0xffff
+          def write_source(vals): pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{enc(v):04x}\n' for v in vals))
+          patterns={'zero':[0]*N,'const1000':[1000]*N,'ramp':[i-CENTER for i in range(N)],'alt_pm1000':[1000 if i&1 else -1000 for i in range(N)]}
+          for off in (-10,-9,-8,-2,-1,0,1,2,6,7,8,9,10):
+            v=[0]*N; v[CENTER+off]=1000; patterns[f'impulse_p_{off:+d}']=v
+          for off in (-8,-1,0,1,8):
+            v=[0]*N; v[CENTER+off]=-1000; patterns[f'impulse_n_{off:+d}']=v
+          configs=[(4,2,8),(4,2,9),(6,3,10),(6,3,11)]
+          ev=pathlib.Path('evidence'); report={'schema':'m9.bfinoracle3a.filter101040-observe.v2','routine_sha256':'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389','center_halfword':CENTER,'cases':{}}
+          for pname,src in patterns.items():
+            write_source(src)
+            for inner,outer,stride in configs:
+              name=f'{pname}_i{inner}_o{outer}_s{stride}'
+              subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','filter101040_oracle_observe.s','-o',f'{name}.o'],check=True,stdout=subprocess.DEVNULL)
+              subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True,stdout=subprocess.DEVNULL)
+              p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+              (ev/f'{name}.err').write_text(p.stderr)
+              if p.returncode: raise SystemExit(f'{name}: simulator rc={p.returncode}: {p.stderr}')
+              vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+              if len(vals)!=128: raise SystemExit(f'{name}: DBG count={len(vals)}')
+              def halfwords(ds):
+                z=[]
+                for q in ds: z.extend([q&0xffff,(q>>16)&0xffff])
+                return z
+              h1=halfwords(vals[:64]); h2=halfwords(vals[64:])
+              s=lambda v:v-65536 if v&0x8000 else v
+              report['cases'][name]={'pattern':pname,'inner':inner,'outer':outer,'stride':stride,'out1_changed':[{'index':i,'s16':s(v)} for i,v in enumerate(h1) if v!=0x1357],'out2_changed':[{'index':i,'s16':s(v)} for i,v in enumerate(h2) if v!=0x2468]}
+              (ev/'filter101040_observe.json').write_text(json.dumps(report,indent=2)+'\n')
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'filter101040_observe.json').write_bytes(raw); (ev/'filter101040_observe.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter101040_observe.json\n')
+          print(json.dumps({'case_count':len(report['cases']),'patterns':len(patterns),'configs':configs},indent=2))
+          PY
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE3A-FILTER101040-OBSERVE-FIX
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinfilter3af/evidence/*
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfinfilter3af/pass" "$RUNNER_TEMP/bfinfilter3af/m9.upd" "$RUNNER_TEMP/bfinfilter3af/mm.upm" "$RUNNER_TEMP/bfinfilter3af/m9.dec" "$RUNNER_TEMP/bfinfilter3af/ASMFilter_101_040_101_An.bin" "$RUNNER_TEMP/bfinfilter3af"/*.o "$RUNNER_TEMP/bfinfilter3af"/*.elf
