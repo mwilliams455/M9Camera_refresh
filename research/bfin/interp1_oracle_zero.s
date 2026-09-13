@@ -17,12 +17,18 @@
  *
  * R0/R1/R2 still receive caller home slots at SP+0/+4/+8, while args 3..6
  * occupy SP+0x0c..SP+0x18.  This harness deliberately preserves that ABI.
+ *
+ * The routine performs 32-bit accesses at green/output positions reached
+ * after adding an 18-byte first-pass phase offset (and 34-byte second-pass
+ * offset).  Therefore the green/output argument bases must be 2 mod 4 so
+ * those effective addresses are word-aligned.  Difference samples are read
+ * as 16-bit words and remain on the aligned 0x4040 base.
  */
 
     .equ DIFF_BASE,   0x00004040
-    .equ GREEN_BASE,  0x00005040
-    .equ OUTA_BASE,   0x00006040
-    .equ OUTB_BASE,   0x00007040
+    .equ GREEN_BASE,  0x00005042
+    .equ OUTA_BASE,   0x00006042
+    .equ OUTB_BASE,   0x00007042
     .equ BORDER_ADDR, 0x00008000
     .equ STACK_TOP,   0x00009800
     .equ WIDTH,       8
@@ -44,12 +50,12 @@ _start:
     R0.H = 0x0000;
     R0.L = 0x4040;
     R1.H = 0x0000;
-    R1.L = 0x5040;
+    R1.L = 0x5042;
     R2.H = 0x0000;
-    R2.L = 0x6040;
+    R2.L = 0x6042;
 
     R3.H = 0x0000;
-    R3.L = 0x7040;
+    R3.L = 0x7042;
     [SP + 0x0c] = R3;
 
     R3 = WIDTH (Z);
@@ -70,17 +76,20 @@ _start:
     R0 = [P0];
     DBG R0;
 
-    /* Then DUMP_WORDS packed 32-bit words from output A. */
+    /*
+     * Dump from the aligned section starts, not the +2 ABI pointers, so the
+     * simulator's diagnostic 32-bit reads stay naturally aligned.  The first
+     * u16 is thus a guard/sentinel preceding the routine's output base.
+     */
     P0.H = 0x0000;
-    P0.L = 0x6040;
+    P0.L = 0x6000;
     .rept DUMP_WORDS
         R0 = [P0++];
         DBG R0;
     .endr
 
-    /* Then DUMP_WORDS packed 32-bit words from output B. */
     P0.H = 0x0000;
-    P0.L = 0x7040;
+    P0.L = 0x7000;
     .rept DUMP_WORDS
         R0 = [P0++];
         DBG R0;
@@ -96,9 +105,9 @@ leica_interp1:
     .incbin "ASMRedBlueInterpolation1.bin"
 
     /*
-     * Guarded synthetic planes.  The base pointer is +0x40 from each section
-     * start so the routine's complementary checkerboard phase may walk
-     * backwards without leaving mapped memory.
+     * Guarded synthetic planes.  The ABI pointers are inside the guard area
+     * so the routine's complementary checkerboard phase can move in either
+     * direction without leaving mapped memory.
      */
     .section .oracle_diff,"aw"
     .balign 4
