@@ -1,0 +1,24 @@
+{
+  "schema": "m9.bfinoracle3b.filter101040-kernel-phase-frozen.v1",
+  "source_run": 34784254420,
+  "source_artifact_id": 10325169939,
+  "source_commit": "a0a201abc046f815294ee9b05bed8449dd246c0a",
+  "artifact_digest_sha256": "babdf2a79b03e280ef8f5ea5738b9dd52e892017b3a53aa95d20c50a5532377e",
+  "routine_address": "0xffa000be",
+  "routine_size": 400,
+  "routine_sha256": "c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389",
+  "kernel_phase_json_sha256": "36dc2b886518fd8df61590bedb1919fc523b1438b162a6884361aae296731b55",
+  "case_count": 60,
+  "findings": {
+    "valid_geometry": "inner count is even; stride is even; source pointer phase R0 mod 4 selects the .H versus .L firmware branch",
+    "phase0_source": "R0 mod 4 = 0",
+    "phase1_source": "R0 mod 4 = 2",
+    "logical_kernel": "filtered = floor((4*C + NW + NE + SW + SE) / 8) for u16 source samples",
+    "kernel_matrix": "[[1,0,1],[0,4,0],[1,0,1]] / 8",
+    "coefficient_encoding": "0x2000 unsigned-fractional diagonals and 0x8000 unsigned-fractional center",
+    "extraction": "TFU truncates the accumulated unsigned-fractional value; center 1->0, 2->1; center 16383->8191",
+    "residual": "stream2 is absolute packed-16 difference between the truncated filter estimate and original center sample",
+    "phase_equivalence": "both valid source phases produced identical logical kernel values in all tested boundary/tap cases",
+    "physical_note": "phase1 also performs an initial stream2 scratch write at output halfword index 0; meaningful residual samples remain at indices 2,4,..."
+  }
+}
