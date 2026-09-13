@@ -1,0 +1,32 @@
+{
+  "schema": "m9.bfinoracle1d.spatial-frozen.v1",
+  "source_run": 34778767988,
+  "source_artifact_id": 10324039644,
+  "source_commit": "aab49ae3e79cd3be324e4d3f57efd3a7f22c6a65",
+  "routine_sha256": "997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828",
+  "pattern_bank_json_sha256": "9c51df9f96f4cb78b14bf81787bb7b58d9c07a1a6710be7c5e9c6097d5c6e4b2",
+  "pointer_phase": {
+    "difference_u16_offset": 0,
+    "green_u16_offset": 1,
+    "output_a_u16_offset": 1,
+    "output_b_u16_offset": 1
+  },
+  "spatial_model": {
+    "output_a_source_lattice": "even row / even column in pointer-relative difference coordinates",
+    "output_b_source_lattice": "odd row / odd column in pointer-relative difference coordinates",
+    "known_sample": "difference at the same pointer-relative coordinate",
+    "horizontal": "signed 16-bit saturating sum of left/right known samples, arithmetic shift right 1",
+    "vertical": "signed 16-bit wrapping sum of top/bottom known samples, arithmetic shift right 1",
+    "diagonal": "horizontal saturated averages on top and bottom rows, then signed 16-bit wrapping sum, arithmetic shift right 1",
+    "final": "signed 16-bit wrapping green-plus-difference, then signed clamp to 0..16383"
+  },
+  "oracle_checks": {
+    "alternating_plus_minus_100": "A=1100 across the 6x6 interior; B=900",
+    "alternating_minus_plus_100": "A=900 across the 6x6 interior; B=1100",
+    "difference_ramp_0_to_255": "both planes reproduce the bilinear ramp exactly over the interior",
+    "difference_impulse_9": "B responses: full at source, 1/2 right, 1/2 down, 1/4 down-right; A unchanged",
+    "difference_impulse_11": "B responses: full at source, 1/2 left/right/down, 1/4 down-left/down-right; A unchanged",
+    "green_ramp": "both planes use green at the same output coordinate",
+    "green_alternating_900_1100": "both planes preserve the same green-coordinate phase"
+  }
+}
