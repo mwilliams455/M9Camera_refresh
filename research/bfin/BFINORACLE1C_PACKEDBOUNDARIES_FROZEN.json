@@ -1,0 +1,20 @@
+{
+  "schema":"m9.bfinoracle1c.packed-boundaries-frozen.v1",
+  "source_run":34777777323,
+  "source_artifact_id":10323883527,
+  "source_commit":"a1bf2d636b018c32838de58e15137ded03e13c3a",
+  "routine_sha256":"997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828",
+  "packed_boundary_bank_json_sha256":"ffbb4211810b39acb1bd4b7d975b9f7fe3b5b1c73a1d28749980af1c1d9d2e58",
+  "findings":{
+    "positive_safe_through":16383,
+    "positive_first_packed_wrap":16384,
+    "negative_safe_through":-16384,
+    "negative_first_packed_wrap":-16385,
+    "green_reference":1000,
+    "positive_16383":"all 36 active samples = 16383 in A and B",
+    "positive_16384":"27 active samples = 16383 and 9 complementary phase samples = 0 in each output",
+    "negative_16384":"all 36 active samples = 0 in A and B",
+    "negative_16385":"9 complementary phase samples = 16383 and remaining 27 active samples = 0 in each output",
+    "positive_32767":"each output splits into 18 samples at 16383, 9 at 0, and 9 at 999; 999 equals green-1 and proves a wrapping packed sum followed by arithmetic halving"
+  }
+}

@@ -1,0 +1,131 @@
+name: M9 R/B BFINORACLE1D Spatial Pattern Bank
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-oracle1d.yml'
+      - 'research/bfin/interp1_oracle_patterns.s'
+      - 'research/bfin/BFINORACLE1C_PACKEDBOUNDARIES_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  pattern-bank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install and build pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"; echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true); test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Recover canonical Leica interpolation body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1d"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1d'; d=json.load(open(root/'pass/report.json')); expected='997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828'; addr=0xffa03410; size=0x248
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected:
+                (root/'ASMRedBlueInterpolation1.bin').write_bytes(body); (root/'evidence'/'routine_manifest.json').write_text(json.dumps({'pair':i,'address':hex(addr),'size':size,'sha256':expected},indent=2)+'\n'); break
+            except Exception: pass
+          else: raise SystemExit('canonical body not found')
+          PY
+      - name: Execute spatial pattern bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1d"; cp research/bfin/interp1_oracle_patterns.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .oracle_diff : { *(.oracle_diff) }
+            . = 0x5000; .oracle_green : { *(.oracle_green) }
+            . = 0x6000; .oracle_outa : { *(.oracle_outa) }
+            . = 0x7000; .oracle_outb : { *(.oracle_outb) }
+            . = 0x8000; .oracle_border : { *(.oracle_border) }
+            . = 0x8800; .oracle_stack : { *(.oracle_stack) }
+          }
+          LDS
+          cd "$ROOT"
+          runv(){
+            n="$1"
+            NAME="$n" python3 - <<'PY'
+          import json,os,pathlib
+          n=os.environ['NAME']; N=256
+          diff=[0]*N; green=[1000]*N
+          if n=='diff_alt_pm': diff=[100 if i%2==0 else -100 for i in range(N)]
+          elif n=='diff_alt_mp': diff=[-100 if i%2==0 else 100 for i in range(N)]
+          elif n=='diff_ramp': diff=list(range(N))
+          elif n=='diff_impulse9': diff[9]=1000
+          elif n=='diff_impulse11': diff[11]=1000
+          elif n=='green_ramp': green=[1000+i for i in range(N)]
+          elif n=='green_alt': green=[900 if i%2==0 else 1100 for i in range(N)]
+          else: raise SystemExit(n)
+          pathlib.Path('oracle_diff_data.inc').write_text('\n'.join(f'.short {v}' for v in diff)+'\n')
+          pathlib.Path('oracle_green_data.inc').write_text('\n'.join(f'.short {v}' for v in green)+'\n')
+          pathlib.Path(f'evidence/input_{n}.json').write_text(json.dumps({'name':n,'diff_s16':diff,'green_u16':green},indent=2)+'\n')
+          PY
+            "$BFIN_AS" interp1_oracle_patterns.s -o "$n.o"; "$BFIN_LD" -T oracle.ld "$n.o" -o "$n.elf"
+            set +e; "$BFIN_SIM" "$n.elf" > "evidence/${n}.out" 2> "evidence/${n}.err"; rc=$?; set -e; echo "$rc" > "evidence/${n}.rc"; test "$rc" -eq 0
+          }
+          for n in diff_alt_pm diff_alt_mp diff_ramp diff_impulse9 diff_impulse11 green_ramp green_alt; do runv "$n"; done
+      - name: Parse pattern bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1d"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1d'; ev=root/'evidence'; names=['diff_alt_pm','diff_alt_mp','diff_ramp','diff_impulse9','diff_impulse11','green_ramp','green_alt']; bank={'schema':'m9.bfinoracle1d.pattern-bank.v1','vectors':{}}
+          for n in names:
+            vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',(ev/f'{n}.out').read_text(errors='replace'))]
+            if len(vals)!=129: raise SystemExit(f'{n}: DBG count={len(vals)}')
+            def up(ws):
+              r=[]
+              for v in ws:r.extend([v&0xffff,(v>>16)&0xffff])
+              return r
+            row={'support_after':vals[0],'a':up(vals[1:65]),'b':up(vals[65:129])}
+            if vals[0]!=1: raise SystemExit(f'{n}: support={vals[0]}')
+            bank['vectors'][n]=row; (ev/f'{n}.json').write_text(json.dumps(row,indent=2)+'\n')
+          raw=(json.dumps(bank,indent=2)+'\n').encode(); (ev/'pattern_bank.json').write_bytes(raw); (ev/'pattern_bank.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  pattern_bank.json\n')
+          PY
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE1D-PATTERNBANK
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinoracle1d/evidence/*
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfinoracle1d/pass" "$RUNNER_TEMP/bfinoracle1d/m9.upd" "$RUNNER_TEMP/bfinoracle1d/mm.upm" "$RUNNER_TEMP/bfinoracle1d/m9.dec" "$RUNNER_TEMP/bfinoracle1d/ASMRedBlueInterpolation1.bin" "$RUNNER_TEMP/bfinoracle1d"/*.o "$RUNNER_TEMP/bfinoracle1d"/*.elf
