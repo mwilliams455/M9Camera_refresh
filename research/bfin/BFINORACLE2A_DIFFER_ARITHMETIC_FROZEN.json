@@ -1,0 +1,33 @@
+{
+  "schema": "m9.bfinoracle2a.differ-arithmetic-frozen.v1",
+  "source_run": 34780311120,
+  "source_artifact_id": 10324747249,
+  "source_commit": "df4461ad2ecd9f6d47b64b3aa5cde3b9df29d4dc",
+  "artifact_digest_sha256": "32b0baf1db3cda0e650e98b406a8938e19c77bcfdc7286098dacb62aef26f6d4",
+  "routine_address": "0xffa00008",
+  "routine_size": 182,
+  "routine_sha256": "5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1",
+  "differ_arithmetic_json_sha256": "95a487e070020f6ab6877096179b57bfa706acd719d7713b79075947c2ee6cad",
+  "findings": {
+    "comparison": "abs(a-b) < threshold is strict and uses the unshifted threshold",
+    "correction": "threshold is logically right-shifted by shift, then applied toward zero without crossing zero",
+    "storage": "result is written as the low 16 bits; negative values therefore appear as two-complement u16",
+    "domain_validation": "all 14 oracle cases exactly match the instruction-derived scalar candidate"
+  },
+  "cases": {
+    "equal": {"a":1000,"b":1000,"threshold":100,"shift":2,"output_u16":0,"output_s16":0},
+    "positive_keep": {"a":1100,"b":1000,"threshold":50,"shift":2,"output_u16":100,"output_s16":100},
+    "positive_shrink": {"a":1100,"b":1000,"threshold":200,"shift":2,"output_u16":50,"output_s16":50},
+    "positive_floor": {"a":1100,"b":1000,"threshold":1000,"shift":2,"output_u16":0,"output_s16":0},
+    "negative_shrink": {"a":1000,"b":1100,"threshold":200,"shift":2,"output_u16":65486,"output_s16":-50},
+    "negative_floor": {"a":1000,"b":1100,"threshold":1000,"shift":2,"output_u16":0,"output_s16":0},
+    "strict_threshold": {"a":1100,"b":1000,"threshold":100,"shift":2,"output_u16":100,"output_s16":100},
+    "shift0": {"a":1100,"b":1000,"threshold":200,"shift":0,"output_u16":0,"output_s16":0},
+    "shift1": {"a":1100,"b":1000,"threshold":200,"shift":1,"output_u16":0,"output_s16":0},
+    "shift3": {"a":1100,"b":1000,"threshold":200,"shift":3,"output_u16":75,"output_s16":75},
+    "max14_positive": {"a":16383,"b":0,"threshold":20000,"shift":2,"output_u16":11383,"output_s16":11383},
+    "max14_negative": {"a":0,"b":16383,"threshold":20000,"shift":2,"output_u16":54153,"output_s16":-11383},
+    "threshold_zero_positive": {"a":5000,"b":1000,"threshold":0,"shift":4,"output_u16":4000,"output_s16":4000},
+    "threshold_zero_negative": {"a":1000,"b":5000,"threshold":0,"shift":4,"output_u16":61536,"output_s16":-4000}
+  }
+}
