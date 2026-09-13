@@ -2,20 +2,16 @@
 """Bit-exact scalar model of Leica M9 ASMRedBlueInterpolation1.
 
 This models the recovered BF561 routine at pointer-relative array level.
-Inputs:
-  diff: signed 16-bit R-G/B-G difference plane, pointer-relative
-  green: 16-bit green plane, pointer-relative
-  width,height: dimensions supplied to Leica routine
-Outputs:
-  two 16-bit reconstructed planes A and B, pointer-relative
-
 Finite precision follows the recovered Blackfin instructions:
 - horizontal two-tap sums saturate signed 16-bit before arithmetic >> 1
 - vertical/second-stage sums wrap signed 16-bit before arithmetic >> 1
 - final green + interpolated difference wraps signed 16-bit
 - final result clamps signed to [0, 16383]
 
-Only the one-pixel interior is written, matching support=1.
+The routine increments the mutable support/border value before processing.
+For support_after=s, it writes [s,height-s) x [s,width-s). Plane B uses the
+checkerboard lattice whose row/column parity equals s; plane A uses the
+complementary lattice. Default support_before=0 preserves the proven 8x8 ABI.
 """
 from __future__ import annotations
 
@@ -64,9 +60,9 @@ def final_add(green: int, diff_estimate: int) -> int:
     return clamp14_signed(wrap16(s16(green) + s16(diff_estimate)))
 
 
-def _estimate(diff: Sequence[int], width: int, y: int, x: int, even_lattice: bool) -> int:
+def _estimate(diff: Sequence[int], width: int, y: int, x: int, lattice_parity: int) -> int:
     k = y * width + x
-    p = 0 if even_lattice else 1
+    p = lattice_parity & 1
     if (y & 1) == p and (x & 1) == p:
         return s16(diff[k])
     if (y & 1) == p:
@@ -79,21 +75,39 @@ def _estimate(diff: Sequence[int], width: int, y: int, x: int, even_lattice: boo
     )
 
 
-def render_interp1(diff: Sequence[int], green: Sequence[int], width: int, height: int) -> tuple[list[int], list[int]]:
+def render_interp1(
+    diff: Sequence[int],
+    green: Sequence[int],
+    width: int,
+    height: int,
+    support_before: int = 0,
+) -> tuple[list[int], list[int]]:
     """Return pointer-relative output planes A and B.
 
-    A uses the even/even source lattice. B uses the odd/odd source lattice.
+    `support_before` is the integer supplied through Leica's mutable support
+    pointer. The firmware increments it first. This function returns only the
+    two planes; callers validating the ABI should expect support_after to be
+    support_before + 1.
     """
     n = width * height
     if width < 3 or height < 3:
         raise ValueError("width and height must be at least 3")
     if len(diff) < n or len(green) < n:
         raise ValueError("diff and green must contain at least width*height samples")
+    support = int(support_before) + 1
+    if support < 1 or 2 * support >= min(width, height):
+        raise ValueError("support leaves no valid interpolation interior")
+
+    # First Leica pass (plane B) starts on (support,support); second pass
+    # (plane A) starts on the complementary checkerboard phase.
+    b_parity = support & 1
+    a_parity = (support + 1) & 1
+
     out_a = [0] * n
     out_b = [0] * n
-    for y in range(1, height - 1):
-        for x in range(1, width - 1):
+    for y in range(support, height - support):
+        for x in range(support, width - support):
             k = y * width + x
-            out_a[k] = final_add(green[k], _estimate(diff, width, y, x, True))
-            out_b[k] = final_add(green[k], _estimate(diff, width, y, x, False))
+            out_a[k] = final_add(green[k], _estimate(diff, width, y, x, a_parity))
+            out_b[k] = final_add(green[k], _estimate(diff, width, y, x, b_parity))
     return out_a, out_b

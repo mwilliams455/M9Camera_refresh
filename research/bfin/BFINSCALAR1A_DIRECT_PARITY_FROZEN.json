@@ -1,0 +1,12 @@
+{
+  "schema": "m9.bfinscalar1a.direct-parity-frozen.v1",
+  "source_run": 34779193197,
+  "source_artifact_id": 10324124915,
+  "source_commit": "7c613215c3667c9b3e134c64cc732a93e0a09d25",
+  "routine_sha256": "997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828",
+  "scalar_parity_json_sha256": "8559ce83405ee276061018f5fdad582dda261582b40928236e7561aad8528432",
+  "artifact_digest": "sha256:f4af8197f0e6a249c57ea093c9ebff3f302e91266a4f5e14db2b4665ca762903",
+  "vector_count": 14,
+  "vectors": "12 deterministic full-range random signed16-difference / 14-bit-green fields, one extreme checker field, one signed ramp",
+  "result": "all machine-code output samples in both planes matched the scalar model exactly; support_after=1 for every vector"
+}
