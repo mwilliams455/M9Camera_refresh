@@ -86,8 +86,8 @@ jobs:
           cases=[(8,8,0),(8,8,1),(10,8,0),(10,8,1),(10,10,0),(10,10,1),(10,10,2),(12,10,0),(12,10,2),(12,12,3)]
           out={}
           for ci,(w,h,s) in enumerate(cases):
-            r=random.Random(0x4d394700+ci)
-            out[f'w{w}_h{h}_s{s}']={'w':w,'h':h,'support_before':s,'diff':[r.randint(-32768,32767) for _ in range(512)],'green_backing':[r.randint(0,16383) for _ in range(513)]}
+            r=random.Random(0x4d394700+ci); support_after=s+1; phase_bytes=2*(support_after&1)
+            out[f'w{w}_h{h}_s{s}']={'w':w,'h':h,'support_before':s,'phase_bytes':phase_bytes,'diff':[r.randint(-32768,32767) for _ in range(512)],'green_backing':[r.randint(0,16383) for _ in range(513)]}
           pathlib.Path('geometry_corpus.json').write_text(json.dumps(out))
           PY
           python3 - <<'PY'
@@ -96,8 +96,9 @@ jobs:
           for name,row in cases.items():
             pathlib.Path('oracle_diff_data.inc').write_text('\n'.join(f'.short {v}' for v in row['diff'])+'\n')
             pathlib.Path('oracle_green_data.inc').write_text('\n'.join(f'.short {v}' for v in row['green_backing'])+'\n')
-            subprocess.run([os.environ['BFIN_AS'],'--defsym',f"WIDTH={row['w']}",'--defsym',f"HEIGHT={row['h']}",'--defsym',f"SUPPORT_INIT={row['support_before']}",'interp1_oracle_parametric.s','-o',f'{name}.o'],check=True)
-            subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
+            ph=row['phase_bytes']
+            cmd=[os.environ['BFIN_AS'],'--defsym',f"WIDTH={row['w']}",'--defsym',f"HEIGHT={row['h']}",'--defsym',f"SUPPORT_INIT={row['support_before']}",'--defsym',f"GREEN_PTR={0x5040+ph}",'--defsym',f"OUTA_PTR={0x6040+ph}",'--defsym',f"OUTB_PTR={0x7040+ph}",'interp1_oracle_parametric.s','-o',f'{name}.o']
+            subprocess.run(cmd,check=True); subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
             with open(f'evidence/{name}.out','wb') as so, open(f'evidence/{name}.err','wb') as se:
               rc=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],stdout=so,stderr=se).returncode
             if rc: raise SystemExit(f'{name}: simulator rc={rc}')
@@ -111,7 +112,7 @@ jobs:
           PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
           import hashlib,json,pathlib,re,os
           from interp1_scalar_exact import render_interp1
-          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinscalar1b'; ev=root/'evidence'; corpus=json.loads((root/'geometry_corpus.json').read_text()); report={'schema':'m9.bfinscalar1b.geometry-support-parity.v1','cases':{}}
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinscalar1b'; ev=root/'evidence'; corpus=json.loads((root/'geometry_corpus.json').read_text()); report={'schema':'m9.bfinscalar1b.geometry-support-parity.v2','cases':{}}
           for name,row in corpus.items():
             vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',(ev/f'{name}.out').read_text(errors='replace'))]
             if len(vals)!=257: raise SystemExit(f'{name}: DBG count={len(vals)}')
@@ -119,14 +120,15 @@ jobs:
               out=[]
               for v in words: out.extend([v&0xffff,(v>>16)&0xffff])
               return out
-            backing_a=up(vals[1:129]); backing_b=up(vals[129:257]); n=row['w']*row['h']
-            machine_a=backing_a[1:1+n]; machine_b=backing_b[1:1+n]
-            scalar_a,scalar_b=render_interp1(row['diff'][:n],row['green_backing'][1:1+n],row['w'],row['h'],row['support_before'])
+            backing_a=up(vals[1:129]); backing_b=up(vals[129:257]); n=row['w']*row['h']; phase_u16=row['phase_bytes']//2
+            machine_a=backing_a[phase_u16:phase_u16+n]; machine_b=backing_b[phase_u16:phase_u16+n]
+            green=row['green_backing'][phase_u16:phase_u16+n]
+            scalar_a,scalar_b=render_interp1(row['diff'][:n],green,row['w'],row['h'],row['support_before'])
             ma=[(i,x,y) for i,(x,y) in enumerate(zip(machine_a,scalar_a)) if x!=y]; mb=[(i,x,y) for i,(x,y) in enumerate(zip(machine_b,scalar_b)) if x!=y]
             expected_support=row['support_before']+1
             if vals[0]!=expected_support or ma or mb:
-              raise SystemExit(f"{name}: support={vals[0]} expected={expected_support} A={ma[:8]} B={mb[:8]}")
-            report['cases'][name]={'width':row['w'],'height':row['h'],'support_before':row['support_before'],'support_after':vals[0],'exact_match':True}
+              raise SystemExit(f"{name}: phase={row['phase_bytes']} support={vals[0]} expected={expected_support} A={ma[:8]} B={mb[:8]}")
+            report['cases'][name]={'width':row['w'],'height':row['h'],'support_before':row['support_before'],'support_after':vals[0],'base_phase_bytes':row['phase_bytes'],'exact_match':True}
           report['case_count']=len(report['cases']); report['exact_match']=True
           raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'geometry_parity.json').write_bytes(raw); (ev/'geometry_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  geometry_parity.json\n'); print(json.dumps({'case_count':report['case_count'],'exact_match':True},indent=2))
           PY
