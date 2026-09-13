@@ -1,0 +1,220 @@
+name: M9 R/B BFINORACLE1A Interpolation Oracle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-oracle1a.yml'
+      - 'research/bfin/interp1_oracle_zero.s'
+
+permissions:
+  contents: read
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+
+      - name: Download pinned GNU sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          sha256sum binutils-2.44.tar.xz gdb-17.2.tar.xz | tee source_sha256.txt
+          tar -xf binutils-2.44.tar.xz
+          tar -xf gdb-17.2.tar.xz
+
+      - name: Build bfin assembler linker objdump and simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim
+          make -j2 all-binutils all-gas all-ld
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+          test -x "$PWD/gas/as-new"; test -x "$PWD/ld/ld-new"; test -x "$PWD/binutils/objdump"
+
+          cd "$RUNNER_TEMP"
+          mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver
+          make -j2 all-sim
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover canonical M9 BF561 image and exact interpolation body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1a"
+          mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib, importlib.util, json, os, pathlib, shutil, sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1a'
+          d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
+              t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          bf0bin=next(pdir.rglob('bf0.bin')); bf0map=next(pdir.rglob('bf0.map'))
+          shutil.copy2(bf0bin,root/'bf0.bin'); shutil.copy2(bf0map,root/'bf0.map')
+
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(root/'bf0.bin')
+          addr=0xffa03410; size=0x248
+          body=m.read_overlay(blocks,addr,size)
+          if len(body)!=size: raise SystemExit(f'wrong body length {len(body)}')
+          sha=hashlib.sha256(body).hexdigest()
+          expected='592283725a23d4cc5676c11db6f2404abcb8fd51d93e2c489143d2daaf2368d7'
+          if sha!=expected: raise SystemExit(f'interpolation body sha mismatch {sha} != {expected}')
+          (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
+          (root/'evidence'/'routine_manifest.json').write_text(json.dumps({
+              'schema':'m9.bfinoracle1a.interp1-body.v1',
+              'selected_pair':pair,
+              'original_address':'0xffa03410',
+              'size':size,
+              'sha256':sha,
+          },indent=2)+'\n')
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xffa03410 "$ROOT/ASMRedBlueInterpolation1.bin" > "$ROOT/evidence/ASMRedBlueInterpolation1_ffa03410.gnu.dis.txt"
+          grep -q '^ffa03656:.*RTS' "$ROOT/evidence/ASMRedBlueInterpolation1_ffa03410.gnu.dis.txt"
+
+      - name: Assemble and execute zero-difference oracle vector
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1a"
+          cp "$GITHUB_WORKSPACE/research/bfin/interp1_oracle_zero.s" "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS
+          {
+            . = 0x00001000;
+            .text : { *(.text.start) *(.text*) }
+            . = 0x00004000;
+            .oracle_diff : { *(.oracle_diff) }
+            . = 0x00005000;
+            .oracle_green : { *(.oracle_green) }
+            . = 0x00006000;
+            .oracle_outa : { *(.oracle_outa) }
+            . = 0x00007000;
+            .oracle_outb : { *(.oracle_outb) }
+            . = 0x00008000;
+            .oracle_border : { *(.oracle_border) }
+            . = 0x00008800;
+            .oracle_stack : { *(.oracle_stack) }
+          }
+          LDS
+          cd "$ROOT"
+          "$BFIN_AS" interp1_oracle_zero.s -o interp1_oracle_zero.o
+          "$BFIN_LD" -T oracle.ld interp1_oracle_zero.o -o interp1_oracle_zero.elf
+          "$BFIN_OBJDUMP" -h -d interp1_oracle_zero.elf > evidence/interp1_oracle_zero.objdump.txt
+
+          set +e
+          "$BFIN_SIM" interp1_oracle_zero.elf > evidence/sim_stdout.txt 2> evidence/sim_stderr.txt
+          rc=$?
+          set -e
+          echo "sim_rc=$rc" > evidence/sim_result.txt
+          cat evidence/sim_stdout.txt
+          cat evidence/sim_stderr.txt >&2
+          test "$rc" -eq 0
+
+      - name: Parse and gate oracle output
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1a"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1a'; ev=root/'evidence'
+          text=(ev/'sim_stdout.txt').read_text(errors='replace')
+          vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',text)]
+          expected_n=1+64+64
+          if len(vals)!=expected_n:
+              raise SystemExit(f'expected {expected_n} DBG values, got {len(vals)}')
+          border=vals[0]; aw=vals[1:65]; bw=vals[65:129]
+          def unpack(words):
+              out=[]
+              for v in words: out.extend([v & 0xffff,(v>>16)&0xffff])
+              return out
+          a=unpack(aw); b=unpack(bw)
+          if border!=1: raise SystemExit(f'border/support expected 1 after call, got {border}')
+          bad=sorted(set(a+b)-{0,1000})
+          if bad: raise SystemExit(f'zero-difference vector produced unexpected samples: {bad[:16]}')
+          if a.count(1000)==0 or b.count(1000)==0:
+              raise SystemExit(f'no reconstructed green samples observed: countA={a.count(1000)} countB={b.count(1000)}')
+          report={
+              'schema':'m9.bfinoracle1a.zero-diff.v1',
+              'routine_sha256':'592283725a23d4cc5676c11db6f2404abcb8fd51d93e2c489143d2daaf2368d7',
+              'width':8,'height':8,'support_before':0,'support_after':border,
+              'difference_fill':0,'green_fill':1000,'output_initial_fill':0,
+              'output_a_u16':a,'output_b_u16':b,
+              'output_a_green_count':a.count(1000),'output_b_green_count':b.count(1000),
+          }
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'oracle_zero_diff.json').write_bytes(raw)
+          (ev/'oracle_zero_diff.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  oracle_zero_diff.json\n')
+          print(json.dumps({k:report[k] for k in ('support_after','output_a_green_count','output_b_green_count')},indent=2))
+          PY
+
+      - name: Record evidence hashes
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1a"
+          mkdir -p "$ROOT/evidence"
+          cp "$GITHUB_WORKSPACE/research/bfin/interp1_oracle_zero.s" "$ROOT/evidence/" || true
+          cp "$RUNNER_TEMP/source_sha256.txt" "$ROOT/evidence/" || true
+          if [ -f "$ROOT/oracle.ld" ]; then cp "$ROOT/oracle.ld" "$ROOT/evidence/"; fi
+          (cd "$ROOT/evidence" && sha256sum * > SHA256SUMS.txt) || true
+
+      - name: Publish BFINORACLE1A derived evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE1A-ZERODIFF
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinoracle1a/evidence/*
+
+      - name: Remove firmware and routine-bearing binaries
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/bfinoracle1a/pass" \
+                 "$RUNNER_TEMP/bfinoracle1a/m9.upd" \
+                 "$RUNNER_TEMP/bfinoracle1a/mm.upm" \
+                 "$RUNNER_TEMP/bfinoracle1a/m9.dec" \
+                 "$RUNNER_TEMP/bfinoracle1a/bf0.bin" \
+                 "$RUNNER_TEMP/bfinoracle1a/bf0.map" \
+                 "$RUNNER_TEMP/bfinoracle1a/ASMRedBlueInterpolation1.bin" \
+                 "$RUNNER_TEMP/bfinoracle1a/interp1_oracle_zero.o" \
+                 "$RUNNER_TEMP/bfinoracle1a/interp1_oracle_zero.elf"
