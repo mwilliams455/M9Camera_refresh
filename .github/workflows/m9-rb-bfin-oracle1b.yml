@@ -1,0 +1,221 @@
+name: M9 R/B BFINORACLE1B Constant Vector Bank
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-oracle1b.yml'
+      - 'research/bfin/interp1_oracle_constants.s'
+      - 'research/bfin/BFINORACLE1A_ZERO_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  oracle-bank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+
+      - name: Download pinned GNU sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          sha256sum binutils-2.44.tar.xz gdb-17.2.tar.xz | tee source_sha256.txt
+          tar -xf binutils-2.44.tar.xz
+          tar -xf gdb-17.2.tar.xz
+
+      - name: Build Blackfin assembler linker objdump and simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim
+          make -j2 all-binutils all-gas all-ld
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+          cd "$RUNNER_TEMP"
+          mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver
+          make -j2 all-sim
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover canonical M9 interpolation body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1b"
+          mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib, importlib.util, json, os, pathlib, shutil, sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1b'
+          d=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          addr=0xffa03410; size=0x248
+          expected='997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828'
+          matches=[]; rows=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              pdir=root/'pass'/f'bf561_pair_{i:02d}'
+              row={'pair':i,'map_path':x.get('map_path'),'ldr_path':x.get('ldr_path')}
+              try:
+                  bf0bin=next(pdir.rglob('bf0.bin')); bf0map=next(pdir.rglob('bf0.map'))
+                  _,blocks=m.parse_ldr(bf0bin)
+                  mask=bytearray(size)
+                  for b in blocks:
+                      s=max(addr,b['addr']); e=min(addr+size,b['addr']+b['count'])
+                      if e>s: mask[s-addr:e-addr]=b'\x01'*(e-s)
+                  row['coverage']=sum(mask)
+                  if sum(mask)==size:
+                      body=m.read_overlay(blocks,addr,size)
+                      row['sha256']=hashlib.sha256(body).hexdigest()
+                      if row['sha256']==expected:
+                          matches.append((i,bf0bin,bf0map,body))
+              except Exception as e:
+                  row['error']=f'{type(e).__name__}: {e}'
+              rows.append(row)
+          (root/'evidence'/'routine_selection.json').write_text(json.dumps({'address':hex(addr),'size':size,'expected_sha256':expected,'candidates':rows},indent=2)+'\n')
+          if not matches: raise SystemExit('no canonical interpolation body match')
+          i,bf0bin,bf0map,body=matches[0]
+          (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
+          (root/'evidence'/'routine_manifest.json').write_text(json.dumps({'schema':'m9.bfinoracle1b.body.v1','selected_pair':i,'original_address':hex(addr),'size':size,'sha256':expected},indent=2)+'\n')
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xffa03410 "$ROOT/ASMRedBlueInterpolation1.bin" > "$ROOT/evidence/ASMRedBlueInterpolation1_ffa03410.gnu.dis.txt"
+          grep -q '^ffa03656:.*RTS' "$ROOT/evidence/ASMRedBlueInterpolation1_ffa03410.gnu.dis.txt"
+
+      - name: Assemble and execute constant vector bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1b"
+          cp research/bfin/interp1_oracle_constants.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS
+          {
+            . = 0x00001000;
+            .text : { *(.text.start) *(.text*) }
+            . = 0x00004000;
+            .oracle_diff : { *(.oracle_diff) }
+            . = 0x00005000;
+            .oracle_green : { *(.oracle_green) }
+            . = 0x00006000;
+            .oracle_outa : { *(.oracle_outa) }
+            . = 0x00007000;
+            .oracle_outb : { *(.oracle_outb) }
+            . = 0x00008000;
+            .oracle_border : { *(.oracle_border) }
+            . = 0x00008800;
+            .oracle_stack : { *(.oracle_stack) }
+          }
+          LDS
+          cd "$ROOT"
+          run_vector() {
+            name="$1"; diff="$2"; green="$3"
+            "$BFIN_AS" --defsym ORACLE_DIFF_VALUE="$diff" --defsym ORACLE_GREEN_VALUE="$green" interp1_oracle_constants.s -o "interp1_${name}.o"
+            "$BFIN_LD" -T oracle.ld "interp1_${name}.o" -o "interp1_${name}.elf"
+            "$BFIN_OBJDUMP" -h -d "interp1_${name}.elf" > "evidence/interp1_${name}.objdump.txt"
+            set +e
+            "$BFIN_SIM" "interp1_${name}.elf" > "evidence/sim_${name}_stdout.txt" 2> "evidence/sim_${name}_stderr.txt"
+            rc=$?
+            set -e
+            echo "sim_rc=$rc" > "evidence/sim_${name}_result.txt"
+            test "$rc" -eq 0
+          }
+          run_vector zero       0      1000
+          run_vector pos100     100    1000
+          run_vector neg100    -100    1000
+          run_vector underflow -2000   1000
+          run_vector overflow   20000  1000
+
+      - name: Parse bank and enforce frozen zero oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1b"
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1b'; ev=root/'evidence'
+          frozen=json.load(open('research/bfin/BFINORACLE1A_ZERO_FROZEN.json'))
+          specs={'zero':(0,1000),'pos100':(100,1000),'neg100':(-100,1000),'underflow':(-2000,1000),'overflow':(20000,1000)}
+          bank={'schema':'m9.bfinoracle1b.constant-bank.v1','routine_sha256':frozen['routine']['sha256'],'vectors':{}}
+          for name,(diff,green) in specs.items():
+              text=(ev/f'sim_{name}_stdout.txt').read_text(errors='replace')
+              vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',text)]
+              if len(vals)!=129: raise SystemExit(f'{name}: expected 129 DBG values, got {len(vals)}')
+              def unpack(words):
+                  out=[]
+                  for v in words: out.extend([v & 0xffff,(v>>16)&0xffff])
+                  return out
+              support=vals[0]; a=unpack(vals[1:65]); b=unpack(vals[65:129])
+              row={'difference_fill_s16':diff,'green_fill_u16':green,'support_after':support,'output_a_u16':a,'output_b_u16':b,'output_a_unique':sorted(set(a)),'output_b_unique':sorted(set(b))}
+              bank['vectors'][name]=row
+              (ev/f'oracle_{name}.json').write_text(json.dumps(row,indent=2)+'\n')
+              if support!=1: raise SystemExit(f'{name}: support expected 1, got {support}')
+          z=bank['vectors']['zero']; exp=frozen['expected']; active=set(exp['active_u16_indices_in_dump_from_0x6040_or_0x7040'])
+          expected=[exp['active_value_u16'] if i in active else exp['inactive_value_u16'] for i in range(128)]
+          if z['output_a_u16']!=expected or z['output_b_u16']!=expected:
+              raise SystemExit('zero vector no longer matches frozen BFINORACLE1A sample pattern')
+          raw=(json.dumps(bank,indent=2)+'\n').encode()
+          (ev/'oracle_constant_bank.json').write_bytes(raw)
+          (ev/'oracle_constant_bank.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  oracle_constant_bank.json\n')
+          print(json.dumps({name:{'support':v['support_after'],'a_unique':v['output_a_unique'],'b_unique':v['output_b_unique']} for name,v in bank['vectors'].items()},indent=2))
+          PY
+
+      - name: Record evidence hashes
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinoracle1b"
+          mkdir -p "$ROOT/evidence"
+          cp research/bfin/BFINORACLE1A_ZERO_FROZEN.json "$ROOT/evidence/" || true
+          cp research/bfin/interp1_oracle_constants.s "$ROOT/evidence/" || true
+          cp "$RUNNER_TEMP/source_sha256.txt" "$ROOT/evidence/" || true
+          cp "$ROOT/oracle.ld" "$ROOT/evidence/" || true
+          (cd "$ROOT/evidence" && sha256sum * > SHA256SUMS.txt) || true
+
+      - name: Publish BFINORACLE1B derived evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE1B-CONSTANTBANK
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinoracle1b/evidence/*
+
+      - name: Remove firmware and routine-bearing binaries
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/bfinoracle1b/pass" \
+                 "$RUNNER_TEMP/bfinoracle1b/m9.upd" \
+                 "$RUNNER_TEMP/bfinoracle1b/mm.upm" \
+                 "$RUNNER_TEMP/bfinoracle1b/m9.dec" \
+                 "$RUNNER_TEMP/bfinoracle1b/ASMRedBlueInterpolation1.bin" \
+                 "$RUNNER_TEMP/bfinoracle1b"/*.o \
+                 "$RUNNER_TEMP/bfinoracle1b"/*.elf

@@ -1,0 +1,43 @@
+{
+  "schema": "m9.bfinoracle1a.zero-frozen.v1",
+  "source_run": 34777313977,
+  "source_artifact_id": 10324385896,
+  "source_commit": "a8e5740d9f5fb0754f459fa7b3b91b9c558fc8fa",
+  "routine": {
+    "name": "ASMRedBlueInterpolation1",
+    "original_address": "0xffa03410",
+    "size": 584,
+    "sha256": "997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828"
+  },
+  "abi": {
+    "difference_base": "0x4040",
+    "green_base": "0x5042",
+    "output_a_base": "0x6042",
+    "output_b_base": "0x7042",
+    "support_address": "0x8000",
+    "width": 8,
+    "height": 8
+  },
+  "input": {
+    "difference_fill_s16": 0,
+    "green_fill_u16": 1000,
+    "output_initial_fill_u16": 0,
+    "support_before": 0
+  },
+  "expected": {
+    "support_after": 1,
+    "active_u16_indices_in_dump_from_0x6040_or_0x7040": [
+      10, 11, 12, 13, 14, 15,
+      18, 19, 20, 21, 22, 23,
+      26, 27, 28, 29, 30, 31,
+      34, 35, 36, 37, 38, 39,
+      42, 43, 44, 45, 46, 47,
+      50, 51, 52, 53, 54, 55
+    ],
+    "active_value_u16": 1000,
+    "inactive_value_u16": 0,
+    "output_a_active_count": 36,
+    "output_b_active_count": 36
+  },
+  "oracle_zero_diff_json_sha256": "965b9935a45834cbd1e36c90f2ef0fdbbabd6842bddf12bedc7840454c84c772"
+}
