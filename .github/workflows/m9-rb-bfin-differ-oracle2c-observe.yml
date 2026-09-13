@@ -1,0 +1,109 @@
+name: M9 R/B BFINORACLE2C Difference Geometry Observe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-differ-oracle2c-observe.yml'
+      - 'research/bfin/redblue_differ_oracle_geometry.s'
+      - 'research/bfin/BFINSCALAR2B_DIFFER_DIRECT_PARITY_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  geometry-observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install and build pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"; echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true); test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Recover exact Leica differ body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfindiffer2cobs"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfindiffer2cobs'; d=json.load(open(root/'pass/report.json')); addr=0xffa00008; size=0xb6; expected='5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1'
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected: (root/'ASMRedBlueAndGreenDiffer.bin').write_bytes(body); break
+            except Exception: pass
+          else: raise SystemExit('canonical differ body not found')
+          PY
+      - name: Execute coded geometry observations
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfindiffer2cobs"; cp research/bfin/redblue_differ_oracle_geometry.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .plane0 : { *(.plane0) }
+            . = 0x5000; .plane1 : { *(.plane1) }
+            . = 0x6000; .threshold : { *(.threshold) }
+            . = 0x7000; .output : { *(.output) }
+            . = 0x8800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import json,os,pathlib,re,subprocess
+          configs=[(1,1,1,0),(2,1,2,0),(3,1,3,0),(4,1,4,0),(2,2,2,0),(2,2,3,0),(2,2,4,0),(3,2,5,0)]
+          n=256; a=[1000+i for i in range(n)]; b=[900]*n; t=[0]*n
+          def inc(path,vals,fill): pathlib.Path(path).write_text(''.join(f'.short 0x{v&0xffff:04x}\n.short 0x{fill:04x}\n' for v in vals))
+          inc('plane0_data.inc',a,0xa1a1); inc('plane1_data.inc',b,0xb2b2); inc('threshold_data.inc',t,0xc3c3)
+          ev=pathlib.Path('evidence'); report={'schema':'m9.bfinoracle2c.differ-geometry-observe.v1','cases':{}}
+          for inner,outer,stride,shift in configs:
+            name=f'i{inner}_o{outer}_s{stride}'
+            subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','--defsym',f'SHIFTVAL={shift}','redblue_differ_oracle_geometry.s','-o',f'{name}.o'],check=True)
+            subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
+            p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+            if p.returncode: raise SystemExit(f'{name}: rc={p.returncode}: {p.stderr}')
+            vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+            if len(vals)!=128: raise SystemExit(f'{name}: dbg={len(vals)}')
+            lows=[v&0xffff for v in vals]; highs=[(v>>16)&0xffff for v in vals]
+            changed_low=[{'word':i,'value':v} for i,v in enumerate(lows) if v!=0x1357]
+            changed_high=[{'word':i,'value':v} for i,v in enumerate(highs) if v!=0x5a5a]
+            report['cases'][name]={'inner':inner,'outer':outer,'stride':stride,'changed_low':changed_low,'changed_high':changed_high,'first_words':[{'word':i,'low':lows[i],'high':highs[i]} for i in range(16)]}
+            (ev/f'{name}.out').write_text(p.stdout); (ev/f'{name}.err').write_text(p.stderr)
+          (ev/'geometry_observe.json').write_text(json.dumps(report,indent=2)+'\n'); print(json.dumps(report,indent=2))
+          PY
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE2C-DIFFER-GEOMETRY-OBSERVE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfindiffer2cobs/evidence/*
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfindiffer2cobs/pass" "$RUNNER_TEMP/bfindiffer2cobs/m9.upd" "$RUNNER_TEMP/bfindiffer2cobs/mm.upm" "$RUNNER_TEMP/bfindiffer2cobs/m9.dec" "$RUNNER_TEMP/bfindiffer2cobs/ASMRedBlueAndGreenDiffer.bin" "$RUNNER_TEMP/bfindiffer2cobs"/*.o "$RUNNER_TEMP/bfindiffer2cobs"/*.elf
