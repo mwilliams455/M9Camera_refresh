@@ -77,19 +77,19 @@ _start:
     DBG R0;
 
     /*
-     * Dump from the aligned section starts, not the +2 ABI pointers, so the
-     * simulator's diagnostic 32-bit reads stay naturally aligned.  The first
-     * u16 is thus a guard/sentinel preceding the routine's output base.
+     * Dump from the aligned 0x..40 guard/fill boundary immediately before
+     * each +2 ABI output pointer.  This keeps diagnostic 32-bit reads aligned
+     * and preserves one leading u16 sentinel in the captured window.
      */
     P0.H = 0x0000;
-    P0.L = 0x6000;
+    P0.L = 0x6040;
     .rept DUMP_WORDS
         R0 = [P0++];
         DBG R0;
     .endr
 
     P0.H = 0x0000;
-    P0.L = 0x7000;
+    P0.L = 0x7040;
     .rept DUMP_WORDS
         R0 = [P0++];
         DBG R0;
