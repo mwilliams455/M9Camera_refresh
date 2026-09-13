@@ -71,38 +71,109 @@ jobs:
           echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
           python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
           python3 - <<'PY'
-          import hashlib, importlib.util, json, os, pathlib, shutil, sys
+          import hashlib, importlib.util, json, os, pathlib, shutil, sys, traceback
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinoracle1a'
+          ev=root/'evidence'
           d=json.load(open(root/'pass/report.json'))
-          cand=[]
-          for i,x in enumerate(d.get('bf561_deep',[])):
-              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
-              t=det.get('targets',{}) if isinstance(det,dict) else {}
-              if x.get('covered',0)>0 and 'error' not in det:
-                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
-          if not cand: raise SystemExit('no coherent BF561 pair')
-          cand.sort(reverse=True); pair=cand[0][2]
-          pdir=root/'pass'/f'bf561_pair_{pair:02d}'
-          bf0bin=next(pdir.rglob('bf0.bin')); bf0map=next(pdir.rglob('bf0.map'))
-          shutil.copy2(bf0bin,root/'bf0.bin'); shutil.copy2(bf0map,root/'bf0.map')
 
           spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
           m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
-          _,blocks=m.parse_ldr(root/'bf0.bin')
-          addr=0xffa03410; size=0x248
-          body=m.read_overlay(blocks,addr,size)
-          if len(body)!=size: raise SystemExit(f'wrong body length {len(body)}')
-          sha=hashlib.sha256(body).hexdigest()
+
+          addr=0xffa03410
+          size=0x248
+          end=addr+size
           expected='592283725a23d4cc5676c11db6f2404abcb8fd51d93e2c489143d2daaf2368d7'
-          if sha!=expected: raise SystemExit(f'interpolation body sha mismatch {sha} != {expected}')
-          (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
-          (root/'evidence'/'routine_manifest.json').write_text(json.dumps({
-              'schema':'m9.bfinoracle1a.interp1-body.v1',
-              'selected_pair':pair,
-              'original_address':'0xffa03410',
-              'size':size,
-              'sha256':sha,
-          },indent=2)+'\n')
+          rows=[]
+          matches=[]
+
+          def exact_coverage(blocks):
+              mask=bytearray(size)
+              for block in blocks:
+                  ba=block['addr']; be=ba+block['count']
+                  s=max(addr,ba); e=min(end,be)
+                  if e>s:
+                      mask[s-addr:e-addr]=b'\x01'*(e-s)
+              missing=[]
+              i=0
+              while i<size:
+                  if mask[i]:
+                      i+=1; continue
+                  j=i+1
+                  while j<size and not mask[j]: j+=1
+                  missing.append([hex(addr+i),hex(addr+j),j-i])
+                  i=j
+              return int(sum(mask)), missing
+
+          try:
+              deep=d.get('bf561_deep',[])
+              for i,x in enumerate(deep):
+                  det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
+                  t=det.get('targets',{}) if isinstance(det,dict) else {}
+                  row={
+                      'deep_index':i,
+                      'pair_dir':f'bf561_pair_{i:02d}',
+                      'map_path':x.get('map_path'),
+                      'ldr_path':x.get('ldr_path'),
+                      'same_parent':x.get('same_parent'),
+                      'broad_covered':x.get('covered',0),
+                      'broad_checked':x.get('checked',0),
+                      'target_hits':sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),
+                      'detail_error':det.get('error') if isinstance(det,dict) else None,
+                  }
+                  pdir=root/'pass'/row['pair_dir']
+                  try:
+                      bf0bin=next(pdir.rglob('bf0.bin'))
+                      bf0map=next(pdir.rglob('bf0.map'))
+                      _,blocks=m.parse_ldr(bf0bin)
+                      covered,missing=exact_coverage(blocks)
+                      row['routine_covered_bytes']=covered
+                      row['routine_size']=size
+                      row['routine_full_coverage']=(covered==size)
+                      row['routine_missing_ranges']=missing
+                      row['bf0_bin_sha256']=hashlib.sha256(bf0bin.read_bytes()).hexdigest()
+                      row['bf0_map_sha256']=hashlib.sha256(bf0map.read_bytes()).hexdigest()
+                      if covered==size:
+                          body=m.read_overlay(blocks,addr,size)
+                          sha=hashlib.sha256(body).hexdigest()
+                          row['routine_sha256']=sha
+                          row['routine_expected_sha_match']=(sha==expected)
+                          if sha==expected:
+                              matches.append((row['target_hits'],row['broad_covered'],i,bf0bin,bf0map,body))
+                  except Exception as e:
+                      row['candidate_error']=f'{type(e).__name__}: {e}'
+                  rows.append(row)
+
+              diag={
+                  'schema':'m9.bfinoracle1a.routine-selection.v2',
+                  'address':hex(addr),'size':size,'expected_sha256':expected,
+                  'candidate_count':len(rows),'exact_sha_match_count':len(matches),
+                  'candidates':rows,
+              }
+              (ev/'routine_selection_diagnostics.json').write_text(json.dumps(diag,indent=2)+'\n')
+
+              if not matches:
+                  full=[r for r in rows if r.get('routine_full_coverage')]
+                  summary=[(r['deep_index'],r.get('target_hits'),r.get('broad_covered'),r.get('routine_sha256')) for r in full]
+                  raise SystemExit(f'no fully covered BF561 candidate matches interpolation SHA; full_coverage={summary}')
+
+              matches.sort(key=lambda z:(z[0],z[1]),reverse=True)
+              _,_,pair,bf0bin,bf0map,body=matches[0]
+              shutil.copy2(bf0bin,root/'bf0.bin'); shutil.copy2(bf0map,root/'bf0.map')
+              (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
+              sha=hashlib.sha256(body).hexdigest()
+              (ev/'routine_manifest.json').write_text(json.dumps({
+                  'schema':'m9.bfinoracle1a.interp1-body.v2',
+                  'selected_pair':pair,
+                  'original_address':'0xffa03410',
+                  'size':size,
+                  'sha256':sha,
+                  'selection_policy':'exact source coverage plus pinned routine SHA',
+              },indent=2)+'\n')
+          except BaseException as e:
+              (ev/'routine_selection_failure.txt').write_text(
+                  f'{type(e).__name__}: {e}\n\n'+traceback.format_exc()
+              )
+              raise
           PY
           "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xffa03410 "$ROOT/ASMRedBlueInterpolation1.bin" > "$ROOT/evidence/ASMRedBlueInterpolation1_ffa03410.gnu.dis.txt"
           grep -q '^ffa03656:.*RTS' "$ROOT/evidence/ASMRedBlueInterpolation1_ffa03410.gnu.dis.txt"
