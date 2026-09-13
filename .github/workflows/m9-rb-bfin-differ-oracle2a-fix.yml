@@ -1,0 +1,113 @@
+name: M9 R/B BFINORACLE2A FIX Difference Arithmetic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-differ-oracle2a-fix.yml'
+      - 'research/bfin/redblue_differ_oracle_single.s'
+
+permissions:
+  contents: read
+
+jobs:
+  differ-arithmetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install and build pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Recover exact Leica differ body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfindiffer2a"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfindiffer2a'; d=json.load(open(root/'pass/report.json'))
+          addr=0xffa00008; size=0xb6; expected='5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1'
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          found=None
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected: found=(i,body); break
+            except Exception: pass
+          if found is None: raise SystemExit('canonical differ body not found')
+          i,body=found; (root/'ASMRedBlueAndGreenDiffer.bin').write_bytes(body)
+          (root/'evidence'/'routine_manifest.json').write_text(json.dumps({'pair':i,'address':hex(addr),'size':size,'sha256':expected},indent=2)+'\n')
+          PY
+      - name: Execute and parse arithmetic oracle bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfindiffer2a"; cp research/bfin/redblue_differ_oracle_single.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .plane0 : { *(.plane0) }
+            . = 0x5000; .plane1 : { *(.plane1) }
+            . = 0x6000; .threshold : { *(.threshold) }
+            . = 0x7000; .output : { *(.output) }
+            . = 0x8800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
+          import hashlib,json,os,pathlib,re,subprocess
+          cases={
+            'equal':(1000,1000,100,2),'positive_keep':(1100,1000,50,2),'positive_shrink':(1100,1000,200,2),'positive_floor':(1100,1000,1000,2),
+            'negative_shrink':(1000,1100,200,2),'negative_floor':(1000,1100,1000,2),'strict_threshold':(1100,1000,100,2),
+            'shift0':(1100,1000,200,0),'shift1':(1100,1000,200,1),'shift3':(1100,1000,200,3),
+            'max14_positive':(16383,0,20000,2),'max14_negative':(0,16383,20000,2),'threshold_zero_positive':(5000,1000,0,4),'threshold_zero_negative':(1000,5000,0,4)
+          }
+          ev=pathlib.Path('evidence'); result={'schema':'m9.bfinoracle2a.differ-arithmetic.v2','routine_sha256':'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1','cases':{}}
+          for name,(a,b,t,s) in cases.items():
+            subprocess.run([os.environ['BFIN_AS'],'--defsym',f'AVAL={a}','--defsym',f'BVAL={b}','--defsym',f'TVAL={t}','--defsym',f'SHIFTVAL={s}','redblue_differ_oracle_single.s','-o',f'{name}.o'],check=True)
+            subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
+            p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+            (ev/f'{name}.out').write_text(p.stdout); (ev/f'{name}.err').write_text(p.stderr)
+            if p.returncode: raise SystemExit(f'{name}: simulator rc={p.returncode}: {p.stderr}')
+            vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+            if len(vals)!=1: raise SystemExit(f'{name}: DBG count={len(vals)}')
+            u=vals[0]&0xffff; sv=u-0x10000 if u&0x8000 else u
+            result['cases'][name]={'a':a,'b':b,'threshold':t,'shift':s,'output_u16':u,'output_s16':sv}
+          raw=(json.dumps(result,indent=2)+'\n').encode(); (ev/'differ_arithmetic.json').write_bytes(raw); (ev/'differ_arithmetic.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  differ_arithmetic.json\n'); print(json.dumps(result,indent=2))
+          PY
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE2A-DIFFER-ARITHMETIC-FIX
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfindiffer2a/evidence/*
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfindiffer2a/pass" "$RUNNER_TEMP/bfindiffer2a/m9.upd" "$RUNNER_TEMP/bfindiffer2a/mm.upm" "$RUNNER_TEMP/bfindiffer2a/m9.dec" "$RUNNER_TEMP/bfindiffer2a/ASMRedBlueAndGreenDiffer.bin" "$RUNNER_TEMP/bfindiffer2a"/*.o "$RUNNER_TEMP/bfindiffer2a"/*.elf
