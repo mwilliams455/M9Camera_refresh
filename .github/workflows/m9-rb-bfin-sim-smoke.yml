@@ -1,0 +1,113 @@
+name: M9 R/B Blackfin Simulator Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-sim-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+
+      - name: Download pinned GNU sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          sha256sum binutils-2.44.tar.xz gdb-17.2.tar.xz | tee source_sha256.txt
+          tar -xf binutils-2.44.tar.xz
+          tar -xf gdb-17.2.tar.xz
+          test -d gdb-17.2/sim/testsuite/bfin
+          cp gdb-17.2/sim/testsuite/bfin/testutils.inc "$RUNNER_TEMP/testutils.inc"
+          cp gdb-17.2/sim/testsuite/bfin/a24.s "$RUNNER_TEMP/a24.s"
+
+      - name: Build bfin assembler and linker
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim
+          make -j2 all-binutils all-gas all-ld
+          AS="$PWD/gas/as-new"
+          LD="$PWD/ld/ld-new"
+          test -x "$AS"; test -x "$LD"
+          echo "BFIN_AS=$AS" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$LD" >> "$GITHUB_ENV"
+          "$AS" --version | head -1
+          "$LD" --version | head -1
+
+      - name: Build bfin simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver
+          make -j2 all-sim
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          if [ -z "$SIM" ]; then
+            echo 'Simulator executable candidates:'
+            find "$PWD/sim" -maxdepth 4 -type f -perm -111 -print || true
+            exit 1
+          fi
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+          echo "simulator=$SIM"
+
+      - name: Assemble and execute upstream Blackfin smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          "$BFIN_AS" -I "$RUNNER_TEMP/gdb-17.2/sim/testsuite/bfin" a24.s -o a24.o
+          "$BFIN_LD" -e _start a24.o -o a24.elf
+          set +e
+          "$BFIN_SIM" a24.elf > sim_stdout.txt 2> sim_stderr.txt
+          rc=$?
+          set -e
+          echo "sim_rc=$rc" | tee sim_result.txt
+          cat sim_stdout.txt
+          cat sim_stderr.txt >&2
+          test "$rc" -eq 0
+
+      - name: Record simulator syntax and paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/sim-evidence"; mkdir -p "$OUT"
+          cp "$RUNNER_TEMP/source_sha256.txt" "$OUT/"
+          cp "$RUNNER_TEMP/testutils.inc" "$OUT/"
+          cp "$RUNNER_TEMP/a24.s" "$OUT/"
+          cp "$RUNNER_TEMP/sim_result.txt" "$OUT/"
+          cp "$RUNNER_TEMP/sim_stdout.txt" "$OUT/"
+          cp "$RUNNER_TEMP/sim_stderr.txt" "$OUT/"
+          {
+            echo "BFIN_AS=$BFIN_AS"
+            echo "BFIN_LD=$BFIN_LD"
+            echo "BFIN_SIM=$BFIN_SIM"
+          } > "$OUT/tool_paths.txt"
+
+      - name: Publish simulator smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFIN-SIM-SMOKE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/sim-evidence/*
