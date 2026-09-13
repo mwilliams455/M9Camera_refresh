@@ -1,0 +1,19 @@
+{
+  "schema": "m9.bfinscalar2c.differ-geometry-frozen.v1",
+  "source_run": 34781331483,
+  "source_artifact_id": 10325181901,
+  "source_commit": "da1687cf82e6e75d56e55b4025a996b839af7fbb",
+  "artifact_digest_sha256": "f1c9a072ec9f33036e0691771cd8c09505765fabb8474cfdfcaa93ea3105b906",
+  "routine_sha256": "5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1",
+  "geometry_parity_json_sha256": "c19b0ed50089f7d4275e194ba8bcc5b60061c55d14edc2af0085cb60ae886016",
+  "case_count": 8,
+  "exact_match": true,
+  "closed": true,
+  "findings": {
+    "sample_arithmetic": "strict abs(diff)<threshold shrink-toward-zero rule closed by 2A/2B",
+    "physical_geometry": "software-pipelined raw-difference stores plus explicit corrected row-end store",
+    "row_boundary": "subsequent rows begin physical writes at r*stride-1; zero-gap rows intentionally overlap prior row boundary",
+    "companion_halfword": "preserved in all tested geometries",
+    "coverage": "inner 1..7, outer 1..4, padded and stride==inner rows, shifts 0..7"
+  }
+}
