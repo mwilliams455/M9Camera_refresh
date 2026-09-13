@@ -1,0 +1,123 @@
+name: M9 R/B BFINSCALAR3C Filter101040 Direct Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-filter101040-scalar3c.yml'
+      - 'research/bfin/filter101040_scalar_exact.py'
+      - 'research/bfin/filter101040_oracle_observe_phase.s'
+      - 'research/bfin/BFINORACLE3B_FILTER101040_KERNEL_PHASE_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  direct-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"; echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true); test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+      - name: Recover exact Leica filter body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter3c"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinfilter3c'; d=json.load(open(root/'pass/report.json')); expected='c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'; addr=0xffa000be; size=0x190
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected: (root/'ASMFilter_101_040_101_An.bin').write_bytes(body); break
+            except Exception: pass
+          else: raise SystemExit('canonical filter body not found')
+          PY
+      - name: Execute full-u16 random machine/scalar parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter3c"; cp research/bfin/filter101040_oracle_observe_phase.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .source : { *(.source) }
+            . = 0x7000; .out1 : { *(.out1) }
+            . = 0x8000; .out2 : { *(.out2) }
+            . = 0x9800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
+          import hashlib,json,os,pathlib,random,re,subprocess
+          from filter101040_scalar_exact import filter_sample,logical_positions
+          N=2048; inner=8; outer=4; stride=16; ev=pathlib.Path('evidence')
+          report={'schema':'m9.bfinscalar3c.filter101040-direct-parity.v1','routine_sha256':'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389','inner':inner,'outer':outer,'stride':stride,'runs':{},'sample_count':0,'exact_match':True}
+          for phase,srcbase in [('phase0',0x4400),('phase1',0x4402)]:
+            base=(srcbase-0x4000)//2
+            for si in range(4):
+              seed=0x10104000 + si + (0x100 if phase=='phase1' else 0); rng=random.Random(seed)
+              src=[rng.randrange(65536) for _ in range(N)]
+              # deterministic edge injections around the first two logical centers
+              edge=[0,1,2,7,8,0x7fff,0x8000,0xffff]
+              for j,v in enumerate(edge): src[base-17+j]=v
+              pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{v:04x}\n' for v in src))
+              name=f'{phase}_seed{si}'
+              subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','--defsym',f'SRCBASE={srcbase}','filter101040_oracle_observe_phase.s','-o',f'{name}.o'],check=True,stdout=subprocess.DEVNULL)
+              subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True,stdout=subprocess.DEVNULL)
+              p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+              if p.returncode: raise SystemExit(f'{name}: rc={p.returncode}: {p.stderr}')
+              vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+              if len(vals)!=128: raise SystemExit(f'{name}: dbg={len(vals)}')
+              def half(ds):
+                z=[]
+                for q in ds:z += [q&0xffff,(q>>16)&0xffff]
+                return z
+              h1=half(vals[:64]); h2=half(vals[64:]); rows=[]
+              for center,oi1,oi2 in logical_positions(base,inner,outer,stride):
+                exp1,exp2=filter_sample(src[center],src[center-stride-1],src[center-stride+1],src[center+stride-1],src[center+stride+1])
+                got1,got2=h1[oi1],h2[oi2]
+                if got1!=exp1 or got2!=exp2:
+                  raise SystemExit(f'{name}: center={center} out=({oi1},{oi2}) machine=({got1},{got2}) scalar=({exp1},{exp2}) taps={[src[center],src[center-stride-1],src[center-stride+1],src[center+stride-1],src[center+stride+1]]}')
+                rows.append({'center':center,'out1':oi1,'out2':oi2,'filtered_u16':got1,'residual_u16':got2})
+              report['runs'][name]={'phase':phase,'seed':seed,'srcbase':hex(srcbase),'sample_count':len(rows),'exact_match':True,'samples':rows}
+              report['sample_count'] += len(rows)
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'filter101040_direct_parity.json').write_bytes(raw); (ev/'filter101040_direct_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter101040_direct_parity.json\n'); print(json.dumps({'runs':len(report['runs']),'sample_count':report['sample_count'],'exact_match':True},indent=2))
+          PY
+      - name: Publish parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINSCALAR3C-FILTER101040-DIRECT-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinfilter3c/evidence/*
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfinfilter3c/pass" "$RUNNER_TEMP/bfinfilter3c/m9.upd" "$RUNNER_TEMP/bfinfilter3c/mm.upm" "$RUNNER_TEMP/bfinfilter3c/m9.dec" "$RUNNER_TEMP/bfinfilter3c/ASMFilter_101_040_101_An.bin" "$RUNNER_TEMP/bfinfilter3c"/*.o "$RUNNER_TEMP/bfinfilter3c"/*.elf
