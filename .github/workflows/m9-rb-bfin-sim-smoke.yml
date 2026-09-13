@@ -71,12 +71,15 @@ jobs:
           echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
           echo "simulator=$SIM"
 
-      - name: Assemble and execute upstream Blackfin smoke test
+      - name: Preprocess assemble and execute upstream Blackfin smoke test
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          "$BFIN_AS" -I "$RUNNER_TEMP/gdb-17.2/sim/testsuite/bfin" a24.s -o a24.o
+          gcc -E -P -x assembler-with-cpp \
+            -I "$RUNNER_TEMP/gdb-17.2/sim/testsuite/bfin" \
+            a24.s -o a24.pp.s
+          "$BFIN_AS" -I "$RUNNER_TEMP/gdb-17.2/sim/testsuite/bfin" a24.pp.s -o a24.o
           "$BFIN_LD" -e _start a24.o -o a24.elf
           set +e
           "$BFIN_SIM" a24.elf > sim_stdout.txt 2> sim_stderr.txt
@@ -95,6 +98,7 @@ jobs:
           cp "$RUNNER_TEMP/source_sha256.txt" "$OUT/"
           cp "$RUNNER_TEMP/testutils.inc" "$OUT/"
           cp "$RUNNER_TEMP/a24.s" "$OUT/"
+          cp "$RUNNER_TEMP/a24.pp.s" "$OUT/"
           cp "$RUNNER_TEMP/sim_result.txt" "$OUT/"
           cp "$RUNNER_TEMP/sim_stdout.txt" "$OUT/"
           cp "$RUNNER_TEMP/sim_stderr.txt" "$OUT/"
