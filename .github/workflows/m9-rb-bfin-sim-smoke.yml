@@ -6,6 +6,7 @@ on:
     branches: [research/sharpness-rbclosure1d-packedphase1a]
     paths:
       - '.github/workflows/m9-rb-bfin-sim-smoke.yml'
+      - 'research/bfin/standalone_smoke.s'
 
 permissions:
   contents: read
@@ -34,11 +35,8 @@ jobs:
           sha256sum binutils-2.44.tar.xz gdb-17.2.tar.xz | tee source_sha256.txt
           tar -xf binutils-2.44.tar.xz
           tar -xf gdb-17.2.tar.xz
-          test -d gdb-17.2/sim/testsuite/bfin
-          cp gdb-17.2/sim/testsuite/bfin/testutils.inc "$RUNNER_TEMP/testutils.inc"
-          cp gdb-17.2/sim/testsuite/bfin/a24.s "$RUNNER_TEMP/a24.s"
 
-      - name: Build bfin assembler and linker
+      - name: Build bfin assembler linker and objdump
         shell: bash
         run: |
           set -euo pipefail
@@ -48,11 +46,14 @@ jobs:
           make -j2 all-binutils all-gas all-ld
           AS="$PWD/gas/as-new"
           LD="$PWD/ld/ld-new"
-          test -x "$AS"; test -x "$LD"
+          OBJDUMP="$PWD/binutils/objdump"
+          test -x "$AS"; test -x "$LD"; test -x "$OBJDUMP"
           echo "BFIN_AS=$AS" >> "$GITHUB_ENV"
           echo "BFIN_LD=$LD" >> "$GITHUB_ENV"
+          echo "BFIN_OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
           "$AS" --version | head -1
           "$LD" --version | head -1
+          "$OBJDUMP" --version | head -1
 
       - name: Build bfin simulator
         shell: bash
@@ -71,44 +72,51 @@ jobs:
           echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
           echo "simulator=$SIM"
 
-      - name: Preprocess assemble and execute upstream Blackfin smoke test
+      - name: Assemble link and execute standalone Blackfin smoke harness
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          gcc -E -P -x assembler-with-cpp \
-            -I "$RUNNER_TEMP/gdb-17.2/sim/testsuite/bfin" \
-            a24.s -o a24.pp.s
-          "$BFIN_AS" -I "$RUNNER_TEMP/gdb-17.2/sim/testsuite/bfin" a24.pp.s -o a24.o
-          "$BFIN_LD" -e _start a24.o -o a24.elf
+          SRC="$GITHUB_WORKSPACE/research/bfin/standalone_smoke.s"
+          test -f "$SRC"
+
+          "$BFIN_AS" "$SRC" -o standalone_smoke.o
+          "$BFIN_LD" -e _start standalone_smoke.o -o standalone_smoke.elf
+          "$BFIN_OBJDUMP" -h -d standalone_smoke.elf | tee standalone_smoke.objdump.txt
+
           set +e
-          "$BFIN_SIM" a24.elf > sim_stdout.txt 2> sim_stderr.txt
+          "$BFIN_SIM" standalone_smoke.elf > sim_stdout.txt 2> sim_stderr.txt
           rc=$?
           set -e
+
           echo "sim_rc=$rc" | tee sim_result.txt
           cat sim_stdout.txt
           cat sim_stderr.txt >&2
+
+          # HLT is the only success exit in the harness; every failed
+          # arithmetic or memory assertion reaches ABORT and returns 1.
           test "$rc" -eq 0
 
-      - name: Record simulator syntax and paths
+      - name: Record standalone simulator evidence
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/sim-evidence"; mkdir -p "$OUT"
+          cp "$GITHUB_WORKSPACE/research/bfin/standalone_smoke.s" "$OUT/"
           cp "$RUNNER_TEMP/source_sha256.txt" "$OUT/"
-          cp "$RUNNER_TEMP/testutils.inc" "$OUT/"
-          cp "$RUNNER_TEMP/a24.s" "$OUT/"
-          cp "$RUNNER_TEMP/a24.pp.s" "$OUT/"
-          cp "$RUNNER_TEMP/sim_result.txt" "$OUT/"
-          cp "$RUNNER_TEMP/sim_stdout.txt" "$OUT/"
-          cp "$RUNNER_TEMP/sim_stderr.txt" "$OUT/"
+          for f in standalone_smoke.o standalone_smoke.elf standalone_smoke.objdump.txt sim_result.txt sim_stdout.txt sim_stderr.txt; do
+            if [ -f "$RUNNER_TEMP/$f" ]; then cp "$RUNNER_TEMP/$f" "$OUT/"; fi
+          done
           {
-            echo "BFIN_AS=$BFIN_AS"
-            echo "BFIN_LD=$BFIN_LD"
-            echo "BFIN_SIM=$BFIN_SIM"
+            echo "BFIN_AS=${BFIN_AS:-unavailable}"
+            echo "BFIN_LD=${BFIN_LD:-unavailable}"
+            echo "BFIN_OBJDUMP=${BFIN_OBJDUMP:-unavailable}"
+            echo "BFIN_SIM=${BFIN_SIM:-unavailable}"
           } > "$OUT/tool_paths.txt"
 
-      - name: Publish simulator smoke evidence
+      - name: Publish standalone simulator smoke evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: M9-RB-BFIN-SIM-SMOKE
