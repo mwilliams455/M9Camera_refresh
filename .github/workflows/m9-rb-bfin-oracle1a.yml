@@ -82,7 +82,10 @@ jobs:
           addr=0xffa03410
           size=0x248
           end=addr+size
-          expected='592283725a23d4cc5676c11db6f2404abcb8fd51d93e2c489143d2daaf2368d7'
+          # Cross-validated from successful PACKEDPHASE1C run 34765629733:
+          # reconstructing bytes 0xffa03410..0xffa03657 from the published GNU
+          # disassembly yields this hash, and all four canonical BF561 pairs agree.
+          expected='997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828'
           rows=[]
           matches=[]
 
@@ -146,6 +149,7 @@ jobs:
               diag={
                   'schema':'m9.bfinoracle1a.routine-selection.v2',
                   'address':hex(addr),'size':size,'expected_sha256':expected,
+                  'expected_sha256_provenance':'PACKEDPHASE1C run 34765629733 exact disassembly bytes plus four canonical BF561 pair agreement',
                   'candidate_count':len(rows),'exact_sha_match_count':len(matches),
                   'candidates':rows,
               }
@@ -167,7 +171,7 @@ jobs:
                   'original_address':'0xffa03410',
                   'size':size,
                   'sha256':sha,
-                  'selection_policy':'exact source coverage plus pinned routine SHA',
+                  'selection_policy':'exact source coverage plus cross-validated pinned routine SHA',
               },indent=2)+'\n')
           except BaseException as e:
               (ev/'routine_selection_failure.txt').write_text(
@@ -244,7 +248,7 @@ jobs:
               raise SystemExit(f'no reconstructed green samples observed: countA={a.count(1000)} countB={b.count(1000)}')
           report={
               'schema':'m9.bfinoracle1a.zero-diff.v1',
-              'routine_sha256':'592283725a23d4cc5676c11db6f2404abcb8fd51d93e2c489143d2daaf2368d7',
+              'routine_sha256':'997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828',
               'width':8,'height':8,'support_before':0,'support_after':border,
               'difference_fill':0,'green_fill':1000,'output_initial_fill':0,
               'output_a_u16':a,'output_b_u16':b,
