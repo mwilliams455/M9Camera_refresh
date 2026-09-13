@@ -1,0 +1,143 @@
+name: M9 Sharpness Mode Transform 1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpness-menu-iso-rows1a
+    paths:
+      - '.github/workflows/m9-sharpness-mode-transform1a.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Recover canonical M9 firmware and coherent BF561 pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mode1a/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/mode1a/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/mode1a/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/mode1a/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/mode1a/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py \
+            "$RUNNER_TEMP/mode1a/m9.upd" "$RUNNER_TEMP/mode1a/mm.upm" \
+            --m9-out "$RUNNER_TEMP/mode1a/m9.dec" \
+            --meta-out "$RUNNER_TEMP/mode1a/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/mode1a/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/mode1a/m9.dec" --out "$RUNNER_TEMP/mode1a/pass"
+
+      - name: Extract mode-transform functions and surrounding consumers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'mode1a'
+          d=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              cand.append((sum(k in t for k in ('Run','Process_Sharpness','SetStructParameter','Set')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(root/'bf0.map'),key=lambda s:(s['addr'],s['name']))
+          _,blocks=m.parse_ldr(root/'bf0.bin')
+          ev=rt/'evidence'
+          wanted=('LoadAndModifySharpnessDa','Process_Sharpness','SetStructParameter','Set','Run')
+          manifest=[]
+          for s in syms:
+              if s['name'] not in wanted or int(s['size'])<=0: continue
+              code=m.read_overlay(blocks,int(s['addr']),int(s['size']))
+              p=ev/f"{s['name']}_{int(s['addr']):08x}.bin";p.write_bytes(code)
+              manifest.append({'name':s['name'],'addr':hex(int(s['addr'])),'size':int(s['size']),'sha256':hashlib.sha256(code).hexdigest(),'file':p.name})
+          # Also record all mapped symbols in +/-0x300 around each LoadAndModify copy.
+          lm=[s for s in syms if s['name']=='LoadAndModifySharpnessDa']
+          neighbourhood=[]
+          for f in lm:
+              a=int(f['addr'])
+              neighbourhood.append({'load_modify_addr':hex(a),'symbols':[q for q in syms if a-0x300<=int(q['addr'])<=a+0x300]})
+          json.dump({'pair':pair,'manifest':manifest,'neighbourhood':neighbourhood},open(ev/'mode_transform_manifest.json','w'),indent=2)
+          print(json.dumps({'pair':pair,'functions':manifest,'load_modify_copies':len(lm)},indent=2))
+          PY
+          for f in "$RUNNER_TEMP/mode1a/evidence"/*.bin; do
+            bn=$(basename "$f" .bin)
+            base=$(printf '%s' "$bn" | sed -nE 's/^.*_([0-9a-fA-F]{8})$/\1/p')
+            test -n "$base" || continue
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$RUNNER_TEMP/mode1a/evidence/${bn}.gnu.dis.txt"
+          done
+
+      - name: Derive mode-transform branch evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,re
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'mode1a/evidence'
+          report={'schema':'m9.sharpness-mode-transform.v1','functions':[]}
+          for p in sorted(rt.glob('LoadAndModifySharpnessDa_*.gnu.dis.txt')):
+              lines=p.read_text(errors='replace').splitlines()
+              interesting=[]
+              for i,l in enumerate(lines):
+                  low=l.lower()
+                  # Keep control-flow, small mode constants, shifts/multiplies, halfword loads/stores,
+                  # clamps/saturating operations, and loop setup. This is derived text only.
+                  if (re.search(r'\bcc\b|jump|call|lsetup|\b0x[1-7]\b|>>>|>>=|<<=|<<|\*=|w\[|\]\s*=\s*w\[|max|min|pack|ashift',low)):
+                      interesting.append({'line':i+1,'text':l,'context':'\n'.join(lines[max(0,i-3):min(len(lines),i+4)])})
+              report['functions'].append({'file':p.name,'interesting':interesting,'full_disassembly':p.read_text(errors='replace')})
+          # Process_Sharpness already proves valid mode domain 1..7; capture its full text beside modifier.
+          report['process_sharpness']=[{'file':p.name,'full_disassembly':p.read_text(errors='replace')} for p in sorted(rt.glob('Process_Sharpness_*.gnu.dis.txt'))]
+          (rt/'mode_transform_trace.json').write_text(json.dumps(report,indent=2)+'\n')
+          with open(rt/'mode_transform_trace.txt','w') as f:
+              for fn in report['functions']:
+                  f.write('===== '+fn['file']+' =====\n'+fn['full_disassembly']+'\n')
+              f.write('\n===== PROCESS_SHARPNESS =====\n')
+              for fn in report['process_sharpness']:
+                  f.write('\n--- '+fn['file']+' ---\n'+fn['full_disassembly']+'\n')
+          print(json.dumps({'modifier_copies':len(report['functions']),'process_copies':len(report['process_sharpness'])},indent=2))
+          PY
+
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-MODE-TRANSFORM1A
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/mode1a/evidence/*.json
+            ${{ runner.temp }}/mode1a/evidence/*.txt
+
+      - name: Remove firmware/binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/mode1a/pass" "$RUNNER_TEMP/mode1a/evidence"/*.bin "$RUNNER_TEMP/mode1a/m9.upd" "$RUNNER_TEMP/mode1a/mm.upm" "$RUNNER_TEMP/mode1a/m9.dec"
