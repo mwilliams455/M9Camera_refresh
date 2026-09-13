@@ -1,5 +1,5 @@
 /* BFINORACLE2A one-sample arithmetic harness for ASMRedBlueAndGreenDiffer.
- * AVAL, BVAL, TVAL, SHIFT supplied with --defsym.
+ * AVAL, BVAL, TVAL, SHIFTVAL supplied with --defsym.
  */
     .section .text.start,"ax"
     .global _start
@@ -12,7 +12,7 @@ _start:
     R3=1 (Z); [SP+0x10]=R3;
     R3=1 (Z); [SP+0x14]=R3;
     R3=1 (Z); [SP+0x18]=R3;
-    R3=SHIFT (Z); [SP+0x1c]=R3;
+    R3=SHIFTVAL (Z); [SP+0x1c]=R3;
     CALL leica_differ;
     SP += 0x20;
     P0.H=0; P0.L=0x7040;
