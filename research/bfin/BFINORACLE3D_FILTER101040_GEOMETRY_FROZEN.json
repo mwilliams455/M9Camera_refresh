@@ -1,0 +1,30 @@
+{
+  "schema": "m9.bfinoracle3d.filter101040-geometry-frozen.v1",
+  "source_run": 34784621134,
+  "source_artifact_id": 10326282299,
+  "source_commit": "a82f7508bd965078123b04fd028e4e26404befa5",
+  "artifact_digest_sha256": "f967291d75deae8a683eb966a1e64856191740c4840a81430b2d11262e477f21",
+  "routine_sha256": "c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389",
+  "geometry_json_sha256": "9bb1c27cca3383689d0a1d3aa14f94defa8c5f568db3f0bd272f0a5ca2afca6c",
+  "case_count": 12,
+  "closed": true,
+  "geometry": {
+    "valid_inner": "positive even count; hardware inner loop is P5>>1",
+    "valid_stride": "even halfword stride for aligned dword source loads",
+    "source_phase0": "R0 mod4 = 0 selects .H branch",
+    "source_phase1": "R0 mod4 = 2 selects .L branch after +/-2-byte pointer correction",
+    "stream1_formal_writes": "out1_ptr + 4*c + 4*stride*r for c=0..inner-1, r=0..outer-1",
+    "stream2_formal_writes": "out2_ptr + 4*c + 4*stride*r for c=0..inner-1, r=0..outer-1",
+    "row_advance": "2*stride halfwords / 4*stride bytes between same-phase output rows",
+    "phase1_scratch": "one additional write at out2_ptr-4 bytes before the formal logical output region",
+    "phase0_scratch": "no extra write inside the observed pre-pointer guard"
+  },
+  "coverage": [
+    "inner2 outer1 stride4",
+    "inner2 outer3 stride6",
+    "inner4 outer2 stride8",
+    "inner6 outer3 stride10",
+    "inner8 outer3 stride12",
+    "inner8 outer4 stride16"
+  ]
+}
