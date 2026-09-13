@@ -5,14 +5,19 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 
 def load_reference(path: Path):
-    spec = importlib.util.spec_from_file_location("m9_sharpness_reference", path)
+    name = "m9_sharpness_reference"
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError("could not load reference module")
     mod = importlib.util.module_from_spec(spec)
+    # Python 3.12 dataclasses resolves annotations through sys.modules while the
+    # decorator executes, so register the dynamic module before exec_module.
+    sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -37,7 +42,7 @@ def main() -> int:
     assert fw_rows == ref.MENU_MODE_ROWS
     assert rows["standard_crosscheck"] is True
 
-    # Exact mode fingerprints.  Mode 6 is deliberately not float 1.5x.
+    # Exact mode fingerprints. Mode 6 is deliberately not float 1.5x.
     expected = {
         1: {-5: -2, -3: -1, 3: 0, 5: 1},
         2: {-5: -3, -3: -2, 3: 1, 5: 2},
