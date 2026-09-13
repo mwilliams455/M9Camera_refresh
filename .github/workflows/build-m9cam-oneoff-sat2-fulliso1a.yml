@@ -1,0 +1,111 @@
+name: Build M9Cam ONEOFF SAT2 FULLISO1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/oneoff-sat2-fulliso1a]
+    paths:
+      - 'patches/apply-m9cam-oneoff-sat2-fulliso1a.py'
+      - 'patches/verify-m9cam-oneoff-sat2-fulliso1a.py'
+      - '.github/workflows/build-m9cam-oneoff-sat2-fulliso1a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 1}
+
+      - name: Verify one-off patch syntax
+        run: |
+          python3 -m py_compile patches/apply-m9cam-oneoff-sat2-fulliso1a.py
+          python3 -m py_compile patches/verify-m9cam-oneoff-sat2-fulliso1a.py
+
+      - name: Replay exact successful STANDARD FULLISO1A assembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/build-m9cam-sharpness-standard-fulliso1a.yml')
+          lines=wf.read_text().splitlines()
+          names=[
+              'Replay exact UPSTREAMAXIS1A parent assembly',
+              'Assemble frozen neutral-MHC and SHARPSOURCE1C parent',
+              'Derive canonical 13x2050 Sharp bank from M9 1.216',
+              'Apply and verify STANDARD FULLISO1A',
+          ]
+          for idx,name in enumerate(names):
+              i=lines.index('      - name: '+name)
+              while i<len(lines) and lines[i].strip()!='run: |': i+=1
+              if i>=len(lines): raise SystemExit('missing run block for '+name)
+              i+=1; out=[]
+              while i<len(lines):
+                  line=lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected parent indentation: '+line)
+                  i+=1
+              Path(f'/tmp/fulliso_parent_{idx}.sh').write_text('\n'.join(out)+'\n')
+          PY
+          for s in /tmp/fulliso_parent_*.sh; do echo "===== $s ====="; bash "$s"; done
+
+      - name: Apply exact SAT2 Standard one-off override
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-oneoff-sat2-fulliso1a.py "$ROOT"
+          python3 patches/verify-m9cam-oneoff-sat2-fulliso1a.py "$ROOT" | tee ONEOFF_SAT2_FULLISO1A_VERIFY.txt
+          mkdir -p assembled-oneoff-sat2
+          cp "$ROOT/app/src/main/cpp/m9color_jni.cpp" assembled-oneoff-sat2/
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" assembled-oneoff-sat2/
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java" assembled-oneoff-sat2/
+          cp ONEOFF_SAT2_FULLISO1A_VERIFY.txt assembled-oneoff-sat2/
+          sha256sum assembled-oneoff-sat2/* > assembled-oneoff-sat2/SHA256SUMS.txt
+
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/ONEOFF_SAT2_FULLISO1A_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee ONEOFF_SAT2_FULLISO1A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-ONEOFF-SAT2-FULLISO1A-ASSEMBLED-SOURCE
+          path: assembled-oneoff-sat2/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-ONEOFF-SAT2-FULLISO1A-BUILDLOG
+          path: ONEOFF_SAT2_FULLISO1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload disposable SAT2 APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-ONEOFF-SAT2-STANDARD-FULLISO1A-RBANCHOR1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            ONEOFF_SAT2_FULLISO1A_APK_SHA256.txt
+            ONEOFF_SAT2_FULLISO1A_VERIFY.txt
