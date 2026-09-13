@@ -1,0 +1,23 @@
+{
+  "schema": "m9.bfinscalar3c.filter101040-direct-parity-frozen.v1",
+  "source_run": 34784499343,
+  "source_artifact_id": 10326445769,
+  "source_commit": "823eff14cfc4ea659fc7076407bcd7ae3d634922",
+  "artifact_digest_sha256": "0c355a53b63dc3c27b257e0e53fa1967cf6359475c4cf4dc88591c54d1f4ff49",
+  "routine_sha256": "c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389",
+  "direct_parity_json_sha256": "125b9454d129144a81b74c1fea3fe904b954df7549e350599d24b3824cfb52b1",
+  "machine_runs": 8,
+  "sample_count": 256,
+  "exact_match": true,
+  "coverage": {
+    "source_domain": "full u16, including high-bit/two's-complement-looking values",
+    "phases": ["R0 mod4 = 0", "R0 mod4 = 2"],
+    "geometry": "inner=8 outer=4 stride=16",
+    "edge_injections": [0,1,2,7,8,32767,32768,65535]
+  },
+  "closed_arithmetic": {
+    "filter": "floor((4*C + NW + NE + SW + SE)/8) over u16 samples",
+    "residual": "ABS(V) of signed16 interpretation of low16(filtered-center)",
+    "negative_32768_absolute": 32767
+  }
+}
