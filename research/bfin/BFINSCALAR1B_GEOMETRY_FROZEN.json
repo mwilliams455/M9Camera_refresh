@@ -1,0 +1,18 @@
+{
+  "schema": "m9.bfinscalar1b.geometry-support-parity-frozen.v1",
+  "source_run": 34779718108,
+  "source_artifact_id": 10324915520,
+  "source_commit": "7fc74412b52754b6d8d55f97347435ad141a3add",
+  "routine_sha256": "997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828",
+  "geometry_parity_json_sha256": "c36fb5f1bef3a6cd4a8bf83d3d1e7110205050d163da801b5bddafc51b3fdbaf",
+  "artifact_digest": "sha256:505bf925d121a5a2db90f991fbb97e245e9edc25d8df6cb89df90e5c937439ee",
+  "case_count": 10,
+  "result": "all tested even-width/even-height geometry and support cases matched the scalar model exactly",
+  "caller_phase_rule": "for even widths, green/output base phase bytes = 2 * (support_after & 1); support_after = support_before + 1",
+  "validated_cases": [
+    "8x8 s0->1 phase2", "8x8 s1->2 phase0",
+    "10x8 s0->1 phase2", "10x8 s1->2 phase0",
+    "10x10 s0->1 phase2", "10x10 s1->2 phase0", "10x10 s2->3 phase2",
+    "12x10 s0->1 phase2", "12x10 s2->3 phase2", "12x12 s3->4 phase0"
+  ]
+}
