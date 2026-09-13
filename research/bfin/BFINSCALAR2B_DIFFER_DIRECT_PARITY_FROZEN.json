@@ -1,0 +1,16 @@
+{
+  "schema": "m9.bfinscalar2b.differ-direct-parity-frozen.v1",
+  "source_run": 34780558791,
+  "source_artifact_id": 10324862308,
+  "source_commit": "c9b3793af107dc8269ffb5e169bcc82cf53400a7",
+  "artifact_digest_sha256": "36eeaa2f5eca04403094749ce3374503437f5c5e493e59815cb27e66b4cb8215",
+  "routine_sha256": "5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1",
+  "direct_parity_json_sha256": "c84e7ca93ca68963b17d3fba5efef637f6fa3fcc26e34dc71eef870b0e6e80d2",
+  "case_count": 126,
+  "exact_match": true,
+  "notes": [
+    "117 deterministic random cases use 14-bit a/b inputs, full-u16 thresholds, and shifts 0..7.",
+    "9 valid boundary templates were executed in this run.",
+    "Two attempted +/-16383 templates around baseline 8192 were filtered as outside 14-bit input range; exact 16383/0 and 0/16383 extremes already passed BFINORACLE2A."
+  ]
+}
