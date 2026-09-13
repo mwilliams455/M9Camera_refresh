@@ -1,0 +1,159 @@
+name: M9 R/B BFINSCALAR1A Direct Machine Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-scalar1a.yml'
+      - 'research/bfin/interp1_scalar_exact.py'
+      - 'research/bfin/interp1_oracle_patterns.s'
+      - 'research/bfin/BFINORACLE1D_SPATIAL_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  direct-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install and build pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover canonical Leica interpolation body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinscalar1a"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinscalar1a'
+          d=json.load(open(root/'pass/report.json'))
+          expected='997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828'; addr=0xffa03410; size=0x248
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected:
+                (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
+                (root/'evidence'/'routine_manifest.json').write_text(json.dumps({'pair':i,'address':hex(addr),'size':size,'sha256':expected},indent=2)+'\n')
+                break
+            except Exception: pass
+          else: raise SystemExit('canonical body not found')
+          PY
+
+      - name: Execute deterministic machine-code vector corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinscalar1a"; cp research/bfin/interp1_oracle_patterns.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .oracle_diff : { *(.oracle_diff) }
+            . = 0x5000; .oracle_green : { *(.oracle_green) }
+            . = 0x6000; .oracle_outa : { *(.oracle_outa) }
+            . = 0x7000; .oracle_outb : { *(.oracle_outb) }
+            . = 0x8000; .oracle_border : { *(.oracle_border) }
+            . = 0x8800; .oracle_stack : { *(.oracle_stack) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import json,random,pathlib
+          vectors={}
+          for seed in range(12):
+            r=random.Random(0x4d390000+seed)
+            diff=[r.randint(-32768,32767) for _ in range(256)]
+            green=[r.randint(0,16383) for _ in range(256)]
+            vectors[f'random_{seed:02d}']={'diff':diff,'green':green}
+          vectors['extreme_checker']={
+            'diff':[32767 if i%4==0 else -32768 if i%4==1 else 16384 if i%4==2 else -16385 for i in range(256)],
+            'green':[0 if i%3==0 else 1000 if i%3==1 else 16383 for i in range(256)]}
+          vectors['signed_ramp']={
+            'diff':[i*257-32768 for i in range(256)],
+            'green':[(i*977)%16384 for i in range(256)]}
+          pathlib.Path('vector_corpus.json').write_text(json.dumps(vectors))
+          PY
+          python3 - <<'PY'
+          import json,pathlib,subprocess,os
+          vectors=json.loads(pathlib.Path('vector_corpus.json').read_text())
+          for name,row in vectors.items():
+            pathlib.Path('oracle_diff_data.inc').write_text('\n'.join(f'.short {v}' for v in row['diff'])+'\n')
+            pathlib.Path('oracle_green_data.inc').write_text('\n'.join(f'.short {v}' for v in row['green'])+'\n')
+            subprocess.run([os.environ['BFIN_AS'],'interp1_oracle_patterns.s','-o',f'{name}.o'],check=True)
+            subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
+            with open(f'evidence/{name}.out','wb') as so, open(f'evidence/{name}.err','wb') as se:
+              rc=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],stdout=so,stderr=se).returncode
+            if rc: raise SystemExit(f'{name}: simulator rc={rc}')
+          PY
+
+      - name: Compare scalar model byte-for-byte with machine-code oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinscalar1a"
+          PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
+          import hashlib,json,pathlib,re,sys,os
+          from interp1_scalar_exact import render_interp1
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinscalar1a'; ev=root/'evidence'
+          corpus=json.loads((root/'vector_corpus.json').read_text()); result={'schema':'m9.bfinscalar1a.direct-parity.v1','vectors':{}}
+          for name,row in corpus.items():
+            vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',(ev/f'{name}.out').read_text(errors='replace'))]
+            if len(vals)!=129: raise SystemExit(f'{name}: DBG count={len(vals)}')
+            def up(words):
+              out=[]
+              for v in words: out.extend([v&0xffff,(v>>16)&0xffff])
+              return out
+            machine_a=up(vals[1:65])[1:65]
+            machine_b=up(vals[65:129])[1:65]
+            scalar_a,scalar_b=render_interp1(row['diff'],row['green'][1:65],8,8)
+            ma=[(i,x,y) for i,(x,y) in enumerate(zip(machine_a,scalar_a)) if x!=y]
+            mb=[(i,x,y) for i,(x,y) in enumerate(zip(machine_b,scalar_b)) if x!=y]
+            if vals[0]!=1 or ma or mb:
+              raise SystemExit(f'{name}: support={vals[0]} A_mismatch={ma[:8]} B_mismatch={mb[:8]}')
+            result['vectors'][name]={'support_after':vals[0],'a_sha256':hashlib.sha256(bytes().join(int(x).to_bytes(2,'little') for x in machine_a)).hexdigest(),'b_sha256':hashlib.sha256(bytes().join(int(x).to_bytes(2,'little') for x in machine_b)).hexdigest(),'exact_match':True}
+          result['vector_count']=len(result['vectors']); result['exact_match']=True
+          raw=(json.dumps(result,indent=2)+'\n').encode(); (ev/'scalar_parity.json').write_bytes(raw); (ev/'scalar_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  scalar_parity.json\n')
+          print(json.dumps({'vector_count':result['vector_count'],'exact_match':True},indent=2))
+          PY
+
+      - name: Publish scalar parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINSCALAR1A-DIRECT-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinscalar1a/evidence/*
+
+      - name: Remove firmware and routine-bearing binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfinscalar1a/pass" "$RUNNER_TEMP/bfinscalar1a/m9.upd" "$RUNNER_TEMP/bfinscalar1a/mm.upm" "$RUNNER_TEMP/bfinscalar1a/m9.dec" "$RUNNER_TEMP/bfinscalar1a/ASMRedBlueInterpolation1.bin" "$RUNNER_TEMP/bfinscalar1a"/*.o "$RUNNER_TEMP/bfinscalar1a"/*.elf
