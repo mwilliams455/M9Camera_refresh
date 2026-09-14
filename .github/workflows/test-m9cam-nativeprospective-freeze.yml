@@ -1,0 +1,71 @@
+name: Test NATIVEPROSPECTIVE1A freeze harness
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - 'patches/apply-m9cam-nativeprospective1a-fix1.py'
+      - '.github/workflows/test-m9cam-nativeprospective-freeze.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  freeze-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify FIX1/FIX2 harness syntax
+        run: python3 -m py_compile patches/apply-m9cam-nativeprospective1a-fix1.py
+
+      - name: Clone pinned PhotonCamera baseline
+        run: |
+          set -euo pipefail
+          PHOTON_SHA=f0e6425d2509fb8ab834d5d3af593183038b778c
+          git clone --depth 1 --branch dev https://github.com/eszdman/PhotonCamera.git PhotonCamera
+          git -C PhotonCamera fetch --depth 1 origin "$PHOTON_SHA"
+          git -C PhotonCamera checkout --detach FETCH_HEAD
+          test "$(git -C PhotonCamera rev-parse HEAD)" = "$PHOTON_SHA"
+
+      - name: Replay legacy chain through NATIVEPROSPECTIVE freeze guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam.yml')
+          lines = wf.read_text().splitlines()
+          target = '      - name: Apply and verify frozen M9 chain plus native prospective source adapter'
+          i = lines.index(target)
+          while i < len(lines) and lines[i].strip() != 'run: |':
+              i += 1
+          if i >= len(lines):
+              raise SystemExit('legacy apply run block missing')
+          i += 1
+          out = []
+          while i < len(lines):
+              line = lines[i]
+              if line.startswith('      - name:'):
+                  break
+              if line.startswith('          '):
+                  out.append(line[10:])
+              elif not line.strip():
+                  out.append('')
+              else:
+                  raise SystemExit('unexpected legacy workflow indentation: ' + line)
+              i += 1
+          Path('/tmp/nativeprospective_chain.sh').write_text('\n'.join(out) + '\n')
+          PY
+          bash /tmp/nativeprospective_chain.sh
+
+      - name: Assert freeze-harness completion
+        run: |
+          set -euo pipefail
+          test -f NATIVEPROSPECTIVE1A_PATCH.log
+          grep -q 'verify-m9cam-nativeprospective1a-fix1.py' NATIVEPROSPECTIVE1A_PATCH.log
+          ! grep -q 'unexpectedly changed frozen renderCore' NATIVEPROSPECTIVE1A_PATCH.log
+          ! grep -q 'FIX2 imports unexpectedly changed frozen renderCore' NATIVEPROSPECTIVE1A_PATCH.log
+          echo 'NATIVEPROSPECTIVE1A freeze harness regression PASS'
