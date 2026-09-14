@@ -1,0 +1,44 @@
+{
+  "schema": "m9.rbclosure5u.enqueue-mode-mapping-frozen.v1",
+  "source_run": 34834019863,
+  "source_commit": "2914d730779c9d85c7dcd9ffa591486133762fd5",
+  "artifact": "M9-RB-RBCLOSURE5U-ENQUEUE-MODE-MAPPING",
+  "artifact_id": 10343362981,
+  "artifact_zip_sha256": "c6d24dc43e240e38907a8929844e4e6f82e11bb124556f147ebf4865d5bccfa3",
+  "selected_bf561_pair": 3,
+  "producer": {
+    "function": "SPI_AppendSettings @ 0xffa11862",
+    "input": "R0 = SPI command/settings object",
+    "payload_start": "input + 7",
+    "payload_bytes": 37,
+    "copy_helper": "__memcpy2 @ 0xfeb13330",
+    "local_buffer": "FP - 0x25"
+  },
+  "enqueue": {
+    "function": "IM_AppendItem @ 0xfeb13940",
+    "queue": "g_ProcessingList @ 0xfeb1e0a8",
+    "record_size": 68,
+    "copied_prefix_bytes": 37,
+    "copy_operation": "__memcpy2(queue_record, local_settings, 37)",
+    "postcopy_generated_fields": [
+      "record+0x28",
+      "record+0x2c",
+      "record+0x30"
+    ],
+    "mode_byte_postcopy_mutation": false
+  },
+  "mode_byte_mapping": {
+    "queue_record_offset": 4,
+    "ImageSettings_offset": 4,
+    "SPI_input_offset": 11,
+    "equation": "SPI input + 7 + 4 -> local settings +4 -> queue record +4 -> ImageSettings +4",
+    "transform": "none; byte is copied verbatim"
+  },
+  "downstream_consequence": {
+    "SPI_input_byte_11_eq_2": "Jolos mode 2 -> Set writes Run mask 0x3407 -> Green bit4 OFF, R/B bit5 OFF",
+    "SPI_input_byte_11_eq_3": "Jolos mode 3 -> Set writes Run mask 0x17ff -> Green bit4 ON, R/B bit5 ON -> RBCLOSURE5I proves Green then R/B in same Run"
+  },
+  "remaining_question": "What writes or selects SPI command/settings byte +11 for the normal M9 color capture path?",
+  "next_gate": "Trace direct callers/xrefs of SPI_AppendSettings, identify the SPI command dispatcher/message type and recover the source/semantics of input byte +11. If the host-side producer is outside BF561 code, identify the corresponding ARM/SPI producer and command field.",
+  "production_status": "untouched"
+}
