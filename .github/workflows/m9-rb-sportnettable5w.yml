@@ -1,0 +1,88 @@
+name: M9 R/B RBCLOSURE5W SportNet Table
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-sportnettable5w.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  table:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recover and decode callback table
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5w"
+          mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib,struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5w'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          table_addr=0xfeb00050; table_size=144
+          raw=m.read_overlay(blocks,table_addr,table_size)
+          if len(raw)!=table_size: raise SystemExit('table read size mismatch')
+          def exact(a):
+              return [{'name':s.get('name'),'addr':f"0x{int(s['addr']):08x}",'size':int(s.get('size',0))} for s in syms if int(s.get('addr',-1))==a]
+          words=[]
+          for off in range(0,table_size,4):
+              v=struct.unpack_from('<I',raw,off)[0]; words.append({'offset':off,'addr':f'0x{table_addr+off:08x}','value':f'0x{v:08x}','target_symbols':exact(v)})
+          # Detect code-pointer words by exact map symbols in executable address ranges.
+          ptr_indices=[]
+          for i,w in enumerate(words):
+              v=int(w['value'],16)
+              sy=exact(v)
+              if sy and any(0xff000000 <= v <= 0xffffffff for _ in [0]): ptr_indices.append(i)
+          ptr_entries=[]
+          for i in ptr_indices:
+              prev=words[i-2:i] if i>=2 else words[:i]
+              nxt=words[i+1:i+3]
+              ptr_entries.append({'pointer_word':words[i],'previous_two':prev,'next_two':nxt})
+          # Candidate 3-word records starting at each code pointer: function,length,command_id.
+          candidates=[]
+          for i in ptr_indices:
+              if i+2 < len(words):
+                  candidates.append({'function':words[i],'payload_length':int(words[i+1]['value'],16),'command_id':int(words[i+2]['value'],16),'next_word':words[i+3] if i+3<len(words) else None})
+          rep={'schema':'m9.rbclosure5w.sportnet-table.v1','selected_pair':pair,'table':{'address':'0xfeb00050','name':'g_pSportNetFunctions','size':144,'sha256':hashlib.sha256(raw).hexdigest(),'bytes_hex':raw.hex()},'words':words,'code_pointer_indices':ptr_indices,'pointer_contexts':ptr_entries,'candidate_records_function_length_command':candidates,'target_SPI_AppendSettings':'0xffa11862'}
+          rawj=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'sportnet_table.json').write_bytes(rawj)
+          with open(root/'evidence'/'sportnet_table.txt','w') as f:
+              f.write('ALL WORDS\n')
+              for w in words:f.write(json.dumps(w)+'\n')
+              f.write('\nFUNCTION/LENGTH/COMMAND CANDIDATES\n')
+              for c in candidates:f.write(json.dumps(c)+'\n')
+          (root/'evidence'/'sportnet_table.sha256.txt').write_text(hashlib.sha256(rawj).hexdigest()+'  sportnet_table.json\n'); print((root/'evidence'/'sportnet_table.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload table evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5W-SPORTNET-TABLE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5w/evidence/*
+
+      - name: Remove firmware material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5w/pass" "$RUNNER_TEMP/rb5w/m9.upd" "$RUNNER_TEMP/rb5w/mm.upm" "$RUNNER_TEMP/rb5w/m9.dec"
