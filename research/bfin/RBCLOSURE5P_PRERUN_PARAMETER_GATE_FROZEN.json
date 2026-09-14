@@ -1,0 +1,48 @@
+{
+  "schema": "m9.rbclosure5p.prerun-parameter-gate-frozen.v1",
+  "source_run": 34832562393,
+  "source_commit": "65fae70b3886208fe3ccc11731a25d2127c6592c",
+  "artifact": "M9-RB-RBCLOSURE5P-PRERUN-PARAMETER-GATE",
+  "artifact_id": 10343275488,
+  "artifact_zip_sha256": "7012099d51d165629af275fdae8042c74c9461e0ebfa96f9f49b0e82937b3817",
+  "selected_bf561_pair": 3,
+  "pre_run_helper": {
+    "address": "0xfeb11430",
+    "name": "SetProcess",
+    "size": 142,
+    "sha256": "7880ce6b81f942dae239efd90959abe365b54c063c0fde27d624bbdb883f740a",
+    "proven_callsite": "StartInterpolation_Jolos passes R2=g_L2Parameter immediately before Run"
+  },
+  "direct_result": {
+    "direct_R2_dereference": false,
+    "direct_word0_write_via_R2": false,
+    "important_argument_reuse": [
+      "0xfeb11480: R1 = R2",
+      "0xfeb11488: R7 = R2"
+    ]
+  },
+  "downstream_calls_receiving_g_L2Parameter": [
+    {
+      "site": "0xfeb1149e",
+      "target": "0xfeb167e0",
+      "name": "SetStructParameter",
+      "arguments": "R0=original SetProcess R0, R1=g_L2Parameter"
+    },
+    {
+      "site": "0xfeb114a6",
+      "target": "0xfeb16904",
+      "name": "Set",
+      "arguments": "R0=g_L2Parameter, R1=original SetProcess R1"
+    },
+    {
+      "site": "0xfeb114ae",
+      "target": "0xfeb104be",
+      "name": "InitL1MemoryProcessing",
+      "arguments": "R0=original SetProcess R1, R1=g_L2Parameter"
+    }
+  ],
+  "closure_status": "not_closed",
+  "reason": "SetProcess itself does not dereference R2, but it forwards the g_L2Parameter pointer into three callees. Their memory-direction semantics must be resolved before asserting that Init's 0xffffffff word0 survives to Run.",
+  "next_gate": "Disassemble SetStructParameter, Set, and InitL1MemoryProcessing. Track the exact g_L2Parameter argument in each function, identify all writes to offset 0, and recover the final word0 value immediately before Run.",
+  "production_status": "untouched"
+}
