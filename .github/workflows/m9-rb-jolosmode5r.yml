@@ -1,0 +1,162 @@
+name: M9 R/B RBCLOSURE5R Jolos Mode Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-jolosmode5r.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover selected image and mode object
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5r"
+          mkdir -p "$ROOT/evidence" "$ROOT/blocks" "$ROOT/dis"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib,struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5r'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          addr=0xfeb00ea8
+          covering=[]; exact=[]
+          for s in syms:
+              try:a=int(s['addr']);z=int(s.get('size',0))
+              except Exception:continue
+              if a==addr: exact.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              if z>0 and a<=addr<a+z: covering.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z,'offset':addr-a})
+          block=None
+          for b in blocks:
+              lo=int(b['addr']);hi=lo+int(b['count'])
+              if lo<=addr<hi:block=b;break
+          if block is None: raise SystemExit('0xfeb00ea8 not present in image')
+          off=addr-int(block['addr']); span=bytes(block['data'])[off:off+0x100]
+          rep={'schema':'m9.rbclosure5r.mode-object.v1','selected_pair':pair,'address':'0xfeb00ea8','mode_byte_address':'0xfeb00eac','exact_symbols':exact,'covering_symbols':covering,'canonical_bytes_hex':span.hex(),'canonical_byte_plus4':span[4] if len(span)>4 else None,'span_sha256':hashlib.sha256(span).hexdigest()}
+          (root/'evidence'/'mode_object.json').write_text(json.dumps(rep,indent=2)+'\n'); (root/'symbols.json').write_text(json.dumps(syms,indent=2)+'\n')
+          meta=[]
+          for i,b in enumerate(blocks):
+              bd=bytes(b['data']); (root/'blocks'/f'block_{i:03d}.bin').write_bytes(bd); meta.append({'index':i,'addr':f"0x{int(b['addr']):08x}",'count':int(b['count'])})
+          (root/'blocks_meta.json').write_text(json.dumps(meta,indent=2)+'\n'); print(json.dumps(rep,indent=2))
+          PY
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5r'; meta=json.load(open(root/'blocks_meta.json'))
+          with open(root/'objdump.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for x in meta:
+                  i=x['index']; f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={x["addr"]} "$RUNNER_TEMP/rb5r/blocks/block_{i:03d}.bin" > "$RUNNER_TEMP/rb5r/dis/block_{i:03d}.dis"\n')
+          PY
+          bash "$ROOT/objdump.sh"
+
+      - name: Find mode object references and byte+4 writers
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5r"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5r'; meta=json.load(open(root/'blocks_meta.json')); syms=json.load(open(root/'symbols.json')); obj=json.load(open(root/'evidence'/'mode_object.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          allins=[]
+          for bm in meta:
+              i=bm['index']
+              for line in (root/'dis'/f'block_{i:03d}.dis').read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m: allins.append({'addr':int(m.group(1),16),'asm':m.group(2).strip(),'block':i})
+          def owners(addr):
+              out=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if z>0 and a<=addr<a+z: out.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return out
+          def ser(xs): return [{'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'block':x['block']} for x in xs]
+          mats=[]
+          for target_low,label in [(0x0ea8,'base'),(0x0eac,'byte4')]:
+              lo_re=re.compile(r'\b([RPI][0-7]?)\.L\s*=\s*0x0?'+format(target_low,'x')+r'\b',re.I)
+              hi_re=re.compile(r'\b([RPI][0-7]?)\.H\s*=\s*0xfeb0\b',re.I)
+              for j,x in enumerate(allins):
+                  ml=lo_re.search(x['asm'])
+                  if not ml: continue
+                  reg=ml.group(1).upper()
+                  for k in range(j+1,min(len(allins),j+12)):
+                      if allins[k]['block']!=x['block']: break
+                      mh=hi_re.search(allins[k]['asm'])
+                      if mh and mh.group(1).upper()==reg:
+                          ctx=allins[max(0,j-30):min(len(allins),k+100)]
+                          direct=[]; calls=[]; copies=[]
+                          for q in allins[k+1:min(len(allins),k+100)]:
+                              if q['block']!=x['block']: break
+                              u=q['asm'].upper()
+                              if re.search(r'\['+re.escape(reg)+r'(?:\s*\+\s*0X?4)?\]\s*=',u): direct.append(q)
+                              if 'CALL ' in u: calls.append(q)
+                              if re.search(r'\b[RP][0-7]?\s*=\s*'+re.escape(reg)+r'\b',u): copies.append(q)
+                          mats.append({'kind':label,'low_site':f"0x{x['addr']:08x}",'high_site':f"0x{allins[k]['addr']:08x}",'register':reg,'owners':owners(x['addr']),'context':ser(ctx),'candidate_stores':ser(direct),'calls_after':ser(calls[:20]),'copies_from_register':ser(copies)})
+                          break
+          # Also collect any literal direct byte stores with +4 through registers inside contexts anchored on base materializations.
+          byte4=[]
+          for m in mats:
+              if m['kind']!='base': continue
+              reg=m['register']
+              for q in m['context']:
+                  u=q['asm'].upper()
+                  if re.search(r'B\['+re.escape(reg)+r'\s*\+\s*0X?4\]\s*=',u) or re.search(r'\['+re.escape(reg)+r'\s*\+\s*0X?4\]\s*=',u): byte4.append({'anchor':m['low_site'],**q})
+          rep={'schema':'m9.rbclosure5r.mode-source.v1','object':obj,'materializations':mats,'direct_byte4_writer_candidates':byte4,'known_consumer':'StartInterpolation reads B[0xfeb00ea8 + 4] and routes mode 2/3 to StartInterpolation_Jolos.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'mode_source.json').write_bytes(raw)
+          with open(root/'evidence'/'mode_source.txt','w') as f:
+              f.write('OBJECT\n'+json.dumps(obj,indent=2)+'\n')
+              for m in mats:
+                  f.write(f"\nMATERIALIZATION {m['kind']} {m['low_site']} {m['register']} owners={json.dumps(m['owners'])}\n")
+                  for q in m['context']: f.write(f"{q['addr']}  {q['asm']}\n")
+              f.write('\nBYTE+4 WRITER CANDIDATES\n'); [f.write(json.dumps(q)+'\n') for q in byte4]
+          (root/'evidence'/'mode_source.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  mode_source.json\n'); print((root/'evidence'/'mode_source.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload mode-source evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5R-JOLOS-MODE-SOURCE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5r/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5r/pass" "$RUNNER_TEMP/rb5r/m9.upd" "$RUNNER_TEMP/rb5r/mm.upm" "$RUNNER_TEMP/rb5r/m9.dec" "$RUNNER_TEMP/rb5r/blocks" "$RUNNER_TEMP/rb5r/dis" "$RUNNER_TEMP/rb5r/blocks_meta.json" "$RUNNER_TEMP/rb5r/symbols.json" "$RUNNER_TEMP/rb5r/objdump.sh"
