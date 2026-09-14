@@ -72,15 +72,28 @@ def abs16_v(v):
 
 
 def filter101040(mem, src, out1, out2, inner, outer, stride):
-    """ASMFilter_101_040_101_An logical output streams."""
+    """ASMFilter_101_040_101_An arithmetic plus exact physical side effects."""
     if inner <= 0 or inner & 1 or outer <= 0 or stride <= 0 or stride & 1:
         raise ValueError(('filter101040 geometry', inner, outer, stride))
-    # GREENORACLE6M random-data physical-write coverage falsified the older
-    # assumption that R0 mod4==2 universally writes out2-4.  Do not invent a
-    # pre-pointer store; only model physical writes proven by the exact helper.
+
+    # GREENORACLE6N random-destination whole-window execution of the exact
+    # Leica helper proves a source-phase-dependent packed-store side effect.
+    # When the incoming source has R0 bit1 set (src mod4 == 2), stream2 swaps
+    # the two halfwords immediately before each formal row: row-8 <-> row-4
+    # bytes.  This is independent of output-pointer alignment; stream1 has no
+    # corresponding extra writes.  Perform the swap before that row's formal
+    # stores so destination state matches the machine helper exactly.
+    phase1 = bool(src & 0x2)
     for r in range(outer):
+        row_off = 4 * stride * r
+        if phase1:
+            g0 = out2 + row_off - 8
+            g1 = out2 + row_off - 4
+            v0, v1 = mem.read(g0), mem.read(g1)
+            mem.write(g0, v1)
+            mem.write(g1, v0)
         for c in range(inner):
-            center = src + 4*c + 4*stride*r
+            center = src + 4*c + row_off
             cv = mem.read(center)
             nw = mem.read(center - 2*stride - 2)
             ne = mem.read(center - 2*stride + 2)
@@ -88,8 +101,8 @@ def filter101040(mem, src, out1, out2, inner, outer, stride):
             se = mem.read(center + 2*stride + 2)
             filtered = u16((4*cv + nw + ne + sw + se) >> 3)
             residual = abs16_v(u16(filtered - cv))
-            mem.write(out1 + 4*c + 4*stride*r, filtered)
-            mem.write(out2 + 4*c + 4*stride*r, residual)
+            mem.write(out1 + 4*c + row_off, filtered)
+            mem.write(out2 + 4*c + row_off, residual)
 
 
 def differ_sample(a, b, threshold, shift):
