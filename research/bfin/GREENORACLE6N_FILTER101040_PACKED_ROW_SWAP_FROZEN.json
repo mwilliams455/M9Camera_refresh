@@ -1,0 +1,52 @@
+{
+  "schema": "m9.greenoracle6n.filter101040-packed-row-swap-frozen.v1",
+  "source_run": 34860410936,
+  "source_job": 104030821348,
+  "source_commit": "acb6de8c02133638820379d17144a03bfd628985",
+  "artifact": {
+    "name": "M9-RB-GREENORACLE6N-FILTER101040-PRODUCTION-PHASE",
+    "id": 10353983805,
+    "zip_sha256": "3fb4229c546832eb2599845efec01a7d737f6c17f9336d06cef55b5cb88921fb"
+  },
+  "routine": {
+    "name": "ASMFilter_101_040_101_An",
+    "address": "0xffa000be",
+    "size": 400,
+    "sha256": "c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389"
+  },
+  "method": {
+    "source": "deterministic random u16",
+    "out1_initial": "deterministic random u16",
+    "out2_initial": "deterministic random u16",
+    "comparison": "whole 512-halfword output windows before/after, separating formal output lattice from extra physical writes",
+    "cases": [
+      {"name":"s16_h12_q0","inner":8,"outer":5,"stride":16,"pointer_mod4":[2,2,2],"extra_out1":0,"extra_out2":10},
+      {"name":"s18_h14_q0","inner":8,"outer":6,"stride":18,"pointer_mod4":[2,2,2],"extra_out1":0,"extra_out2":12},
+      {"name":"s20_h16_q1","inner":8,"outer":6,"stride":20,"pointer_mod4":[0,0,0],"extra_out1":0,"extra_out2":0},
+      {"name":"mixed_src2_out0","inner":8,"outer":5,"stride":16,"pointer_mod4":[2,0,0],"extra_out1":0,"extra_out2":10},
+      {"name":"mixed_src0_out2","inner":8,"outer":5,"stride":16,"pointer_mod4":[0,2,2],"extra_out1":0,"extra_out2":0}
+    ]
+  },
+  "closed_rule": {
+    "condition": "incoming source pointer R0 has bit1 set (src mod4 == 2)",
+    "per_row_before_formal_stream2": [
+      "swap u16 at out2_row_start - 8 bytes with u16 at out2_row_start - 4 bytes",
+      "then perform the formal stream2 writes"
+    ],
+    "row_start": "out2 + 4*stride*row",
+    "stream1_extra_writes": "none observed in all five random-destination cases",
+    "output_alignment_dependency": false,
+    "source_phase_dependency": true,
+    "proof": "Both source-phase1 cases swap the two pre-row destination halfwords before every row even when outputs are aligned; both source-phase0 controls have no extra writes even when outputs are mod4==2. Every swap pair is exact: the lower address receives the prior value from +2 halfword indices and the higher address receives the prior value from -2 halfword indices."
+  },
+  "relation_to_prior_evidence": {
+    "GREENORACLE6M": "6M correctly disproved an unconditional single out2-4 scratch write, but its uniform destination sentinel could not reveal a permutation of equal neighboring values.",
+    "BFINSCALAR3C": "formal logical arithmetic parity remains valid; that test did not compare non-formal physical destination locations.",
+    "GREENORACLE6L_pre6N": "the C-plane mismatch addresses map to these pre-row swap cells; later Green helpers overwrite one member of most pairs, explaining why only one member survives in the final buffer after row 0."
+  },
+  "scope": {
+    "production_renderer_changed": false,
+    "android_changed": false,
+    "research_scalar_may_model_rule": true
+  }
+}
