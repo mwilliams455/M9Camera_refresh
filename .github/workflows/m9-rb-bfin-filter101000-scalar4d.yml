@@ -1,0 +1,135 @@
+name: M9 R/B BFINSCALAR4D Filter101000 Direct Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-filter101000-scalar4d.yml'
+      - 'research/bfin/filter101000_scalar_exact.py'
+      - 'research/bfin/filter101000_oracle_observe_phase.s'
+      - 'research/bfin/BFINORACLE4C_FILTER101000_ARITHMETIC_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  direct-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover SHA-pinned Leica body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter4d"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinfilter4d'; d=json.load(open(root/'pass/report.json'))
+          addr=0xffa0024e; size=0x108; expected='e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd'
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected:
+                (root/'ASMFilter_101_000_101_2.bin').write_bytes(body); break
+            except Exception: pass
+          else: raise SystemExit('canonical 101-000-101 body not found')
+          PY
+
+      - name: Execute full-domain machine/scalar parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter4d"; cp research/bfin/filter101000_oracle_observe_phase.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .source : { *(.source) }
+            . = 0x7000; .out : { *(.out) }
+            . = 0x9800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
+          import hashlib,json,os,pathlib,random,re,subprocess
+          from filter101000_scalar_exact import logical_positions,scalar_output
+          N=2048; inner=8; outer=4; SENT=0x1357; ev=pathlib.Path('evidence')
+          configs=[
+            ('src0_stride16',0x4400,16),
+            ('src0_stride17',0x4400,17),
+            ('src1_stride16',0x4402,16),
+            ('src1_stride17',0x4402,17),
+          ]
+          report={'schema':'m9.bfinscalar4d.filter101000-direct-parity.v1','routine_sha256':'e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd','inner':inner,'outer':outer,'runs':{},'sample_count':0,'buffer_halfwords_compared':0,'exact_match':True}
+          for ci,(phase,srcbase,stride) in enumerate(configs):
+            base=(srcbase-0x4000)//2
+            for si in range(4):
+              seed=0x10100000 + ci*0x100 + si; rng=random.Random(seed)
+              src=[rng.randrange(65536) for _ in range(N)]
+              # Force signed/fractional boundaries around the first logical center.
+              edge=[0,1,2,3,4,7,0x7fff,0x8000,0xfffe,0xffff]
+              probe=[base-stride-1,base-stride+1,base+stride-1,base+stride+1]
+              for j,p in enumerate(probe): src[p]=edge[(j+si)%len(edge)]
+              pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{v:04x}\n' for v in src))
+              name=f'{phase}_seed{si}'
+              subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','--defsym',f'SRCBASE={srcbase}','filter101000_oracle_observe_phase.s','-o',f'{name}.o'],check=True,stdout=subprocess.DEVNULL)
+              subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True,stdout=subprocess.DEVNULL)
+              p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+              if p.returncode: raise SystemExit(f'{name}: rc={p.returncode}: {p.stderr}')
+              words=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+              if len(words)!=64: raise SystemExit(f'{name}: DBG={len(words)}')
+              got=[]
+              for q in words: got += [q&0xffff,(q>>16)&0xffff]
+              exp=scalar_output(src,base,inner,outer,stride,word_count=128,sentinel=SENT)
+              if got!=exp:
+                bad=[(i,g,e) for i,(g,e) in enumerate(zip(got,exp)) if g!=e]
+                raise SystemExit(f'{name}: parity mismatch first={bad[:8]} total={len(bad)}')
+              samples=[{'center':c,'out':oi,'u16':got[oi]} for c,oi in logical_positions(base,inner,outer,stride)]
+              report['runs'][name]={'phase':phase,'srcbase':hex(srcbase),'stride':stride,'seed':seed,'sample_count':len(samples),'buffer_exact_match':True,'samples':samples}
+              report['sample_count'] += len(samples); report['buffer_halfwords_compared'] += 128
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'filter101000_direct_parity.json').write_bytes(raw); (ev/'filter101000_direct_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter101000_direct_parity.json\n')
+          print(json.dumps({'runs':len(report['runs']),'sample_count':report['sample_count'],'buffer_halfwords_compared':report['buffer_halfwords_compared'],'exact_match':True},indent=2))
+          PY
+
+      - name: Publish parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINSCALAR4D-FILTER101000-DIRECT-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinfilter4d/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfinfilter4d/pass" "$RUNNER_TEMP/bfinfilter4d/m9.upd" "$RUNNER_TEMP/bfinfilter4d/mm.upm" "$RUNNER_TEMP/bfinfilter4d/m9.dec" "$RUNNER_TEMP/bfinfilter4d/ASMFilter_101_000_101_2.bin" "$RUNNER_TEMP/bfinfilter4d"/*.o "$RUNNER_TEMP/bfinfilter4d"/*.elf
