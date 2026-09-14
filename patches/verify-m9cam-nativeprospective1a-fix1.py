@@ -46,7 +46,10 @@ new = '''def extract_method(text, marker):
     end = text.find('\\n    private static ', start + len(marker))
     if end < 0:
         raise SystemExit('verifier next top-level method marker missing after: ' + marker)
-    return text[start:end]
+    # Match the apply harness exactly: separator blank lines are not part of the
+    # frozen method byte range. This keeps the integrity SHA sensitive to every
+    # method byte while insensitive to top-level member spacing.
+    return text[start:end].rstrip('\\n')
 '''
 if old not in text:
     raise SystemExit('NATIVEPROSPECTIVE1A verifier FIX1 original extractor anchor missing')
