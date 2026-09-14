@@ -1,0 +1,191 @@
+name: M9 R/B GREENORACLE6G Composite Green Execution Trace
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6g-execution-trace.yml'
+      - 'research/bfin/green_composite_trace_oracle.s'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          OBJDUMP=$(find "$PWD" -type f -path '*/binutils/objdump' -perm -111 | head -1)
+          echo "BFIN_OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover canonical Green executable bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6g"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6g'
+          report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py')
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          wanted={
+            'GreenInterpolationWithCo.bin':(0xfeb10660,810,'22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5'),
+            'ASMRedBlueAndGreenDiffer.bin':(0xffa00008,182,'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1'),
+            'ASMFilter_101_040_101_An.bin':(0xffa000be,400,'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'),
+            'ASMFilter_101_000_101_2.bin':(0xffa0024e,264,'e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd'),
+            'ASMFilter_010_101_010_2.bin':(0xffa03e00,418,'7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7')}
+          selected=None
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin'))
+              _,blocks=m.parse_ldr(bf0); bodies={}
+              for name,(addr,size,sha) in wanted.items():
+                body=m.read_overlay(blocks,addr,size)
+                if len(body)!=size or hashlib.sha256(body).hexdigest()!=sha: raise ValueError(name)
+                bodies[name]=body
+              selected=(i,bodies); break
+            except Exception: continue
+          if selected is None: raise SystemExit('canonical Green bodies not found')
+          pair,bodies=selected
+          for name,body in bodies.items(): (root/name).write_bytes(body)
+          meta={'pair':pair,'all_sha_verified':True,'uniform_relocation':'0x014ff9a0'}
+          (root/'evidence'/'body_recovery.json').write_text(json.dumps(meta,indent=2)+'\n')
+          PY
+
+      - name: Build trace image and return-convention probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6g"; cd "$ROOT"
+          cp "$GITHUB_WORKSPACE/research/bfin/green_composite_trace_oracle.s" .
+          python3 - <<'PY'
+          import pathlib
+          for fn in ('plane_a.inc','plane_b.inc','plane_c.inc','plane_d.inc'):
+              pathlib.Path(fn).write_text(''.join(f'.short 0x{((i*257)+(17 if fn=="plane_b.inc" else 0))&0xffff:04x}\n' for i in range(1024)))
+          PY
+          cat > oracle.ld <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x4000; .planeA : { *(.planeA) }
+            . = 0x6000; .planeB : { *(.planeB) }
+            . = 0x8000; .planeC : { *(.planeC) }
+            . = 0xa000; .planeD : { *(.planeD) }
+            . = 0xc000; .phase : { *(.phase) }
+            . = 0xd000; .stack : { *(.stack) }
+            . = 0x10000; .green : { *(.green) }
+            . = 0x20000; .text : { *(.text.start) }
+            . = 0xeff9a8; .differ : { *(.differ) }
+            . = 0xeffa5e; .f101040 : { *(.f101040) }
+            . = 0xeffbee; .f101000 : { *(.f101000) }
+            . = 0xf037a0; .f010 : { *(.f010) }
+          }
+          LDS
+          "$BFIN_AS" --defsym STRIDE=16 --defsym HEIGHT=12 --defsym SHIFTVAL=2 --defsym PHASEINIT=0 green_composite_trace_oracle.s -o trace.o
+          "$BFIN_LD" -T oracle.ld trace.o -o trace.elf
+          "$BFIN_OBJDUMP" -D trace.elf > evidence/trace_disassembly.txt
+          "$BFIN_SIM" --help > evidence/sim_help.txt 2>&1 || true
+
+          cat > return_probe.s <<'ASM'
+          .section .text,"ax"
+          .global _start
+          _start:
+            SP.H=0; SP.L=0x9000;
+            R7.H=0x6f6f; R7.L=0x1001; DBG R7;
+            CALL probe;
+            R7.H=0x6f6f; R7.L=0x1002; DBG R7;
+            HLT;
+          probe:
+            LINK 0x4;
+            P0=[FP+0x4];
+            UNLINK;
+            JUMP (P0);
+          .section .stack,"aw"; .space 0x2000
+          ASM
+          cat > return_probe.ld <<'LDS'
+          ENTRY(_start)
+          SECTIONS { . = 0x2000; .text : { *(.text) } . = 0x8000; .stack : { *(.stack) } }
+          LDS
+          "$BFIN_AS" return_probe.s -o return_probe.o
+          "$BFIN_LD" -T return_probe.ld return_probe.o -o return_probe.elf
+          set +e
+          "$BFIN_SIM" return_probe.elf > evidence/return_probe.stdout.txt 2> evidence/return_probe.stderr.txt
+          echo $? > evidence/return_probe.rc.txt
+          set -e
+
+      - name: Trace exact Green call
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6g"; cd "$ROOT"
+          set +e
+          "$BFIN_SIM" trace.elf > evidence/green_plain.stdout.txt 2> evidence/green_plain.stderr.txt
+          RC=$?; echo "$RC" > evidence/green_plain.rc.txt
+          HELP=$(cat evidence/sim_help.txt)
+          if echo "$HELP" | grep -q -- '--trace-insn'; then
+            "$BFIN_SIM" --trace-insn trace.elf > evidence/green_trace.stdout.txt 2> evidence/green_trace.stderr.txt
+            echo $? > evidence/green_trace.rc.txt
+          elif echo "$HELP" | grep -qE '(^|[[:space:]])-t([,[:space:]]|$)'; then
+            "$BFIN_SIM" -t trace.elf > evidence/green_trace.stdout.txt 2> evidence/green_trace.stderr.txt
+            echo $? > evidence/green_trace.rc.txt
+          else
+            echo 'no recognized trace switch' > evidence/green_trace.stderr.txt
+            echo 127 > evidence/green_trace.rc.txt
+          fi
+          set -e
+          python3 - <<'PY'
+          import json,pathlib,re
+          e=pathlib.Path('evidence')
+          plain=(e/'green_plain.stdout.txt').read_text(errors='replace')
+          vals=re.findall(r'DBG\s*:\s*R[0-7]\s*=\s*0x([0-9a-fA-F]+)',plain)
+          out={'pre_checkpoint_seen':any(v.lower()=='6f6f0001' for v in vals),
+               'post_checkpoint_seen':any(v.lower()=='6f6f0002' for v in vals),
+               'plain_rc':int((e/'green_plain.rc.txt').read_text().strip()),
+               'dbg_values':vals[:20]}
+          (e/'trace_summary.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Publish trace evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6G-COMPOSITE-EXECUTION-TRACE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6g/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/green6g/pass" "$RUNNER_TEMP/green6g/m9.upd" "$RUNNER_TEMP/green6g/mm.upm" "$RUNNER_TEMP/green6g/m9.dec"
+          rm -f "$RUNNER_TEMP/green6g"/*.bin "$RUNNER_TEMP/green6g"/*.o "$RUNNER_TEMP/green6g"/*.elf "$RUNNER_TEMP/green6g"/plane_*.inc
