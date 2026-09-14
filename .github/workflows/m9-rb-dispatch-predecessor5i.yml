@@ -1,0 +1,202 @@
+name: M9 R/B RBCLOSURE5I Dispatcher Predecessors
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-dispatch-predecessor5i.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  predecessor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover canonical Run body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5i"
+          mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json, os, pathlib, importlib.util, sys, hashlib
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rb5i'
+          d = json.load(open(root / 'pass/report.json'))
+          cand = []
+          for i, x in enumerate(d.get('bf561_deep', [])):
+              det = x.get('detail', {}) if isinstance(x.get('detail'), dict) else {}
+              t = det.get('targets', {}) if isinstance(det, dict) else {}
+              if x.get('covered', 0) > 0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')), x.get('covered',0), i))
+          cand.sort(reverse=True)
+          pair = cand[0][2]
+          pdir = root / 'pass' / f'bf561_pair_{pair:02d}'
+          bf0 = next(pdir.rglob('bf0.bin'))
+          mp = next(pdir.rglob('bf0.map'))
+          spec = importlib.util.spec_from_file_location('base', 'tools/m9_sharpnessforensics1a.py')
+          m = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = m
+          spec.loader.exec_module(m)
+          _, blocks = m.parse_ldr(bf0)
+          syms = m.parse_map(mp)
+          runs = [s for s in syms if s['name'] == 'Run']
+          if not runs:
+              raise SystemExit('Run symbol missing')
+          s = max(runs, key=lambda q: int(q.get('size',0)))
+          addr, size = int(s['addr']), int(s['size'])
+          body = m.read_overlay(blocks, addr, size)
+          (root / 'run.bin').write_bytes(body)
+          (root / 'base.txt').write_text(f'{addr:x}\n')
+          (root / 'evidence' / 'run_meta.json').write_text(json.dumps({
+              'selected_pair': pair,
+              'entry': f'0x{addr:08x}',
+              'size': size,
+              'sha256': hashlib.sha256(body).hexdigest(),
+              'focus': ['0xffa107f8','0xffa108fa'],
+              'window': ['0xffa10740','0xffa10930']
+          }, indent=2) + '\n')
+          PY
+          BASE=$(cat "$ROOT/base.txt")
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$BASE" "$ROOT/run.bin" > "$ROOT/run.dis"
+
+      - name: Extract predecessor and selector evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5i"
+          python3 - <<'PY'
+          import os, pathlib, re, json, hashlib
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rb5i'
+          lines = (root / 'run.dis').read_text(errors='replace').splitlines()
+          rx = re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$', re.I)
+          target_rx = re.compile(r'0x0?([0-9a-f]{8})', re.I)
+          ins = []
+          for line in lines:
+              m = rx.match(line)
+              if m:
+                  ins.append({'addr': int(m.group(1),16), 'bytes': m.group(2).strip(), 'asm': m.group(3).strip()})
+
+          lo, hi = 0xffa10740, 0xffa10930
+          focus = {'green_entry_ref': 0xffa107f8, 'interp_entry_ref': 0xffa108fa}
+          window = [x for x in ins if lo <= x['addr'] < hi]
+
+          def serial(xs):
+              return [{'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm']} for x in xs]
+
+          controls = []
+          for x in window:
+              u = x['asm'].upper()
+              if any(k in u for k in ('JUMP', 'CALL', 'CC =', 'BITTST', 'LOOP')):
+                  controls.append(x)
+
+          incoming = []
+          for x in ins:
+              u = x['asm'].upper()
+              if 'JUMP' not in u:
+                  continue
+              m = target_rx.search(x['asm'])
+              if not m:
+                  continue
+              t = int(m.group(1),16)
+              if lo <= t < hi:
+                  incoming.append({**x, 'target': t})
+
+          slices = {}
+          for name, site in focus.items():
+              idx = next((i for i,x in enumerate(ins) if x['addr'] == site), None)
+              if idx is None:
+                  raise SystemExit(f'focus site missing: 0x{site:08x}')
+              before = ins[max(0, idx-48):idx+8]
+              cc = [x for x in before if 'CC =' in x['asm'].upper() or 'BITTST' in x['asm'].upper()]
+              branches = [x for x in before if 'JUMP' in x['asm'].upper()]
+              loads = [x for x in before if re.search(r'\b[RP][0-7]?\s*=.*\[', x['asm'], re.I) or '= W[' in x['asm'] or '= B[' in x['asm']]
+              slices[name] = {
+                  'site': f'0x{site:08x}',
+                  'context': serial(before),
+                  'cc_setters': serial(cc),
+                  'branches': serial(branches),
+                  'loads': serial(loads),
+              }
+
+          rep = {
+              'schema': 'm9.rbclosure5i.dispatch-predecessors.v1',
+              'window': [f'0x{lo:08x}', f'0x{hi:08x}'],
+              'known_case_refs': {
+                  'green': '0xffa107f8 -> 0xffa10c9a',
+                  'interp': '0xffa108fa -> 0xffa10ba4'
+              },
+              'instructions': serial(window),
+              'control_and_compare': serial(controls),
+              'incoming_branches': [
+                  {'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm'],'target':f"0x{x['target']:08x}"}
+                  for x in incoming
+              ],
+              'backward_slices': slices,
+              'interpretation_guard': 'Evidence only. Do not infer photographic stage order from address order; selector semantics require proven predecessor conditions.'
+          }
+          raw = (json.dumps(rep, indent=2) + '\n').encode()
+          (root / 'evidence' / 'dispatch_predecessors.json').write_bytes(raw)
+          with open(root / 'evidence' / 'dispatch_predecessors.txt', 'w') as f:
+              f.write('DISPATCH WINDOW\n')
+              for x in window:
+                  f.write(f"0x{x['addr']:08x}  {x['asm']}\n")
+              f.write('\nCONTROL / COMPARE\n')
+              for x in controls:
+                  f.write(f"0x{x['addr']:08x}  {x['asm']}\n")
+              f.write('\nINCOMING BRANCHES\n')
+              for x in incoming:
+                  f.write(f"0x{x['addr']:08x} -> 0x{x['target']:08x}  {x['asm']}\n")
+              for name, data in slices.items():
+                  f.write(f"\n{name.upper()} CC SETTERS\n")
+                  for x in data['cc_setters']:
+                      f.write(f"{x['addr']}  {x['asm']}\n")
+          (root / 'evidence' / 'dispatch_predecessors.sha256.txt').write_text(hashlib.sha256(raw).hexdigest() + '  dispatch_predecessors.json\n')
+
+          # Hard gates inherited from RBCLOSURE5H.
+          text = '\n'.join(x['asm'].lower() for x in window)
+          if 'ffa10c9a' not in text:
+              raise SystemExit('Green case reference missing from 5I window')
+          if 'ffa10ba4' not in text:
+              raise SystemExit('Interpolation case reference missing from 5I window')
+          print((root / 'evidence' / 'dispatch_predecessors.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload derived predecessor evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5I-DISPATCH-PREDECESSORS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5i/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5i/pass" "$RUNNER_TEMP/rb5i/m9.upd" "$RUNNER_TEMP/rb5i/mm.upm" "$RUNNER_TEMP/rb5i/m9.dec" "$RUNNER_TEMP/rb5i/run.bin" "$RUNNER_TEMP/rb5i/run.dis" "$RUNNER_TEMP/rb5i/base.txt"
