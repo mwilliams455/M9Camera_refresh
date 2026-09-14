@@ -33,11 +33,12 @@
     "production_green_call_count": 4,
     "known_production_call_sites": [
       "0xfeb106d8",
-      "0xfeb1070c",
-      "0xfeb10786",
-      "0xfeb107ba"
+      "0xfeb1071e",
+      "0xfeb1080c",
+      "0xfeb10844"
     ],
-    "known_mode_values_at_green_calls": [2, 2, 0, 0]
+    "known_mode_values_at_green_calls": [2, 2, 0, 0],
+    "call_site_correction_note": "The original freeze transcribed two nearby non-call addresses for calls 2-4. The corrected list above is taken directly from the exact 810-byte GreenInterpolationWithCo disassembly: CALL 0xffa03e00 appears at 0xfeb106d8, 0xfeb1071e, 0xfeb1080c, and 0xfeb10844."
   },
   "verification_note": "The exact body SHA was independently reconstructed from objdump byte fields including continuation words for the full address interval 0xffa03e00..0xffa03fa1 with no gaps or overlaps.",
   "status": "exact body and extent frozen; arithmetic/geometry direct oracle parity remains",
