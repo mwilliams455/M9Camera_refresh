@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Exact scalar composition of Leica M9 GreenInterpolationWithCo helper calls.
+"""Bit-faithful scalar composition of Leica M9 GreenInterpolationWithCo.
 
-This models the production 0xFEB10660 orchestration using helper contracts that
-were independently closed by BFINORACLE/BFINSCALAR and GREENORACLE6E.  The
-orchestrator pointer arithmetic is translated directly from the frozen 810-byte
-Blackfin body; no Android renderer code is involved.
-
-Memory is represented as 16-bit-addressable little-endian halfwords keyed by
-absolute byte address.  The Differ helper writes only the low halfword of each
-32-bit output cell, preserving its companion halfword exactly as firmware does.
+The four helper arithmetic/geometry contracts are independently frozen by
+BFINORACLE/BFINSCALAR and GREENORACLE6E.  This file translates the production
+0xFEB10660 orchestrator pointer arithmetic directly; it does not touch Android.
+Memory is a little-endian u16 address space so physical scratch writes remain
+visible to whole-buffer parity.
 """
 
 
@@ -55,19 +52,17 @@ class Memory16:
 
 
 def filter010(mem, src, dst, inner, outer, stride, selector):
-    """ASMFilter_010_101_010_2: cardinal four-neighbour reconstruction."""
+    """ASMFilter_010_101_010_2 cardinal-neighbour reconstruction."""
     if inner <= 0 or inner & 1 or outer <= 0 or stride <= inner:
         raise ValueError(('filter010 geometry', inner, outer, stride))
-    # Writes occupy the missing-sample lattice.  Reads are taken immediately
-    # from memory so in-place production calls retain firmware alias semantics.
+    if selector not in (0, 2):
+        raise ValueError(selector)
     for r in range(outer):
         for c in range(inner):
             center = src + 4*c + 4*stride*r
             total = (mem.read(center - 2) + mem.read(center + 2) +
                      mem.read(center - 2*stride) + mem.read(center + 2*stride))
             value = (total >> 2) if selector == 2 else u16(total)
-            if selector not in (0, 2):
-                raise ValueError(selector)
             mem.write(dst + 4*c + 4*stride*r, value)
 
 
@@ -77,12 +72,13 @@ def abs16_v(v):
 
 
 def filter101040(mem, src, out1, out2, inner, outer, stride):
-    """ASMFilter_101_040_101_An exact logical writes plus phase scratch."""
+    """ASMFilter_101_040_101_An logical outputs plus proven phase scratch."""
     if inner <= 0 or inner & 1 or outer <= 0 or stride <= 0 or stride & 1:
         raise ValueError(('filter101040 geometry', inner, outer, stride))
-    # BFINORACLE3D proved one extra phase-1 pipeline write at out2-4.  Across
-    # the oracle bank that scratch value is zero; retain that physical write so
-    # complete destination buffers can be compared, not only logical samples.
+    # BFINORACLE3D proves one extra physical stream2 write at out2-4 for the
+    # R0 mod4==2 lane branch.  Prior direct observations produced zero here;
+    # 6F deliberately compares the containing plane so any broader-domain
+    # behavior is exposed instead of hidden.
     if src & 0x2:
         mem.write(out2 - 4, 0)
     for r in range(outer):
@@ -104,7 +100,7 @@ def differ_sample(a, b, threshold, shift):
     d = a - b
     corr = threshold >> int(shift)
     cand = max(d - corr, 0) if d >= 0 else min(d + corr, 0)
-    if abs(d) < abs(threshold):
+    if abs(d) < threshold:
         d = cand
     return u16(d)
 
@@ -114,33 +110,36 @@ def differ_raw(a, b):
 
 
 def redblue_differ(mem, a, b, threshold, out, inner, outer, stride, shift):
-    """ASMRedBlueAndGreenDiffer including software-pipeline physical writes."""
+    """ASMRedBlueAndGreenDiffer including software-pipeline side effects."""
     if inner < 1 or outer < 1 or stride < inner:
         raise ValueError(('differ geometry', inner, outer, stride))
 
     def av(base, r, c):
         return mem.read(base + 4*(r*stride + c))
 
-    # First row: the routine's first pipeline store is before the public output
-    # pointer.  For inner>1 the visible raw stream starts from logical sample 1.
+    # BFINSCALAR2C establishes the pipeline stream one cell before the public
+    # output.  Preserve that guard write in the composite comparison too.
+    mem.write(out - 4, differ_raw(av(a, 0, 0), av(b, 0, 0)))
     if inner == 1:
         mem.write(out, differ_sample(av(a,0,0), av(b,0,0), av(threshold,0,0), shift))
     else:
         for c in range(1, inner):
             mem.write(out + 4*(c-1), differ_raw(av(a,0,c), av(b,0,c)))
         c = inner - 1
-        mem.write(out + 4*c, differ_sample(av(a,0,c), av(b,0,c), av(threshold,0,c), shift))
+        mem.write(out + 4*c,
+                  differ_sample(av(a,0,c), av(b,0,c), av(threshold,0,c), shift))
 
     for r in range(1, outer):
         for c in range(inner):
-            mem.write(out + 4*(r*stride - 1 + c), differ_raw(av(a,r,c), av(b,r,c)))
+            mem.write(out + 4*(r*stride - 1 + c),
+                      differ_raw(av(a,r,c), av(b,r,c)))
         c = inner - 1
         mem.write(out + 4*(r*stride + c),
                   differ_sample(av(a,r,c), av(b,r,c), av(threshold,r,c), shift))
 
 
 def filter101000(mem, src, dst, inner, outer, stride):
-    """ASMFilter_101_000_101_2 signed four-diagonal quarter average."""
+    """ASMFilter_101_000_101_2 signed four-diagonal quarter-average."""
     if inner <= 0 or inner & 1 or outer <= 0 or stride <= inner:
         raise ValueError(('filter101000 geometry', inner, outer, stride))
     for r in range(outer):
@@ -154,14 +153,13 @@ def filter101000(mem, src, dst, inner, outer, stride):
 
 
 def green_composite(mem, a, b, c, d, stride, height, shift, phase_initial):
-    """Compose the ten helper calls made by production GreenInterpolationWithCo.
+    """Compose the ten production helper calls from GreenInterpolationWithCo.
 
-    Arguments correspond to the live Green ABI after LINK:
-      R0=a, R1=b, R2=c,
-      FP+0x14=d, FP+0x18=stride, FP+0x1c=height,
-      FP+0x20=shift, FP+0x24=&phase.
-    The caller's sixth home-space word maps to FP+0x28 but is overwritten by
-    Green before any read and therefore is intentionally absent here.
+    Live ABI after Green's LINK:
+      R0=a, R1=b, R2=c, FP+0x14=d, FP+0x18=stride,
+      FP+0x1c=height, FP+0x20=shift, FP+0x24=&phase.
+    The incoming FP+0x28 home-space word is dead: Green overwrites it with H>>1
+    before any read.
     """
     trace = []
     half_h = int(height) >> 1
@@ -171,43 +169,51 @@ def green_composite(mem, a, b, c, d, stride, height, shift, phase_initial):
     inner0 = round_even_up((int(stride) >> 1) - p1)
     off1 = 2 * p1 * (stride + 1)
 
-    calls = [
-        ('filter010', a+off1, b+off1, inner0, outer0, stride, 2),
-        ('filter010', a+off1+2*stride+2, b+off1+2*stride+2, inner0, outer0, stride, 2),
-    ]
-    for row in calls:
-        trace.append(row); filter010(mem, *row[1:])
+    row = ('filter010', a+off1, b+off1, inner0, outer0, stride, 2)
+    trace.append(row); filter010(mem, *row[1:])
+    row = ('filter010', a+off1+2*stride+2, b+off1+2*stride+2,
+           inner0, outer0, stride, 2)
+    trace.append(row); filter010(mem, *row[1:])
 
-    row = ('filter101040', a+off1+2, b+off1+2, c+off1+2, inner0, outer0, stride)
+    # Exact 0xFEB10732..1076A asymmetry: source carries 2*S*p1 but not +2*p1;
+    # B/C outputs use the full off1 term.
+    row = ('filter101040', a+2*stride*p1+2, b+off1+2, c+off1+2,
+           inner0, outer0, stride)
     trace.append(row); filter101040(mem, *row[1:])
-    row = ('filter101040', a+off1+2*stride, b+off1+2*stride, c+off1+2*stride, inner0, outer0, stride)
+    row = ('filter101040', a+off1+2*stride, b+off1+2*stride,
+           c+off1+2*stride, inner0, outer0, stride)
     trace.append(row); filter101040(mem, *row[1:])
 
     p2 = p1 + 1
     outer1 = half_h - p2
     inner1 = round_even_up((int(stride) >> 1) - p2)
     off2 = 2 * p2 * (stride + 1)
+
     row = ('filter010', c+off2, c+off2, inner1, outer1, stride, 0)
     trace.append(row); filter010(mem, *row[1:])
-    row = ('filter010', c+off2+2*stride+2, c+off2+2*stride+2, inner1, outer1, stride, 0)
+    row = ('filter010', c+off2+2*stride+2, c+off2+2*stride+2,
+           inner1, outer1, stride, 0)
     trace.append(row); filter010(mem, *row[1:])
 
-    row = ('differ', a+off2, b+off2, c+off2, d+off2, inner1, outer1, stride, shift)
+    row = ('differ', a+off2, b+off2, c+off2, d+off2,
+           inner1, outer1, stride, shift)
     trace.append(row); redblue_differ(mem, *row[1:])
-    # The second production Difference call uses a deliberately different A
-    # phase than B/C/D; this asymmetry is taken directly from 0xFEB108DE..F2.
-    a2 = a + 2*stride*p2 + 2*stride + 2
-    bc2 = off2 + 2*stride + 2
-    row = ('differ', a2, b+bc2, c+bc2, d+bc2, inner1, outer1, stride, shift)
+    # Exact 0xFEB1089A..108F2 replay: all A/B/C/D planes carry the same
+    # off2 + 2*S + 2 phase on the second Difference call.
+    off2b = off2 + 2*stride + 2
+    row = ('differ', a+off2b, b+off2b, c+off2b, d+off2b,
+           inner1, outer1, stride, shift)
     trace.append(row); redblue_differ(mem, *row[1:])
 
     p3 = p2 + 1
     outer2 = half_h - p3
     inner2 = round_even_up((int(stride) >> 1) - p3)
     off3 = 2 * p3 * (stride + 1)
+
     row = ('filter101000', d+off3, a+off3, inner2, outer2, stride)
     trace.append(row); filter101000(mem, *row[1:])
-    row = ('filter101000', d+off3+2*stride+2, a+off3+2*stride+2, inner2, outer2, stride)
+    row = ('filter101000', d+off3+2*stride+2, a+off3+2*stride+2,
+           inner2, outer2, stride)
     trace.append(row); filter101000(mem, *row[1:])
 
     return {
