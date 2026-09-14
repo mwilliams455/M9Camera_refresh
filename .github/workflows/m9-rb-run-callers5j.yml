@@ -1,0 +1,199 @@
+name: M9 R/B RBCLOSURE5J Run Callers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-run-callers5j.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  callers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover selected canonical BF561 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5j"
+          mkdir -p "$ROOT/evidence" "$ROOT/blocks" "$ROOT/dis"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json, os, pathlib, importlib.util, sys, hashlib
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'rb5j'
+          d = json.load(open(root / 'pass/report.json'))
+          cand = []
+          for i, x in enumerate(d.get('bf561_deep', [])):
+              det = x.get('detail', {}) if isinstance(x.get('detail'), dict) else {}
+              t = det.get('targets', {}) if isinstance(det, dict) else {}
+              if x.get('covered',0) > 0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')), x.get('covered',0), i))
+          cand.sort(reverse=True)
+          pair = cand[0][2]
+          pdir = root / 'pass' / f'bf561_pair_{pair:02d}'
+          bf0 = next(pdir.rglob('bf0.bin'))
+          mp = next(pdir.rglob('bf0.map'))
+          spec = importlib.util.spec_from_file_location('base', 'tools/m9_sharpnessforensics1a.py')
+          m = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = m
+          spec.loader.exec_module(m)
+          _, blocks = m.parse_ldr(bf0)
+          syms = m.parse_map(mp)
+          runs = [s for s in syms if s['name'] == 'Run']
+          if not runs:
+              raise SystemExit('Run symbol missing')
+          run = max(runs, key=lambda q:int(q.get('size',0)))
+          meta = []
+          for i,b in enumerate(blocks):
+              data = b['data']
+              p = root / 'blocks' / f'block_{i:03d}.bin'
+              p.write_bytes(data)
+              meta.append({'index':i,'addr':f"0x{int(b['addr']):08x}",'count':int(b['count']),'sha256':hashlib.sha256(data).hexdigest()})
+          (root / 'blocks_meta.json').write_text(json.dumps(meta,indent=2)+'\n')
+          (root / 'symbols.json').write_text(json.dumps(syms,indent=2)+'\n')
+          (root / 'evidence' / 'image_meta.json').write_text(json.dumps({
+              'selected_pair':pair,
+              'run_entry':f"0x{int(run['addr']):08x}",
+              'run_size':int(run['size']),
+              'block_count':len(blocks)
+          },indent=2)+'\n')
+          PY
+          python3 - <<'PY'
+          import json, os, pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5j'
+          meta=json.load(open(root/'blocks_meta.json'))
+          with open(root/'objdump_jobs.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for x in meta:
+                  i=x['index']; addr=x['addr']
+                  f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={addr} "$RUNNER_TEMP/rb5j/blocks/block_{i:03d}.bin" > "$RUNNER_TEMP/rb5j/dis/block_{i:03d}.dis"\n')
+          PY
+          bash "$ROOT/objdump_jobs.sh"
+
+      - name: Find direct Run references and recover argument setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5j"
+          python3 - <<'PY'
+          import os, pathlib, re, json, hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5j'
+          meta=json.load(open(root/'blocks_meta.json'))
+          syms=json.load(open(root/'symbols.json'))
+          run_entry=0xffa10320
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I)
+          target_rx=re.compile(r'0x0?([0-9a-f]{8})',re.I)
+          refs=[]; literal_mentions=[]
+          by_block={}
+          for bm in meta:
+              i=bm['index']; ins=[]
+              for line in (root/'dis'/f'block_{i:03d}.dis').read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m:
+                      ins.append({'addr':int(m.group(1),16),'bytes':m.group(2).strip(),'asm':m.group(3).strip(),'block':i})
+              by_block[i]=ins
+              for j,x in enumerate(ins):
+                  a=x['asm'].lower()
+                  if 'ffa10320' in a:
+                      literal_mentions.append((i,j,x))
+                      mt=target_rx.search(x['asm'])
+                      if mt and int(mt.group(1),16)==run_entry and ('call' in a or 'jump' in a):
+                          refs.append((i,j,x))
+
+          def owners(addr):
+              out=[]
+              for s in syms:
+                  try:
+                      a=int(s['addr']); z=int(s.get('size',0))
+                  except Exception:
+                      continue
+                  if z>0 and a <= addr < a+z:
+                      out.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return out
+
+          def ser(xs):
+              return [{'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm'],'block':x['block']} for x in xs]
+
+          callers=[]
+          for i,j,x in refs:
+              ins=by_block[i]
+              ctx=ins[max(0,j-80):min(len(ins),j+16)]
+              before=ins[max(0,j-80):j]
+              r0defs=[q for q in before if re.search(r'\bR0\s*=',q['asm'],re.I)]
+              pdefs=[q for q in before if re.search(r'\bP[0-5]\s*=',q['asm'],re.I)]
+              stores=[q for q in before if re.search(r'\[[^\]]+\]\s*=\s*R[0-7]',q['asm'],re.I)]
+              callers.append({
+                  'site':f"0x{x['addr']:08x}",
+                  'instruction':x['asm'],
+                  'block':i,
+                  'map_owners':owners(x['addr']),
+                  'context':ser(ctx),
+                  'recent_r0_definitions':ser(r0defs[-12:]),
+                  'recent_pointer_definitions':ser(pdefs[-20:]),
+                  'recent_stores':ser(stores[-24:])
+              })
+
+          mentions=[{'site':f"0x{x['addr']:08x}",'instruction':x['asm'],'block':i,'map_owners':owners(x['addr'])} for i,j,x in literal_mentions]
+          rep={
+              'schema':'m9.rbclosure5j.run-callers.v1',
+              'run_entry':'0xffa10320',
+              'direct_control_ref_count':len(callers),
+              'all_literal_instruction_mentions':mentions,
+              'direct_callers':callers,
+              'interpretation': 'A zero direct-call count is meaningful evidence for indirect dispatch/function-pointer orchestration and is not treated as workflow failure.'
+          }
+          raw=(json.dumps(rep,indent=2)+'\n').encode()
+          (root/'evidence'/'run_callers.json').write_bytes(raw)
+          with open(root/'evidence'/'run_callers.txt','w') as f:
+              f.write(f'DIRECT CONTROL REFS TO Run 0xffa10320: {len(callers)}\n')
+              for c in callers:
+                  f.write(f"\nCALLER {c['site']}  {c['instruction']}\n")
+                  f.write('OWNERS '+json.dumps(c['map_owners'])+'\n')
+                  for q in c['context']:
+                      f.write(f"{q['addr']}  {q['asm']}\n")
+              f.write('\nALL LITERAL INSTRUCTION MENTIONS\n')
+              for m in mentions:
+                  f.write(json.dumps(m)+'\n')
+          (root/'evidence'/'run_callers.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  run_callers.json\n')
+          print((root/'evidence'/'run_callers.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload derived Run-caller evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5J-RUN-CALLERS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5j/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5j/pass" "$RUNNER_TEMP/rb5j/m9.upd" "$RUNNER_TEMP/rb5j/mm.upm" "$RUNNER_TEMP/rb5j/m9.dec" "$RUNNER_TEMP/rb5j/blocks" "$RUNNER_TEMP/rb5j/dis" "$RUNNER_TEMP/rb5j/blocks_meta.json" "$RUNNER_TEMP/rb5j/symbols.json" "$RUNNER_TEMP/rb5j/objdump_jobs.sh"
