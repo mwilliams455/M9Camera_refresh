@@ -1,0 +1,183 @@
+name: M9 R/B RBORACLE7B Whole-Buffer Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-rboracle7b-wholebuffer-parity.yml'
+      - 'research/bfin/interp1_physical_write_oracle.s'
+      - 'research/bfin/interp1_scalar_exact.py'
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover exact Leica R/B body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb7b"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb7b'; report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          addr,size=0xffa03410,584; expected='997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828'
+          selected=None
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if len(body)==size and hashlib.sha256(body).hexdigest()==expected: selected=(i,body); break
+            except Exception: pass
+          if selected is None: raise SystemExit('canonical R/B body not found')
+          pair,body=selected; (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
+          (root/'evidence'/'body.json').write_text(json.dumps({'pair':pair,'entry':hex(addr),'size':size,'sha256':expected,'verified':True},indent=2)+'\n')
+          PY
+
+      - name: Execute whole-buffer machine versus scalar parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb7b"
+          cp research/bfin/interp1_physical_write_oracle.s "$ROOT/"
+          cp research/bfin/interp1_scalar_exact.py "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x4000; .oracle_diff : { *(.oracle_diff) }
+            . = 0x5000; .oracle_green : { *(.oracle_green) }
+            . = 0x6000; .oracle_outa : { *(.oracle_outa) }
+            . = 0x7000; .oracle_outb : { *(.oracle_outb) }
+            . = 0x8000; .oracle_border : { *(.oracle_border) }
+            . = 0x9000; .oracle_stack : { *(.oracle_stack) }
+            . = 0x20000; .text.start : { *(.text.start) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,random,re,subprocess,sys
+          sys.path.insert(0,'.')
+          from interp1_scalar_exact import render_interp1
+          ev=pathlib.Path('evidence')
+          HALFWORDS=1024
+          CASES=[(8,8,0),(8,8,1),(10,8,0),(10,8,1),(10,10,0),(10,10,1),(10,10,2),(12,10,0),(12,10,2),(12,12,3)]
+          SEEDS=(0,1)
+          EDGES=[0,1,2,3,4,7,8,0x1fff,0x3fff,0x4000,0x7fff,0x8000,0xfffe,0xffff]
+          report={'schema':'m9.rboracle7b.interp1-whole-buffer-parity.v1',
+                  'routine_sha256':'997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828',
+                  'runs':{},'run_count':0,'output_halfwords_compared':0,'support_words_compared':0,'exact_match':True}
+          def write_inc(path,vals): pathlib.Path(path).write_text(''.join(f'.short 0x{x:04x}\n' for x in vals))
+          def unpack(ws):
+            out=[]
+            for q in ws: out.extend([q&0xffff,(q>>16)&0xffff])
+            return out
+          for width,height,sbefore in CASES:
+            safter=sbefore+1; phase_bytes=2*(safter&1)
+            green_ptr=0x5040+phase_bytes; outa_ptr=0x6040+phase_bytes; outb_ptr=0x7040+phase_bytes
+            for seed_i in SEEDS:
+              seed=0x7b000000 + width*0x10000 + height*0x100 + sbefore*0x10 + seed_i
+              rng=random.Random(seed)
+              diff=[rng.randrange(65536) for _ in range(HALFWORDS)]
+              green=[rng.randrange(0x4000) for _ in range(HALFWORDS)]
+              outa0=[rng.randrange(65536) for _ in range(HALFWORDS)]
+              outb0=[rng.randrange(65536) for _ in range(HALFWORDS)]
+              db=0x40//2; gb=(green_ptr-0x5000)//2
+              for j,v in enumerate(EDGES):
+                for mul in (1,5,11):
+                  k=db+2+j*mul
+                  if k<HALFWORDS: diff[k]=v
+                k=gb+3+j*7
+                if k<HALFWORDS: green[k]=v&0x3fff
+              write_inc('oracle_diff_data.inc',diff); write_inc('oracle_green_data.inc',green)
+              write_inc('oracle_outa_data.inc',outa0); write_inc('oracle_outb_data.inc',outb0)
+              name=f'w{width}_h{height}_s{sbefore}_p{phase_bytes}_n{seed_i}'
+              subprocess.run([os.environ['BFIN_AS'],'--defsym',f'WIDTH={width}','--defsym',f'HEIGHT={height}',
+                              '--defsym',f'SUPPORT_INIT={sbefore}','--defsym',f'GREEN_PTR={green_ptr}',
+                              '--defsym',f'OUTA_PTR={outa_ptr}','--defsym',f'OUTB_PTR={outb_ptr}',
+                              'interp1_physical_write_oracle.s','-o',name+'.o'],check=True)
+              subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',name+'.o','-o',name+'.elf'],check=True)
+              sim=subprocess.run([os.environ['BFIN_SIM'],name+'.elf'],capture_output=True,text=True)
+              if sim.returncode:
+                (ev/f'{name}.stdout.txt').write_text(sim.stdout); (ev/f'{name}.stderr.txt').write_text(sim.stderr)
+                raise SystemExit(f'{name}: simulator rc={sim.returncode}')
+              vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',sim.stdout)]
+              if len(vals)!=1025: raise SystemExit(f'{name}: expected 1025 DBG, got {len(vals)}')
+              support_machine=vals[0]&0xffffffff; machine_a=unpack(vals[1:513]); machine_b=unpack(vals[513:1025])
+              n=width*height
+              scalar_a,scalar_b=render_interp1(diff[db:db+n],green[gb:gb+n],width,height,sbefore)
+              expect_a=list(outa0); expect_b=list(outb0); op=(outa_ptr-0x6000)//2
+              for y in range(safter,height-safter):
+                for x in range(safter,width-safter):
+                  k=y*width+x; expect_a[op+k]=scalar_a[k]; expect_b[op+k]=scalar_b[k]
+              diffs=[]
+              if support_machine!=safter: diffs.append({'kind':'support','machine':support_machine,'scalar':safter})
+              for label,mv,sv,base in [('A',machine_a,expect_a,0x6000),('B',machine_b,expect_b,0x7000)]:
+                for i,(m,s) in enumerate(zip(mv,sv)):
+                  if m!=s:
+                    diffs.append({'kind':'output','plane':label,'index':i,'address':hex(base+2*i),'machine':m,'scalar':s})
+                    if len(diffs)>=40: break
+                if len(diffs)>=40: break
+              if diffs:
+                report['exact_match']=False
+                (ev/f'{name}_MISMATCH.json').write_text(json.dumps({'case':name,'seed':seed,'first_differences':diffs},indent=2)+'\n')
+                raise SystemExit(f'{name}: whole-buffer mismatch {diffs[:8]}')
+              joined=b''.join(v.to_bytes(2,'little') for v in machine_a+machine_b)
+              report['runs'][name]={'width':width,'height':height,'support_before':sbefore,'support_after':support_machine,
+                                    'phase_bytes':phase_bytes,'seed':seed,'output_halfwords_compared':2*HALFWORDS,
+                                    'machine_outputs_sha256':hashlib.sha256(joined).hexdigest(),'exact_match':True}
+              report['run_count']+=1; report['output_halfwords_compared']+=2*HALFWORDS; report['support_words_compared']+=1
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'rboracle7b_wholebuffer_parity.json').write_bytes(raw)
+          (ev/'rboracle7b_wholebuffer_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  rboracle7b_wholebuffer_parity.json\n')
+          summary={'runs':report['run_count'],'output_halfwords_compared':report['output_halfwords_compared'],
+                   'support_words_compared':report['support_words_compared'],'exact_match':report['exact_match'],
+                   'geometries':CASES,'seeds_per_geometry':len(SEEDS)}
+          (ev/'rboracle7b_summary.json').write_text(json.dumps(summary,indent=2)+'\n'); print(json.dumps(summary,indent=2))
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBORACLE7B-WHOLEBUFFER-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb7b/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/rb7b/pass" "$RUNNER_TEMP/rb7b/m9.upd" "$RUNNER_TEMP/rb7b/mm.upm" "$RUNNER_TEMP/rb7b/m9.dec"
+          rm -f "$RUNNER_TEMP/rb7b"/*.bin "$RUNNER_TEMP/rb7b"/*.o "$RUNNER_TEMP/rb7b"/*.elf "$RUNNER_TEMP/rb7b"/*.inc
