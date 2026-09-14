@@ -1,0 +1,121 @@
+name: M9 R/B GREENORACLE6A2 Production Green Body
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths: ['.github/workflows/m9-rb-greenoracle6a2.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b; cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover BF561 and exact production Green body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6a2"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          PAIR=$(find "$ROOT/pass" -type f -name bf0.map -printf '%h\n' | sort | head -1); test -f "$PAIR/bf0.bin"
+          cp "$PAIR/bf0.map" "$ROOT/bf0.map"; cp "$PAIR/bf0.bin" "$ROOT/bf0.bin"
+          python3 - <<'PY'
+          import os,pathlib,struct,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6a2'; m=(root/'bf0.map').read_bytes(); ldr=(root/'bf0.bin').read_bytes()
+          target=0xFEB10660; rows=[]
+          for o in range(0,len(m),32):
+              r=m[o:o+32]; name=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'"); addr,size=struct.unpack_from('<II',r,24)
+              if name=='GreenInterpolationWithCo': rows.append((name,addr,size))
+          hits=[x for x in rows if x[1]==target]
+          if len(hits)!=1: raise SystemExit(f'production target missing/ambiguous: all={rows}')
+          name,addr,size=hits[0]
+          off=4; blocks=[]
+          while off+10<=len(ldr):
+              ba,count,flags=struct.unpack_from('<IIH',ldr,off); off+=10
+              if count>16*1024*1024: break
+              if flags&1: payload=bytes(count)
+              else:
+                  if off+count>len(ldr): break
+                  payload=ldr[off:off+count]; off+=count
+              blocks.append((ba,count,flags,payload))
+              if flags&0x8000: break
+          body=bytearray(size); cov=bytearray(size)
+          for ba,count,flags,p in blocks:
+              lo=max(addr,ba); hi=min(addr+size,ba+count)
+              if lo<hi: body[lo-addr:hi-addr]=p[lo-ba:hi-ba]; cov[lo-addr:hi-addr]=b'\1'*(hi-lo)
+          if not all(cov): raise SystemExit('production body not fully covered')
+          (root/'green.bin').write_bytes(body)
+          meta={'schema':'m9.greenoracle6a2.production-body.v1','target':hex(target),'symbol':name,'size':size,'body_sha256':hashlib.sha256(body).hexdigest(),'same_name_symbols':[{'address':hex(a),'size':s} for _,a,s in rows]}
+          (root/'evidence'/'green_body_meta.json').write_text(json.dumps(meta,indent=2)+'\n'); print(json.dumps(meta,indent=2))
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xFEB10660 "$ROOT/green.bin" > "$ROOT/evidence/green_disasm.txt"
+      - name: Analyze production Green ABI and arithmetic surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6a2"
+          python3 - <<'PY'
+          import os,pathlib,re,json,struct,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6a2'; txt=(root/'evidence'/'green_disasm.txt').read_text(errors='replace'); mp=(root/'bf0.map').read_bytes()
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I); ins=[]
+          for ln in txt.splitlines():
+              m=rx.match(ln)
+              if m: ins.append({'address':f"0x{int(m.group(1),16):08x}",'asm':m.group(2).strip()})
+          syms=[]
+          for o in range(0,len(mp),32):
+              r=mp[o:o+32]; n=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'"); a,s=struct.unpack_from('<II',r,24)
+              if n: syms.append((a,s,n))
+          def sy(v):
+              q=[{'name':n,'address':hex(a),'size':s} for a,s,n in syms if a==v]
+              if q:return q
+              return [{'name':n,'address':hex(a),'size':s,'offset':hex(v-a)} for a,s,n in syms if s and a<=v<a+s][:6]
+          calls=[]; mem=[]; stack=[]; shifts=[]; arith=[]; loops=[]
+          for x in ins:
+              a=x['asm']; cm=re.search(r'\bCALL(?:\.S)?\s+0x(?:0x)?([0-9a-f]+)',a,re.I)
+              if cm:
+                  v=int(cm.group(1),16); calls.append({**x,'target':hex(v),'symbols':sy(v)})
+              if '[' in a and ']' in a: mem.append(x)
+              if 'SP' in a or 'FP' in a: stack.append(x)
+              if any(k in a.upper() for k in ('ASHIFT','LSHIFT','>>>','<<','>>')): shifts.append(x)
+              if any(k in a.upper() for k in ('+','-','*','MIN','MAX','SAT','PACK','SIGNBITS')): arith.append(x)
+              if any(k in a.upper() for k in ('LOOP','LSETUP')): loops.append(x)
+          meta=json.loads((root/'evidence'/'green_body_meta.json').read_text())
+          rep={'schema':'m9.greenoracle6a2.production-analysis.v1','meta':meta,'instruction_count':len(ins),'first_100':ins[:100],'last_100':ins[-100:],'direct_calls':calls,'memory_accesses':mem,'stack_fp_accesses':stack,'shifts':shifts,'arithmetic_candidates':arith,'loop_setup':loops}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'green_analysis.json').write_bytes(raw); (root/'evidence'/'green_analysis.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  green_analysis.json\n')
+          with open(root/'evidence'/'green_summary.txt','w') as f:
+              f.write(f"production Green {meta['target']} size={meta['size']} sha={meta['body_sha256']}\n")
+              f.write(f"instructions={len(ins)} calls={len(calls)} mem={len(mem)} stack={len(stack)} shifts={len(shifts)} loops={len(loops)}\n\nCALLS\n")
+              for c in calls:f.write(json.dumps(c)+'\n')
+              f.write('\nSTACK/FP\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in stack]
+              f.write('\nSHIFTS\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in shifts]
+          print((root/'evidence'/'green_summary.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6A2-PRODUCTION-GREEN
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6a2/evidence/*
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/green6a2/pass" "$RUNNER_TEMP/green6a2/m9.upd" "$RUNNER_TEMP/green6a2/mm.upm" "$RUNNER_TEMP/green6a2/m9.dec" "$RUNNER_TEMP/green6a2/bf0.map" "$RUNNER_TEMP/green6a2/bf0.bin" "$RUNNER_TEMP/green6a2/green.bin"
