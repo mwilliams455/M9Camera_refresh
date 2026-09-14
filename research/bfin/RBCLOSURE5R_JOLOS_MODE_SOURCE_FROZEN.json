@@ -1,0 +1,36 @@
+{
+  "schema": "m9.rbclosure5r.jolos-mode-source-frozen.v1",
+  "source_run": 34833321654,
+  "source_commit": "bb96c91768c98495dc22f9b9b4b2f92ef6633b41",
+  "artifact": "M9-RB-RBCLOSURE5R-JOLOS-MODE-SOURCE",
+  "artifact_id": 10343211169,
+  "artifact_zip_sha256": "aaa4bd6b3fa9767db02f530c0c06e6f8c0db6a7c8edbfef97725a1ab2fb8cebb",
+  "selected_bf561_pair": 3,
+  "mode_object": {
+    "address": "0xfeb00ea8",
+    "name": "ImageSettings",
+    "size": 68,
+    "mode_byte": "0xfeb00eac (ImageSettings+4)",
+    "canonical_image_value": 0,
+    "canonical_storage": "zero-initialized runtime object"
+  },
+  "sole_address_materialization": {
+    "function": "Task_TaskInterpolation @ 0xfeb139e8",
+    "site": "0xfeb13a22..0xfeb13a26",
+    "register": "R4"
+  },
+  "pre_StartInterpolation_sequence": [
+    "0xfeb13a2a: CALL 0xffa126e4",
+    "0xfeb13a2e: R1 = R4 (ImageSettings)",
+    "0xfeb13a30: R0 = R7",
+    "0xfeb13a32: CALL 0xffa12678",
+    "0xfeb13a36: R0 = R4 (ImageSettings)",
+    "0xfeb13a38: CALL 0xffa1261a",
+    "0xfeb13a3c: R2 = R4 (ImageSettings)",
+    "0xfeb13a42: CALL StartInterpolation"
+  ],
+  "direct_task_write_to_ImageSettings_plus4": false,
+  "interpretation": "The production Jolos mode byte is runtime-populated through helper logic immediately before StartInterpolation. The task itself does not directly write ImageSettings+4.",
+  "next_gate": "Resolve and disassemble 0xffa126e4, 0xffa12678 and 0xffa1261a. Track ImageSettings argument writes, especially byte +4, and prove the final value entering StartInterpolation.",
+  "production_status": "untouched"
+}
