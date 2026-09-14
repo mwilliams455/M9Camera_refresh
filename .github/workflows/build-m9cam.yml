@@ -5,6 +5,7 @@ on:
   push:
     branches-ignore:
       - m9nohdr1a-sourcecal2a-cmfix-fixedgain1a
+      - research/sharpness-rbclosure1d-packedphase1a
 
 jobs:
   build:
