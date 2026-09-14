@@ -60,6 +60,29 @@ if old not in text:
     raise SystemExit('NATIVEPROSPECTIVE1A FIX1 original extractor anchor missing')
 text = text.replace(old, new, 1)
 
+offset_old = '''if 'import java.nio.charset.StandardCharsets;' not in renderer:
+    renderer = renderer.replace('import java.nio.file.Files;\\n', 'import java.nio.file.Files;\\nimport java.nio.charset.StandardCharsets;\\n', 1)
+
+prospective = frozen_render_core
+'''
+offset_new = '''if 'import java.nio.charset.StandardCharsets;' not in renderer:
+    renderer = renderer.replace('import java.nio.file.Files;\\n', 'import java.nio.file.Files;\\nimport java.nio.charset.StandardCharsets;\\n', 1)
+
+# FIX2: imports above renderCore change absolute character offsets. Re-extract the
+# frozen method after import insertion and use its rebased end position for the
+# sibling-method insertion. The method bytes themselves must remain identical.
+_, rebased_orig_end, rebased_frozen_render_core = extract_method(
+    renderer, '    private static RenderCore renderCore(')
+if rebased_frozen_render_core != frozen_render_core:
+    raise SystemExit('NATIVEPROSPECTIVE1A FIX2 imports unexpectedly changed frozen renderCore')
+orig_end = rebased_orig_end
+
+prospective = frozen_render_core
+'''
+if offset_old not in text:
+    raise SystemExit('NATIVEPROSPECTIVE1A FIX2 import-offset anchor missing')
+text = text.replace(offset_old, offset_new, 1)
+
 code = compile(text, str(source), 'exec')
 g = {'__name__': '__main__', '__file__': str(source)}
 exec(code, g, g)
