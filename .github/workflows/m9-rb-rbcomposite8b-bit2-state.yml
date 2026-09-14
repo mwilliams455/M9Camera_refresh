@@ -1,0 +1,157 @@
+name: M9 R/B RBCOMPOSITE8B Bit2 Pre-Green State
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-rbcomposite8b-bit2-state.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover canonical BF561 image, Run and bit2 callee
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb8b"; mkdir -p "$ROOT/evidence" "$ROOT/blocks"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib,bisect
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb8b'; d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=sorted(m.parse_map(mp),key=lambda s:int(s['addr'])); starts=[int(s['addr']) for s in syms]
+          def owner(addr):
+              j=bisect.bisect_right(starts,addr)-1
+              if j<0:return None
+              s=syms[j]; return {'name':s['name'],'addr':f"0x{int(s['addr']):08x}",'size':int(s.get('size',0) or 0),'offset':addr-int(s['addr'])}
+          def symbol_exact(addr):
+              return [s for s in syms if int(s['addr'])==addr]
+          def body_for(addr,minimum=2):
+              exact=symbol_exact(addr)
+              sizes=[int(s.get('size',0) or 0) for s in exact if int(s.get('size',0) or 0)>0]
+              if sizes: size=max(sizes)
+              else:
+                  nxt=next((x for x in starts if x>addr),None); size=(nxt-addr) if nxt else minimum
+              return m.read_overlay(blocks,addr,size),size
+          run_exact=[s for s in syms if s['name']=='Run' and int(s['addr'])==0xffa10320]
+          run=max(run_exact,key=lambda s:int(s.get('size',0) or 0)); run_body=m.read_overlay(blocks,0xffa10320,int(run['size']))
+          callee_body,callee_size=body_for(0xffa007f8)
+          (root/'run.bin').write_bytes(run_body); (root/'callee.bin').write_bytes(callee_body)
+          # Materialize all blocks for writer/xref scan.
+          manifest=[]
+          for bi,b in enumerate(blocks):
+              addr=int(b.get('addr',b.get('address',0))); data=b.get('data',b.get('payload',b''))
+              if not isinstance(data,(bytes,bytearray)) or not data: continue
+              p=root/'blocks'/f'{bi:03d}_{addr:08x}.bin'; p.write_bytes(data); manifest.append({'file':p.name,'addr':addr,'size':len(data)})
+          (root/'manifest.json').write_text(json.dumps(manifest))
+          obj_addr=0xfeb00438
+          meta={'selected_pair':pair,'run_sha256':hashlib.sha256(run_body).hexdigest(),
+                'bit2_callee':{'entry':'0xffa007f8','size':callee_size,'sha256':hashlib.sha256(callee_body).hexdigest(),'map_exact':[{'name':s['name'],'size':int(s.get('size',0) or 0)} for s in symbol_exact(0xffa007f8)],'owner':owner(0xffa007f8)},
+                'run_arg1_object':'0xfeb00258','bit2_source_address':'0xfeb00438','bit2_source_owner':owner(obj_addr),
+                'bit2_source_exact_symbols':[{'name':s['name'],'size':int(s.get('size',0) or 0)} for s in symbol_exact(obj_addr)]}
+          (root/'evidence'/'identity.json').write_text(json.dumps(meta,indent=2)+'\n')
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xffa10320 "$ROOT/run.bin" > "$ROOT/run.dis"
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xffa007f8 "$ROOT/callee.bin" > "$ROOT/callee.dis"
+          while read -r file addr; do "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$addr" "$ROOT/blocks/$file" > "$ROOT/blocks/$file.dis"; done < <(python3 - <<'PY'
+          import json,os,pathlib
+          r=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb8b'
+          for x in json.load(open(r/'manifest.json')): print(x['file'],f"{x['addr']:x}")
+          PY
+          )
+
+      - name: Analyze exact bit2 value flow and 0xFEB00438 provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb8b"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb8b'
+          irx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I)
+          def parse(path):
+              out=[]
+              for line in pathlib.Path(path).read_text(errors='replace').splitlines():
+                  m=irx.match(line)
+                  if m: out.append({'addr':int(m.group(1),16),'bytes':m.group(2).strip(),'asm':m.group(3).strip()})
+              return out
+          def ser(xs): return [{'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm']} for x in xs]
+          run=parse(root/'run.dis'); callee=parse(root/'callee.dis')
+          bit2=[x for x in run if 0xffa10600<=x['addr']<0xffa106d0]
+          # Track all direct mentions/materializations of 0xFEB00438 in disassembled BF561 blocks.
+          refs=[]
+          # Search both exact address textual forms and hi/lo materialization neighborhoods.
+          target=0xfeb00438
+          for p in sorted((root/'blocks').glob('*.dis')):
+              xs=parse(p)
+              for i,x in enumerate(xs):
+                  asm=x['asm'].lower().replace(' ','')
+                  hit=('0xfeb00438' in asm) or ('0x438' in asm and any('0xfeb0' in q['asm'].lower() for q in xs[max(0,i-4):min(len(xs),i+5)]))
+                  if hit: refs.append({'file':p.name,'at':f"0x{x['addr']:08x}",'context':ser(xs[max(0,i-8):min(len(xs),i+9)])})
+          # Scan for functions/calls around bit2 and any instruction explicitly writing source address if absolute P register resolved nearby.
+          report={'schema':'m9.rbcomposite8b.bit2-pre-green-state.v1',
+                  'production_run_arg1':'0xfeb00258','source_field_offset':'0x1e0','source_address':'0xfeb00438',
+                  'bit2_window':ser(bit2),'bit2_callee_disassembly':ser(callee),
+                  'source_address_refs':refs,
+                  'parallel_packet_note':'At 0xffa10696, Blackfin parallel semantics must be interpreted from one packet: R0 = ROT R6 BY 0 || [FP+8] = R0 || NOP. The store consumes the packet-entry R0, while the register result is R6.',
+                  'question':'Determine exact packet-entry R0 from 0xffa10688..10696 and whether 0xffa007f8 can modify shared FP+8 indirectly.'}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'bit2_trace.json').write_bytes(raw)
+          with open(root/'evidence'/'bit2_trace.txt','w') as f:
+              f.write('BIT2 WINDOW\n')
+              for x in bit2:f.write(f"0x{x['addr']:08x}  {x['asm']}\n")
+              f.write('\nBIT2 CALLEE @0xFFA007F8\n')
+              for x in callee:f.write(f"0x{x['addr']:08x}  {x['asm']}\n")
+              f.write(f'\nSOURCE ADDRESS REFS ({len(refs)})\n')
+              for r in refs:
+                  f.write(f"{r['file']} {r['at']}\n")
+                  for x in r['context']:f.write(f"  {x['addr']}  {x['asm']}\n")
+          (root/'evidence'/'bit2_trace.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  bit2_trace.json\n')
+          print((root/'evidence'/'bit2_trace.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload derived bit2 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCOMPOSITE8B-BIT2-PREGREEN
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb8b/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb8b/pass" "$RUNNER_TEMP/rb8b/blocks" "$RUNNER_TEMP/rb8b/m9.upd" "$RUNNER_TEMP/rb8b/mm.upm" "$RUNNER_TEMP/rb8b/m9.dec" "$RUNNER_TEMP/rb8b/run.bin" "$RUNNER_TEMP/rb8b/callee.bin" "$RUNNER_TEMP/rb8b/run.dis" "$RUNNER_TEMP/rb8b/callee.dis" "$RUNNER_TEMP/rb8b/manifest.json"
