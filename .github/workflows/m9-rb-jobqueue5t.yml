@@ -1,0 +1,172 @@
+name: M9 R/B RBCLOSURE5T Job Queue Producers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-jobqueue5t.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover selected BF561 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5t"
+          mkdir -p "$ROOT/evidence" "$ROOT/blocks" "$ROOT/dis"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5t'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp); addr=0xfeb1e0a8
+          exact=[];cover=[]
+          for s in syms:
+              try:a=int(s['addr']);z=int(s.get('size',0))
+              except Exception:continue
+              if a==addr: exact.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              if z>0 and a<=addr<a+z: cover.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z,'offset':addr-a})
+          im=[]
+          for s in syms:
+              n=str(s.get('name',''))
+              try:a=int(s['addr']);z=int(s.get('size',0))
+              except Exception:continue
+              if n.startswith('IM_') or 0xffa125e0 <= a <= 0xffa12740:
+                  im.append({'name':n,'addr':f'0x{a:08x}','size':z})
+          im.sort(key=lambda q:int(q['addr'],16))
+          rep={'schema':'m9.rbclosure5t.queue-object.v1','selected_pair':pair,'queue_address':'0xfeb1e0a8','exact_symbols':exact,'covering_symbols':cover,'nearby_IM_symbols':im}
+          (root/'evidence'/'queue_object.json').write_text(json.dumps(rep,indent=2)+'\n'); (root/'symbols.json').write_text(json.dumps(syms,indent=2)+'\n')
+          meta=[]
+          for i,b in enumerate(blocks):
+              bd=bytes(b['data']); (root/'blocks'/f'block_{i:03d}.bin').write_bytes(bd); meta.append({'index':i,'addr':f"0x{int(b['addr']):08x}",'count':int(b['count'])})
+          (root/'blocks_meta.json').write_text(json.dumps(meta,indent=2)+'\n'); print(json.dumps(rep,indent=2))
+          PY
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5t'; meta=json.load(open(root/'blocks_meta.json'))
+          with open(root/'objdump.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for x in meta:
+                  i=x['index']; f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={x["addr"]} "$RUNNER_TEMP/rb5t/blocks/block_{i:03d}.bin" > "$RUNNER_TEMP/rb5t/dis/block_{i:03d}.dis"\n')
+          PY
+          bash "$ROOT/objdump.sh"
+
+      - name: Find queue materializations and producer candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5t"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5t'; meta=json.load(open(root/'blocks_meta.json')); syms=json.load(open(root/'symbols.json')); obj=json.load(open(root/'evidence'/'queue_object.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I); tr=re.compile(r'0x0?([0-9a-f]{8})',re.I)
+          allins=[]
+          for bm in meta:
+              i=bm['index']
+              for line in (root/'dis'/f'block_{i:03d}.dis').read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m: allins.append({'addr':int(m.group(1),16),'asm':m.group(2).strip(),'block':i})
+          def owners(addr):
+              out=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if z>0 and a<=addr<a+z: out.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return out
+          def syminfo(addr):
+              ex=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if a==addr: ex.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return ex
+          def ser(xs): return [{'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'block':x['block']} for x in xs]
+          lo_re=re.compile(r'\b([RPI][0-7]?)\.L\s*=\s*0x0?e0a8\b',re.I); hi_re=re.compile(r'\b([RPI][0-7]?)\.H\s*=\s*0xfeb1\b',re.I)
+          mats=[]
+          for j,x in enumerate(allins):
+              ml=lo_re.search(x['asm'])
+              if not ml: continue
+              reg=ml.group(1).upper()
+              for k in range(j+1,min(len(allins),j+12)):
+                  if allins[k]['block']!=x['block']: break
+                  mh=hi_re.search(allins[k]['asm'])
+                  if mh and mh.group(1).upper()==reg:
+                      ctx=allins[max(0,j-50):min(len(allins),k+180)]
+                      calls=[]; direct=[]; copies=[]
+                      for q in allins[k+1:min(len(allins),k+180)]:
+                          if q['block']!=x['block']: break
+                          u=q['asm'].upper()
+                          if 'CALL ' in u:
+                              mt=tr.search(q['asm']); tgt=int(mt.group(1),16) if mt else None
+                              calls.append({'addr':f"0x{q['addr']:08x}",'asm':q['asm'],'target':f'0x{tgt:08x}' if tgt is not None else None,'target_symbols':syminfo(tgt) if tgt is not None else None})
+                          if re.search(r'(?:B|W)?\['+re.escape(reg)+r'(?:\s*\+[^\]]+)?\]\s*=',u): direct.append(q)
+                          if re.search(r'\b[RP][0-7]?\s*=\s*'+re.escape(reg)+r'\b',u): copies.append(q)
+                      mats.append({'low_site':f"0x{x['addr']:08x}",'high_site':f"0x{allins[k]['addr']:08x}",'register':reg,'owners':owners(x['addr']),'context':ser(ctx),'direct_stores':ser(direct),'copies':ser(copies),'calls':calls})
+                      break
+          # Calls to known queue helpers, wherever they occur.
+          helper_addrs={int(q['addr'],16):q['name'] for q in obj.get('nearby_IM_symbols',[]) if q['name'].startswith('IM_')}
+          helper_calls=[]
+          for i,x in enumerate(allins):
+              if 'CALL ' not in x['asm'].upper(): continue
+              mt=tr.search(x['asm'])
+              if not mt: continue
+              tgt=int(mt.group(1),16)
+              if tgt in helper_addrs:
+                  helper_calls.append({'site':f"0x{x['addr']:08x}",'target':f'0x{tgt:08x}','name':helper_addrs[tgt],'owners':owners(x['addr']),'context':ser(allins[max(0,i-30):min(len(allins),i+10)])})
+          rep={'schema':'m9.rbclosure5t.queue-producers.v1','object':obj,'queue_materializations':mats,'all_IM_helper_calls':helper_calls,'consumer_proof':'Task_TaskInterpolation uses queue 0xfeb1e0a8 with IM_WaitForJob + IM_GetHead; producer should materialize same queue or call a helper receiving it.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'queue_producers.json').write_bytes(raw)
+          with open(root/'evidence'/'queue_producers.txt','w') as f:
+              f.write('OBJECT\n'+json.dumps(obj,indent=2)+'\n')
+              for m in mats:
+                  f.write(f"\nQUEUE MATERIALIZATION {m['low_site']} {m['register']} owners={json.dumps(m['owners'])}\n")
+                  for q in m['context']: f.write(f"{q['addr']}  {q['asm']}\n")
+              f.write('\nALL IM HELPER CALLS\n'); [f.write(json.dumps(q)+'\n') for q in helper_calls]
+          (root/'evidence'/'queue_producers.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  queue_producers.json\n'); print((root/'evidence'/'queue_producers.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload queue-producer evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5T-JOB-QUEUE-PRODUCERS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5t/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5t/pass" "$RUNNER_TEMP/rb5t/m9.upd" "$RUNNER_TEMP/rb5t/mm.upm" "$RUNNER_TEMP/rb5t/m9.dec" "$RUNNER_TEMP/rb5t/blocks" "$RUNNER_TEMP/rb5t/dis" "$RUNNER_TEMP/rb5t/blocks_meta.json" "$RUNNER_TEMP/rb5t/symbols.json" "$RUNNER_TEMP/rb5t/objdump.sh"
