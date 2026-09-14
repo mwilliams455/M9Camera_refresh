@@ -1,0 +1,83 @@
+name: M9 R/B RBCLOSURE5B Caller Control Transfer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-pipeline-topology5b.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o binutils.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf binutils.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j2 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover and disassemble canonical GreenInterpolationWithCo
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5b"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5b'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pdir=root/'pass'/f'bf561_pair_{cand[0][2]:02d}'; bf0=next(pdir.rglob('bf0.bin'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m); _,blocks=m.parse_ldr(bf0)
+          (root/'green.bin').write_bytes(m.read_overlay(blocks,0xfeb10660,0x900))
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xfeb10660 "$ROOT/green.bin" > "$ROOT/evidence/green_full.dis.txt"
+      - name: Preserve every control-transfer form and neighborhoods
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5b"
+          python3 - <<'PY'
+          import json,os,pathlib,re,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5b'; p=root/'evidence'/'green_full.dis.txt'; lines=p.read_text(errors='replace').splitlines()
+          rows=[]
+          for i,line in enumerate(lines):
+              lo=line.lower()
+              if any(k in lo for k in ('call','jump','rts','retx','reti','retn','rte')):
+                  m=re.match(r'^\s*([0-9a-f]+):',line,re.I); addr=f'0x{int(m.group(1),16):08x}' if m else None
+                  rows.append({'index':i,'addr':addr,'line':line.strip(),'window':'\n'.join(lines[max(0,i-20):min(len(lines),i+6)])})
+          report={'schema':'m9.rbclosure5b.caller-control-transfer.v1','entry':'0xfeb10660','transfer_count':len(rows),'transfers':rows}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'control_transfers.json').write_bytes(raw)
+          (root/'evidence'/'control_transfers.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  control_transfers.json\n')
+          print(json.dumps({'transfer_count':len(rows),'lines':[x['line'] for x in rows[:40]]},indent=2))
+          if not rows: raise SystemExit('no control-transfer instructions found')
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload derived evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5B-CALLER-TRANSFER
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5b/evidence/*
+      - name: Remove firmware material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5b/pass" "$RUNNER_TEMP/rb5b/m9.upd" "$RUNNER_TEMP/rb5b/mm.upm" "$RUNNER_TEMP/rb5b/m9.dec" "$RUNNER_TEMP/rb5b/green.bin"
