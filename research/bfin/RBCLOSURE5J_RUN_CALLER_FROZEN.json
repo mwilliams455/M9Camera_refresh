@@ -1,0 +1,28 @@
+{
+  "schema": "m9.rbclosure5j.run-caller-frozen.v1",
+  "source_run": 34830990077,
+  "source_commit": "dbaf32dd8741446ff1c39768f06ee2519d456174",
+  "artifact": "M9-RB-RBCLOSURE5J-RUN-CALLERS",
+  "artifact_id": 10341439360,
+  "artifact_zip_sha256": "137a8e159aa09500980b40b379213ad26edd17873cb10a3ff798b1d55ff168ec",
+  "selected_bf561_pair": 3,
+  "run_entry": "0xffa10320",
+  "direct_control_ref_count": 1,
+  "sole_direct_caller": {
+    "site": "0xffa124d4",
+    "target": "0xffa10320",
+    "exact_map_symbol_start": "StartInterpolation_Jolos @ 0xffa1249c",
+    "overlapping_map_alias": "L3L1_Put8Bit @ 0xffa12460",
+    "caller_argument_flow": [
+      "0xffa124a2: R7 = R0  (preserve StartInterpolation_Jolos arg0)",
+      "0xffa124ae: R6 = R1  (preserve StartInterpolation_Jolos arg1)",
+      "0xffa124d0: R0 = R6  (Run arg0 = original arg1)",
+      "0xffa124d2: R1 = R7  (Run arg1 = original arg0)",
+      "0xffa124d4: CALL Run"
+    ]
+  },
+  "descriptor_provenance": "RBCLOSURE5I proved Run loads its dispatch flag word as R7=[Run arg0]. RBCLOSURE5J proves Run arg0 is StartInterpolation_Jolos original arg1, preserved unchanged through R6. The dispatch descriptor/flag word therefore originates upstream of StartInterpolation_Jolos.",
+  "local_write_guard": "The visible StartInterpolation_Jolos body writes [original arg0 + 0x44] but does not construct the first word of original arg1 before calling Run; do not attribute R7 bits 4/5 to this function without upstream proof.",
+  "next_gate": "Trace exact callers/references of StartInterpolation_Jolos at 0xffa1249c, recover the R1 argument source and the descriptor's first-word writes/constants, then determine whether Run bits 4 and 5 coexist in production command masks.",
+  "production_status": "untouched"
+}
