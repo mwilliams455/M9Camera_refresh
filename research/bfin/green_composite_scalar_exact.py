@@ -76,9 +76,8 @@ def filter101040(mem, src, out1, out2, inner, outer, stride):
     if inner <= 0 or inner & 1 or outer <= 0 or stride <= 0 or stride & 1:
         raise ValueError(('filter101040 geometry', inner, outer, stride))
     # BFINORACLE3D proves one extra physical stream2 write at out2-4 for the
-    # R0 mod4==2 lane branch.  Prior direct observations produced zero here;
-    # 6F deliberately compares the containing plane so any broader-domain
-    # behavior is exposed instead of hidden.
+    # R0 mod4==2 lane branch. Prior direct observations produced zero here;
+    # 6F compares the containing plane so any broader-domain behavior is exposed.
     if src & 0x2:
         mem.write(out2 - 4, 0)
     for r in range(outer):
@@ -118,7 +117,7 @@ def redblue_differ(mem, a, b, threshold, out, inner, outer, stride, shift):
         return mem.read(base + 4*(r*stride + c))
 
     # BFINSCALAR2C establishes the pipeline stream one cell before the public
-    # output.  Preserve that guard write in the composite comparison too.
+    # output. Preserve that guard write in the composite comparison too.
     mem.write(out - 4, differ_raw(av(a, 0, 0), av(b, 0, 0)))
     if inner == 1:
         mem.write(out, differ_sample(av(a,0,0), av(b,0,0), av(threshold,0,0), shift))
@@ -158,8 +157,7 @@ def green_composite(mem, a, b, c, d, stride, height, shift, phase_initial):
     Live ABI after Green's LINK:
       R0=a, R1=b, R2=c, FP+0x14=d, FP+0x18=stride,
       FP+0x1c=height, FP+0x20=shift, FP+0x24=&phase.
-    The incoming FP+0x28 home-space word is dead: Green overwrites it with H>>1
-    before any read.
+    Incoming FP+0x28 is dead: Green overwrites it with H>>1 before any read.
     """
     trace = []
     half_h = int(height) >> 1
@@ -175,9 +173,9 @@ def green_composite(mem, a, b, c, d, stride, height, shift, phase_initial):
            inner0, outer0, stride, 2)
     trace.append(row); filter010(mem, *row[1:])
 
-    # Exact 0xFEB10732..1076A asymmetry: source carries 2*S*p1 but not +2*p1;
-    # B/C outputs use the full off1 term.
-    row = ('filter101040', a+2*stride*p1+2, b+off1+2, c+off1+2,
+    # Exact 0xFEB10730..10768 replay: the saved A source receives both the
+    # 2*S*p1 and 2*p1 terms before +2, so call 3 is symmetric with B/C.
+    row = ('filter101040', a+off1+2, b+off1+2, c+off1+2,
            inner0, outer0, stride)
     trace.append(row); filter101040(mem, *row[1:])
     row = ('filter101040', a+off1+2*stride, b+off1+2*stride,
