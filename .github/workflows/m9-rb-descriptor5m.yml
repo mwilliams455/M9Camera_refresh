@@ -1,0 +1,194 @@
+name: M9 R/B RBCLOSURE5M Descriptor Mask
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-descriptor5m.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  descriptor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover selected canonical BF561 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5m"
+          mkdir -p "$ROOT/evidence" "$ROOT/blocks" "$ROOT/dis"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json, os, pathlib, importlib.util, sys, hashlib, struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5m'
+          d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          addr=0xfeb002e8
+          block=None
+          for b in blocks:
+              lo=int(b['addr']); hi=lo+int(b['count'])
+              if lo <= addr and addr+0x80 <= hi:
+                  block=b; break
+          if block is None:
+              for b in blocks:
+                  lo=int(b['addr']); hi=lo+int(b['count'])
+                  if lo <= addr < hi:
+                      block=b; break
+          if block is None: raise SystemExit('descriptor address not present in selected LDR blocks')
+          off=addr-int(block['addr']); data=bytes(block['data']); span=data[off:off+0x80]
+          if len(span)<4: raise SystemExit('descriptor span too short')
+          word0=struct.unpack_from('<I',span,0)[0]
+          words=[struct.unpack_from('<I',span,i)[0] for i in range(0,len(span)-3,4)]
+          covering=[]; exact=[]
+          for s in syms:
+              try:a=int(s['addr']); z=int(s.get('size',0))
+              except Exception:continue
+              if a==addr: exact.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              if z>0 and a<=addr<a+z: covering.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z,'offset':addr-a})
+          ordered=[]
+          for s in syms:
+              try:a=int(s['addr']); z=int(s.get('size',0))
+              except Exception:continue
+              ordered.append((a,s.get('name'),z))
+          ordered.sort(); before=[x for x in ordered if x[0]<=addr][-8:]; after=[x for x in ordered if x[0]>addr][:8]
+          rep={
+            'schema':'m9.rbclosure5m.descriptor-image.v1',
+            'selected_pair':pair,
+            'descriptor_address':'0xfeb002e8',
+            'block_base':f"0x{int(block['addr']):08x}",
+            'block_size':int(block['count']),
+            'offset_in_block':off,
+            'span_sha256':hashlib.sha256(span).hexdigest(),
+            'bytes_hex':span.hex(),
+            'u32_le':[f'0x{x:08x}' for x in words],
+            'word0':f'0x{word0:08x}',
+            'word0_set_bits':[i for i in range(32) if word0 & (1<<i)],
+            'bit4_set':bool(word0 & (1<<4)),
+            'bit5_set':bool(word0 & (1<<5)),
+            'exact_symbols':exact,
+            'covering_symbols':covering,
+            'nearest_symbols_before':[{'addr':f'0x{a:08x}','name':n,'size':z} for a,n,z in before],
+            'nearest_symbols_after':[{'addr':f'0x{a:08x}','name':n,'size':z} for a,n,z in after]
+          }
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'descriptor_image.json').write_bytes(raw)
+          (root/'evidence'/'descriptor_image.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  descriptor_image.json\n')
+          (root/'symbols.json').write_text(json.dumps(syms,indent=2)+'\n')
+          meta=[]
+          for i,b in enumerate(blocks):
+              bd=bytes(b['data']); (root/'blocks'/f'block_{i:03d}.bin').write_bytes(bd)
+              meta.append({'index':i,'addr':f"0x{int(b['addr']):08x}",'count':int(b['count'])})
+          (root/'blocks_meta.json').write_text(json.dumps(meta,indent=2)+'\n')
+          print(json.dumps(rep,indent=2))
+          PY
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5m'; meta=json.load(open(root/'blocks_meta.json'))
+          with open(root/'objdump_jobs.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for x in meta:
+                  i=x['index']; f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={x["addr"]} "$RUNNER_TEMP/rb5m/blocks/block_{i:03d}.bin" > "$RUNNER_TEMP/rb5m/dis/block_{i:03d}.dis"\n')
+          PY
+          bash "$ROOT/objdump_jobs.sh"
+
+      - name: Find exact address materializations and candidate writers
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5m"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5m'; meta=json.load(open(root/'blocks_meta.json')); syms=json.load(open(root/'symbols.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I)
+          low_rx=re.compile(r'\b([RPI][0-7]?)\.L\s*=\s*0x0?2e8\b',re.I)
+          high_rx=re.compile(r'\b([RPI][0-7]?)\.H\s*=\s*0xfeb0\b',re.I)
+          by={}
+          for bm in meta:
+              i=bm['index']; ins=[]
+              for line in (root/'dis'/f'block_{i:03d}.dis').read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m: ins.append({'addr':int(m.group(1),16),'bytes':m.group(2).strip(),'asm':m.group(3).strip(),'block':i})
+              by[i]=ins
+          def owners(addr):
+              out=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if z>0 and a<=addr<a+z:out.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return out
+          def ser(xs):return [{'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm'],'block':x['block']} for x in xs]
+          mats=[]
+          for i,ins in by.items():
+              for j,x in enumerate(ins):
+                  ml=low_rx.search(x['asm'])
+                  if not ml: continue
+                  reg=ml.group(1).upper()
+                  for k in range(j+1,min(len(ins),j+12)):
+                      mh=high_rx.search(ins[k]['asm'])
+                      if mh and mh.group(1).upper()==reg:
+                          ctx=ins[max(0,j-24):min(len(ins),k+50)]
+                          after=ins[k+1:min(len(ins),k+50)]
+                          direct_mem=[]; calls=[]; copies=[]
+                          for q in after:
+                              u=q['asm'].upper()
+                              if re.search(r'\['+re.escape(reg)+r'(?:\s*[+\-][^\]]+)?\]\s*=',u): direct_mem.append(q)
+                              if 'CALL ' in u: calls.append(q)
+                              if re.search(r'\b[RP][0-7]?\s*=\s*'+re.escape(reg)+r'\b',u): copies.append(q)
+                          mats.append({'low_site':f"0x{x['addr']:08x}",'high_site':f"0x{ins[k]['addr']:08x}",'register':reg,'map_owners':owners(x['addr']),'context':ser(ctx),'stores_via_exact_register':ser(direct_mem),'calls_after':ser(calls),'copies_from_register':ser(copies)})
+                          break
+          rep={'schema':'m9.rbclosure5m.descriptor-xrefs.v1','descriptor_address':'0xfeb002e8','materialization_count':len(mats),'materializations':mats,'note':'Materializations prove exact 0xfeb002e8 address construction. Absence of a direct store via the materialized register does not exclude aliases or helper-mediated mutation.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'descriptor_xrefs.json').write_bytes(raw)
+          with open(root/'evidence'/'descriptor_xrefs.txt','w') as f:
+              f.write(f'EXACT 0xfeb002e8 MATERIALIZATIONS: {len(mats)}\n')
+              for m in mats:
+                  f.write(f"\n{m['low_site']}..{m['high_site']} {m['register']} owners={json.dumps(m['map_owners'])}\n")
+                  for q in m['context']: f.write(f"{q['addr']}  {q['asm']}\n")
+          (root/'evidence'/'descriptor_xrefs.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  descriptor_xrefs.json\n')
+          print((root/'evidence'/'descriptor_xrefs.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload descriptor evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5M-DESCRIPTOR-MASK
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5m/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5m/pass" "$RUNNER_TEMP/rb5m/m9.upd" "$RUNNER_TEMP/rb5m/mm.upm" "$RUNNER_TEMP/rb5m/m9.dec" "$RUNNER_TEMP/rb5m/blocks" "$RUNNER_TEMP/rb5m/dis" "$RUNNER_TEMP/rb5m/blocks_meta.json" "$RUNNER_TEMP/rb5m/symbols.json" "$RUNNER_TEMP/rb5m/objdump_jobs.sh"
