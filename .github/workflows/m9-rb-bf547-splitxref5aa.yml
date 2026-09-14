@@ -1,0 +1,102 @@
+name: M9 R/B RBCLOSURE5AA BF547 Split Xrefs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bf547-splitxref5aa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  splitxref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover BF547 and disassemble
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5aa"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          BF=$(find "$ROOT/pass" -path '*/bf547_*/BF547.bin' | head -1); test -n "$BF"; cp "$BF" "$ROOT/BF547.bin"
+          "$BFIN_OBJDUMP" -D -b binary -m bfin "$ROOT/BF547.bin" > "$ROOT/BF547.dis"
+      - name: Find split-immediate string xrefs and sender API context
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5aa"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5aa'; data=(root/'BF547.bin').read_bytes()
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          ins=[]
+          for line in (root/'BF547.dis').read_text(errors='replace').splitlines():
+              m=rx.match(line)
+              if m: ins.append({'off':int(m.group(1),16),'asm':m.group(2).strip()})
+          targets=['WARNING: check MARKER for Processing-Settings!!','Settings:','bfSpi','InterpolationGreen','InterpolationRedBlue']
+          deltas=(0,0x20000,0x40000,0x80000,0x100000)
+          def ctx(i,a=80,b=120): return [{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in ins[max(0,i-a):min(len(ins),i+b)]]
+          rows=[]
+          for text in targets:
+              so=data.find(text.encode())
+              if so<0: continue
+              for delta in deltas:
+                  addr=so+delta; lo=addr&0xffff; hi=(addr>>16)&0xffff
+                  for i,x in enumerate(ins):
+                      mlo=re.search(r'\b([RPI][0-7]?)\.L\s*=\s*0x([0-9a-f]+)',x['asm'],re.I)
+                      if not mlo or int(mlo.group(2),16)!=lo: continue
+                      reg=mlo.group(1).upper()
+                      for j in range(i+1,min(len(ins),i+12)):
+                          mhi=re.search(r'\b([RPI][0-7]?)\.H\s*=\s*0x([0-9a-f]+)',ins[j]['asm'],re.I)
+                          if mhi and mhi.group(1).upper()==reg and int(mhi.group(2),16)==hi:
+                              rows.append({'text':text,'string_off':f'0x{so:x}','delta':f'0x{delta:x}','runtime_addr':f'0x{addr:x}','low_site':f"0x{x['off']:x}",'high_site':f"0x{ins[j]['off']:x}",'register':reg,'context':ctx(i)}); break
+          # Exact candidate and its apparent API callee context.
+          def around(off,before=80,after=180):
+              idx=min(range(len(ins)), key=lambda k:abs(ins[k]['off']-off)); return ctx(idx,before,after)
+          # All direct calls to 0x6c3dc.
+          calls=[]
+          for i,x in enumerate(ins):
+              if re.search(r'CALL\s+0x0?x?6c3dc\b',x['asm'],re.I): calls.append({'site':f"0x{x['off']:x}",'context':ctx(i,50,30)})
+          rep={'schema':'m9.rbclosure5aa.bf547-split-xrefs.v1','split_string_materializations':rows,'candidate_0x471c4':around(0x471c4),'callee_0x6c3dc':around(0x6c3dc,40,160),'all_calls_to_0x6c3dc':calls}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'split_xrefs.json').write_bytes(raw)
+          with open(root/'evidence'/'split_xrefs.txt','w') as f:
+              f.write('STRING MATERIALIZATIONS\n'); [f.write(json.dumps({k:v for k,v in r.items() if k!='context'})+'\n') for r in rows]
+              for r in rows:
+                  f.write(f"\n=== {r['text']} {r['low_site']}..{r['high_site']} addr={r['runtime_addr']} ===\n"); [f.write(f"{q['off']}  {q['asm']}\n") for q in r['context']]
+              f.write('\n=== CANDIDATE 0x471c4 ===\n'); [f.write(f"{q['off']}  {q['asm']}\n") for q in rep['candidate_0x471c4']]
+              f.write('\n=== CALLEE 0x6c3dc ===\n'); [f.write(f"{q['off']}  {q['asm']}\n") for q in rep['callee_0x6c3dc']]
+              f.write(f"\nCALLS TO 0x6c3dc: {len(calls)}\n"); [f.write(c['site']+'\n') for c in calls]
+          (root/'evidence'/'split_xrefs.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  split_xrefs.json\n'); print((root/'evidence'/'split_xrefs.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5AA-BF547-SPLIT-XREFS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5aa/evidence/*
+      - name: Remove firmware bytes
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5aa/pass" "$RUNNER_TEMP/rb5aa/m9.upd" "$RUNNER_TEMP/rb5aa/mm.upm" "$RUNNER_TEMP/rb5aa/m9.dec" "$RUNNER_TEMP/rb5aa/BF547.bin" "$RUNNER_TEMP/rb5aa/BF547.dis"
