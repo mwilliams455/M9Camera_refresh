@@ -1,0 +1,31 @@
+{
+  "schema": "m9.rbclosure5ad.jpeg-green-rb-order-closed.v1",
+  "status": "CLOSED",
+  "scope": "Leica M9 production JPEG interpolation dispatch/order",
+  "proof_chain": [
+    "RBCLOSURE5AC: BF547 Leica diagnostic table identifies ImageSettings+4 modes as 0=Raw, 1=RawTotal, 2=Dng, 3=Jpg.",
+    "RBCLOSURE5U: SPI settings payload byte 4 is copied verbatim into queue record/ImageSettings+4; no BF561 transform changes this selector.",
+    "RBCLOSURE5Q: source mode 3 maps through SetStructParameter/Set to g_L2Parameter word0=0x17FF, with Run bits 4 and 5 both set. Source mode 2 maps to 0x3407, with bits 4 and 5 both clear.",
+    "RBCLOSURE5I: Run bit4 dispatches GreenInterpolationWithCo and resumes before the later bit5 test; bit5 dispatches ASMRedBlueInterpolation1. With both bits set, Green executes first and R/B second in the same Run invocation."
+  ],
+  "mode_matrix": {
+    "Raw_0": "not required for this closure",
+    "RawTotal_1": "not required for this closure",
+    "Dng_2": {
+      "run_mask": "0x3407",
+      "GreenInterpolationWithCo": false,
+      "ASMRedBlueInterpolation1": false,
+      "meaning": "raw/DNG output bypasses these JPEG interpolation stages"
+    },
+    "Jpg_3": {
+      "run_mask": "0x17FF",
+      "GreenInterpolationWithCo": true,
+      "ASMRedBlueInterpolation1": true,
+      "proven_order": "GreenInterpolationWithCo -> ASMRedBlueInterpolation1"
+    }
+  },
+  "production_conclusion": "A normal Leica M9 JPEG is processed on mode 3 (Jpg). That mode enables both interpolation stages. The firmware CFG proves Green interpolation runs before Red/Blue interpolation in the same Run invocation. This is no longer a hypothesis or address-order inference.",
+  "superseded_false_lead": "BF547 0x471c4 is not treated as a SportNet command-7 sender. Its R2=7 is consumed as a 0..13 generic serializer/type selector by 0x6c3dc.",
+  "implementation_policy": "Do not change production renderer solely from this ordering closure. First perform a port-readiness audit of exact GreenInterpolationWithCo and ASMRedBlueInterpolation1 arithmetic, geometry, edge behavior, packed-phase handling, rounding/clamping, and current-renderer delta.",
+  "production_status": "untouched"
+}
