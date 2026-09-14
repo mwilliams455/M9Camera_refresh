@@ -1,7 +1,8 @@
 /* GREENORACLE6N: exact physical-write oracle for the production phase pairs
  * used by GreenInterpolationWithCo's second ASMFilter_101_040_101_An call.
  * SRCBASE/OUT1BASE/OUT2BASE/INNER/OUTER/STRIDE supplied by --defsym.
- * Whole output windows are dumped so pre-row software-pipeline stores remain visible.
+ * Source and output windows are random-data includes so packed neighbour
+ * preservation/permutation remains observable; whole windows are dumped.
  */
     .section .text.start,"ax"
     .global _start
@@ -29,13 +30,9 @@ _start:
     .section .source,"aw"; .balign 4
     .include "source_data.inc"
     .section .out1,"aw"; .balign 4
-    .rept 1024
-      .short 0x1357
-    .endr
+    .include "out1_data.inc"
     .section .out2,"aw"; .balign 4
-    .rept 1024
-      .short 0x2468
-    .endr
+    .include "out2_data.inc"
     .section .stack,"aw"; .balign 4
     .space 0x2000
 
