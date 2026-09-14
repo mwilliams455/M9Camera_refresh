@@ -1,0 +1,48 @@
+{
+  "schema": "m9.rbclosure5e.interp1-abi-frozen.v1",
+  "source_run": 34818906845,
+  "source_commit": "6d50aaf7647423a9ca9a4e522d4a5934fcd6a9e0",
+  "artifact": "M9-RB-RBCLOSURE5E-INTERP-ABI",
+  "artifact_id": 10337084885,
+  "artifact_zip_sha256": "8f29c1faa453ff52309bbd16f0b2245467c24a65b9afdfdb27c37b8e0562045b",
+  "routine": {
+    "name": "ASMRedBlueInterpolation1",
+    "entry": "0xffa03410",
+    "call_site": "0xffa10bea",
+    "direct_xref_count": 1
+  },
+  "blackfin_abi": {
+    "arg0": {"location": "R0", "meaning": "signed 16-bit difference plane", "caller_source": "[P5-0x0c]"},
+    "arg1": {"location": "R1", "meaning": "14-bit green plane", "caller_source": "[P5-0x04]"},
+    "arg2": {"location": "R2", "meaning": "reconstructed output plane A", "caller_source": "[P5-0x08]"},
+    "arg3": {"location": "SP+0x0c", "meaning": "reconstructed output plane B", "caller_source": "[P5] before P5 post-modify"},
+    "arg4": {"location": "SP+0x10", "meaning": "width-like extent", "caller_register": "R6"},
+    "arg5": {"location": "SP+0x14", "meaning": "height-like extent", "caller_register": "R4", "caller_source": "[FP-0x18]"},
+    "arg6": {"location": "SP+0x18", "meaning": "pointer to mutable support/border integer", "caller_expression": "FP+0x08"}
+  },
+  "descriptor_layout_at_call": {
+    "P5-0x0c": "difference plane",
+    "P5-0x08": "output plane A",
+    "P5-0x04": "green plane",
+    "P5+0x00": "output plane B"
+  },
+  "caller_instructions": [
+    "ffa10bc8: P1 = [FP -0x44]",
+    "ffa10bca: R3 = FP",
+    "ffa10bcc: R3 += 0x8",
+    "ffa10bce: R4 = [FP -0x18]",
+    "ffa10bd0: P5 = P5 + P1",
+    "ffa10bd2: P1 = [FP -0x48]",
+    "ffa10bd4: R0 = [P5 -0xc]",
+    "ffa10bd8: R1 = [P5 -0x4]",
+    "ffa10bdc: R2 = [P5 -0x8]",
+    "ffa10be0: R5 = [P5 ++ P1]",
+    "ffa10be2: [SP +0x18] = R3",
+    "ffa10be4: [SP +0x14] = R4",
+    "ffa10be6: [SP +0x10] = R6",
+    "ffa10be8: [SP +0x0c] = R5",
+    "ffa10bea: CALL 0xffa03410"
+  ],
+  "abi_semantics_basis": "Argument meanings are not inferred from variable names. They are inherited from the previously executable BFINORACLE1A harness, whose routine prologue ABI was machine-validated against the exact 584-byte Leica body; RBCLOSURE5E proves the production caller populates the same seven locations.",
+  "status": "interpolation ABI and descriptor layout frozen; producer-to-interpolation call-chain xref next"
+}
