@@ -1,0 +1,202 @@
+name: M9 R/B GREENORACLE6J Composite Green BF561-Semantics Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6j-composite-simshim-parity.yml'
+      - 'research/bfin/green_composite_simshim_oracle.s'
+      - 'research/bfin/green_composite_scalar_exact.py'
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover exact Leica Green and helper bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6j"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6j'
+          report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py')
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          wanted={
+            'GreenInterpolationWithCo.bin':(0xfeb10660,810,'22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5'),
+            'ASMRedBlueAndGreenDiffer.bin':(0xffa00008,182,'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1'),
+            'ASMFilter_101_040_101_An.bin':(0xffa000be,400,'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'),
+            'ASMFilter_101_000_101_2.bin':(0xffa0024e,264,'e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd'),
+            'ASMFilter_010_101_010_2.bin':(0xffa03e00,418,'7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7'),
+          }
+          selected=None
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin'))
+              _,blocks=m.parse_ldr(bf0); bodies={}
+              for name,(addr,size,sha) in wanted.items():
+                body=m.read_overlay(blocks,addr,size)
+                if len(body)!=size or hashlib.sha256(body).hexdigest()!=sha: raise ValueError(name)
+                bodies[name]=body
+              selected=(i,bodies); break
+            except Exception:
+              continue
+          if selected is None: raise SystemExit('no BF561 pair contained all five canonical Green bodies')
+          pair,bodies=selected
+          for name,body in bodies.items(): (root/name).write_bytes(body)
+          meta={'pair':pair,'all_sha_verified':True,'green_exact_bytes_unchanged':True,
+                'simulator_compatibility':'only 101040 call target is intercepted to restore BF561 read-before-write packet semantics'}
+          (root/'evidence'/'green_composite_bodies.json').write_text(json.dumps(meta,indent=2)+'\n')
+          PY
+
+      - name: Execute BF561-semantics composite whole-buffer parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6j"
+          cp research/bfin/green_composite_simshim_oracle.s "$ROOT/"
+          cp research/bfin/green_composite_scalar_exact.py "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x4000; .planeA : { *(.planeA) }
+            . = 0x6000; .planeB : { *(.planeB) }
+            . = 0x8000; .planeC : { *(.planeC) }
+            . = 0xa000; .planeD : { *(.planeD) }
+            . = 0xc000; .phase : { *(.phase) }
+            . = 0xd000; .stack : { *(.stack) }
+            . = 0x10000; .green : { *(.green) }
+            . = 0x20000; .text : { *(.text.start) }
+            . = 0xed0000; .f101040body : { *(.f101040body) }
+            . = 0xeff9a8; .differ : { *(.differ) }
+            . = 0xeffa5e; .f101040shim : { *(.f101040shim) }
+            . = 0xeffbee; .f101000 : { *(.f101000) }
+            . = 0xf037a0; .f010 : { *(.f010) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,random,re,subprocess,sys
+          sys.path.insert(0,'.')
+          from green_composite_scalar_exact import Memory16,green_composite,round_even_up
+          PLANE_BASES=[0x4000,0x6000,0x8000,0xa000]
+          PTRS=[0x4200,0x6200,0x8200,0xa200]
+          HALFWORDS=1024; SHIFT=2
+          CASES=[(16,12,0),(18,14,0),(20,16,1)]
+          SEEDS=(0,1)
+          EDGES=[0,1,2,3,4,7,8,0x1fff,0x3fff,0x4000,0x7fff,0x8000,0xfffe,0xffff]
+          ev=pathlib.Path('evidence')
+          report={'schema':'m9.greenoracle6j.composite-bf561-semantics-parity.v1',
+                  'green_sha256':'22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5',
+                  'shim_reason':'GNU sim same-packet store sees post-write R7; BF561 store reads pre-write R7. Shim restores proven inner0 then tail-jumps to exact helper body.',
+                  'runs':{},'run_count':0,'plane_halfwords_compared':0,'exact_match':True}
+          def write_inc(name,values): pathlib.Path(name).write_text(''.join(f'.short 0x{v:04x}\n' for v in values))
+          def unpack_dwords(words):
+            out=[]
+            for q in words: out.extend((q&0xffff,(q>>16)&0xffff))
+            return out
+          for stride,height,phase in CASES:
+            p1=phase+1
+            inner0=round_even_up((stride>>1)-p1)
+            for seed_i in SEEDS:
+              seed=0x6a000000 + stride*0x10000 + height*0x100 + phase*0x10 + seed_i
+              rng=random.Random(seed)
+              planes=[[rng.randrange(65536) for _ in range(HALFWORDS)] for _ in range(4)]
+              for pi,p in enumerate(planes):
+                for j,v in enumerate(EDGES):
+                  p[220+17*j+pi]=v; p[500+11*j+pi]=EDGES[-1-j]
+              for fn,p in zip(('plane_a.inc','plane_b.inc','plane_c.inc','plane_d.inc'),planes): write_inc(fn,p)
+              name=f's{stride}_h{height}_q{phase}_n{seed_i}'
+              subprocess.run([os.environ['BFIN_AS'],'--defsym',f'STRIDE={stride}','--defsym',f'HEIGHT={height}',
+                              '--defsym',f'SHIFTVAL={SHIFT}','--defsym',f'PHASEINIT={phase}',
+                              '--defsym',f'INNER0={inner0}','green_composite_simshim_oracle.s','-o',f'{name}.o'],check=True)
+              subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True)
+              sim=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+              if sim.returncode:
+                (ev/f'{name}.stdout.txt').write_text(sim.stdout); (ev/f'{name}.stderr.txt').write_text(sim.stderr)
+                raise SystemExit(f'{name}: simulator rc={sim.returncode}: {sim.stderr[-1200:]}')
+              vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',sim.stdout)]
+              if len(vals)!=2049:
+                (ev/f'{name}.stdout.txt').write_text(sim.stdout)
+                raise SystemExit(f'{name}: expected 2049 DBG values, got {len(vals)}')
+              machine_phase=vals[0]&0xffffffff; machine=[]; pos=1
+              for _ in range(4): machine.append(unpack_dwords(vals[pos:pos+512])); pos+=512
+              mem=Memory16()
+              for base,p in zip(PLANE_BASES,planes): mem.load_region(base,p)
+              scalar_meta=green_composite(mem,*PTRS,stride,height,SHIFT,phase)
+              scalar=[mem.region(base,HALFWORDS) for base in PLANE_BASES]
+              diffs=[]
+              if machine_phase!=(scalar_meta['phase_final']&0xffffffff):
+                diffs.append({'kind':'phase','machine':machine_phase,'scalar':scalar_meta['phase_final']})
+              for pi,(mv,sv) in enumerate(zip(machine,scalar)):
+                for idx,(m,s) in enumerate(zip(mv,sv)):
+                  if m!=s:
+                    diffs.append({'kind':'plane','plane':'ABCD'[pi],'index':idx,'address':hex(PLANE_BASES[pi]+2*idx),'machine':m,'scalar':s})
+                    if len(diffs)>=40: break
+                if len(diffs)>=40: break
+              if diffs:
+                (ev/f'{name}_MISMATCH.json').write_text(json.dumps({'case':name,'inner0':inner0,'scalar_meta':scalar_meta,'first_differences':diffs},indent=2)+'\n')
+                raise SystemExit(f'{name}: composite mismatch: {diffs[:6]}')
+              joined=b''.join(int(v).to_bytes(2,'little') for p in machine for v in p)
+              report['runs'][name]={'stride':stride,'height':height,'phase_initial':phase,'inner0':inner0,
+                                    'phase_final':machine_phase,'seed':seed,'inner_outer':scalar_meta['inner_outer'],
+                                    'plane_halfwords_compared':4*HALFWORDS,'machine_planes_sha256':hashlib.sha256(joined).hexdigest(),'exact_match':True}
+              report['run_count']+=1; report['plane_halfwords_compared']+=4*HALFWORDS
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'green_composite_bf561_parity.json').write_bytes(raw)
+          (ev/'green_composite_bf561_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  green_composite_bf561_parity.json\n')
+          summary={'runs':report['run_count'],'plane_halfwords_compared':report['plane_halfwords_compared'],
+                   'phase_words_compared':report['run_count'],'exact_match':True,'cases':CASES,
+                   'green_exact_bytes_unchanged':True,'simulator_shim_only_at_101040_call_target':True}
+          (ev/'green_composite_bf561_parity_summary.json').write_text(json.dumps(summary,indent=2)+'\n'); print(json.dumps(summary,indent=2))
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish composite parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6J-COMPOSITE-BF561-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6j/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/green6j/pass" "$RUNNER_TEMP/green6j/m9.upd" "$RUNNER_TEMP/green6j/mm.upm" "$RUNNER_TEMP/green6j/m9.dec"
+          rm -f "$RUNNER_TEMP/green6j"/*.bin "$RUNNER_TEMP/green6j"/*.o "$RUNNER_TEMP/green6j"/*.elf "$RUNNER_TEMP/green6j"/plane_*.inc
