@@ -1,0 +1,139 @@
+name: M9 R/B GREENORACLE6E Filter010 Direct Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6e-filter010-parity.yml'
+      - 'research/bfin/filter010101010_scalar_exact.py'
+      - 'research/bfin/filter010101010_oracle_observe.s'
+      - 'research/bfin/GREENORACLE6C2_FILTER010_BODY_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"; echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover exact Leica Filter010 body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6e"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6e'; d=json.load(open(root/'pass/report.json'))
+          expected='7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7'; addr=0xffa03e00; size=0x1a2
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected:
+                (root/'ASMFilter_010_101_010_2.bin').write_bytes(body); json.dump({'pair':i,'address':hex(addr),'size':size,'sha256':expected},open(root/'evidence'/'filter010_body.json','w'),indent=2); break
+            except Exception: pass
+          else: raise SystemExit('canonical Filter010 body not found')
+          PY
+
+      - name: Execute whole-buffer machine scalar parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6e"; cp research/bfin/filter010101010_oracle_observe.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .source : { *(.source) }
+            . = 0x7000; .dest : { *(.dest) }
+            . = 0x9800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          PYTHONPATH="$GITHUB_WORKSPACE/research/bfin" python3 - <<'PY'
+          import hashlib,json,os,pathlib,random,re,subprocess
+          from filter010101010_scalar_exact import scalar_output
+          N=2048; DESTBASE=0x7044; DEST_INDEX=(DESTBASE-0x7000)//2; SENT=0x5a5a
+          geometries=[(2,1,4),(4,2,7),(6,3,10),(8,4,16),(10,3,17)]
+          source_bases=[0x4400,0x4402]; selectors=[2,0]; seeds_per_case=3
+          edges=[0,1,2,3,4,7,8,0x1fff,0x3fff,0x4000,0x7fff,0x8000,0xfffe,0xffff]
+          ev=pathlib.Path('evidence')
+          report={'schema':'m9.greenoracle6e.filter010-direct-parity.v1','routine_sha256':'7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7','scalar_model':'research/bfin/filter010101010_scalar_exact.py','runs':{},'run_count':0,'logical_samples':0,'destination_halfwords_compared':0,'exact_match':True}
+          for inner,outer,stride in geometries:
+            for srcbase in source_bases:
+              base=(srcbase-0x4000)//2
+              for selector in selectors:
+                for si in range(seeds_per_case):
+                  seed=0x60100100 + inner*0x10000 + outer*0x1000 + stride*0x100 + (srcbase&2)*0x10 + selector*4 + si
+                  rng=random.Random(seed); src=[rng.randrange(65536) for _ in range(N)]
+                  # Inject difficult values into cardinal taps around early logical centers.
+                  centers=[]
+                  for rr in range(outer):
+                    for cc in range(inner): centers.append(base+2*cc+2*stride*rr)
+                  for j,center in enumerate(centers[:min(len(centers),8)]):
+                    vals=[edges[(4*j+k)%len(edges)] for k in range(4)]
+                    src[center-1],src[center+1],src[center-stride],src[center+stride]=vals
+                  pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{v:04x}\n' for v in src))
+                  name=f'i{inner}_o{outer}_s{stride}_b{srcbase&3}_m{selector}_n{si}'
+                  subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','--defsym',f'SRCBASE={srcbase}','--defsym',f'DESTBASE={DESTBASE}','--defsym',f'MODE={selector}','filter010101010_oracle_observe.s','-o',f'{name}.o'],check=True,stdout=subprocess.DEVNULL)
+                  subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True,stdout=subprocess.DEVNULL)
+                  p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+                  if p.returncode: raise SystemExit(f'{name}: rc={p.returncode}: {p.stderr}')
+                  vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+                  if len(vals)!=128: raise SystemExit(f'{name}: dbg={len(vals)}')
+                  machine=[]
+                  for q in vals: machine += [q&0xffff,(q>>16)&0xffff]
+                  scalar=scalar_output(src,base,inner,outer,stride,selector,destination_base_halfword=DEST_INDEX,halfword_count=256,sentinel=SENT)
+                  if machine!=scalar:
+                    diffs=[(i,machine[i],scalar[i]) for i in range(256) if machine[i]!=scalar[i]]
+                    raise SystemExit(f'{name}: whole-buffer mismatch count={len(diffs)} first={diffs[:12]}')
+                  branch_bit=((srcbase-2-2*stride)&0x2)>>1
+                  report['runs'][name]={'inner':inner,'outer':outer,'stride':stride,'srcbase':hex(srcbase),'selector':selector,'seed':seed,'packed_phase_bit':branch_bit,'logical_samples':inner*outer,'destination_halfwords_compared':256,'exact_match':True,'machine_sha256':hashlib.sha256(bytes().join(int(v).to_bytes(2,'little') for v in machine)).hexdigest()}
+                  report['run_count']+=1; report['logical_samples']+=inner*outer; report['destination_halfwords_compared']+=256
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'filter010_direct_parity.json').write_bytes(raw); (ev/'filter010_direct_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter010_direct_parity.json\n')
+          summary={'runs':report['run_count'],'logical_samples':report['logical_samples'],'destination_halfwords_compared':report['destination_halfwords_compared'],'exact_match':True,'geometries':geometries,'selectors':selectors,'source_bases':[hex(x) for x in source_bases]}
+          (ev/'filter010_direct_parity_summary.json').write_text(json.dumps(summary,indent=2)+'\n'); print(json.dumps(summary,indent=2))
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6E-FILTER010-DIRECT-PARITY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6e/evidence/*
+
+      - name: Remove firmware and binaries
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/green6e/pass" "$RUNNER_TEMP/green6e/m9.upd" "$RUNNER_TEMP/green6e/mm.upm" "$RUNNER_TEMP/green6e/m9.dec" "$RUNNER_TEMP/green6e/ASMFilter_010_101_010_2.bin" "$RUNNER_TEMP/green6e"/*.o "$RUNNER_TEMP/green6e"/*.elf "$RUNNER_TEMP/green6e/source_data.inc"
