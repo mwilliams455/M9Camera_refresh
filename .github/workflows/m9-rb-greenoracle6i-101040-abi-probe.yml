@@ -1,0 +1,134 @@
+name: M9 R/B GREENORACLE6I Green 101040 ABI Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6i-101040-abi-probe.yml'
+      - 'research/bfin/green_101040_abi_probe.s'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1)
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover canonical Green bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6i"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6i'; report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          wanted={
+           'GreenInterpolationWithCo.bin':(0xfeb10660,810,'22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5'),
+           'ASMRedBlueAndGreenDiffer.bin':(0xffa00008,182,'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1'),
+           'ASMFilter_101_040_101_An.bin':(0xffa000be,400,'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'),
+           'ASMFilter_101_000_101_2.bin':(0xffa0024e,264,'e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd'),
+           'ASMFilter_010_101_010_2.bin':(0xffa03e00,418,'7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7')}
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); bodies={}
+              for n,(a,s,h) in wanted.items():
+                b=m.read_overlay(blocks,a,s)
+                if len(b)!=s or hashlib.sha256(b).hexdigest()!=h: raise ValueError(n)
+                bodies[n]=b
+              for n,b in bodies.items(): (root/n).write_bytes(b)
+              (root/'evidence'/'body_recovery.json').write_text(json.dumps({'pair':i,'all_sha_verified':True},indent=2)+'\n'); break
+            except Exception: continue
+          else: raise SystemExit('canonical bodies not found')
+          PY
+
+      - name: Capture both 101040 call ABIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6i"; cd "$ROOT"
+          cp "$GITHUB_WORKSPACE/research/bfin/green_101040_abi_probe.s" .
+          python3 - <<'PY'
+          import pathlib
+          for k,fn in enumerate(('plane_a.inc','plane_b.inc','plane_c.inc','plane_d.inc')):
+            vals=[((i*613)+(i*i*19)+k*137)&0xffff for i in range(1024)]
+            pathlib.Path(fn).write_text(''.join(f'.short 0x{v:04x}\n' for v in vals))
+          PY
+          cat > oracle.ld <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x4000; .planeA : { *(.planeA) }
+            . = 0x6000; .planeB : { *(.planeB) }
+            . = 0x8000; .planeC : { *(.planeC) }
+            . = 0xa000; .planeD : { *(.planeD) }
+            . = 0xc000; .phase : { *(.phase) }
+            . = 0xd000; .stack : { *(.stack) }
+            . = 0x10000; .green : { *(.green) }
+            . = 0x20000; .text : { *(.text.start) }
+            . = 0xed0000; .f101040body : { *(.f101040body) }
+            . = 0xeff9a8; .differ : { *(.differ) }
+            . = 0xeffa5e; .f101040tramp : { *(.f101040tramp) }
+            . = 0xeffbee; .f101000 : { *(.f101000) }
+            . = 0xf037a0; .f010 : { *(.f010) }
+          }
+          LDS
+          "$BFIN_AS" green_101040_abi_probe.s -o probe.o
+          "$BFIN_LD" -T oracle.ld probe.o -o probe.elf
+          set +e
+          "$BFIN_SIM" probe.elf > evidence/probe.stdout.txt 2> evidence/probe.stderr.txt
+          RC=$?; set -e
+          echo "$RC" > evidence/probe.rc.txt
+          python3 - <<'PY'
+          import json,pathlib,re
+          e=pathlib.Path('evidence'); txt=(e/'probe.stdout.txt').read_text(errors='replace')
+          vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R[0-7]\s*=\s*0x([0-9a-fA-F]+)',txt)]
+          # Six DBG values per 101040 invocation: R0,R1,R2,inner,outer,stride.
+          calls=[]
+          for i in range(0,min(len(vals),12),6):
+            if len(vals[i:i+6])==6:
+              a=vals[i:i+6]; calls.append({'r0':hex(a[0]),'r1':hex(a[1]),'r2':hex(a[2]),'inner':a[3],'outer':a[4],'stride':a[5]})
+          out={'sim_returncode':int((e/'probe.rc.txt').read_text()),'dbg_value_count':len(vals),'calls':calls}
+          (e/'abi_probe.json').write_text(json.dumps(out,indent=2)+'\n'); print(json.dumps(out,indent=2))
+          if len(calls)<2: raise SystemExit('did not capture both 101040 invocations')
+          PY
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6I-101040-ABI-PROBE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6i/evidence/*
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/green6i/pass" "$RUNNER_TEMP/green6i/m9.upd" "$RUNNER_TEMP/green6i/mm.upm" "$RUNNER_TEMP/green6i/m9.dec" "$RUNNER_TEMP/green6i"/*.bin "$RUNNER_TEMP/green6i"/*.o "$RUNNER_TEMP/green6i"/*.elf "$RUNNER_TEMP/green6i"/plane_*.inc
