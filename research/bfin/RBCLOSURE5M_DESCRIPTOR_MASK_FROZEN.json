@@ -1,0 +1,40 @@
+{
+  "schema": "m9.rbclosure5m.descriptor-mask-frozen.v1",
+  "source_run": 34831793883,
+  "source_commit": "f22a89974c3ec1b79f0ca0609761df895f673e84",
+  "artifact": "M9-RB-RBCLOSURE5M-DESCRIPTOR-MASK",
+  "artifact_id": 10342363225,
+  "artifact_zip_sha256": "d868aa0e8eb43b997c4c5766cb58f02a3737e4ce23c9f10c339c2687ef624f0f",
+  "selected_bf561_pair": 3,
+  "descriptor": {
+    "address": "0xfeb002e8",
+    "map_symbol": "g_L2Parameter",
+    "map_size": 2832,
+    "canonical_image_word0": "0x00000000",
+    "canonical_image_first_128_bytes": "all_zero",
+    "canonical_word0_bit4": false,
+    "canonical_word0_bit5": false,
+    "interpretation": "The canonical image contains zero-initialized storage. This does not mean production Run sees a zero mask; prior CFG proves Run consumes runtime word0 from this object. Therefore the dispatch mask is runtime-populated."
+  },
+  "address_materializations": {
+    "count": 1,
+    "sole_site": "Task_TaskInterpolation 0xfeb139fa..0xfeb139fe constructs R6=0xfeb002e8",
+    "direct_stores_via_R6_before_StartInterpolation": 0,
+    "copies": [
+      "0xfeb13a0a: R1=R6",
+      "0xfeb13a1a: R1=R6",
+      "0xfeb13a3e: R1=R6"
+    ]
+  },
+  "pre_StartInterpolation_calls_using_descriptor": [
+    "0xfeb13a10: R0=0xfeb00258, R1=0xfeb002e8, R2=1, CALL 0xffa122e4",
+    "0xfeb13a14: CALL 0xffa122b2",
+    "0xfeb13a1e: R0=0xfeb00258, R1=0xfeb002e8, R2=0, CALL 0xffa122e4"
+  ],
+  "related_symbol": {
+    "address": "0xfeb00258",
+    "names": ["g_L1DestDescriptor", "g_L2TransferL3L1"]
+  },
+  "next_gate": "Resolve map symbols and exact semantics of 0xffa122e4 and 0xffa122b2. Determine whether 0xffa122e4 copies/transfers runtime parameter data into g_L2Parameter and from what source; trace word0 provenance until the production bit4/bit5 value is observable.",
+  "production_status": "untouched"
+}
