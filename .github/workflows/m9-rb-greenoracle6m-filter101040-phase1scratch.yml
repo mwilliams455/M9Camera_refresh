@@ -1,0 +1,126 @@
+name: M9 R/B GREENORACLE6M Filter101040 Phase1 Scratch
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6m-filter101040-phase1scratch.yml'
+      - 'research/bfin/filter101040_phase1scratch_oracle.s'
+
+permissions:
+  contents: read
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover exact helper body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6m"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6m'; report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          addr,size,sha=0xffa000be,400,'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'
+          body=None; pair=None
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); b=m.read_overlay(blocks,addr,size)
+              if len(b)==size and hashlib.sha256(b).hexdigest()==sha: body=b; pair=i; break
+            except Exception: pass
+          if body is None: raise SystemExit('canonical helper not found')
+          (root/'ASMFilter_101_040_101_An.bin').write_bytes(body)
+          (root/'evidence'/'body.json').write_text(json.dumps({'pair':pair,'address':hex(addr),'size':size,'sha256':sha},indent=2)+'\n')
+          PY
+
+      - name: Run phase1 random-data physical write oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6m"
+          cp research/bfin/filter101040_phase1scratch_oracle.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x3000; .source : { *(.source) }
+            . = 0x7000; .out1 : { *(.out1) }
+            . = 0x8000; .out2 : { *(.out2) }
+            . = 0xa000; .stack : { *(.stack) }
+            . = 0x10000; .filter : { *(.filter) }
+            . = 0x20000; .text : { *(.text.start) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import json,os,pathlib,random,re,subprocess
+          ev=pathlib.Path('evidence'); cases=[(2,1,4),(2,3,6),(4,2,8),(8,4,16)]
+          report={'schema':'m9.greenoracle6m.filter101040-phase1-scratch.v1','routine_sha256':'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389','cases':{}}
+          for inner,outer,stride in cases:
+            seed=0x6d000000+inner*0x10000+outer*0x100+stride; rng=random.Random(seed)
+            vals=[rng.randrange(65536) for _ in range(4096)]
+            pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{x:04x}\n' for x in vals))
+            name=f'i{inner}_o{outer}_s{stride}'
+            subprocess.run([os.environ['BFIN_AS'],'--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}','filter101040_phase1scratch_oracle.s','-o',name+'.o'],check=True)
+            subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',name+'.o','-o',name+'.elf'],check=True)
+            sim=subprocess.run([os.environ['BFIN_SIM'],name+'.elf'],capture_output=True,text=True)
+            if sim.returncode: raise SystemExit(f'{name}: simulator rc={sim.returncode}: {sim.stderr[-1000:]}')
+            words=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',sim.stdout)]
+            if len(words)!=192: raise SystemExit(f'{name}: expected 192 dwords, got {len(words)}')
+            def hw(ws):
+              out=[]
+              for q in ws: out.extend([q&0xffff,(q>>16)&0xffff])
+              return out
+            out1=hw(words[:96]); out2=hw(words[96:])
+            changed1=[{'index':i,'address':hex(0x7000+2*i),'value':v} for i,v in enumerate(out1) if v!=0x1357]
+            changed2=[{'index':i,'address':hex(0x8000+2*i),'value':v} for i,v in enumerate(out2) if v!=0x2468]
+            report['cases'][name]={'seed':seed,'inner':inner,'outer':outer,'stride':stride,'out1_changed':changed1,'out2_changed':changed2}
+          (ev/'phase1_scratch.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps({k:{'out1_count':len(v['out1_changed']),'out2_count':len(v['out2_changed']),'out2_first':v['out2_changed'][:12]} for k,v in report['cases'].items()},indent=2))
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6M-FILTER101040-PHASE1-SCRATCH
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6m/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/green6m/pass" "$RUNNER_TEMP/green6m/m9.upd" "$RUNNER_TEMP/green6m/mm.upm" "$RUNNER_TEMP/green6m/m9.dec"
+          rm -f "$RUNNER_TEMP/green6m"/*.bin "$RUNNER_TEMP/green6m"/*.o "$RUNNER_TEMP/green6m"/*.elf "$RUNNER_TEMP/green6m"/*.inc
