@@ -1,0 +1,40 @@
+{
+  "schema": "m9.rbclosure5g.caller-cfg-frozen.v1",
+  "source_run": 34819298658,
+  "source_commit": "8b9f9be02995fbcf7a00dc02ac20fd16d76d8d50",
+  "artifact": "M9-RB-RBCLOSURE5G-CALLER-CFG",
+  "artifact_id": 10337566545,
+  "artifact_zip_sha256": "746435f0f2507a6cb37e047d1a05cb26a8e62febcc72443724e0e43706725a67",
+  "selected_bf561_pair": 3,
+  "range": ["0xffa10a80", "0xffa10d40"],
+  "proven_handlers": {
+    "ASMRedBlueInterpolation1_case": {
+      "case_body_start": "0xffa10ba4",
+      "call_site": "0xffa10bea",
+      "target": "0xffa03410",
+      "status_check_call": "0xffa10bf4 -> 0xfeb10378",
+      "failure_return_block": ["0xffa10bfe", "0xffa10c0a"],
+      "failure_return_value": 7,
+      "preceding_independent_return_block": ["0xffa10b96", "0xffa10ba2"]
+    },
+    "GreenInterpolationWithCo_case": {
+      "case_body_start": "0xffa10c9a",
+      "call_site": "0xffa10cbc",
+      "target": "0xfeb10660",
+      "status_check_call": "0xffa10cca -> 0xfeb10378",
+      "failure_return_block": ["0xffa10cf0", "0xffa10cfc"],
+      "failure_return_value": 6,
+      "preceding_independent_return_block": ["0xffa10c8c", "0xffa10c98"]
+    }
+  },
+  "proof": [
+    "The interpolation case is entered only after a complete prior epilogue/indirect return at 0xffa10b96..0xffa10ba2.",
+    "The interpolation case has its own call, status check, branch back into shared success flow, and independent epilogue/indirect return at 0xffa10bfe..0xffa10c0a.",
+    "A different case begins at 0xffa10c0c and itself returns at 0xffa10c8c..0xffa10c98.",
+    "Only after that independent return does the GreenInterpolationWithCo case begin at 0xffa10c9a.",
+    "The Green case has its own argument setup, call, status check, success jumps, and independent epilogue/indirect return at 0xffa10cf0..0xffa10cfc."
+  ],
+  "interpretation": "ASMRedBlueInterpolation1 and GreenInterpolationWithCo are separate dispatcher case bodies in this Run-like BF561 region. Their address order must not be interpreted as photographic pipeline order, and they must not be directly composed from local control-flow adjacency.",
+  "open_question": "Resolve the dispatcher selector/case mapping and then trace the higher-level sequence of commands that invokes these cases. That higher-level orchestration, not address order in the dispatcher, will define the real red/blue reconstruction stage order and buffer handoff.",
+  "production_status": "untouched"
+}
