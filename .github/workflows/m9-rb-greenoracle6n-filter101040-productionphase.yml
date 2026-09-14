@@ -64,7 +64,7 @@ jobs:
           (root/'evidence'/'body.json').write_text(json.dumps({'pair':pair,'address':hex(addr),'size':size,'sha256':sha},indent=2)+'\n')
           PY
 
-      - name: Run production-phase whole-window write oracle
+      - name: Run production-phase random-destination write oracle
         shell: bash
         run: |
           set -euo pipefail
@@ -85,23 +85,31 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,os,pathlib,random,re,subprocess
           ev=pathlib.Path('evidence')
-          # These reproduce the second 101040 call's geometry/phase in the three
-          # GREENORACLE6L production cases.  For the first two, all three pointers
-          # are mod4==2; the phase_initial=1 case is the aligned control.
           cases=[
             ('s16_h12_q0',8,5,16,0x4402,0x7202,0x8202),
             ('s18_h14_q0',8,6,18,0x4402,0x7202,0x8202),
             ('s20_h16_q1',8,6,20,0x4400,0x7200,0x8200),
             ('mixed_src2_out0',8,5,16,0x4402,0x7200,0x8200),
           ]
-          report={'schema':'m9.greenoracle6n.filter101040-production-phase.v1',
+          report={'schema':'m9.greenoracle6n.filter101040-production-phase.v2',
                   'routine_sha256':'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389',
+                  'output_initialization':'deterministic full-u16 random data; whole-window before/after comparison',
                   'cases':{}}
+          def write_inc(path,vals):
+            pathlib.Path(path).write_text(''.join(f'.short 0x{x:04x}\n' for x in vals))
+          def relation(init,i,v):
+            hits=[]
+            for delta in (-8,-6,-4,-2,-1,1,2,4,6,8):
+              j=i+delta
+              if 0 <= j < len(init) and init[j]==v: hits.append(delta)
+            return hits
           for ci,(name,inner,outer,stride,srcbase,out1base,out2base) in enumerate(cases):
-            seed=0x6e000000+ci*0x10000+stride*0x100+outer
+            seed=0x6e100000+ci*0x10000+stride*0x100+outer
             rng=random.Random(seed)
             src=[rng.randrange(65536) for _ in range(4096)]
-            pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{x:04x}\n' for x in src))
+            init1=[rng.randrange(65536) for _ in range(1024)]
+            init2=[rng.randrange(65536) for _ in range(1024)]
+            write_inc('source_data.inc',src); write_inc('out1_data.inc',init1); write_inc('out2_data.inc',init2)
             subprocess.run([os.environ['BFIN_AS'],
                             '--defsym',f'INNER={inner}','--defsym',f'OUTER={outer}','--defsym',f'STRIDE={stride}',
                             '--defsym',f'SRCBASE={srcbase}','--defsym',f'OUT1BASE={out1base}','--defsym',f'OUT2BASE={out2base}',
@@ -118,27 +126,33 @@ jobs:
             out1=hw(words[:256]); out2=hw(words[256:])
             f1={(out1base-0x7000)//2 + 2*c + 2*stride*r for r in range(outer) for c in range(inner)}
             f2={(out2base-0x8000)//2 + 2*c + 2*stride*r for r in range(outer) for c in range(inner)}
-            ch1=[i for i,v in enumerate(out1) if v!=0x1357]
-            ch2=[i for i,v in enumerate(out2) if v!=0x2468]
-            ex1=[i for i in ch1 if i not in f1]
-            ex2=[i for i in ch2 if i not in f2]
-            miss1=[i for i in sorted(f1) if out1[i]==0x1357]
-            miss2=[i for i in sorted(f2) if out2[i]==0x2468]
+            ch1=[i for i,(a,b) in enumerate(zip(init1[:512],out1)) if a!=b]
+            ch2=[i for i,(a,b) in enumerate(zip(init2[:512],out2)) if a!=b]
+            ex1=[i for i in ch1 if i not in f1]; ex2=[i for i in ch2 if i not in f2]
+            ev1=[{'index':i,'address':hex(0x7000+2*i),'before':init1[i],'after':out1[i],
+                  'after_equals_before_neighbor_offsets_halfwords':relation(init1,i,out1[i])} for i in ex1]
+            ev2=[{'index':i,'address':hex(0x8000+2*i),'before':init2[i],'after':out2[i],
+                  'after_equals_before_neighbor_offsets_halfwords':relation(init2,i,out2[i])} for i in ex2]
             report['cases'][name]={
               'seed':seed,'inner':inner,'outer':outer,'stride':stride,
               'srcbase':hex(srcbase),'out1base':hex(out1base),'out2base':hex(out2base),
               'pointer_mod4':[srcbase&3,out1base&3,out2base&3],
               'formal_out1':sorted(f1),'formal_out2':sorted(f2),
               'changed_out1':ch1,'changed_out2':ch2,
-              'extra_out1':ex1,'extra_out2':ex2,
-              'formal_sentinel_collisions_out1':miss1,'formal_sentinel_collisions_out2':miss2,
-              'out1_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in out1)).hexdigest(),
-              'out2_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in out2)).hexdigest(),
+              'extra_out1_events':ev1,'extra_out2_events':ev2,
+              'formal_unchanged_out1':[i for i in sorted(f1) if out1[i]==init1[i]],
+              'formal_unchanged_out2':[i for i in sorted(f2) if out2[i]==init2[i]],
+              'initial_out1_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in init1[:512])).hexdigest(),
+              'initial_out2_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in init2[:512])).hexdigest(),
+              'final_out1_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in out1)).hexdigest(),
+              'final_out2_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in out2)).hexdigest(),
             }
           raw=(json.dumps(report,indent=2)+'\n').encode()
           (ev/'production_phase_writes.json').write_bytes(raw)
           (ev/'production_phase_writes.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  production_phase_writes.json\n')
-          summary={k:{'pointer_mod4':v['pointer_mod4'],'extra_out1':v['extra_out1'],'extra_out2':v['extra_out2']} for k,v in report['cases'].items()}
+          summary={k:{'pointer_mod4':v['pointer_mod4'],
+                      'extra_out1_events':v['extra_out1_events'],
+                      'extra_out2_events':v['extra_out2_events']} for k,v in report['cases'].items()}
           (ev/'production_phase_summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           print(json.dumps(summary,indent=2))
           PY
