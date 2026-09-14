@@ -1,0 +1,124 @@
+name: M9 R/B RBCLOSURE5X BF547 Sender
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bf547-sender5x.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sender:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover BF547 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5x"
+          mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          BF=$(find "$ROOT/pass" -path '*/bf547_*/BF547.bin' | head -1)
+          test -n "$BF"
+          cp "$BF" "$ROOT/BF547.bin"
+          python3 - <<'PY'
+          import os,pathlib,hashlib,json,re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5x'; data=(root/'BF547.bin').read_bytes()
+          strings=[]
+          for m in re.finditer(rb'[ -~]{4,}',data):
+              s=m.group().decode('ascii','replace')
+              if any(k.lower() in s.lower() for k in ('sport','spi','setting','image','append','transfer','process','interpol')):
+                  strings.append({'off':f'0x{m.start():x}','text':s[:300]})
+          rep={'schema':'m9.rbclosure5x.bf547-image.v1','size':len(data),'sha256':hashlib.sha256(data).hexdigest(),'interesting_strings':strings[:500]}
+          (root/'evidence'/'bf547_inventory.json').write_text(json.dumps(rep,indent=2)+'\n')
+          print(json.dumps(rep,indent=2))
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin "$ROOT/BF547.bin" > "$ROOT/BF547.dis"
+
+      - name: Find command-7 / length-37 construction windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5x"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5x'
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          ins=[]
+          for line in (root/'BF547.dis').read_text(errors='replace').splitlines():
+              m=rx.match(line)
+              if m: ins.append({'off':int(m.group(1),16),'asm':m.group(2).strip()})
+          def has_imm(a,val):
+              u=a.upper()
+              pats=[f'0X{val:X}',f'({val})',f'= {val} ',f'= {val};',f'+= {val} ',f'R2={val}']
+              return any(p in u for p in pats)
+          hits7=[]; hits37=[]
+          for i,x in enumerate(ins):
+              u=x['asm'].upper()
+              if re.search(r'(^|[^0-9A-F])0X0?7([^0-9A-F]|$)',u) or re.search(r'\(\s*7\s*\)',u): hits7.append(i)
+              if re.search(r'(^|[^0-9A-F])0X25([^0-9A-F]|$)',u) or re.search(r'\(\s*37\s*\)',u): hits37.append(i)
+          pairs=[]
+          for a in hits7:
+              for b in hits37:
+                  if abs(a-b)<=50:
+                      lo=max(0,min(a,b)-40); hi=min(len(ins),max(a,b)+60)
+                      ctx=ins[lo:hi]
+                      calls=[q for q in ctx if 'CALL ' in q['asm'].upper()]
+                      pairs.append({'hit7':f"0x{ins[a]['off']:x}",'hit37':f"0x{ins[b]['off']:x}",'distance_instructions':abs(a-b),'context':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in ctx],'calls':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in calls]})
+          # Deduplicate heavily overlapping pair windows by the hit positions.
+          seen=set(); uniq=[]
+          for p in sorted(pairs,key=lambda q:q['distance_instructions']):
+              k=(p['hit7'],p['hit37'])
+              if k in seen: continue
+              seen.add(k); uniq.append(p)
+          # Also capture compact store sequences involving immediates 7/37.
+          raw=(json.dumps({'schema':'m9.rbclosure5x.bf547-sender-candidates.v1','instruction_count':len(ins),'imm7_hits':len(hits7),'imm37_hits':len(hits37),'paired_windows':uniq[:80]},indent=2)+'\n').encode()
+          (root/'evidence'/'sender_candidates.json').write_bytes(raw)
+          with open(root/'evidence'/'sender_candidates.txt','w') as f:
+              f.write(f'IMM7 HITS {len(hits7)} IMM37 HITS {len(hits37)} PAIRS {len(uniq)}\n')
+              for n,p in enumerate(uniq[:40]):
+                  f.write(f"\n=== PAIR {n} id7={p['hit7']} len37={p['hit37']} distance={p['distance_instructions']} ===\n")
+                  for q in p['context']: f.write(f"{q['off']}  {q['asm']}\n")
+          (root/'evidence'/'sender_candidates.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  sender_candidates.json\n')
+          print((root/'evidence'/'sender_candidates.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload BF547 sender evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5X-BF547-SENDER
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5x/evidence/*
+
+      - name: Remove firmware and BF547 bytes
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5x/pass" "$RUNNER_TEMP/rb5x/m9.upd" "$RUNNER_TEMP/rb5x/mm.upm" "$RUNNER_TEMP/rb5x/m9.dec" "$RUNNER_TEMP/rb5x/BF547.bin" "$RUNNER_TEMP/rb5x/BF547.dis"
