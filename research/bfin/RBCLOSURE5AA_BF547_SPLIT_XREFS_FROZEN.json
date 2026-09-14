@@ -1,0 +1,21 @@
+{
+  "schema": "m9.rbclosure5aa.bf547-split-xrefs.frozen.v1",
+  "workflow_run": 34835080133,
+  "artifact_id": 10343808236,
+  "artifact_digest": "sha256:6c0768d4ce65ece9f4169e411c9ebabb587de15a525384f56b8f81227ac0b6d0",
+  "status": "PARTIAL — BF547 settings diagnostic proven; prior sender candidate rejected",
+  "proven": {
+    "diagnostic_function_entry": "0x4c940",
+    "settings_argument": "R0 -> P5",
+    "mode_read": "B[P5+0x4]",
+    "mode_test": "value == 3 at 0x4c9ac",
+    "interpretation": "BF547 independently treats settings byte +4 as a meaningful processing-mode selector"
+  },
+  "correction": {
+    "candidate": "0x471c4",
+    "previous_hypothesis": "possible SportNet command-7 sender because constants 37 and 7 occur in one frame",
+    "rejected_because": "0x471c4 passes R2=7 into 0x6c3dc; 0x6c3dc immediately range-checks R2 against 13 and jump-dispatches on it, proving R2 is a generic serializer/type selector in that API. The 37 constant is another serializer argument, not sufficient evidence of SportNet command framing.",
+    "consequence": "Do not use 0x471c4 as sender evidence. Trace actual caller/dataflow of the BF547 settings object instead."
+  },
+  "next": "RBCLOSURE5AB: trace direct and pointer-table callers of 0x4c940, identify its settings object producer, then follow that object into the real SportNet send path."
+}
