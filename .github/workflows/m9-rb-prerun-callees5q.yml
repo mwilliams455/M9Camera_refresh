@@ -1,0 +1,163 @@
+name: M9 R/B RBCLOSURE5Q PreRun Callees
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-prerun-callees5q.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  callees:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover exact callee bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5q"
+          mkdir -p "$ROOT/evidence" "$ROOT/bodies"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5q'
+          d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          targets={
+              'SetStructParameter':(0xfeb167e0,'R1'),
+              'Set':(0xfeb16904,'R0'),
+              'InitL1MemoryProcessing':(0xfeb104be,'R1'),
+          }
+          out={'schema':'m9.rbclosure5q.setup.v1','selected_pair':pair,'targets':{}}
+          for name,(addr,param_reg) in targets.items():
+              exact=[s for s in syms if int(s.get('addr',-1))==addr and int(s.get('size',0))>0]
+              if not exact: raise SystemExit(f'exact symbol missing for {name} 0x{addr:08x}')
+              s=max(exact,key=lambda z:int(z['size'])); body=m.read_overlay(blocks,addr,int(s['size']))
+              fn=f'{name}.bin'; (root/'bodies'/fn).write_bytes(body)
+              out['targets'][name]={'addr':f'0x{addr:08x}','size':int(s['size']),'sha256':hashlib.sha256(body).hexdigest(),'parameter_register':param_reg,'bin':fn}
+          (root/'setup.json').write_text(json.dumps(out,indent=2)+'\n')
+          (root/'symbols.json').write_text(json.dumps(syms,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5q'; d=json.load(open(root/'setup.json'))
+          with open(root/'objdump.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for name,v in d['targets'].items():
+                  f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={v["addr"]} "$RUNNER_TEMP/rb5q/bodies/{v["bin"]}" > "$RUNNER_TEMP/rb5q/bodies/{name}.dis"\n')
+          PY
+          bash "$ROOT/objdump.sh"
+
+      - name: Track g_L2Parameter argument usage
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5q"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5q'; setup=json.load(open(root/'setup.json')); syms=json.load(open(root/'symbols.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I); tr=re.compile(r'0x0?([0-9a-f]{8})',re.I)
+          def parse(path):
+              out=[]
+              for line in path.read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m: out.append({'addr':int(m.group(1),16),'asm':m.group(2).strip()})
+              return out
+          def syminfo(addr):
+              ex=[]; cv=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if a==addr: ex.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+                  if z>0 and a<=addr<a+z: cv.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return {'exact':ex,'covering':cv}
+          results={}
+          text=[]
+          for name,v in setup['targets'].items():
+              ins=parse(root/'bodies'/f'{name}.dis')
+              seed=v['parameter_register'].upper(); aliases={seed}; alias_events=[]; derefs=[]; calls=[]; clobbers=[]
+              for x in ins:
+                  u=x['asm'].upper()
+                  # Handle register/pointer copies: dst = src (ignore rotates/multifunction for conservative report).
+                  m=re.search(r'^\s*([RP][0-7]?)\s*=\s*([RP][0-7]?)\s*;',u)
+                  if m:
+                      dst,src=m.group(1),m.group(2)
+                      if src in aliases and dst not in aliases:
+                          aliases.add(dst); alias_events.append({'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'new_alias':dst,'from':src})
+                      elif dst in aliases and src not in aliases:
+                          clobbers.append({'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'alias':dst})
+                  for a in list(aliases):
+                      if re.search(r'\['+re.escape(a)+r'(?:\s*[+\-][^\]]+)?\]',u):
+                          if re.search(r'\[[^\]]+\]\s*=',u): direction='store'
+                          elif re.search(r'=\s*(?:B|W)?\[[^\]]+\]',u): direction='load'
+                          else: direction='other'
+                          off=None
+                          mo=re.search(r'\['+re.escape(a)+r'\s*\+\s*(0X[0-9A-F]+|\d+)\]',u)
+                          if mo: off=mo.group(1)
+                          elif re.search(r'\['+re.escape(a)+r'\]',u): off='0'
+                          derefs.append({'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'alias':a,'direction':direction,'offset':off})
+                  if 'CALL ' in u:
+                      mt=tr.search(x['asm']); tgt=int(mt.group(1),16) if mt else None
+                      calls.append({'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'target':f'0x{tgt:08x}' if tgt is not None else None,'target_symbols':syminfo(tgt) if tgt is not None else None,'aliases_known':sorted(aliases)})
+              word0=[q for q in derefs if q['offset']=='0']
+              results[name]={'parameter_seed_register':seed,'aliases_seen':sorted(aliases),'alias_events':alias_events,'alias_clobbers':clobbers,'dereferences':derefs,'word0_accesses':word0,'calls':calls,'instructions':[{'addr':f"0x{x['addr']:08x}",'asm':x['asm']} for x in ins]}
+              text.append(f'\n=== {name} seed={seed} ===')
+              text.extend(f"0x{x['addr']:08x}  {x['asm']}" for x in ins)
+              text.append('WORD0 ACCESSES')
+              text.extend(json.dumps(q) for q in word0)
+              text.append('CALLS')
+              text.extend(json.dumps(q) for q in calls)
+          rep={'schema':'m9.rbclosure5q.prerun-callees.v1','setup':setup,'functions':results,'closure_goal':'Determine every direct or forwarded mutation capable of changing g_L2Parameter word0 after Init writes 0xffffffff and before Run consumes it.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'prerun_callees.json').write_bytes(raw)
+          (root/'evidence'/'prerun_callees.txt').write_text('\n'.join(text)+'\n')
+          (root/'evidence'/'prerun_callees.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  prerun_callees.json\n')
+          print((root/'evidence'/'prerun_callees.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload callee evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5Q-PRERUN-CALLEES
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5q/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5q/pass" "$RUNNER_TEMP/rb5q/m9.upd" "$RUNNER_TEMP/rb5q/mm.upm" "$RUNNER_TEMP/rb5q/m9.dec" "$RUNNER_TEMP/rb5q/bodies" "$RUNNER_TEMP/rb5q/setup.json" "$RUNNER_TEMP/rb5q/symbols.json" "$RUNNER_TEMP/rb5q/objdump.sh"
