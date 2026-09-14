@@ -1,0 +1,36 @@
+{
+  "schema": "m9.greenoracle6a2.production-body-frozen.v1",
+  "workflow_run": 34840536147,
+  "artifact_id": 10345961509,
+  "artifact_digest": "sha256:6eeee0ac09c4d08e2ddb25844926bed9f8f7cbeacdfbb786575f00a8122e541a",
+  "status": "PRODUCTION GREEN BODY CLOSED; ONE HELPER PRIMITIVE REMAINS",
+  "production_symbol": {
+    "name": "GreenInterpolationWithCo",
+    "address": "0xFEB10660",
+    "size": 810,
+    "body_sha256": "22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5"
+  },
+  "duplicate_warning": {
+    "same_name_other_address": "0xFF613558",
+    "size": 810,
+    "policy": "Do not conflate duplicate map symbol with production call target. Production Run calls 0xFEB10660."
+  },
+  "body_shape": {
+    "instruction_count": 261,
+    "direct_call_count": 10,
+    "interpretation": "GreenInterpolationWithCo is primarily an orchestration layer around four named Blackfin primitives plus pointer/geometry/phase arithmetic."
+  },
+  "direct_helpers": [
+    {"name":"ASMFilter_010_101_010_2","address":"0xFFA03E00","calls":4,"coverage":"MISSING — next oracle target"},
+    {"name":"ASMFilter_101_040_101_An","address":"0xFFA000BE","calls":2,"coverage":"CLOSED by BFINORACLE3B/BFINSCALAR3C/BFINORACLE3D"},
+    {"name":"ASMRedBlueAndGreenDiffer","address":"0xFFA00008","calls":2,"coverage":"CLOSED by BFINORACLE2A/BFINSCALAR2B/BFINSCALAR2C"},
+    {"name":"ASMFilter_101_000_101_2","address":"0xFFA0024E","calls":2,"coverage":"CLOSED by BFINORACLE4B/BFINORACLE4C/BFINSCALAR4D"}
+  ],
+  "production_caller_shape": {
+    "register_args": ["R0=[P3+0x34]","R1=[P3+0x3c]","R2=[P3+0x38]"],
+    "stack_args": ["SP+0x0c=[P3+0x40]","SP+0x10=R6","SP+0x14=[FP-0x18]","SP+0x18=2","SP+0x1c=FP+8","SP+0x20=[P3+0x44]"],
+    "semantic_policy": "Do not label these nine arguments until consumption is closed from exact body/helper ABIs."
+  },
+  "next": "GREENORACLE6B: recover ASMFilter_010_101_010_2 exact body/ABI/arithmetic/geometry and build direct scalar parity harness.",
+  "production_status": "untouched"
+}
