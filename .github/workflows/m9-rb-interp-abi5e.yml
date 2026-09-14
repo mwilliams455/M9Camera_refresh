@@ -1,0 +1,99 @@
+name: M9 R/B RBCLOSURE5E Interpolation ABI Window
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-interp-abi5e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  abi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build targeted Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o binutils.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf binutils.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover only canonical interpolation caller block
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5e"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5e'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m); _,blocks=m.parse_ldr(bf0)
+          site=0xffa10bea; block=None
+          for b in blocks:
+              if int(b['addr']) <= site < int(b['addr'])+int(b['count']): block=b; break
+          if block is None: raise SystemExit('caller block not found')
+          base=int(block['addr']); data=block['data']; (root/'caller.bin').write_bytes(data)
+          meta={'selected_pair':pair,'block_base':f'0x{base:08x}','block_size':len(data),'block_sha256':hashlib.sha256(data).hexdigest(),'call_site':'0xffa10bea','target':'0xffa03410'}
+          (root/'evidence'/'caller_block_meta.json').write_text(json.dumps(meta,indent=2)+'\n')
+          (root/'block_base.txt').write_text(f'{base:x}\n')
+          PY
+          BASE=$(cat "$ROOT/block_base.txt")
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$BASE" "$ROOT/caller.bin" > "$ROOT/caller.dis"
+      - name: Extract exact ABI window
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5e"
+          python3 - <<'PY'
+          import json,os,pathlib,re,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5e'; lines=(root/'caller.dis').read_text(errors='replace').splitlines(); site=0xffa10bea
+          idx=None
+          for i,l in enumerate(lines):
+              m=re.match(r'^\s*([0-9a-f]+):',l,re.I)
+              if m and int(m.group(1),16)==site: idx=i; break
+          if idx is None: raise SystemExit('call site missing from disassembly')
+          pre=lines[max(0,idx-70):idx]; post=lines[idx:min(len(lines),idx+18)]
+          # Keep only decoded instruction lines in structured form, but preserve verbatim narrow text window too.
+          insrx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I)
+          def parsed(xs):
+              out=[]
+              for l in xs:
+                  m=insrx.match(l)
+                  if m: out.append({'addr':f'0x{int(m.group(1),16):08x}','bytes':m.group(2).strip(),'asm':m.group(3).strip()})
+              return out
+          report={'schema':'m9.rbclosure5e.interp1-abi-window.v1','call_site':'0xffa10bea','target':'0xffa03410','pre':parsed(pre),'call_and_post':parsed(post)}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'interp1_abi_window.json').write_bytes(raw)
+          (root/'evidence'/'interp1_abi_window.txt').write_text('\n'.join(pre+post)+'\n')
+          (root/'evidence'/'interp1_abi_window.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  interp1_abi_window.json\n')
+          print('\n'.join(pre[-45:]+post[:6]))
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload derived ABI evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5E-INTERP-ABI
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5e/evidence/*
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5e/pass" "$RUNNER_TEMP/rb5e/m9.upd" "$RUNNER_TEMP/rb5e/mm.upm" "$RUNNER_TEMP/rb5e/m9.dec" "$RUNNER_TEMP/rb5e/caller.bin" "$RUNNER_TEMP/rb5e/caller.dis" "$RUNNER_TEMP/rb5e/block_base.txt"
