@@ -1,0 +1,34 @@
+{
+  "schema": "m9.rboracle7a.interp1-physical-writes-frozen.v1",
+  "status": "CLOSED",
+  "source_run": 34862228582,
+  "source_commit": "ce881f65b50483daf6c6cbd8ae130a211b264d45",
+  "artifact": "M9-RB-RBORACLE7A-PHYSICAL-WRITES",
+  "artifact_id": 10355916433,
+  "artifact_zip_sha256": "3fd2f9a476b11c14d65e03f98c1f29f1711aa74483bb48edfdbfe8a24f622610",
+  "routine": {
+    "name": "ASMRedBlueInterpolation1",
+    "entry": "0xffa03410",
+    "size": 584,
+    "sha256": "997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828",
+    "fresh_firmware_recovery_verified": true
+  },
+  "method": "Each output used a deterministic 1024-halfword full-u16 random canary window. The exact Leica body ran with the production ABI/caller phase rule. CI dumped each complete output window from the section base, including the 0x40-byte pre-pointer guard, formal image area and long tail. Whole-window before/after changes were classified against the scalar formal interior.",
+  "cases": [
+    {"width":8,"height":8,"support_before":0,"support_after":1,"phase_bytes":2,"changed_each_output":36},
+    {"width":8,"height":8,"support_before":1,"support_after":2,"phase_bytes":0,"changed_each_output":16},
+    {"width":10,"height":8,"support_before":0,"support_after":1,"phase_bytes":2,"changed_each_output":48},
+    {"width":10,"height":10,"support_before":2,"support_after":3,"phase_bytes":2,"changed_each_output":16},
+    {"width":12,"height":10,"support_before":0,"support_after":1,"phase_bytes":2,"changed_each_output":80},
+    {"width":12,"height":12,"support_before":3,"support_after":4,"phase_bytes":0,"changed_each_output":16}
+  ],
+  "result": {
+    "all_support_updates_exact": true,
+    "total_extra_outa_events": 0,
+    "total_extra_outb_events": 0,
+    "conclusion": "No pre-pointer, guard, packed-lane or tail output writes were observed outside the formal interpolation interior in the tested production phase/support geometries. Unlike ASMFilter_101_040_101_An, ASMRedBlueInterpolation1 requires no additional destination-side physical-write rule for these cases."
+  },
+  "hash_correction": "The fresh exact-body recovery confirms 997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828. The unrelated ba5cc86f... value from a prior conversational working summary has no repository evidence and is superseded for ASMRedBlueInterpolation1.",
+  "production_status": "untouched",
+  "next_gate": "Whole-window machine-versus-scalar parity with the same random output canaries across the broader frozen geometry/support matrix."
+}
