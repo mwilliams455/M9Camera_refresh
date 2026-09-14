@@ -1,0 +1,24 @@
+{
+  "schema": "m9.rbclosure5f.chain-xrefs-frozen.v1",
+  "source_run": 34819186766,
+  "source_commit": "994790e31dcefafb4b4b98cfbded15f24409e03a",
+  "artifact": "M9-RB-RBCLOSURE5F-CHAIN-XREFS",
+  "artifact_id": 10337063251,
+  "artifact_zip_sha256": "753800b4dca009352012e2bff98b8f3f26b86e2fc4b17a124531b2c271354b42",
+  "selected_bf561_pair": 3,
+  "exact_xrefs": [
+    {"site": "0xffa10bea", "target": "0xffa03410", "target_name": "ASMRedBlueInterpolation1", "ldr_block": 22},
+    {"site": "0xffa10cbc", "target": "0xfeb10660", "target_name": "GreenInterpolationWithCo", "ldr_block": 22}
+  ],
+  "counts": {
+    "ASMRedBlueInterpolation1": 1,
+    "GreenInterpolationWithCo": 1
+  },
+  "map_overlap": {
+    "0xffa10bea": ["Run", "DoubleColumnCorrection"],
+    "0xffa10cbc": ["Run", "DoubleColumnCorrection"]
+  },
+  "interpretation_guard": "The two targets have one direct xref each in the selected canonical BF561 image and both xrefs reside in the same LDR block. Address ordering alone is not execution ordering because the surrounding code contains conditional branches and early returns. Do not compose GreenInterpolationWithCo -> ASMRedBlueInterpolation1 or the reverse until the control-flow path is proven.",
+  "next_gate": "Recover and analyze the caller control-flow window spanning both xrefs, including branch targets and the descriptor/support state carried to each call.",
+  "status": "producer/final xrefs frozen; execution order deliberately unresolved"
+}
