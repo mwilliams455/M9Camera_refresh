@@ -1,0 +1,239 @@
+name: M9 R/B RBORACLE7A Physical Writes
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-rboracle7a-physicalwrites.yml'
+      - 'research/bfin/interp1_physical_write_oracle.s'
+
+permissions:
+  contents: read
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover and verify exact Leica R/B body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb7a"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb7a'
+          report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py')
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          addr,size=0xffa03410,584
+          expected='997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828'
+          found=[]; selected=None
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin'))
+              _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if len(body)!=size: continue
+              sha=hashlib.sha256(body).hexdigest(); found.append({'pair':i,'sha256':sha})
+              if sha==expected: selected=(i,body); break
+            except Exception:
+              continue
+          meta={'address':hex(addr),'size':size,'expected_sha256':expected,'observed_candidates':found}
+          if selected is None:
+            (root/'evidence'/'body_verification.json').write_text(json.dumps(meta,indent=2)+'\n')
+            raise SystemExit('canonical 584-byte ASMRedBlueInterpolation1 body not found at frozen SHA')
+          pair,body=selected
+          meta.update({'selected_pair':pair,'verified':True})
+          (root/'ASMRedBlueInterpolation1.bin').write_bytes(body)
+          (root/'evidence'/'body_verification.json').write_text(json.dumps(meta,indent=2)+'\n')
+          PY
+
+      - name: Run random-canary full-window physical write oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb7a"
+          cp research/bfin/interp1_physical_write_oracle.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x4000; .oracle_diff : { *(.oracle_diff) }
+            . = 0x5000; .oracle_green : { *(.oracle_green) }
+            . = 0x6000; .oracle_outa : { *(.oracle_outa) }
+            . = 0x7000; .oracle_outb : { *(.oracle_outb) }
+            . = 0x8000; .oracle_border : { *(.oracle_border) }
+            . = 0x9000; .oracle_stack : { *(.oracle_stack) }
+            . = 0x20000; .text.start : { *(.text.start) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,random,re,subprocess
+          ev=pathlib.Path('evidence')
+          # width,height,support_before.  Caller phase is determined from
+          # support_after=support_before+1 exactly as frozen by BFINSCALAR1B.
+          cases=[
+            (8,8,0),(8,8,1),(10,8,0),(10,10,2),(12,10,0),(12,12,3)
+          ]
+          HALFWORDS=1024
+          EDGES=[0,1,2,3,4,7,8,0x1fff,0x3fff,0x4000,0x7fff,0x8000,0xfffe,0xffff]
+          report={
+            'schema':'m9.rboracle7a.interp1-physical-writes.v1',
+            'routine_entry':'0xffa03410','routine_size':584,
+            'routine_sha256':'997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828',
+            'window_halfwords_per_output':HALFWORDS,
+            'output_initialization':'deterministic full-u16 random canaries',
+            'cases':{},'case_count':0
+          }
+          def write_inc(path,vals):
+            pathlib.Path(path).write_text(''.join(f'.short 0x{x:04x}\n' for x in vals))
+          def unpack(ws):
+            out=[]
+            for q in ws: out.extend([q&0xffff,(q>>16)&0xffff])
+            return out
+          def neighbor_relation(init,i,v):
+            hits=[]
+            for d in (-16,-12,-8,-6,-4,-3,-2,-1,1,2,3,4,6,8,12,16):
+              j=i+d
+              if 0 <= j < len(init) and init[j]==v: hits.append(d)
+            return hits
+
+          for ci,(width,height,sbefore) in enumerate(cases):
+            safter=sbefore+1
+            phase_bytes=2*(safter&1)
+            green_ptr=0x5040+phase_bytes
+            outa_ptr=0x6040+phase_bytes
+            outb_ptr=0x7040+phase_bytes
+            seed=0x7a000000 + ci*0x10000 + width*0x100 + height*0x10 + sbefore
+            rng=random.Random(seed)
+            diff=[rng.randrange(65536) for _ in range(HALFWORDS)]
+            green=[rng.randrange(0x4000) for _ in range(HALFWORDS)]
+            outa0=[rng.randrange(65536) for _ in range(HALFWORDS)]
+            outb0=[rng.randrange(65536) for _ in range(HALFWORDS)]
+            # Edge-rich source values around the validated public input base.
+            base=0x40//2
+            for j,v in enumerate(EDGES):
+              for mul in (1,7,13):
+                k=base + 3 + j*mul
+                if k < HALFWORDS: diff[k]=v
+              k=base + 5 + j*9
+              if k < HALFWORDS: green[k]=v & 0x3fff
+            write_inc('oracle_diff_data.inc',diff)
+            write_inc('oracle_green_data.inc',green)
+            write_inc('oracle_outa_data.inc',outa0)
+            write_inc('oracle_outb_data.inc',outb0)
+            name=f'w{width}_h{height}_s{sbefore}_p{phase_bytes}'
+            subprocess.run([
+              os.environ['BFIN_AS'],
+              '--defsym',f'WIDTH={width}','--defsym',f'HEIGHT={height}',
+              '--defsym',f'SUPPORT_INIT={sbefore}',
+              '--defsym',f'GREEN_PTR={green_ptr}','--defsym',f'OUTA_PTR={outa_ptr}','--defsym',f'OUTB_PTR={outb_ptr}',
+              'interp1_physical_write_oracle.s','-o',name+'.o'],check=True)
+            subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',name+'.o','-o',name+'.elf'],check=True)
+            sim=subprocess.run([os.environ['BFIN_SIM'],name+'.elf'],capture_output=True,text=True)
+            if sim.returncode:
+              (ev/f'{name}.stdout.txt').write_text(sim.stdout)
+              (ev/f'{name}.stderr.txt').write_text(sim.stderr)
+              raise SystemExit(f'{name}: simulator rc={sim.returncode}: {sim.stderr[-1200:]}')
+            vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',sim.stdout)]
+            if len(vals)!=1025:
+              (ev/f'{name}.stdout.txt').write_text(sim.stdout)
+              raise SystemExit(f'{name}: expected 1025 DBG values, got {len(vals)}')
+            support_after=vals[0]&0xffffffff
+            outa=unpack(vals[1:513]); outb=unpack(vals[513:1025])
+            if len(outa)!=HALFWORDS or len(outb)!=HALFWORDS: raise SystemExit(name+' unpack length')
+            ptr_idx=(outa_ptr-0x6000)//2
+            formal={ptr_idx+y*width+x
+                    for y in range(safter,height-safter)
+                    for x in range(safter,width-safter)}
+            cha=[i for i,(a,b) in enumerate(zip(outa0,outa)) if a!=b]
+            chb=[i for i,(a,b) in enumerate(zip(outb0,outb)) if a!=b]
+            exa=[i for i in cha if i not in formal]
+            exb=[i for i in chb if i not in formal]
+            def events(indices,before,after,baseaddr):
+              return [{'index':i,'address':hex(baseaddr+2*i),'before':before[i],'after':after[i],
+                       'relative_to_public_halfwords':i-ptr_idx,
+                       'after_equals_before_neighbor_offsets_halfwords':neighbor_relation(before,i,after[i])}
+                      for i in indices]
+            report['cases'][name]={
+              'seed':seed,'width':width,'height':height,
+              'support_before':sbefore,'support_after':support_after,'expected_support_after':safter,
+              'phase_bytes':phase_bytes,'green_ptr':hex(green_ptr),'outa_ptr':hex(outa_ptr),'outb_ptr':hex(outb_ptr),
+              'public_pointer_index_in_window':ptr_idx,
+              'formal_index_count':len(formal),
+              'changed_outa_count':len(cha),'changed_outb_count':len(chb),
+              'extra_outa_events':events(exa,outa0,outa,0x6000),
+              'extra_outb_events':events(exb,outb0,outb,0x7000),
+              'formal_unchanged_outa':[i for i in sorted(formal) if outa[i]==outa0[i]],
+              'formal_unchanged_outb':[i for i in sorted(formal) if outb[i]==outb0[i]],
+              'initial_outa_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in outa0)).hexdigest(),
+              'initial_outb_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in outb0)).hexdigest(),
+              'final_outa_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in outa)).hexdigest(),
+              'final_outb_sha256':hashlib.sha256(b''.join(v.to_bytes(2,'little') for v in outb)).hexdigest(),
+            }
+            report['case_count']+=1
+          report['all_support_updates_exact']=all(v['support_after']==v['expected_support_after'] for v in report['cases'].values())
+          report['total_extra_outa_events']=sum(len(v['extra_outa_events']) for v in report['cases'].values())
+          report['total_extra_outb_events']=sum(len(v['extra_outb_events']) for v in report['cases'].values())
+          raw=(json.dumps(report,indent=2)+'\n').encode()
+          (ev/'rboracle7a_physical_writes.json').write_bytes(raw)
+          (ev/'rboracle7a_physical_writes.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  rboracle7a_physical_writes.json\n')
+          summary={
+            'case_count':report['case_count'],
+            'all_support_updates_exact':report['all_support_updates_exact'],
+            'total_extra_outa_events':report['total_extra_outa_events'],
+            'total_extra_outb_events':report['total_extra_outb_events'],
+            'cases':{k:{'support_after':v['support_after'],'phase_bytes':v['phase_bytes'],
+                        'changed_outa_count':v['changed_outa_count'],'changed_outb_count':v['changed_outb_count'],
+                        'extra_outa_events':v['extra_outa_events'],'extra_outb_events':v['extra_outb_events']}
+                     for k,v in report['cases'].items()}
+          }
+          (ev/'rboracle7a_summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBORACLE7A-PHYSICAL-WRITES
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb7a/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/rb7a/pass" "$RUNNER_TEMP/rb7a/m9.upd" "$RUNNER_TEMP/rb7a/mm.upm" "$RUNNER_TEMP/rb7a/m9.dec"
+          rm -f "$RUNNER_TEMP/rb7a"/*.bin "$RUNNER_TEMP/rb7a"/*.o "$RUNNER_TEMP/rb7a"/*.elf "$RUNNER_TEMP/rb7a"/*.inc
