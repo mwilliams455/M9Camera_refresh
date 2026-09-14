@@ -1,0 +1,40 @@
+{
+  "schema": "m9.greenoracle6e.filter010-direct-parity-frozen.v1",
+  "source_run": 34845658803,
+  "source_commit": "006e1fb9a21b42d7c74451c135201633b45456ed",
+  "artifact": "M9-RB-GREENORACLE6E-FILTER010-DIRECT-PARITY",
+  "artifact_id": 10347263533,
+  "artifact_digest": "sha256:c037dc19f59570787701271cb209f8dfc1445316d6f3f6cef97270d45fa22fe6",
+  "routine": {
+    "name": "ASMFilter_010_101_010_2",
+    "entry": "0xffa03e00",
+    "exact_body_size_bytes": 418,
+    "exact_body_sha256": "7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7"
+  },
+  "scalar_model": "research/bfin/filter010101010_scalar_exact.py",
+  "arithmetic": {
+    "input_domain": "four unsigned 16-bit cardinal-neighbour taps: left, right, up, down",
+    "selector_2": "floor((u16(L)+u16(R)+u16(U)+u16(D))/4)",
+    "selector_0": "u16(u16(L)+u16(R)+u16(U)+u16(D)); low-16 wrap, not saturation",
+    "logical_source_lattice_halfwords": "base + 2*c + 2*stride*r",
+    "logical_destination_lattice_halfwords": "destBase + 2*c + 2*stride*r",
+    "neighbour_offsets_halfwords": [-1, 1, "-stride", "+stride"]
+  },
+  "direct_parity": {
+    "machine_executions": 60,
+    "logical_samples": 1080,
+    "destination_halfwords_compared": 15360,
+    "exact_match": true,
+    "geometries_inner_outer_stride": [[2,1,4],[4,2,7],[6,3,10],[8,4,16],[10,3,17]],
+    "selectors": [2,0],
+    "source_base_addresses": ["0x4400","0x4402"],
+    "seeds_per_combination": 3,
+    "coverage": "whole 256-halfword destination buffers compared for each execution, including untouched sentinel positions; deterministic full-u16 random sources with difficult edge values injected into cardinal taps"
+  },
+  "evidence_hashes": {
+    "filter010_direct_parity_json_sha256": "2e5ea477040d36bfa44986ca119ff07d4b9a9420d0294aaa2c29b571b5e93958",
+    "filter010_direct_parity_summary_json_sha256": "450a71f67615404852b67a1cb5f5832375feaff6e21d1b0c71f0233e14ad575a"
+  },
+  "conclusion": "The final previously-missing Green primitive is machine/scalar exact across both production selectors, address phases, odd/even strides, multiple geometries and full-u16 edge/random inputs.",
+  "production_status": "untouched"
+}
