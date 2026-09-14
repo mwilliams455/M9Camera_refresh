@@ -1,0 +1,134 @@
+name: M9 R/B BFINORACLE4C Filter101000 Arithmetic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bfin-filter101000-arithmetic4c.yml'
+      - 'research/bfin/filter101000_oracle_observe.s'
+      - 'research/bfin/BFINORACLE4B_FILTER101000_GEOMETRY_FROZEN.json'
+
+permissions:
+  contents: read
+
+jobs:
+  arithmetic-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"; echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover SHA-pinned Leica body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter4c"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bfinfilter4c'; d=json.load(open(root/'pass/report.json'))
+          addr=0xffa0024e; size=0x108; expected='e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd'
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          for i,_ in enumerate(d.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin')); _,blocks=m.parse_ldr(bf0); body=m.read_overlay(blocks,addr,size)
+              if hashlib.sha256(body).hexdigest()==expected:
+                (root/'ASMFilter_101_000_101_2.bin').write_bytes(body); break
+            except Exception: pass
+          else: raise SystemExit('canonical 101-000-101 body not found')
+          PY
+
+      - name: Execute signed rounding and boundary bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bfinfilter4c"; cp research/bfin/filter101000_oracle_observe.s "$ROOT/"
+          cat > "$ROOT/oracle.ld" <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x1000; .text : { *(.text.start) *(.text*) }
+            . = 0x4000; .source : { *(.source) }
+            . = 0x7000; .out : { *(.out) }
+            . = 0x9800; .stack : { *(.stack) }
+          }
+          LDS
+          cd "$ROOT"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,re,subprocess
+          N=2048; BASE=512; SENT=0x1357
+          vectors={
+            'one_pos_1':[1,0,0,0], 'one_pos_2':[2,0,0,0], 'one_pos_3':[3,0,0,0],
+            'one_pos_4':[4,0,0,0], 'one_pos_5':[5,0,0,0], 'one_pos_7':[7,0,0,0],
+            'one_neg_1':[-1,0,0,0], 'one_neg_2':[-2,0,0,0], 'one_neg_3':[-3,0,0,0],
+            'one_neg_4':[-4,0,0,0], 'one_neg_5':[-5,0,0,0], 'one_neg_7':[-7,0,0,0],
+            'three_pos_1':[1,1,1,0], 'three_neg_1':[-1,-1,-1,0],
+            'all_pos_1':[1,1,1,1], 'all_neg_1':[-1,-1,-1,-1],
+            'cancel':[1,-1,1,-1],
+            'max_pos':[32767,32767,32767,32767],
+            'max_neg':[-32768,-32768,-32768,-32768],
+            'mixed_limits':[32767,-32768,32767,-32768],
+            'three_max_one_min':[32767,32767,32767,-32768],
+            'one_max_three_min':[32767,-32768,-32768,-32768],
+            'asym_1234':[1,2,3,4], 'asym_neg':[-1,-2,-3,-4]
+          }
+          configs=[('phase_even_stride',8),('phase_odd_stride',9)]
+          ev=pathlib.Path('evidence'); report={'schema':'m9.bfinoracle4c.filter101000-arithmetic.v1','routine_sha256':'e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd','inner':4,'outer':1,'cases':{}}
+          for phase,stride in configs:
+            taps=[-stride-1,-stride+1,stride-1,stride+1]
+            for vname,vals4 in vectors.items():
+              src=[0]*N
+              for off,val in zip(taps,vals4): src[BASE+off]=val & 0xffff
+              pathlib.Path('source_data.inc').write_text(''.join(f'.short 0x{x & 0xffff:04x}\n' for x in src))
+              name=f'{phase}_{vname}'
+              subprocess.run([os.environ['BFIN_AS'],'--defsym','INNER=4','--defsym','OUTER=1','--defsym',f'STRIDE={stride}','filter101000_oracle_observe.s','-o',f'{name}.o'],check=True,stdout=subprocess.DEVNULL)
+              subprocess.run([os.environ['BFIN_LD'],'-T','oracle.ld',f'{name}.o','-o',f'{name}.elf'],check=True,stdout=subprocess.DEVNULL)
+              p=subprocess.run([os.environ['BFIN_SIM'],f'{name}.elf'],capture_output=True,text=True)
+              if p.returncode: raise SystemExit(f'{name}: rc={p.returncode}: {p.stderr}')
+              words=[int(x,16) for x in re.findall(r'DBG\s*:\s*R0\s*=\s*0x([0-9a-fA-F]+)',p.stdout)]
+              if len(words)!=64: raise SystemExit(f'{name}: DBG={len(words)}')
+              half=[]
+              for q in words: half += [q&0xffff,(q>>16)&0xffff]
+              u=half[2]; s=u-65536 if u&0x8000 else u
+              report['cases'][name]={'phase':phase,'stride':stride,'tap_offsets':taps,'input_s16':vals4,'sum_s16':sum(vals4),'output_u16':u,'output_s16':s,'changed_indices':[i for i,x in enumerate(half) if x!=SENT]}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'filter101000_arithmetic.json').write_bytes(raw); (ev/'filter101000_arithmetic.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter101000_arithmetic.json\n')
+          print(json.dumps({k:{'sum':v['sum_s16'],'out':v['output_s16']} for k,v in report['cases'].items()},indent=2))
+          PY
+
+      - name: Publish arithmetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-BFINORACLE4C-FILTER101000-ARITHMETIC
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/bfinfilter4c/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/bfinfilter4c/pass" "$RUNNER_TEMP/bfinfilter4c/m9.upd" "$RUNNER_TEMP/bfinfilter4c/mm.upm" "$RUNNER_TEMP/bfinfilter4c/m9.dec" "$RUNNER_TEMP/bfinfilter4c/ASMFilter_101_000_101_2.bin" "$RUNNER_TEMP/bfinfilter4c"/*.o "$RUNNER_TEMP/bfinfilter4c"/*.elf
