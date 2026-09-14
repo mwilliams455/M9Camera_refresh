@@ -3,7 +3,9 @@ name: Build M9Cam SHARPSOURCE1C RBANCHOR1A
 on:
   workflow_dispatch:
   push:
-    branches: [research/sharpness-sharpsource1c-rbanchor1a]
+    branches:
+      - research/sharpness-sharpsource1c-rbanchor1a
+      - research/sharpness-rbclosure1d-packedphase1a
     paths:
       - 'patches/apply-m9cam-sharpness-sharpsource1c-rbanchor1a.py'
       - 'patches/verify-m9cam-sharpness-sharpsource1c-rbanchor1a.py'
