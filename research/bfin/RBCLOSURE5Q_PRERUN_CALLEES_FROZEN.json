@@ -1,0 +1,58 @@
+{
+  "schema": "m9.rbclosure5q.prerun-callees-frozen.v1",
+  "source_run": 34833035792,
+  "source_commit": "ec6a7a65eb24d9515eb93cdd923588322b5f440f",
+  "artifact": "M9-RB-RBCLOSURE5Q-PRERUN-CALLEES",
+  "artifact_id": 10343630375,
+  "artifact_zip_sha256": "dad2d0535396e87f3b735eaffe4117e64ef68618fb89796370cf75cba8927f96",
+  "selected_bf561_pair": 3,
+  "argument_chain": {
+    "StartInterpolation_Jolos": [
+      "entry R7 = original R0",
+      "entry R6 = original R1 = g_L2Parameter",
+      "entry P1 = original R2 = mode/source descriptor",
+      "before SetProcess: R0 remains original R2, R1=original R0, R2=g_L2Parameter"
+    ],
+    "SetProcess": [
+      "SetStructParameter(R0=mode/source descriptor, R1=g_L2Parameter)",
+      "Set(R0=g_L2Parameter, R1=original Jolos arg0)",
+      "InitL1MemoryProcessing(R0=original Jolos arg0, R1=g_L2Parameter)"
+    ]
+  },
+  "SetStructParameter_mode_mapping": {
+    "source_byte": "B[StartInterpolation arg2 + 4]",
+    "mode_0": "g_L2Parameter+4 = 2",
+    "mode_1": "g_L2Parameter+4 remains prior sentinel (-1) on this path",
+    "mode_2": "g_L2Parameter+4 = 0",
+    "mode_3": "g_L2Parameter+4 = 1"
+  },
+  "Set_word0_mapping": {
+    "g_L2Parameter_plus4_0": {
+      "word0": "0x00003407",
+      "set_bits": [0,1,2,10,12,13],
+      "bit4_GreenInterpolationWithCo": false,
+      "bit5_ASMRedBlueInterpolation1": false
+    },
+    "g_L2Parameter_plus4_1": {
+      "word0": "0x000017ff",
+      "set_bits": [0,1,2,3,4,5,6,7,8,9,10,12],
+      "bit4_GreenInterpolationWithCo": true,
+      "bit5_ASMRedBlueInterpolation1": true
+    },
+    "g_L2Parameter_plus4_2": {
+      "word0": "0x00001401",
+      "set_bits": [0,10,12],
+      "bit4_GreenInterpolationWithCo": false,
+      "bit5_ASMRedBlueInterpolation1": false
+    },
+    "other": "Set does not take one of the explicit 0/1/2 word0 rewrite cases; prior word0 may survive"
+  },
+  "Jolos_production_consequence": {
+    "mode_2": "StartInterpolation enters StartInterpolation_Jolos, but Set rewrites Run word0 to 0x3407, so GreenInterpolationWithCo and ASMRedBlueInterpolation1 are both disabled.",
+    "mode_3": "StartInterpolation enters StartInterpolation_Jolos and Set rewrites Run word0 to 0x17ff, so GreenInterpolationWithCo and ASMRedBlueInterpolation1 are both enabled. RBCLOSURE5I proves Green executes before R/B interpolation in this same Run invocation."
+  },
+  "closure_status": "mode_conditional_closed",
+  "remaining_question": "Which runtime value does the production M9 normal-color path place in B[StartInterpolation arg2 + 4]?",
+  "next_gate": "Trace the fixed StartInterpolation arg2 object at 0xfeb00ea8, resolve its map symbol and all writers to byte +4 (0xfeb00eac), and determine the normal production mode value.",
+  "production_status": "untouched"
+}
