@@ -7,6 +7,7 @@ on:
       - research/sharpness-rbclosure1d-packedphase1a
     paths:
       - '.github/workflows/build-m9cam-leicarb1a-eagreen-rggb-experiment.yml'
+      - 'patches/apply-m9cam-leicarb1a-eagreen-rggb-experiment.py'
 
 permissions:
   contents: read
@@ -19,6 +20,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Verify experiment patch syntax
+        run: python3 -m py_compile patches/apply-m9cam-leicarb1a-eagreen-rggb-experiment.py
 
       - name: Replay exact SHARPSOURCE1C RBANCHOR1A assembled baseline
         shell: bash
@@ -61,209 +65,12 @@ jobs:
             bash "$s"
           done
 
-      - name: Apply workspace-only LEICARB1A EA-green RGGB experiment
+      - name: Apply workspace-only LEICARB1A experiment
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
-          python3 - "$ROOT" <<'PY'
-          from pathlib import Path
-          import sys
-
-          root = Path(sys.argv[1])
-          java_dir = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render'
-          renderer = java_dir / 'M9R35Renderer.java'
-          native = root / 'app/src/main/cpp/m9color_jni.cpp'
-          bridge = java_dir / 'M9LeicaRbExperiment.java'
-
-          if not renderer.exists() or not native.exists():
-              raise SystemExit('assembled baseline renderer/native source missing')
-
-          bridge.write_text(r'''package com.particlesdevs.photoncamera.m9.render;
-
-/**
- * LEICARB1A_EAGREEN_RGGB research-only bridge.
- *
- * This is deliberately not advertised as the complete Leica M9 demosaic. It preserves
- * OpenCV EA green and the EA border, while applying Leica-derived signed R/B difference
- * averaging to the normalized RGGB interior. The native library is already loaded by
- * M9NativeColorCore before this method is reached.
- */
-final class M9LeicaRbExperiment {
-    private M9LeicaRbExperiment() {}
-
-    static native boolean applyDirect(long normalizedRaw16Address,
-                                      long bgr16Address,
-                                      int width,
-                                      int height);
-}
-''')
-
-          cpp_marker = '// LEICARB1A_EAGREEN_RGGB_BEGIN'
-          cpp = native.read_text()
-          if cpp_marker in cpp:
-              raise SystemExit('LEICARB1A native experiment already present')
-          cpp += r'''
-
-// LEICARB1A_EAGREEN_RGGB_BEGIN
-// Research-only Android A/B experiment.
-//
-// IMPORTANT: this is not claimed to reproduce the complete M9 pre-Green RAW-plane
-// preparation. OpenCV EA supplies green and safe borders. The normalized RGGB interior
-// uses the signed-16 averaging semantics closed against ASMRedBlueInterpolation1.
-namespace {
-static inline int16_t m9_leicarb_avg2_bits(int16_t a, int16_t b) {
-    const uint16_t ua = static_cast<uint16_t>(a);
-    const uint16_t ub = static_cast<uint16_t>(b);
-    const uint32_t low = static_cast<uint32_t>(ua & 1u) + static_cast<uint32_t>(ub & 1u);
-    const uint16_t out = static_cast<uint16_t>(
-            static_cast<uint32_t>(ua >> 1) + static_cast<uint32_t>(ub >> 1) + (low >> 1));
-    return static_cast<int16_t>(out);
-}
-
-static inline int16_t m9_leicarb_avg4_bits(int16_t a, int16_t b, int16_t c, int16_t d) {
-    return m9_leicarb_avg2_bits(m9_leicarb_avg2_bits(a, b), m9_leicarb_avg2_bits(c, d));
-}
-
-static inline uint16_t m9_leicarb_clip14(int32_t v) {
-    if (v < 0) return 0;
-    if (v > 0x3fff) return 0x3fff;
-    return static_cast<uint16_t>(v);
-}
-}
-
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_particlesdevs_photoncamera_m9_render_M9LeicaRbExperiment_applyDirect(
-        JNIEnv*, jclass, jlong normalizedRaw16Address, jlong bgr16Address,
-        jint width, jint height) {
-    if (normalizedRaw16Address == 0 || bgr16Address == 0 || width < 4 || height < 4) {
-        return JNI_FALSE;
-    }
-
-    const int w = static_cast<int>(width);
-    const int h = static_cast<int>(height);
-    const auto* raw = reinterpret_cast<const uint16_t*>(static_cast<uintptr_t>(normalizedRaw16Address));
-    auto* bgr = reinterpret_cast<uint16_t*>(static_cast<uintptr_t>(bgr16Address));
-
-    auto raw14 = [&](int y, int x) -> uint16_t {
-        return static_cast<uint16_t>(raw[static_cast<size_t>(y) * w + x] >> 2);
-    };
-    auto green14 = [&](int y, int x) -> uint16_t {
-        const size_t p = (static_cast<size_t>(y) * w + x) * 3u;
-        return static_cast<uint16_t>(bgr[p + 1u] >> 2);
-    };
-    auto siteDiff = [&](int y, int x) -> int16_t {
-        const uint16_t d = static_cast<uint16_t>(raw14(y, x) - green14(y, x));
-        return static_cast<int16_t>(d);
-    };
-    auto addDiff = [&](int y, int x, int16_t d) -> uint16_t {
-        return m9_leicarb_clip14(static_cast<int32_t>(green14(y, x)) + static_cast<int32_t>(d));
-    };
-
-    // COLOR_BayerRG2BGR_EA is the existing project assumption: RGGB with R at (even,even)
-    // and B at (odd,odd). Keep a one-pixel EA border untouched for a safe A/B experiment.
-    for (int y = 1; y < h - 1; ++y) {
-        const bool yOdd = (y & 1) != 0;
-        for (int x = 1; x < w - 1; ++x) {
-            const bool xOdd = (x & 1) != 0;
-            uint16_t r14;
-            uint16_t b14;
-
-            if (!yOdd && !xOdd) {
-                // Native R site; B difference comes from four diagonal native B sites.
-                r14 = raw14(y, x);
-                b14 = addDiff(y, x, m9_leicarb_avg4_bits(
-                        siteDiff(y - 1, x - 1), siteDiff(y - 1, x + 1),
-                        siteDiff(y + 1, x - 1), siteDiff(y + 1, x + 1)));
-            } else if (yOdd && xOdd) {
-                // Native B site; R difference comes from four diagonal native R sites.
-                b14 = raw14(y, x);
-                r14 = addDiff(y, x, m9_leicarb_avg4_bits(
-                        siteDiff(y - 1, x - 1), siteDiff(y - 1, x + 1),
-                        siteDiff(y + 1, x - 1), siteDiff(y + 1, x + 1)));
-            } else if (!yOdd) {
-                // Green on an R row: horizontal R-G, vertical B-G.
-                r14 = addDiff(y, x, m9_leicarb_avg2_bits(siteDiff(y, x - 1), siteDiff(y, x + 1)));
-                b14 = addDiff(y, x, m9_leicarb_avg2_bits(siteDiff(y - 1, x), siteDiff(y + 1, x)));
-            } else {
-                // Green on a B row: vertical R-G, horizontal B-G.
-                r14 = addDiff(y, x, m9_leicarb_avg2_bits(siteDiff(y - 1, x), siteDiff(y + 1, x)));
-                b14 = addDiff(y, x, m9_leicarb_avg2_bits(siteDiff(y, x - 1), siteDiff(y, x + 1)));
-            }
-
-            const size_t p = (static_cast<size_t>(y) * w + x) * 3u;
-            bgr[p] = static_cast<uint16_t>(b14 << 2);
-            // bgr[p+1] remains the exact OpenCV EA green estimate.
-            bgr[p + 2u] = static_cast<uint16_t>(r14 << 2);
-        }
-    }
-    return JNI_TRUE;
-}
-// LEICARB1A_EAGREEN_RGGB_END
-'''
-          native.write_text(cpp)
-
-          text = renderer.read_text()
-          if 'LEICARB1A_EAGREEN_RGGB' in text:
-              raise SystemExit('renderer experiment already present')
-
-          old_decl = '        long demosaicElapsedMs = -1L;\n'
-          new_decl = (
-              '        long demosaicElapsedMs = -1L;\n'
-              '        long leicaRbExperimentElapsedMs = -1L;\n'
-              '        boolean leicaRbExperimentApplied = false;\n'
-          )
-          if text.count(old_decl) != 1:
-              raise SystemExit('demosaic timing declaration anchor not unique')
-          text = text.replace(old_decl, new_decl, 1)
-
-          old = '''            Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);
-            rawMat.release();
-            demosaicElapsedMs = (System.nanoTime() - demosaicStartedNs) / 1_000_000L;
-'''
-          new = '''            Imgproc.cvtColor(rawMat, cam16, Imgproc.COLOR_BayerRG2BGR_EA);
-            final boolean leicaRbDirectEligible = rawMat.isContinuous()
-                    && rawMat.channels() == 1
-                    && rawMat.elemSize1() == 2L
-                    && rawMat.step1() == (long)width
-                    && rawMat.dataAddr() != 0L
-                    && cam16.isContinuous()
-                    && cam16.channels() == 3
-                    && cam16.elemSize1() == 2L
-                    && cam16.step1() == (long)width * 3L
-                    && cam16.dataAddr() != 0L;
-            long leicaRbStartedNs = System.nanoTime();
-            if (leicaRbDirectEligible) {
-                leicaRbExperimentApplied = M9LeicaRbExperiment.applyDirect(
-                        rawMat.dataAddr(), cam16.dataAddr(), width, height);
-            }
-            leicaRbExperimentElapsedMs = (System.nanoTime() - leicaRbStartedNs) / 1_000_000L;
-            Log.d(TAG, "LEICARB1A_EAGREEN_RGGB applied=" + leicaRbExperimentApplied
-                    + " eligible=" + leicaRbDirectEligible
-                    + " elapsedMs=" + leicaRbExperimentElapsedMs);
-            rawMat.release();
-            demosaicElapsedMs = (System.nanoTime() - demosaicStartedNs) / 1_000_000L;
-'''
-          if text.count(old) != 1:
-              raise SystemExit('OpenCV EA demosaic seam anchor not unique')
-          text = text.replace(old, new, 1)
-
-          diag_anchor = '            d.put("demosaicElapsedMs", demosaicElapsedMs);\n'
-          diag = (
-              diag_anchor
-              + '            d.put("demosaicMode", leicaRbExperimentApplied ? "EA_GREEN_LEICARB1A_RGGB_INTERIOR" : "OPENCV_EA_FALLBACK");\n'
-              + '            d.put("leicaRbExperiment", "LEICARB1A_EAGREEN_RGGB");\n'
-              + '            d.put("leicaRbExperimentApplied", leicaRbExperimentApplied);\n'
-              + '            d.put("leicaRbExperimentElapsedMs", leicaRbExperimentElapsedMs);\n'
-              + '            d.put("leicaRbAdapter", "normalized16_to_14_shift2_rggb_rawgrid_ea_green_ea_border1");\n'
-              + '            d.put("leicaRbClaim", "experimental_rawgrid_adapter_not_full_m9_pre_green_pipeline");\n'
-          )
-          if text.count(diag_anchor) != 1:
-              raise SystemExit('diagnostic anchor not unique')
-          text = text.replace(diag_anchor, diag, 1)
-          renderer.write_text(text)
-          PY
-
+          python3 patches/apply-m9cam-leicarb1a-eagreen-rggb-experiment.py "$ROOT"
           grep -n 'LEICARB1A_EAGREEN_RGGB\|M9LeicaRbExperiment.applyDirect\|leicaRbExperimentApplied\|leicaRbAdapter' \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" | tee LEICARB1A_JAVA_ANCHORS.txt
           grep -n 'LEICARB1A_EAGREEN_RGGB\|m9_leicarb_avg2_bits\|M9LeicaRbExperiment_applyDirect' \
@@ -278,7 +85,6 @@ Java_com_particlesdevs_photoncamera_m9_render_M9LeicaRbExperiment_applyDirect(
           grep -q 'LEICARB1A_EAGREEN_RGGB_BEGIN' "$ROOT/app/src/main/cpp/m9color_jni.cpp"
           grep -q 'experimental_rawgrid_adapter_not_full_m9_pre_green_pipeline' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
           grep -q 'Imgproc.COLOR_BayerRG2BGR_EA' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
-          # Frozen photographic stages remain present after the seam.
           grep -q 'M9NativeColorCore.createContext' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
           grep -q 'tc20MeterNative' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
           grep -q 'COLORNATIVE2A' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
@@ -311,7 +117,6 @@ Java_com_particlesdevs_photoncamera_m9_render_M9LeicaRbExperiment_applyDirect(
 
       - name: Record APK SHA256
         if: success()
-        shell: bash
         run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee LEICARB1A_APK_SHA256.txt
 
       - name: Upload experiment evidence
