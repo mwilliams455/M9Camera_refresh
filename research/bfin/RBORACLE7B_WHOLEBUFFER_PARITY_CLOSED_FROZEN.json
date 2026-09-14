@@ -1,0 +1,39 @@
+{
+  "schema": "m9.rboracle7b.interp1-whole-buffer-parity-closed.v1",
+  "status": "CLOSED",
+  "source_run": 34862637864,
+  "source_commit": "fb0ab9407c2cbd5d54e5b84d678f2340efe02df6",
+  "artifact": "M9-RB-RBORACLE7B-WHOLEBUFFER-PARITY",
+  "artifact_id": 10356036844,
+  "artifact_zip_sha256": "d21a3351195bef68c9c2aae0386ad314c055bb4559e8a5f043a0b911ea0b6833",
+  "routine": {
+    "name": "ASMRedBlueInterpolation1",
+    "entry": "0xffa03410",
+    "size": 584,
+    "sha256": "997ac979b7caac87b5df8235346a34d5306677e2587073b3836d82d519a7c828"
+  },
+  "coverage": {
+    "runs": 20,
+    "geometry_support_cases": 10,
+    "seeds_per_case": 2,
+    "output_halfwords_compared": 40960,
+    "support_words_compared": 20,
+    "cases": [
+      [8,8,0],[8,8,1],[10,8,0],[10,8,1],[10,10,0],[10,10,1],[10,10,2],[12,10,0],[12,10,2],[12,12,3]
+    ]
+  },
+  "method": "The exact Leica body ran against deterministic full-range signed16-difference fields, 14-bit green fields, edge injections and random full-u16 destination canaries. Scalar outputs were overlaid only into the proven formal interior of the original random destination windows, leaving every guard/tail cell unchanged. The complete 1024-halfword A and B destination windows and mutable support word were compared after every run.",
+  "result": {
+    "exact_match": true,
+    "physical_extra_write_rule_required": false,
+    "conclusion": "ASMRedBlueInterpolation1 arithmetic, geometry, caller phase/support behavior and tested destination-side physical write behavior are closed at whole-buffer parity for the frozen matrix."
+  },
+  "dependencies": [
+    "BFINSCALAR1A_DIRECT_PARITY_FROZEN.json",
+    "BFINSCALAR1B_GEOMETRY_FROZEN.json",
+    "RBORACLE7A_PHYSICAL_WRITES_FROZEN.json",
+    "RBCLOSURE5E_INTERP_ABI_FROZEN.json"
+  ],
+  "production_status": "untouched",
+  "next_gate": "Exact production GreenInterpolationWithCo -> ASMRedBlueInterpolation1 composite machine-versus-scalar parity using the shared descriptor planes and mutable phase/support state."
+}
