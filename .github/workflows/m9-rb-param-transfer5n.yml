@@ -1,0 +1,149 @@
+name: M9 R/B RBCLOSURE5N Parameter Transfer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-param-transfer5n.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover helper bodies and map ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5n"
+          mkdir -p "$ROOT/evidence" "$ROOT/bodies"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5n'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          targets=[0xffa122e4,0xffa122b2]
+          def candidates(addr):
+              out=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if a==addr or (z>0 and a<=addr<a+z): out.append({'name':s.get('name'),'addr':a,'size':z,'exact':a==addr})
+              out.sort(key=lambda q:(not q['exact'],q['size'] if q['size']>0 else 1<<30))
+              return out
+          meta={'schema':'m9.rbclosure5n.helper-bodies.v1','selected_pair':pair,'targets':{}}
+          for addr in targets:
+              cs=candidates(addr)
+              if not cs: raise SystemExit(f'no map owner for 0x{addr:08x}')
+              chosen=next((q for q in cs if q['exact'] and q['size']>0),None) or next((q for q in cs if q['size']>0),None)
+              if not chosen: raise SystemExit(f'no sized map owner for 0x{addr:08x}')
+              body=m.read_overlay(blocks,chosen['addr'],chosen['size'])
+              name=f"helper_{addr:08x}"
+              (root/'bodies'/f'{name}.bin').write_bytes(body)
+              meta['targets'][f'0x{addr:08x}']={'map_candidates':[{**q,'addr':f"0x{q['addr']:08x}"} for q in cs],'chosen':{'name':chosen['name'],'addr':f"0x{chosen['addr']:08x}",'size':chosen['size']},'sha256':hashlib.sha256(body).hexdigest(),'bin':f'{name}.bin'}
+          (root/'helper_meta.json').write_text(json.dumps(meta,indent=2)+'\n')
+          (root/'symbols.json').write_text(json.dumps(syms,indent=2)+'\n')
+          print(json.dumps(meta,indent=2))
+          PY
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5n'; d=json.load(open(root/'helper_meta.json'))
+          with open(root/'objdump_helpers.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for key,v in d['targets'].items():
+                  addr=v['chosen']['addr']; name=pathlib.Path(v['bin']).stem
+                  f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={addr} "$RUNNER_TEMP/rb5n/bodies/{v["bin"]}" > "$RUNNER_TEMP/rb5n/bodies/{name}.dis"\n')
+          PY
+          bash "$ROOT/objdump_helpers.sh"
+
+      - name: Analyze helper semantics and immediate callees
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5n"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5n'; meta=json.load(open(root/'helper_meta.json')); syms=json.load(open(root/'symbols.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I); tr=re.compile(r'0x0?([0-9a-f]{8})',re.I)
+          def sym(addr):
+              exact=[]; cover=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if a==addr: exact.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+                  if z>0 and a<=addr<a+z: cover.append({'name':s.get('name'),'addr':f'0x{a:08x}','size':z})
+              return {'exact':exact,'covering':cover}
+          analysis={}
+          text=[]
+          for key,v in meta['targets'].items():
+              name=pathlib.Path(v['bin']).stem; ins=[]
+              for line in (root/'bodies'/f'{name}.dis').read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m: ins.append({'addr':int(m.group(1),16),'bytes':m.group(2).strip(),'asm':m.group(3).strip()})
+              calls=[]; stores=[]; loads=[]; argmoves=[]; bitops=[]
+              for x in ins:
+                  u=x['asm'].upper()
+                  if 'CALL ' in u or 'JUMP.L ' in u:
+                      mt=tr.search(x['asm']); tgt=int(mt.group(1),16) if mt else None
+                      calls.append({'addr':f"0x{x['addr']:08x}",'asm':x['asm'],'target':f'0x{tgt:08x}' if tgt is not None else None,'target_symbols':sym(tgt) if tgt is not None else None})
+                  if re.search(r'\[[^\]]+\]\s*=',x['asm']): stores.append(x)
+                  if re.search(r'=\s*(?:B|W)?\[[^\]]+\]',x['asm'],re.I): loads.append(x)
+                  if re.search(r'\b(?:R[0-7]|P[0-5])\s*=\s*(?:R[0-2]|P[0-2])\b',x['asm'],re.I): argmoves.append(x)
+                  if any(k in u for k in ('BITSET','BITCLR','BITTST')): bitops.append(x)
+              def ser(xs):return [{'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm']} for x in xs]
+              analysis[key]={'chosen_symbol':v['chosen'],'instructions':ser(ins),'calls':calls,'memory_stores':ser(stores),'memory_loads':ser(loads),'argument_register_moves':ser(argmoves),'bit_operations':ser(bitops)}
+              text.append(f"\n=== {key} {v['chosen']['name']} ===")
+              text.extend(f"0x{x['addr']:08x}  {x['asm']}" for x in ins)
+              text.append('CALLS:')
+              text.extend(json.dumps(c) for c in calls)
+          rep={'schema':'m9.rbclosure5n.parameter-transfer.v1','helpers':analysis,'proven_caller_usage':{'0xffa122e4':['R0=0xfeb00258 g_L1DestDescriptor','R1=0xfeb002e8 g_L2Parameter','R2=1 then R2=0'],'0xffa122b2':['called between the two 0xffa122e4 calls']},'guard':'Do not call this a descriptor writer until helper memory direction is proven from body/callees.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'parameter_transfer.json').write_bytes(raw)
+          (root/'evidence'/'parameter_transfer.txt').write_text('\n'.join(text)+'\n')
+          (root/'evidence'/'parameter_transfer.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  parameter_transfer.json\n')
+          print((root/'evidence'/'parameter_transfer.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload parameter-transfer evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5N-PARAMETER-TRANSFER
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5n/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5n/pass" "$RUNNER_TEMP/rb5n/m9.upd" "$RUNNER_TEMP/rb5n/mm.upm" "$RUNNER_TEMP/rb5n/m9.dec" "$RUNNER_TEMP/rb5n/bodies" "$RUNNER_TEMP/rb5n/helper_meta.json" "$RUNNER_TEMP/rb5n/symbols.json" "$RUNNER_TEMP/rb5n/objdump_helpers.sh"
