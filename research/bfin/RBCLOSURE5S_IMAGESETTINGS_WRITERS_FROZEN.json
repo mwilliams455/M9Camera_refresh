@@ -1,0 +1,42 @@
+{
+  "schema": "m9.rbclosure5s.imagesettings-writers-frozen.v1",
+  "source_run": 34833540947,
+  "source_commit": "1bd29dbb4ef07251b932daf2a4e1c007daebced8",
+  "artifact": "M9-RB-RBCLOSURE5S-IMAGESETTINGS-WRITERS",
+  "artifact_id": 10343701036,
+  "artifact_zip_sha256": "d06136b75df7cabbfebd659a8280ccedd74e56fbfd4390a12255e7afaa23691b",
+  "selected_bf561_pair": 3,
+  "helpers": {
+    "0xffa126e4": {
+      "name": "IM_WaitForJob",
+      "effect": "waits on semaphore 0xfeb00e30; does not write ImageSettings"
+    },
+    "0xffa12678": {
+      "name": "IM_GetHead",
+      "arguments": "R0=queue object, R1=ImageSettings destination",
+      "copy": "17 consecutive 32-bit words (68 bytes) from queue record to ImageSettings",
+      "source_address_formula": "queue + 4 + head_index * 68",
+      "mode_provenance": "ImageSettings+4 is copied from queued record +4"
+    },
+    "0xffa1261a": {
+      "name": "IM_SetCurrentJob",
+      "arguments": "R0=ImageSettings",
+      "copy": "17 consecutive 32-bit words from ImageSettings to global current-job storage 0xfeb1e064",
+      "mode_mutation": false
+    }
+  },
+  "Task_TaskInterpolation_queue": {
+    "queue_address": "0xfeb1e0a8",
+    "setup": [
+      "0xfeb139e8: R7.L=0xe0a8",
+      "0xfeb139ec: R7.H=0xfeb1",
+      "0xfeb139f4: R0=R7",
+      "0xfeb139f6: CALL 0xffa12646",
+      "later R0=R7, R1=ImageSettings, CALL IM_GetHead"
+    ]
+  },
+  "closure_status": "queue_proven",
+  "remaining_question": "Which producer writes queued record offset +4, and what mode value is used for the normal M9 color interpolation job?",
+  "next_gate": "Resolve the queue object at 0xfeb1e0a8, scan all firmware materializations/references, identify enqueue/producer functions, and trace the queued record's +4 field to its source constant or runtime selector.",
+  "production_status": "untouched"
+}
