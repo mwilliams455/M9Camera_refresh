@@ -80,11 +80,16 @@ jobs:
           if selected is None:
             raise SystemExit('no BF561 pair contained all five canonical Green bodies')
           pair,bodies=selected
-          meta={'pair':pair,'bodies':{}}
+          # All exact bodies are translated by the same +0x014ff9a0 modulo 2^32.
+          # Therefore every embedded PC-relative Green->helper CALL displacement is
+          # unchanged while all executable addresses fit below the simulator 16 MiB ceiling.
+          reloc=0x014ff9a0
+          meta={'pair':pair,'uniform_relocation':hex(reloc),'bodies':{}}
           for name,body in bodies.items():
             addr,size,sha=wanted[name]
+            relocated=(addr+reloc)&0xffffffff
             (root/name).write_bytes(body)
-            meta['bodies'][name]={'address':hex(addr),'size':size,'sha256':sha}
+            meta['bodies'][name]={'firmware_address':hex(addr),'relocated_address':hex(relocated),'size':size,'sha256':sha}
           (root/'evidence'/'green_composite_bodies.json').write_text(json.dumps(meta,indent=2)+'\n')
           print(json.dumps(meta,indent=2))
           PY
@@ -105,12 +110,12 @@ jobs:
             . = 0xa000; .planeD : { *(.planeD) }
             . = 0xc000; .phase : { *(.phase) }
             . = 0xd000; .stack : { *(.stack) }
-            . = 0xffa00008; .differ : { *(.differ) }
-            . = 0xffa000be; .f101040 : { *(.f101040) }
-            . = 0xffa0024e; .f101000 : { *(.f101000) }
-            . = 0xffa03e00; .f010 : { *(.f010) }
-            . = 0xfeb10660; .green : { *(.green) }
-            . = 0xfeb11000; .text : { *(.text.start) }
+            . = 0x10000; .green : { *(.green) }
+            . = 0x20000; .text : { *(.text.start) }
+            . = 0xeff9a8; .differ : { *(.differ) }
+            . = 0xeffa5e; .f101040 : { *(.f101040) }
+            . = 0xeffbee; .f101000 : { *(.f101000) }
+            . = 0xf037a0; .f010 : { *(.f010) }
           }
           LDS
           cd "$ROOT"
@@ -128,7 +133,8 @@ jobs:
           EDGES=[0,1,2,3,4,7,8,0x1fff,0x3fff,0x4000,0x7fff,0x8000,0xfffe,0xffff]
           ev=pathlib.Path('evidence')
           report={
-            'schema':'m9.greenoracle6f.composite-green-parity.v1',
+            'schema':'m9.greenoracle6f.composite-green-parity.v2',
+            'uniform_relocation':'0x014ff9a0',
             'green_sha256':'22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5',
             'helper_sha256':{
               'differ':'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1',
@@ -150,8 +156,6 @@ jobs:
               seed=0x6f000000 + stride*0x10000 + height*0x100 + phase*0x10 + seed_i
               rng=random.Random(seed)
               planes=[[rng.randrange(65536) for _ in range(HALFWORDS)] for _ in range(4)]
-              # Force difficult values through the broad active neighbourhood while
-              # retaining full-u16 random coverage everywhere else.
               for pi,p in enumerate(planes):
                 for j,v in enumerate(EDGES):
                   p[220 + 17*j + pi] = v
@@ -176,8 +180,7 @@ jobs:
                 (ev/f'{name}.stdout.txt').write_text(sim.stdout)
                 raise SystemExit(f'{name}: expected 2049 DBG values, got {len(vals)}')
               machine_phase=vals[0]&0xffffffff
-              machine=[]
-              pos=1
+              machine=[]; pos=1
               for _ in range(4):
                 machine.append(unpack_dwords(vals[pos:pos+512])); pos+=512
 
@@ -218,7 +221,8 @@ jobs:
           (ev/'green_composite_parity.json').write_bytes(raw)
           (ev/'green_composite_parity.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  green_composite_parity.json\n')
           summary={'runs':report['run_count'],'plane_halfwords_compared':report['plane_halfwords_compared'],
-                   'phase_words_compared':report['run_count'],'exact_match':True,'cases':CASES}
+                   'phase_words_compared':report['run_count'],'exact_match':True,'cases':CASES,
+                   'uniform_relocation':'0x014ff9a0'}
           (ev/'green_composite_parity_summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           print(json.dumps(summary,indent=2))
           PY
