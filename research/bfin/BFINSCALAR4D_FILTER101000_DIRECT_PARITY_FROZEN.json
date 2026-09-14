@@ -1,0 +1,31 @@
+{
+  "schema": "m9.bfinscalar4d.filter101000-direct-parity-frozen.v1",
+  "source_run": 34812301273,
+  "source_commit": "31f62275cdace1f02ab544f993a5e34dd61a7e69",
+  "artifact": "M9-RB-BFINSCALAR4D-FILTER101000-DIRECT-PARITY",
+  "artifact_sha256": "f901c9c433285ffbbab47142e1a2a20b0be4c88efc6fbb7048305d032e76a29a",
+  "parity_json_sha256": "71c05814a1a75a509e4eace0b29183814ad1a32a6dec7b10ee87c77d728e9731",
+  "routine": "ASMFilter_101_000_101_2",
+  "routine_sha256": "e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd",
+  "scalar_model": "research/bfin/filter101000_scalar_exact.py",
+  "validated": {
+    "runs": 16,
+    "samples": 512,
+    "destination_halfwords_compared": 2048,
+    "inner": 8,
+    "outer": 4,
+    "source_bases": ["0x4400", "0x4402"],
+    "strides": [16, 17],
+    "source_domain": "full u16 bit patterns interpreted as signed 16-bit taps",
+    "edge_injections": ["0x0000", "0x0001", "0x0002", "0x0003", "0x0004", "0x0007", "0x7fff", "0x8000", "0xfffe", "0xffff"],
+    "entire_destination_buffer_exact": true
+  },
+  "closed_contract": {
+    "centers": "base + 2*c + 2*stride*r",
+    "destination": "2 + (center - base)",
+    "taps": ["center-stride-1", "center-stride+1", "center+stride-1", "center+stride+1"],
+    "arithmetic": "u16((s16(nw)+s16(ne)+s16(sw)+s16(se)) >> 2)",
+    "rounding": "arithmetic right shift / floor toward negative infinity"
+  },
+  "status": "ASMFilter_101_000_101_2 closed with exact machine/scalar parity"
+}
