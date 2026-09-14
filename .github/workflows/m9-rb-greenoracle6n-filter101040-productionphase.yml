@@ -85,13 +85,17 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,os,pathlib,random,re,subprocess
           ev=pathlib.Path('evidence')
+          # The final mixed_src0_out2 case separates source phase from output
+          # alignment: if it has no guard swaps while mixed_src2_out0 does, the
+          # packed pre-row swap is controlled by source R0 bit1.
           cases=[
             ('s16_h12_q0',8,5,16,0x4402,0x7202,0x8202),
             ('s18_h14_q0',8,6,18,0x4402,0x7202,0x8202),
             ('s20_h16_q1',8,6,20,0x4400,0x7200,0x8200),
             ('mixed_src2_out0',8,5,16,0x4402,0x7200,0x8200),
+            ('mixed_src0_out2',8,5,16,0x4400,0x7202,0x8202),
           ]
-          report={'schema':'m9.greenoracle6n.filter101040-production-phase.v2',
+          report={'schema':'m9.greenoracle6n.filter101040-production-phase.v3',
                   'routine_sha256':'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389',
                   'output_initialization':'deterministic full-u16 random data; whole-window before/after comparison',
                   'cases':{}}
