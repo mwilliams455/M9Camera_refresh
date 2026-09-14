@@ -1,0 +1,40 @@
+{
+  "schema": "m9.bfinoracle4b.filter101000-geometry-frozen.v1",
+  "source_run": 34811650082,
+  "source_commit": "9b2f3ae456a644d3e68708132fd32ca91ac20635",
+  "artifact": "M9-RB-BFINORACLE4B-FILTER101000-OBSERVE",
+  "artifact_sha256": "6ee9c67b4feabb8b49b7bc06f1cc4e017b9cfa15380101b9afa946eab790d27d",
+  "observation_json_sha256": "44e57e4fe07de5cadcdb63d410e94459a5420f9b03044adf7492b4eb260ec9d3",
+  "routine": "ASMFilter_101_000_101_2",
+  "routine_address": "0xffa0024e",
+  "routine_size": 264,
+  "routine_sha256": "e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd",
+  "abi": {
+    "r0": "source_center",
+    "r1": "destination_plus_4",
+    "r2": "inner_width_count",
+    "stack_0x0c": "outer_row_count",
+    "stack_0x10": "stride_in_u16_samples"
+  },
+  "validated_configs": [
+    {"inner": 4, "outer": 2, "stride": 8},
+    {"inner": 4, "outer": 2, "stride": 9},
+    {"inner": 6, "outer": 3, "stride": 10},
+    {"inner": 6, "outer": 3, "stride": 11}
+  ],
+  "geometry": {
+    "source_centers": "base + 2*c + 2*stride*r",
+    "destination_halfword": "2 + (source_center - source_base)",
+    "horizontal_center_step_halfwords": 2,
+    "vertical_center_step_halfwords": "2*stride",
+    "tap_offsets_halfwords": ["-stride-1", "-stride+1", "+stride-1", "+stride+1"],
+    "phase_note": "even and odd stride cases exercise both BITTST(R6,1) packed-lane branches while preserving the same logical four-diagonal geometry"
+  },
+  "arithmetic_observations": {
+    "constant_1000": "1000 at every reconstructed output",
+    "positive_single_tap_1000": 250,
+    "negative_single_tap_minus1000": -250,
+    "interpretation": "signed four-diagonal quarter-average is supported; exact non-divisible rounding and signed boundary behavior remain for BFINORACLE4C"
+  },
+  "status": "ABI and geometry closed; exact scalar arithmetic pending"
+}
