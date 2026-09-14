@@ -1,0 +1,107 @@
+name: M9 R/B RBCLOSURE5C Interpolation Caller Xrefs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-interp-caller5c.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  xref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j2 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover canonical blocks and symbol map
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5c"; mkdir -p "$ROOT/evidence" "$ROOT/blocks"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,shutil,importlib.util,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5c'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          shutil.copy2(mp,root/'bf0.map')
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m); _,blocks=m.parse_ldr(bf0)
+          manifest=[]
+          for i,b in enumerate(blocks):
+              addr=int(b.get('addr',b.get('address',0))); data=b.get('data',b.get('payload',b''))
+              if not isinstance(data,(bytes,bytearray)) or not data: continue
+              p=root/'blocks'/f'{i:03d}_{addr:08x}.bin'; p.write_bytes(data); manifest.append({'index':i,'addr':addr,'size':len(data),'file':p.name})
+          (root/'block_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair,'blocks':len(manifest)},indent=2)+'\n')
+          PY
+      - name: Find every direct call to ASMRedBlueInterpolation1
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5c"
+          while read -r file addr; do
+            "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$addr" "$ROOT/blocks/$file" > "$ROOT/blocks/$file.dis"
+          done < <(python3 - <<'PY'
+          import json,os,pathlib
+          r=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5c';
+          for x in json.load(open(r/'block_manifest.json')): print(x['file'],f"{x['addr']:x}")
+          PY
+          )
+          python3 - <<'PY'
+          import json,os,pathlib,re,bisect,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5c'; target=0xffa03410
+          # lightweight map parser from canonical helper
+          import importlib.util,sys
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(root/'bf0.map'),key=lambda s:s['addr']); starts=[s['addr'] for s in syms]
+          def owner(a):
+              i=bisect.bisect_right(starts,a)-1
+              if i<0:return None
+              s=syms[i]; return {'name':s['name'],'addr':f"0x{s['addr']:08x}",'offset':a-s['addr']}
+          hits=[]; callrx=re.compile(r'^\s*([0-9a-f]+):.*\bCALL\s+0x0*([0-9a-f]+)',re.I)
+          for p in sorted((root/'blocks').glob('*.dis')):
+              lines=p.read_text(errors='replace').splitlines()
+              for i,line in enumerate(lines):
+                  z=callrx.match(line)
+                  if not z or int(z.group(2),16)!=target: continue
+                  site=int(z.group(1),16); hits.append({'site':f'0x{site:08x}','owner':owner(site),'line':line.strip(),'window':'\n'.join(lines[max(0,i-36):min(len(lines),i+10)])})
+          report={'schema':'m9.rbclosure5c.interp1-xrefs.v1','target':'ASMRedBlueInterpolation1','target_addr':'0xffa03410','hit_count':len(hits),'hits':hits}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'interp1_xrefs.json').write_bytes(raw); (root/'evidence'/'interp1_xrefs.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  interp1_xrefs.json\n')
+          with (root/'evidence'/'interp1_xrefs.txt').open('w') as f:
+              for h in hits:f.write(f"===== {h['site']} {h['owner']} =====\n{h['window']}\n\n")
+          print(json.dumps({'hit_count':len(hits),'hits':[{'site':h['site'],'owner':h['owner']} for h in hits]},indent=2))
+          if not hits: raise SystemExit('no direct interpolation xrefs found')
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload derived xref evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5C-INTERP-XREFS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5c/evidence/*
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5c/pass" "$RUNNER_TEMP/rb5c/blocks" "$RUNNER_TEMP/rb5c/m9.upd" "$RUNNER_TEMP/rb5c/mm.upm" "$RUNNER_TEMP/rb5c/m9.dec" "$RUNNER_TEMP/rb5c/bf0.map" "$RUNNER_TEMP/rb5c/block_manifest.json"
