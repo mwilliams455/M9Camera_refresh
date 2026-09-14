@@ -1,0 +1,42 @@
+{
+  "schema": "m9.rbclosure5d.exact-interp-xrefs-frozen.v1",
+  "source_run": 34818705309,
+  "source_commit": "b9befbdddc74122cb38b9224cd931206155c3f3f",
+  "artifact": "M9-RB-RBCLOSURE5D-EXACT-INTERP-XREFS",
+  "artifact_id": 10336843010,
+  "artifact_zip_sha256": "983fdc618307a274a343df7225cff07a02e4b32d67db34a1ec004068e9fc9c5c",
+  "selected_bf561_pair": 3,
+  "canonical_entries": {
+    "ASMRedBlueAndGreenDiffer": "0xffa00008",
+    "ASMFilter_101_040_101_An": "0xffa000be",
+    "ASMFilter_101_000_101_2": "0xffa0024e",
+    "ASMRedBlueInterpolation1": "0xffa03410"
+  },
+  "direct_calls": [
+    {"site": "0xfeb1076a", "target": "ASMFilter_101_040_101_An"},
+    {"site": "0xfeb107b6", "target": "ASMFilter_101_040_101_An"},
+    {"site": "0xfeb10896", "target": "ASMRedBlueAndGreenDiffer"},
+    {"site": "0xfeb108f2", "target": "ASMRedBlueAndGreenDiffer"},
+    {"site": "0xfeb10942", "target": "ASMFilter_101_000_101_2"},
+    {"site": "0xfeb1097a", "target": "ASMFilter_101_000_101_2"},
+    {"site": "0xffa10bea", "target": "ASMRedBlueInterpolation1"}
+  ],
+  "interp1_xref": {
+    "count": 1,
+    "site": "0xffa10bea",
+    "target": "0xffa03410",
+    "ldr_block": 22
+  },
+  "green_stage_closed_sequence": [
+    "ASMFilter_101_040_101_An",
+    "ASMFilter_101_040_101_An",
+    "ASMRedBlueAndGreenDiffer",
+    "ASMRedBlueAndGreenDiffer",
+    "ASMFilter_101_000_101_2",
+    "ASMFilter_101_000_101_2"
+  ],
+  "important_correction": "ASMRedBlueInterpolation1 is not directly called from the GreenInterpolationWithCo body; its sole exact direct xref in the selected BF561 image is at 0xffa10bea.",
+  "map_symbol_warning": "Nearest-symbol owner labels from the recovered map are overlapping/aliased and are not treated as semantic caller proof. Call-site and target addresses are authoritative; caller semantics remain open until instruction-window analysis.",
+  "next_gate": "Disassemble a narrow window around 0xffa10bea and close R0-R2 plus stack/home-space arguments, pointer offsets, dimensions/stride/support, and producer buffer identity before composing the end-to-end scalar closure.",
+  "status": "exact direct-call topology frozen; interpolation caller ABI next"
+}
