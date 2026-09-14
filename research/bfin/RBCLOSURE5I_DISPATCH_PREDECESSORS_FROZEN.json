@@ -1,0 +1,43 @@
+{
+  "schema": "m9.rbclosure5i.dispatch-predecessors-frozen.v1",
+  "source_run": 34830681664,
+  "source_commit": "8a86410e3f3263ccc9ec37f56fdd73c18fbf80bc",
+  "artifact": "M9-RB-RBCLOSURE5I-DISPATCH-PREDECESSORS",
+  "artifact_id": 10342201768,
+  "artifact_zip_sha256": "45d9c7d69bb6af7a7eaa6ed654e90857faea84af734caf078bef8dc74314d501",
+  "selected_bf561_pair": 3,
+  "run_entry_dispatch_source": {
+    "run_entry": "0xffa10320",
+    "argument_pointer": "R0 -> P1",
+    "flag_load": "0xffa1033a: R7 = [P1]",
+    "meaning": "R7 is the 32-bit Run dispatch flag word loaded from the first word of the caller-supplied descriptor"
+  },
+  "selectors": {
+    "GreenInterpolationWithCo": {
+      "test": "0xffa107e0: CC = BITTST(R7, 4)",
+      "clear_path": "0xffa107f6 -> 0xffa107fa",
+      "set_path": "0xffa107f8 -> 0xffa10c9a",
+      "case_call": "0xffa10cbc -> 0xfeb10660",
+      "successful_resume_edges": [
+        "0xffa10ce8 -> 0xffa107fa",
+        "0xffa10cee -> 0xffa107fa"
+      ]
+    },
+    "ASMRedBlueInterpolation1": {
+      "test": "0xffa108e8: CC = BITTST(R7, 5)",
+      "clear_path": "fallthrough to 0xffa108fc",
+      "set_path": "0xffa108fa -> 0xffa10ba4",
+      "case_call": "0xffa10bea -> 0xffa03410",
+      "successful_resume_edge": "0xffa10bfc -> 0xffa108fc"
+    }
+  },
+  "neighboring_dispatch_bits": {
+    "bit3": "tested at 0xffa1075e",
+    "bit6": "tested at 0xffa10838",
+    "bit7": "tested at 0xffa10894"
+  },
+  "proven_execution_consequence": "Within one Run invocation, when both R7 bit 4 and bit 5 are set and the selected cases succeed, GreenInterpolationWithCo executes first, returns to 0xffa107fa, and control later reaches the bit-5 ASMRedBlueInterpolation1 selector. This ordering is proven by selector and resume CFG edges, not inferred from case-body address order.",
+  "remaining_caveat": "This does not yet prove that production callers set bits 4 and 5 simultaneously, nor does it prove global ordering if separate Run invocations are used.",
+  "next_gate": "Trace exact direct/indirect callers of Run, recover the R0 descriptor/flag-word construction, and determine whether bits 4 and 5 coexist in production command masks or are scheduled in separate invocations.",
+  "production_status": "untouched"
+}
