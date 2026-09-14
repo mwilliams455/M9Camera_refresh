@@ -1,0 +1,89 @@
+{
+  "schema": "m9.greenoracle6o.composite-bf561-closed-frozen.v1",
+  "status": "closed",
+  "source_run": 34860590758,
+  "source_job": 104031452628,
+  "source_commit": "9d27925dfa8e5fc0c1eb547d433c82f595f19344",
+  "artifact": {
+    "name": "M9-RB-GREENORACLE6L-COMPOSITE-BF561-PARITY",
+    "id": 10355055223,
+    "zip_sha256": "48bb45d869c748c8ce3e18c1f1577f1305c007e2c15e60643a0c8250a9b21002"
+  },
+  "green": {
+    "name": "GreenInterpolationWithCo",
+    "address": "0xfeb10660",
+    "size": 810,
+    "sha256": "22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5",
+    "exact_bytes_unchanged": true
+  },
+  "helpers": {
+    "ASMRedBlueAndGreenDiffer": {
+      "address": "0xffa00008",
+      "size": 182,
+      "sha256": "5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1"
+    },
+    "ASMFilter_101_040_101_An": {
+      "address": "0xffa000be",
+      "size": 400,
+      "sha256": "c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389"
+    },
+    "ASMFilter_101_000_101_2": {
+      "address": "0xffa0024e",
+      "size": 264,
+      "sha256": "e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd"
+    },
+    "ASMFilter_010_101_010_2": {
+      "address": "0xffa03e00",
+      "size": 418,
+      "sha256": "7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7"
+    },
+    "exact_bytes_unchanged": true
+  },
+  "simulator_compatibility": {
+    "scope": "GNU Blackfin simulator only; not Leica firmware behavior",
+    "proven_packets": [
+      {
+        "address": "0xfeb10786",
+        "effect": "second ASMFilter_101_040_101_An stack0c argument",
+        "bf561_semantics": "parallel stack store sees pre-write R7 / INNER0"
+      },
+      {
+        "address": "0xfeb10964",
+        "effect": "second ASMFilter_101_000_101_2 stack0c argument",
+        "bf561_semantics": "parallel stack store sees pre-write R1 / OUTER2"
+      }
+    ],
+    "other_helper_call_abis": "GREENORACLE6K observed all ten helper calls; no additional unexplained ABI corrections were required"
+  },
+  "filter101040_physical_rule": {
+    "evidence": "GREENORACLE6N_FILTER101040_PACKED_ROW_SWAP_FROZEN.json",
+    "condition": "incoming source pointer R0 has bit1 set (src mod4 == 2)",
+    "operation": "before each formal stream2 row, swap u16 at out2_row_start-8 bytes with u16 at out2_row_start-4 bytes",
+    "row_start": "out2 + 4*stride*row",
+    "output_alignment_dependency": false,
+    "source_phase_dependency": true,
+    "stream1_extra_writes": "none observed"
+  },
+  "parity": {
+    "run_count": 6,
+    "geometries": [
+      {"stride":16,"height":12,"phase_initial":0},
+      {"stride":18,"height":14,"phase_initial":0},
+      {"stride":20,"height":16,"phase_initial":1}
+    ],
+    "seeds_per_geometry": 2,
+    "plane_halfwords_compared": 24576,
+    "phase_words_compared": 6,
+    "exact_match": true,
+    "comparison_scope": "all four 1024-halfword planes plus phase word for every run"
+  },
+  "closure": {
+    "statement": "The exact Leica 810-byte GreenInterpolationWithCo orchestrator and all four exact helper bodies execute to a bit-for-bit whole-buffer match against the scalar composite across six independent runs when only the two empirically proven GNU-simulator packet-semantics differences are restored and the exact 101040 source-phase packed-row swap is modeled.",
+    "green_orchestrator_machine_scalar_closed": true,
+    "green_helper_arithmetic_closed": true,
+    "green_physical_side_effects_required_by_tested_production_geometries_closed": true,
+    "production_renderer_changed": false,
+    "android_changed": false,
+    "jpeg_behavior_changed": false
+  }
+}
