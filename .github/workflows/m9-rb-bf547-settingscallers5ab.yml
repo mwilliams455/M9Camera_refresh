@@ -1,0 +1,132 @@
+name: M9 R/B RBCLOSURE5AB BF547 Settings Callers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bf547-settingscallers5ab.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  callers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover BF547 and disassemble
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5ab"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          BF=$(find "$ROOT/pass" -path '*/bf547_*/BF547.bin' | head -1); test -n "$BF"; cp "$BF" "$ROOT/BF547.bin"
+          "$BFIN_OBJDUMP" -D -b binary -m bfin "$ROOT/BF547.bin" > "$ROOT/BF547.dis"
+      - name: Trace settings diagnostic callers and object source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5ab"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib,struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5ab'; data=(root/'BF547.bin').read_bytes()
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          ins=[]
+          for line in (root/'BF547.dis').read_text(errors='replace').splitlines():
+              m=rx.match(line)
+              if m: ins.append({'off':int(m.group(1),16),'asm':m.group(2).strip()})
+          pos={x['off']:i for i,x in enumerate(ins)}
+          def ctx_i(i,b=60,a=80): return [{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in ins[max(0,i-b):min(len(ins),i+a)]]
+          def direct_calls(target):
+              pat=re.compile(r'CALL\s+0x0?x?'+f'{target:x}'+r'\b',re.I)
+              return [{'site':f"0x{x['off']:x}",'context':ctx_i(i)} for i,x in enumerate(ins) if pat.search(x['asm'])]
+          def ptr_hits(target):
+              out=[]
+              for delta in (0,0x20000,0x40000,0x80000,0x100000):
+                  val=target+delta; needle=struct.pack('<I',val)
+                  start=0
+                  while True:
+                      h=data.find(needle,start)
+                      if h<0: break
+                      out.append({'delta':f'0x{delta:x}','value':f'0x{val:x}','file_off':f'0x{h:x}','hex':data[max(0,h-24):min(len(data),h+40)].hex(' ')})
+                      start=h+1
+              return out
+          def function_start_for_index(i):
+              # Blackfin prologues in this image usually save registers at function entry.
+              for j in range(i,max(-1,i-260),-1):
+                  a=ins[j]['asm']
+                  if '[--SP]' in a or a.startswith('LINK '):
+                      # prefer a register-save immediately followed by LINK, otherwise LINK itself
+                      if '[--SP]' in a: return ins[j]['off']
+                      if j>0 and '[--SP]' in ins[j-1]['asm']: return ins[j-1]['off']
+              return None
+          diag=0x4c940; oldcand=0x471c4
+          diag_calls=direct_calls(diag); cand_calls=direct_calls(oldcand)
+          # For each diag call, infer containing caller start and then find callers of that start.
+          caller_rows=[]
+          for c in diag_calls:
+              si=pos[int(c['site'],16)]; fs=function_start_for_index(si)
+              row={'call_site':c['site'],'caller_start':f'0x{fs:x}' if fs is not None else None,'context':c['context']}
+              if fs is not None:
+                  row['callers_of_caller']=direct_calls(fs)
+                  row['caller_pointer_hits']=ptr_hits(fs)
+              caller_rows.append(row)
+          # Also inspect function around diagnostic entry and old candidate entry.
+          def around(off,b=30,a=180):
+              i=min(range(len(ins)),key=lambda k:abs(ins[k]['off']-off)); return ctx_i(i,b,a)
+          rep={
+            'schema':'m9.rbclosure5ab.bf547-settings-callers.v1',
+            'diagnostic_entry':'0x4c940',
+            'diagnostic_direct_calls':diag_calls,
+            'diagnostic_pointer_hits':ptr_hits(diag),
+            'diagnostic_caller_rows':caller_rows,
+            'diagnostic_body':around(diag,20,220),
+            'rejected_candidate_entry':'0x471c4',
+            'rejected_candidate_direct_calls':cand_calls,
+            'rejected_candidate_pointer_hits':ptr_hits(oldcand),
+            'rejected_candidate_body':around(oldcand,20,100),
+            'correction':'0x471c4 is not SportNet command-7 proof: its R2=7 is consumed as the 0..13 selector by 0x6c3dc.'
+          }
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'settings_callers.json').write_bytes(raw)
+          with open(root/'evidence'/'settings_callers.txt','w') as f:
+              f.write('DIAGNOSTIC DIRECT CALLS\n'); [f.write(x['site']+'\n') for x in diag_calls]
+              f.write('DIAGNOSTIC POINTER HITS\n'); [f.write(json.dumps(x)+'\n') for x in rep['diagnostic_pointer_hits']]
+              for r in caller_rows:
+                  f.write(f"\n=== DIAG CALL {r['call_site']} CALLER {r['caller_start']} ===\n"); [f.write(f"{q['off']}  {q['asm']}\n") for q in r['context']]
+                  f.write('CALLERS OF CALLER\n'); [f.write(x['site']+'\n') for x in r.get('callers_of_caller',[])]
+              f.write('\n=== DIAGNOSTIC BODY ===\n'); [f.write(f"{q['off']}  {q['asm']}\n") for q in rep['diagnostic_body']]
+              f.write('\nREJECTED CANDIDATE DIRECT CALLS\n'); [f.write(x['site']+'\n') for x in cand_calls]
+              f.write('REJECTED CANDIDATE POINTER HITS\n'); [f.write(json.dumps(x)+'\n') for x in rep['rejected_candidate_pointer_hits']]
+          (root/'evidence'/'settings_callers.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  settings_callers.json\n')
+          print((root/'evidence'/'settings_callers.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5AB-BF547-SETTINGS-CALLERS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5ab/evidence/*
+      - name: Remove firmware bytes
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5ab/pass" "$RUNNER_TEMP/rb5ab/m9.upd" "$RUNNER_TEMP/rb5ab/mm.upm" "$RUNNER_TEMP/rb5ab/m9.dec" "$RUNNER_TEMP/rb5ab/BF547.bin" "$RUNNER_TEMP/rb5ab/BF547.dis"
