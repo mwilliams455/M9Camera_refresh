@@ -1,0 +1,71 @@
+name: M9 R/B RBCLOSURE5D Exact Interpolation Xrefs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-interp-xref5d.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  xref:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover canonical BF561 and exact CALL xrefs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5d"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,bisect,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5d'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(mp),key=lambda s:s['addr']); starts=[s['addr'] for s in syms]; _,blocks=m.parse_ldr(bf0)
+          def owner(a):
+              i=bisect.bisect_right(starts,a)-1
+              if i<0:return None
+              s=syms[i]; return {'name':s['name'],'addr':f"0x{s['addr']:08x}",'size':s['size'],'offset':a-s['addr']}
+          target=0xffa03410; hits=[]; all_rb=[]
+          interesting={0xffa00008:'ASMRedBlueAndGreenDiffer',0xffa000be:'ASMFilter_101_040_101_An',0xffa0024e:'ASMFilter_101_000_101_2',0xffa03410:'ASMRedBlueInterpolation1'}
+          for bi,b in enumerate(blocks):
+              base=int(b['addr']); code=b['data']
+              for q in m.long_branches(code,base):
+                  if q['type']!='CALL': continue
+                  rec={'block':bi,'site':f"0x{q['pc']:08x}",'target':f"0x{q['target']:08x}",'owner':owner(q['pc'])}
+                  if q['target'] in interesting:
+                      rec['target_name']=interesting[q['target']]; all_rb.append(rec)
+                  if q['target']==target: hits.append(rec)
+          report={'schema':'m9.rbclosure5d.exact-interp-xrefs.v1','selected_pair':pair,'target':'ASMRedBlueInterpolation1','target_addr':'0xffa03410','hit_count':len(hits),'hits':hits,'all_closed_kernel_calls':all_rb}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'exact_interp_xrefs.json').write_bytes(raw); (root/'evidence'/'exact_interp_xrefs.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  exact_interp_xrefs.json\n')
+          print(json.dumps(report,indent=2))
+          if not hits: raise SystemExit('no exact direct interpolation xrefs found')
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload derived xref evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5D-EXACT-INTERP-XREFS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5d/evidence/*
+      - name: Remove firmware material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5d/pass" "$RUNNER_TEMP/rb5d/m9.upd" "$RUNNER_TEMP/rb5d/mm.upm" "$RUNNER_TEMP/rb5d/m9.dec"
