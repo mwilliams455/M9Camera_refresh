@@ -1,0 +1,99 @@
+name: M9 R/B RBCLOSURE5H Dispatcher Selector
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-dispatch-selector5h.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  selector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover canonical Run body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5h"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5h'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m); _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          run=[s for s in syms if s['name']=='Run']
+          if not run: raise SystemExit('Run symbol missing')
+          s=max(run,key=lambda q:int(q.get('size',0))); addr=int(s['addr']); size=int(s['size'])
+          body=m.read_overlay(blocks,addr,size); (root/'run.bin').write_bytes(body); (root/'base.txt').write_text(f'{addr:x}\n')
+          (root/'evidence'/'run_meta.json').write_text(json.dumps({'selected_pair':pair,'entry':f'0x{addr:08x}','size':size,'sha256':hashlib.sha256(body).hexdigest()},indent=2)+'\n')
+          PY
+          BASE=$(cat "$ROOT/base.txt"); "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$BASE" "$ROOT/run.bin" > "$ROOT/run.dis"
+      - name: Extract selector and case-entry evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5h"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5h'; lines=(root/'run.dis').read_text(errors='replace').splitlines(); rx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I)
+          ins=[]
+          for l in lines:
+              m=rx.match(l)
+              if m: ins.append({'addr':f'0x{int(m.group(1),16):08x}','bytes':m.group(2).strip(),'asm':m.group(3).strip()})
+          # Preserve entry/dispatch region, known case starts, and any instruction that references those starts.
+          interp=0xffa10ba4; green=0xffa10c9a
+          entry=[x for x in ins if 0xffa10320 <= int(x['addr'],16) < 0xffa10580]
+          refs=[]
+          for x in ins:
+              a=x['asm'].lower()
+              if 'ffa10ba4' in a or 'ffa10c9a' in a: refs.append(x)
+          around={}
+          for name,site in [('interp',interp),('green',green)]:
+              around[name]=[x for x in ins if site-0x40 <= int(x['addr'],16) < site+0x20]
+          rep={'schema':'m9.rbclosure5h.dispatch-selector.v1','entry_region':entry,'direct_case_refs':refs,'case_windows':around}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'dispatch_selector.json').write_bytes(raw)
+          (root/'evidence'/'dispatch_selector.txt').write_text('ENTRY\n'+'\n'.join(f"{x['addr']}  {x['asm']}" for x in entry)+'\n\nREFS\n'+'\n'.join(f"{x['addr']}  {x['asm']}" for x in refs)+'\n')
+          (root/'evidence'/'dispatch_selector.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  dispatch_selector.json\n')
+          print('ENTRY CONTROL/COMPARE/JUMP CANDIDATES')
+          for x in entry:
+              a=x['asm'].upper()
+              if any(k in a for k in ('JUMP','CALL','CC =','BITTST','==','<','>','R0 =','R1 =','R2 =','P0 =','P1 =','P2 =','P3 =')): print(x['addr'],x['asm'])
+          print('DIRECT CASE REFS',refs)
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload derived selector evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5H-DISPATCH-SELECTOR
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5h/evidence/*
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5h/pass" "$RUNNER_TEMP/rb5h/m9.upd" "$RUNNER_TEMP/rb5h/mm.upm" "$RUNNER_TEMP/rb5h/m9.dec" "$RUNNER_TEMP/rb5h/run.bin" "$RUNNER_TEMP/rb5h/run.dis" "$RUNNER_TEMP/rb5h/base.txt"
