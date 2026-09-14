@@ -1,0 +1,208 @@
+name: M9 R/B GREENORACLE6K All-Helper ABI Trace
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6k-helper-abi-trace.yml'
+      - 'research/bfin/green_helper_abi_trampoline_oracle.s'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils flex bison texinfo libgmp-dev libmpfr-dev libmpc-dev
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          curl --fail --location --retry 4 --retry-all-errors -o gdb-17.2.tar.xz https://ftp.gnu.org/gnu/gdb/gdb-17.2.tar.xz
+          tar -xf binutils-2.44.tar.xz; tar -xf gdb-17.2.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-sim >/dev/null
+          make -j2 all-binutils all-gas all-ld >/dev/null
+          echo "BFIN_AS=$PWD/gas/as-new" >> "$GITHUB_ENV"
+          echo "BFIN_LD=$PWD/ld/ld-new" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP"; mkdir gdb-build && cd gdb-build
+          ../gdb-17.2/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gdbserver >/dev/null
+          make -j2 all-sim >/dev/null
+          SIM=$(find "$PWD" -type f \( -path '*/sim/bfin/run' -o -name 'bfin-elf-run' \) -perm -111 | head -1 || true)
+          test -n "$SIM"
+          echo "BFIN_SIM=$SIM" >> "$GITHUB_ENV"
+
+      - name: Recover canonical Green executable bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6k"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import hashlib,importlib.util,json,os,pathlib,sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6k'
+          report=json.load(open(root/'pass/report.json'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py')
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          wanted={
+            'GreenInterpolationWithCo.bin':(0xfeb10660,810,'22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5'),
+            'ASMRedBlueAndGreenDiffer.bin':(0xffa00008,182,'5dc7738b5a63f01e69287eaabf9cde39bfde677da489513b490debf27a4878c1'),
+            'ASMFilter_101_040_101_An.bin':(0xffa000be,400,'c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389'),
+            'ASMFilter_101_000_101_2.bin':(0xffa0024e,264,'e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd'),
+            'ASMFilter_010_101_010_2.bin':(0xffa03e00,418,'7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7')}
+          selected=None
+          for i,_ in enumerate(report.get('bf561_deep',[])):
+            try:
+              bf0=next((root/'pass'/f'bf561_pair_{i:02d}').rglob('bf0.bin'))
+              _,blocks=m.parse_ldr(bf0); bodies={}
+              for name,(addr,size,sha) in wanted.items():
+                body=m.read_overlay(blocks,addr,size)
+                if len(body)!=size or hashlib.sha256(body).hexdigest()!=sha: raise ValueError(name)
+                bodies[name]=body
+              selected=(i,bodies); break
+            except Exception:
+              continue
+          if selected is None: raise SystemExit('canonical Green bodies not found')
+          pair,bodies=selected
+          for name,body in bodies.items(): (root/name).write_bytes(body)
+          meta={'pair':pair,'all_sha_verified':True,'green_exact_bytes_unchanged':True,
+                'known_simulator_discrepancy':{'firmware_packet':'0xFEB10786','semantic':'BF561 stores pre-write R7 to helper home space; GNU sim exposes post-write R7'}}
+          (root/'evidence'/'body_recovery.json').write_text(json.dumps(meta,indent=2)+'\n')
+          PY
+
+      - name: Execute all-helper ABI trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6k"; cd "$ROOT"
+          cp "$GITHUB_WORKSPACE/research/bfin/green_helper_abi_trampoline_oracle.s" .
+          python3 - <<'PY'
+          import pathlib
+          for k,fn in enumerate(('plane_a.inc','plane_b.inc','plane_c.inc','plane_d.inc')):
+            vals=[((i*613)+(i*i*19)+k*137)&0xffff for i in range(1024)]
+            pathlib.Path(fn).write_text(''.join(f'.short 0x{v:04x}\n' for v in vals))
+          PY
+          cat > oracle.ld <<'LDS'
+          ENTRY(_start)
+          SECTIONS {
+            . = 0x4000; .planeA : { *(.planeA) }
+            . = 0x6000; .planeB : { *(.planeB) }
+            . = 0x8000; .planeC : { *(.planeC) }
+            . = 0xa000; .planeD : { *(.planeD) }
+            . = 0xc000; .phase : { *(.phase) }
+            . = 0xd000; .stack : { *(.stack) }
+            . = 0x10000; .green : { *(.green) }
+            . = 0x20000; .text : { *(.text.start) }
+            . = 0xe80000; .f010_body : { *(.f010_body) }
+            . = 0xe90000; .f101040_body : { *(.f101040_body) }
+            . = 0xea0000; .differ_body : { *(.differ_body) }
+            . = 0xeb0000; .f101000_body : { *(.f101000_body) }
+            . = 0xeff9a8; .differ_shim : { *(.differ_shim) }
+            . = 0xeffa5e; .f101040_shim : { *(.f101040_shim) }
+            . = 0xeffbee; .f101000_shim : { *(.f101000_shim) }
+            . = 0xf037a0; .f010_shim : { *(.f010_shim) }
+          }
+          LDS
+          "$BFIN_AS" --defsym STRIDE=16 --defsym HEIGHT=12 --defsym SHIFTVAL=2 --defsym PHASEINIT=0 --defsym INNER0=8 green_helper_abi_trampoline_oracle.s -o trace.o
+          "$BFIN_LD" -T oracle.ld trace.o -o trace.elf
+          set +e
+          "$BFIN_SIM" trace.elf > evidence/helper_abi.stdout.txt 2> evidence/helper_abi.stderr.txt
+          RC=$?
+          set -e
+          echo "$RC" > evidence/helper_abi.rc.txt
+
+          python3 - <<'PY'
+          import json,pathlib,re
+          e=pathlib.Path('evidence')
+          txt=(e/'helper_abi.stdout.txt').read_text(errors='replace')
+          vals=[int(x,16) for x in re.findall(r'DBG\s*:\s*R[0-7]\s*=\s*0x([0-9a-fA-F]+)',txt)]
+          marker_kind={0x6b010001:'filter010',0x6b020001:'differ',0x6b030001:'filter101040',0x6b040001:'filter101000'}
+          start=0x6b000001; end=0x6b000002
+          records=[]; i=0
+          while i < len(vals):
+            v=vals[i]
+            if v in marker_kind:
+              if i+8 >= len(vals):
+                records.append({'kind':marker_kind[v],'truncated':True,'raw_tail':[hex(x) for x in vals[i:]]}); break
+              a=vals[i+1:i+9]
+              records.append({'kind':marker_kind[v],'r0':a[0],'r1':a[1],'r2':a[2],
+                              'stack0c':a[3],'stack10':a[4],'stack14':a[5],'stack18':a[6],'stack1c':a[7]})
+              i += 9
+            else:
+              i += 1
+
+          expected=[
+            {'kind':'filter010','r0':0x4222,'r1':0x6222,'r2':8,'stack0c':5,'stack10':16,'stack14':2},
+            {'kind':'filter010','r0':0x4244,'r1':0x6244,'r2':8,'stack0c':5,'stack10':16,'stack14':2},
+            {'kind':'filter101040','r0':0x4224,'r1':0x6224,'r2':0x8224,'stack0c':8,'stack10':5,'stack14':16},
+            {'kind':'filter101040','r0':0x4242,'r1':0x6242,'r2':0x8242,'stack0c':8,'stack10':5,'stack14':16},
+            {'kind':'filter010','r0':0x8244,'r1':0x8244,'r2':6,'stack0c':4,'stack10':16,'stack14':0},
+            {'kind':'filter010','r0':0x8266,'r1':0x8266,'r2':6,'stack0c':4,'stack10':16,'stack14':0},
+            {'kind':'differ','r0':0x4244,'r1':0x6244,'r2':0x8244,'stack0c':0xa244,'stack10':6,'stack14':4,'stack18':16,'stack1c':2},
+            {'kind':'differ','r0':0x4266,'r1':0x6266,'r2':0x8266,'stack0c':0xa266,'stack10':6,'stack14':4,'stack18':16,'stack1c':2},
+            {'kind':'filter101000','r0':0xa266,'r1':0x4266,'r2':6,'stack0c':3,'stack10':16},
+            {'kind':'filter101000','r0':0xa288,'r1':0x4288,'r2':6,'stack0c':3,'stack10':16},
+          ]
+          fields=('kind','r0','r1','r2','stack0c','stack10','stack14','stack18','stack1c')
+          comparisons=[]
+          for n,rec in enumerate(records):
+            exp=expected[n] if n < len(expected) else None
+            mism=[]
+            if exp:
+              for f in fields:
+                if f in exp and rec.get(f)!=exp[f]: mism.append({'field':f,'observed':rec.get(f),'expected':exp[f]})
+            known=[]
+            if n==3 and rec.get('kind')=='filter101040' and rec.get('stack0c')==0x4220:
+              known.append({'field':'stack0c','observed':0x4220,'bf561_expected':8,'reason':'known GNU-sim same-packet post-write R7 artifact at firmware 0xFEB10786; trampoline corrects body input to 8'})
+              mism=[m for m in mism if m['field']!='stack0c']
+            comparisons.append({'index':n+1,'record':rec,'expected_bf561':exp,'unexplained_mismatches':mism,'known_simulator_corrections':known})
+
+          first_unexplained=None
+          for c in comparisons:
+            if c['unexplained_mismatches']:
+              first_unexplained=c; break
+          out={
+            'schema':'m9.greenoracle6k.all-helper-abi-trace.v1',
+            'sim_returncode':int((e/'helper_abi.rc.txt').read_text().strip()),
+            'start_marker_seen':start in vals,
+            'end_marker_seen':end in vals,
+            'dbg_value_count':len(vals),
+            'record_count':len(records),
+            'expected_call_count':10,
+            'records':comparisons,
+            'first_unexplained_mismatch':first_unexplained,
+            'all_expected_calls_observed':len(records)==10,
+            'known_101040_packet_correction_applied_before_exact_helper_body':True,
+          }
+          (e/'helper_abi_trace.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps({'sim_returncode':out['sim_returncode'],'record_count':out['record_count'],
+                            'end_marker_seen':out['end_marker_seen'],'first_unexplained_mismatch':first_unexplained},indent=2))
+          PY
+          sha256sum evidence/* > evidence/SHA256SUMS.txt
+
+      - name: Publish ABI trace evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6K-ALL-HELPER-ABI-TRACE
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6k/evidence/*
+
+      - name: Remove firmware and executable material
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/green6k/pass" "$RUNNER_TEMP/green6k/m9.upd" "$RUNNER_TEMP/green6k/mm.upm" "$RUNNER_TEMP/green6k/m9.dec"
+          rm -f "$RUNNER_TEMP/green6k"/*.bin "$RUNNER_TEMP/green6k"/*.o "$RUNNER_TEMP/green6k"/*.elf "$RUNNER_TEMP/green6k"/plane_*.inc
