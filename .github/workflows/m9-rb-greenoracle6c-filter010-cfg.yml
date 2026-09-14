@@ -1,0 +1,169 @@
+name: M9 R/B GREENORACLE6C Filter010 CFG Extent
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths: ['.github/workflows/m9-rb-greenoracle6c-filter010-cfg.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  filter010cfg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover canonical BF561 and wide Filter010 window
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6c"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          PAIR=$(find "$ROOT/pass" -type f -name bf0.map -printf '%h\n' | sort | head -1)
+          test -n "$PAIR" && test -f "$PAIR/bf0.bin"
+          cp "$PAIR/bf0.map" "$ROOT/bf0.map"
+          cp "$PAIR/bf0.bin" "$ROOT/bf0.bin"
+
+          python3 - <<'PY'
+          import os, pathlib, struct, json, hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6c'
+          mp=(root/'bf0.map').read_bytes(); ldr=(root/'bf0.bin').read_bytes()
+          entry=0xFFA03E00; start=entry; end=0xFFA04600
+          sy=[]
+          if len(mp)%32: raise SystemExit(f'map length not aligned: {len(mp)}')
+          for o in range(0,len(mp),32):
+              r=mp[o:o+32]
+              n=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'")
+              a,s=struct.unpack_from('<II',r,24)
+              if n: sy.append((a,s,n))
+          exact=[(a,s,n) for a,s,n in sy if a==entry]
+          if not any(n=='ASMFilter_010_101_010_2' for a,s,n in exact):
+              raise SystemExit(f'production entry symbol mismatch: {exact}')
+
+          # Parse LDR blocks. Reconstruct a fixed executable window; never infer extent from map size.
+          off=4; blocks=[]
+          while off+10<=len(ldr):
+              ba,c,fl=struct.unpack_from('<IIH',ldr,off); off+=10
+              if c>16*1024*1024: break
+              if fl&1:
+                  p=bytes(c)
+              else:
+                  if off+c>len(ldr): break
+                  p=ldr[off:off+c]; off+=c
+              blocks.append((ba,c,fl,p))
+              if fl&0x8000: break
+          body=bytearray(end-start); cov=bytearray(end-start)
+          covering=[]
+          for ba,c,fl,p in blocks:
+              lo=max(start,ba); hi=min(end,ba+c)
+              if lo<hi:
+                  body[lo-start:hi-start]=p[lo-ba:hi-ba]
+                  cov[lo-start:hi-start]=b'\x01'*(hi-lo)
+                  covering.append({'address':hex(ba),'count':c,'flags':hex(fl),'overlap':[hex(lo),hex(hi)]})
+          if not all(cov):
+              miss=[i for i,v in enumerate(cov) if not v]
+              raise SystemExit(f'window not fully covered; first missing offsets={miss[:32]}')
+          (root/'filter010_wide.bin').write_bytes(body)
+          nearby=[{'address':hex(a),'size':s,'name':n} for a,s,n in sy if entry-0x100<=a<end+0x100]
+          meta={
+            'schema':'m9.greenoracle6c.filter010-wide.v1',
+            'entry':hex(entry),'window_start':hex(start),'window_end':hex(end),'window_size':len(body),
+            'window_sha256':hashlib.sha256(body).hexdigest(),
+            'entry_symbols':[{'address':hex(a),'size':s,'name':n} for a,s,n in exact],
+            'nearby_symbols':nearby,'covering_blocks':covering,
+            'policy':'Map size is explicitly NOT used as routine extent. CFG/terminal return must define the body.'
+          }
+          (root/'evidence'/'filter010_wide_meta.json').write_text(json.dumps(meta,indent=2)+'\n')
+          print(json.dumps(meta,indent=2))
+          PY
+
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xFFA03E00 "$ROOT/filter010_wide.bin" > "$ROOT/evidence/filter010_wide_disasm.txt"
+
+      - name: Inventory branches loops calls and terminal-return candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6c"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6c'
+          txt=(root/'evidence'/'filter010_wide_disasm.txt').read_text(errors='replace')
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2}\s+)+)(.+)$',re.I)
+          ins=[]
+          for line in txt.splitlines():
+              m=rx.match(line)
+              if not m: continue
+              addr=int(m.group(1),16); bs=' '.join(m.group(2).split()); asm=m.group(3).strip()
+              ins.append({'address':f'0x{addr:08x}','bytes':bs,'asm':asm})
+          if not ins or int(ins[0]['address'],16)!=0xFFA03E00: raise SystemExit('disassembly does not begin at production entry')
+          def sel(pred): return [x for x in ins if pred(x['asm'].upper())]
+          returns=sel(lambda a: any(k in a for k in ('RTS','RTI','RTX','RTN','RTE')))
+          calls=sel(lambda a: 'CALL' in a)
+          branches=sel(lambda a: 'JUMP' in a or a.startswith('IF ') or ' IF ' in a)
+          loops=sel(lambda a: 'LSETUP' in a or re.search(r'\bLOOP\b',a) is not None)
+          stack=sel(lambda a: 'SP' in a or 'FP' in a)
+          mem=sel(lambda a: '[' in a and ']' in a)
+          arith=sel(lambda a: any(k in a for k in ('A0','A1','ASHIFT','LSHIFT','RND','SAT','PACK','SIGNBITS','BYTEOP','(FU)','(TFU)','(IS)','(S2RND)','*')))
+          epilogues=[]
+          for i,x in enumerate(ins):
+              if any(k in x['asm'].upper() for k in ('RTS','RTI','RTX','RTN','RTE')):
+                  epilogues.append(ins[max(0,i-8):i+1])
+          report={
+            'schema':'m9.greenoracle6c.filter010-cfg-inventory.v1',
+            'entry':'0xffa03e00','instruction_count_in_window':len(ins),
+            'returns':returns,'calls':calls,'branches':branches,'loops':loops,
+            'stack_fp':stack,'memory_ops_count':len(mem),'arithmetic_candidates':arith,
+            'epilogue_contexts':epilogues,
+            'warning':'This inventory does not itself prove reachability. Routine extent must be confirmed by manual/CFG analysis from entry.'
+          }
+          raw=(json.dumps(report,indent=2)+'\n').encode()
+          (root/'evidence'/'filter010_cfg_inventory.json').write_bytes(raw)
+          (root/'evidence'/'filter010_cfg_inventory.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter010_cfg_inventory.json\n')
+          with open(root/'evidence'/'filter010_cfg_summary.txt','w') as f:
+              f.write(f"instructions={len(ins)} returns={len(returns)} calls={len(calls)} branches={len(branches)} loops={len(loops)} mem={len(mem)} arith={len(arith)}\n\n")
+              f.write('RETURN CANDIDATES\n')
+              for x in returns: f.write(f"{x['address']} {x['asm']}\n")
+              f.write('\nEPILOGUE CONTEXTS\n')
+              for ctx in epilogues:
+                  f.write('---\n')
+                  for x in ctx: f.write(f"{x['address']} {x['asm']}\n")
+              f.write('\nCALLS\n')
+              for x in calls: f.write(f"{x['address']} {x['asm']}\n")
+              f.write('\nLOOPS\n')
+              for x in loops: f.write(f"{x['address']} {x['asm']}\n")
+          print((root/'evidence'/'filter010_cfg_summary.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload Filter010 CFG evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6C-FILTER010-CFG
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6c/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/green6c/pass" "$RUNNER_TEMP/green6c/m9.upd" "$RUNNER_TEMP/green6c/mm.upm" "$RUNNER_TEMP/green6c/m9.dec" "$RUNNER_TEMP/green6c/bf0.map" "$RUNNER_TEMP/green6c/bf0.bin" "$RUNNER_TEMP/green6c/filter010_wide.bin"
