@@ -1,0 +1,143 @@
+name: M9 R/B RBCLOSURE5A Pipeline Topology
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-pipeline-topology5a.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  topology:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf binutils-2.44.tar.xz
+          mkdir binutils-build && cd binutils-build
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j2 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover canonical BF561 image and exact caller
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbtopology5a"; mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,shutil,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbtopology5a'
+          d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det:
+                  cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(mp),key=lambda s:(s['addr'],s['mapoff'])); _,blocks=m.parse_ldr(bf0)
+          exact={
+            'GreenInterpolationWithCo':(0xfeb10660,0x600),
+            'ASMRedBlueAndGreenDiffer':(0xffa00008,0xb6),
+            'ASMFilter_101_040_101_An':(0xffa000be,0x190),
+            'ASMFilter_101_000_101_2':(0xffa0024e,0x108),
+            'ASMRedBlueInterpolation1':(0xffa03410,0x248),
+          }
+          manifest=[]
+          for name,(addr,size) in exact.items():
+              body=m.read_overlay(blocks,addr,size)
+              out=root/f'{name}.bin'; out.write_bytes(body)
+              manifest.append({'name':name,'addr':hex(addr),'size':size,'sha256':hashlib.sha256(body).hexdigest()})
+          (root/'evidence'/'routine_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xfeb10660 "$ROOT/GreenInterpolationWithCo.bin" > "$ROOT/green.dis"
+
+      - name: Resolve exact call order and caller ABI windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbtopology5a"
+          python3 - <<'PY'
+          import json,os,pathlib,re,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbtopology5a'; ev=root/'evidence'
+          targets={
+            0xffa00008:'ASMRedBlueAndGreenDiffer',
+            0xffa000be:'ASMFilter_101_040_101_An',
+            0xffa0024e:'ASMFilter_101_000_101_2',
+            0xffa03410:'ASMRedBlueInterpolation1',
+          }
+          lines=(root/'green.dis').read_text(errors='replace').splitlines()
+          callrx=re.compile(r'^\s*([0-9a-f]+):.*\bCALL\s+0x0*([0-9a-f]+)',re.I)
+          insrx=re.compile(r'^\s*([0-9a-f]+):\s+[0-9a-f ]+\s+(.+)$',re.I)
+          calls=[]
+          for i,line in enumerate(lines):
+              m=callrx.match(line)
+              if not m: continue
+              site=int(m.group(1),16); tgt=int(m.group(2),16)
+              if site >= 0xfeb10c60 or tgt not in targets: continue
+              pre=[]
+              for q in lines[max(0,i-48):i]:
+                  z=insrx.match(q)
+                  if z: pre.append({'addr':f'0x{int(z.group(1),16):08x}','asm':z.group(2).strip()})
+              calls.append({
+                'ordinal':len(calls), 'site':f'0x{site:08x}', 'target':targets[tgt],
+                'target_addr':f'0x{tgt:08x}', 'pre48':pre,
+                'window':'\n'.join(lines[max(0,i-48):min(len(lines),i+8)])
+              })
+          if not calls: raise SystemExit('no target calls found')
+          counts={n:sum(c['target']==n for c in calls) for n in targets.values()}
+          report={
+            'schema':'m9.rbclosure5a.pipeline-topology.v1',
+            'caller':'GreenInterpolationWithCo',
+            'caller_entry':'0xfeb10660',
+            'sequence':[c['target'] for c in calls],
+            'counts':counts,
+            'calls':calls,
+            'closed_kernel_contracts':[
+              'ASMRedBlueAndGreenDiffer','ASMFilter_101_040_101_An',
+              'ASMFilter_101_000_101_2','ASMRedBlueInterpolation1'
+            ]
+          }
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (ev/'pipeline_topology5a.json').write_bytes(raw)
+          (ev/'pipeline_topology5a.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  pipeline_topology5a.json\n')
+          with (ev/'pipeline_topology5a.txt').open('w') as f:
+              f.write('SEQUENCE\n'+' -> '.join(report['sequence'])+'\n\n')
+              for c in calls:
+                  f.write(f"===== #{c['ordinal']} {c['target']} @ {c['site']} =====\n{c['window']}\n\n")
+          print(json.dumps({'sequence':report['sequence'],'counts':counts,'calls':len(calls)},indent=2))
+          PY
+          sha256sum "$ROOT/evidence"/* | tee "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Publish derived topology evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5A-PIPELINE-TOPOLOGY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rbtopology5a/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rbtopology5a/pass" "$RUNNER_TEMP/rbtopology5a/m9.upd" "$RUNNER_TEMP/rbtopology5a/mm.upm" "$RUNNER_TEMP/rbtopology5a/m9.dec" "$RUNNER_TEMP/rbtopology5a"/*.bin "$RUNNER_TEMP/rbtopology5a/green.dis"
