@@ -9,10 +9,10 @@
  * firmware 0xFEB10786 (R7 write in parallel with old-R7 stack store).
  */
 
-    .macro LOG_AND_TAIL marker, bodyhi, bodylo, fixinner=0
+    .macro LOG_AND_TAIL markhi, marklo, bodyhi, bodylo, fixinner=0
       [--SP]=R3;
       [--SP]=R7;
-      R7.H=(\marker >> 16); R7.L=(\marker & 0xffff); DBG R7;
+      R7.H=\markhi; R7.L=\marklo; DBG R7;
       DBG R0; DBG R1; DBG R2;
       /* Two pushes mean original S+0x0c is now SP+0x14. */
       R3=[SP+0x14]; DBG R3;
@@ -66,19 +66,19 @@ _start:
     /* Uniformly relocated exact CALL targets become trampoline islands. */
     .section .differ_shim,"ax"; .balign 2
 leica_differ:
-    LOG_AND_TAIL 0x6b020001, 0x00ea, 0x0000, 0
+    LOG_AND_TAIL 0x6b02, 0x0001, 0x00ea, 0x0000, 0
 
     .section .f101040_shim,"ax"; .balign 2
 leica_f101040:
-    LOG_AND_TAIL 0x6b030001, 0x00e9, 0x0000, 1
+    LOG_AND_TAIL 0x6b03, 0x0001, 0x00e9, 0x0000, 1
 
     .section .f101000_shim,"ax"; .balign 2
 leica_f101000:
-    LOG_AND_TAIL 0x6b040001, 0x00eb, 0x0000, 0
+    LOG_AND_TAIL 0x6b04, 0x0001, 0x00eb, 0x0000, 0
 
     .section .f010_shim,"ax"; .balign 2
 leica_f010:
-    LOG_AND_TAIL 0x6b010001, 0x00e8, 0x0000, 0
+    LOG_AND_TAIL 0x6b01, 0x0001, 0x00e8, 0x0000, 0
 
     /* Exact helper bodies, byte-identical to canonical firmware. */
     .section .f010_body,"ax"; .balign 2
