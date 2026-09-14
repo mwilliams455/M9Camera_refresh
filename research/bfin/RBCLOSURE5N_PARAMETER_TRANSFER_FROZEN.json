@@ -1,0 +1,58 @@
+{
+  "schema": "m9.rbclosure5n.parameter-transfer-frozen.v1",
+  "source_run": 34832049584,
+  "source_commit": "82c6835b334e51d7e9a143a16480b07dea6b9b84",
+  "artifact": "M9-RB-RBCLOSURE5N-PARAMETER-TRANSFER",
+  "artifact_id": 10342089394,
+  "artifact_zip_sha256": "2d3d0fc1a4b205966979b079c4e4ae77d0f698d1a7ffff1218bc5e57e228fa97",
+  "selected_bf561_pair": 3,
+  "helpers": {
+    "0xffa122e4": {
+      "name": "InitInterpolation",
+      "size": 194,
+      "argument_mapping_from_Task_TaskInterpolation": {
+        "R0": "0xfeb00258 g_L1DestDescriptor",
+        "R1": "0xfeb002e8 g_L2Parameter",
+        "R2_first_call": 1,
+        "R2_second_call": 0
+      },
+      "R2_nonzero_path": {
+        "effect": "zero initialization",
+        "operations": [
+          "memset(g_L1DestDescriptor, 0, 0x90)",
+          "memset(g_L2Parameter, 0, 0x0b10)"
+        ],
+        "proven_g_L2Parameter_size": 2832
+      },
+      "R2_zero_path": {
+        "effect": "initialize L1 destination descriptor and hand both descriptor blocks to downstream Init",
+        "notable_setup": [
+          "IM_GetLut(0x11) -> [g_L1DestDescriptor+0x1c]",
+          "IM_GetLut(0x01) -> +0x24",
+          "IM_GetLut(0x02) -> +0x28",
+          "IM_GetLut(0x20) -> +0x2c",
+          "IM_GetLut(0x13) -> +0x20",
+          "IM_GetRawBuffer(7) -> +0x08",
+          "fixed pointers 0xff800000 and 0xff900000 -> +0x14/+0x18"
+        ],
+        "downstream_call": "0xffa12348: Init @ 0xfeb16190 with R0=1, R1=g_L1DestDescriptor, R2=g_L2Parameter"
+      }
+    },
+    "0xffa122b2": {
+      "name": "RI_WaitForStart",
+      "size": 50,
+      "effect": "wait/synchronization only",
+      "event_call": "Kernel_PendEvent @ 0xffa111cc using object 0xfeb00250",
+      "descriptor_memory_access": "none"
+    }
+  },
+  "proven_sequence": [
+    "InitInterpolation(..., g_L2Parameter, 1) zeros g_L2Parameter",
+    "RI_WaitForStart waits for start event",
+    "InitInterpolation(..., g_L2Parameter, 0) calls downstream Init with g_L2Parameter",
+    "StartInterpolation later passes the same g_L2Parameter pointer to Run"
+  ],
+  "implication": "The production R7 dispatch word cannot be a static initialized firmware constant. It is runtime state established after the explicit zeroing and before Run. RI_WaitForStart is not the writer.",
+  "next_gate": "Disassemble Init @ 0xfeb16190 and perform argument-2 dataflow. Determine whether Init reads g_L2Parameter (implying external/event-side population) or writes/builds it. If it reads the block, trace the start-event producer / DMA source that fills g_L2Parameter word0.",
+  "production_status": "untouched"
+}
