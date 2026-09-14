@@ -1,0 +1,63 @@
+name: M9 R/B RBCLOSURE5Z BF547 Map Inventory
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bf547-map5z.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  maps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover and inventory all map-like PWAD lumps
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5z"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 - <<'PY'
+          import os,pathlib,importlib.util,sys,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5z'
+          spec=importlib.util.spec_from_file_location('fw','tools/m9_sharpnessforensics1a_firmwarepass.py'); fw=importlib.util.module_from_spec(spec);sys.modules[spec.name]=fw;spec.loader.exec_module(fw)
+          raw=(root/'m9.dec').read_bytes(); ro,rootp=fw.find_root_pwad(raw); lumps=list(fw.walk_pwad(rootp))
+          keys=('SPI','Sport','SPORT','Setting','Process','Append','Image','Interpolation','Transfer','BF547','Send','Recv')
+          maps=[]
+          for l in lumps:
+              recs=fw.map_records(l.data)
+              if not recs: continue
+              addrs=[a for n,a,z in recs if a]
+              matches=[]
+              for n,a,z in recs:
+                  if any(k.lower() in n.lower() for k in keys): matches.append({'name':n,'addr':f'0x{a:08x}','size':z})
+              maps.append({'path':l.path,'name':l.name,'size':len(l.data),'sha256':hashlib.sha256(l.data).hexdigest(),'record_count':len(recs),'addr_min':f'0x{min(addrs):08x}' if addrs else None,'addr_max':f'0x{max(addrs):08x}' if addrs else None,'keyword_matches':matches[:1000],'first_records':[{'name':n,'addr':f'0x{a:08x}','size':z} for n,a,z in recs[:30]]})
+          rep={'schema':'m9.rbclosure5z.map-inventory.v1','root_pwad_offset':f'0x{ro:x}','recursive_lumps':len(lumps),'map_like_lumps':maps}
+          data=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'map_inventory.json').write_bytes(data); (root/'evidence'/'map_inventory.sha256.txt').write_text(hashlib.sha256(data).hexdigest()+'  map_inventory.json\n')
+          with open(root/'evidence'/'map_inventory.txt','w') as f:
+              f.write(f'MAP-LIKE LUMPS {len(maps)}\n')
+              for m in maps:
+                  f.write(f"\n{m['path']} records={m['record_count']} range={m['addr_min']}..{m['addr_max']}\n")
+                  for q in m['keyword_matches'][:200]: f.write(json.dumps(q)+'\n')
+          print((root/'evidence'/'map_inventory.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload map inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5Z-BF547-MAP-INVENTORY
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5z/evidence/*
+      - name: Remove firmware
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5z/m9.upd" "$RUNNER_TEMP/rb5z/mm.upm" "$RUNNER_TEMP/rb5z/m9.dec"
