@@ -1,0 +1,178 @@
+name: M9 R/B GREENORACLE6A Green Body ABI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-greenoracle6a.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover canonical BF561 pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6a"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          PAIR=$(find "$ROOT/pass" -type f -name bf0.map -printf '%h\n' | sort | head -1)
+          test -n "$PAIR" && test -f "$PAIR/bf0.bin"
+          cp "$PAIR/bf0.map" "$ROOT/bf0.map"
+          cp "$PAIR/bf0.bin" "$ROOT/bf0.bin"
+
+      - name: Extract and disassemble GreenInterpolationWithCo
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6a"
+          python3 - <<'PY'
+          import os, pathlib, struct, json, hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6a'
+          m=(root/'bf0.map').read_bytes(); ldr=(root/'bf0.bin').read_bytes()
+          if len(m)%32: raise SystemExit(f'map length not 32-byte aligned: {len(m)}')
+          rec=[]
+          for o in range(0,len(m),32):
+              r=m[o:o+32]
+              name=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'")
+              addr,size=struct.unpack_from('<II',r,24)
+              rec.append((name,addr,size))
+          hits=[x for x in rec if x[0]=='GreenInterpolationWithCo']
+          if len(hits)!=1: raise SystemExit(f'expected one GreenInterpolationWithCo, got {hits}')
+          name,addr,size=hits[0]
+          # Parse Blackfin LDR blocks and reconstruct the exact mapped bytes.
+          off=4; blocks=[]
+          while off+10<=len(ldr):
+              ba,count,flags=struct.unpack_from('<IIH',ldr,off); off+=10
+              if count>16*1024*1024: break
+              if flags & 1: payload=bytes(count)
+              else:
+                  if off+count>len(ldr): break
+                  payload=ldr[off:off+count]; off+=count
+              blocks.append((ba,count,flags,payload))
+              if flags & 0x8000: break
+          body=bytearray(size); covered=bytearray(size)
+          for ba,count,flags,p in blocks:
+              lo=max(addr,ba); hi=min(addr+size,ba+count)
+              if lo<hi:
+                  body[lo-addr:hi-addr]=p[lo-ba:hi-ba]
+                  covered[lo-addr:hi-addr]=b'\x01'*(hi-lo)
+          if not all(covered):
+              missing=[i for i,v in enumerate(covered) if not v]
+              raise SystemExit(f'Green body not fully covered; first missing {missing[:16]}')
+          (root/'green.bin').write_bytes(body)
+          meta={
+            'schema':'m9.greenoracle6a.body.v1',
+            'symbol':name,'address':hex(addr),'size':size,
+            'body_sha256':hashlib.sha256(body).hexdigest(),
+            'map_sha256':hashlib.sha256(m).hexdigest(),
+            'ldr_sha256':hashlib.sha256(ldr).hexdigest(),
+            'covering_blocks':[{'address':hex(ba),'count':count,'flags':hex(flags)} for ba,count,flags,_ in blocks if max(addr,ba)<min(addr+size,ba+count)]
+          }
+          (root/'evidence'/'green_body_meta.json').write_text(json.dumps(meta,indent=2)+'\n')
+          print(json.dumps(meta,indent=2))
+          PY
+          ADDR=$(python3 -c 'import json;print(json.load(open("'"$ROOT"'/evidence/green_body_meta.json"))["address"])')
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="$ADDR" "$ROOT/green.bin" > "$ROOT/evidence/green_disasm.txt"
+
+      - name: Analyze ABI, calls, memory and arithmetic
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6a"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6a'
+          text=(root/'evidence'/'green_disasm.txt').read_text(errors='replace')
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          ins=[]
+          for line in text.splitlines():
+              m=rx.match(line)
+              if m: ins.append({'address':f"0x{int(m.group(1),16):08x}",'asm':m.group(2).strip()})
+          calls=[]; mem=[]; shifts=[]; clips=[]; stack=[]; regs=[]
+          for x in ins:
+              a=x['asm']
+              cm=re.search(r'\bCALL(?:\.S)?\s+([^\s;]+)',a,re.I)
+              if cm: calls.append({**x,'target':cm.group(1)})
+              if '[' in a and ']' in a: mem.append(x)
+              if any(k in a.upper() for k in ('ASHIFT','LSHIFT','>>>','<<','>>')): shifts.append(x)
+              if any(k in a.upper() for k in ('MAX','MIN','SAT','SIGNBITS','PACK','BYTEOP')): clips.append(x)
+              if 'SP' in a or 'FP' in a: stack.append(x)
+              if any(re.search(rf'\b{r}\b',a) for r in ('R0','R1','R2','R3','R4','R5','R6','R7','P0','P1','P2','P3','P4','P5')): regs.append(x)
+          # Resolve exact map symbol names for direct absolute call targets where possible.
+          m=(root/'bf0.map').read_bytes(); import struct
+          syms=[]
+          for o in range(0,len(m),32):
+              r=m[o:o+32]; name=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'"); addr,size=struct.unpack_from('<II',r,24)
+              if name: syms.append((addr,size,name))
+          def resolve(t):
+              try: v=int(t,16)
+              except: return None
+              exact=[s for s in syms if s[0]==v]
+              if exact: return [{'name':n,'address':hex(a),'size':z} for a,z,n in exact]
+              contain=[s for s in syms if s[1]>0 and s[0]<=v<s[0]+s[1]]
+              return [{'name':n,'address':hex(a),'size':z,'offset':hex(v-a)} for a,z,n in contain[:8]] or None
+          for c in calls: c['symbols']=resolve(c['target'])
+          meta=json.loads((root/'evidence'/'green_body_meta.json').read_text())
+          report={
+            'schema':'m9.greenoracle6a.abi-arithmetic.v1',
+            'symbol':meta['symbol'],'address':meta['address'],'size':meta['size'],'body_sha256':meta['body_sha256'],
+            'instruction_count':len(ins),
+            'first_80_instructions':ins[:80],
+            'last_80_instructions':ins[-80:],
+            'direct_calls':calls,
+            'memory_accesses':mem,
+            'stack_fp_accesses':stack,
+            'shift_rounding_candidates':shifts,
+            'saturation_pack_candidates':clips,
+            'register_references':regs,
+            'policy':'Forensic only. No production renderer changes. ABI/arithmetic claims require manual confirmation from exact disassembly and downstream callees.'
+          }
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'green_analysis.json').write_bytes(raw)
+          with open(root/'evidence'/'green_analysis_summary.txt','w') as f:
+              f.write(f"{meta['symbol']} {meta['address']} size={meta['size']} sha256={meta['body_sha256']}\n")
+              f.write(f"instructions={len(ins)} direct_calls={len(calls)} memory_ops={len(mem)} shifts={len(shifts)} clip_pack={len(clips)}\n\nDIRECT CALLS\n")
+              for c in calls: f.write(json.dumps(c)+'\n')
+              f.write('\nSTACK/FP ACCESS\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in stack]
+              f.write('\nSHIFTS/ROUNDING\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in shifts]
+              f.write('\nSAT/PACK CANDIDATES\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in clips]
+          (root/'evidence'/'green_analysis.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  green_analysis.json\n')
+          print((root/'evidence'/'green_analysis_summary.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload Green oracle evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6A-BODY-ABI
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6a/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/green6a/pass" "$RUNNER_TEMP/green6a/m9.upd" "$RUNNER_TEMP/green6a/mm.upm" "$RUNNER_TEMP/green6a/m9.dec" "$RUNNER_TEMP/green6a/bf0.map" "$RUNNER_TEMP/green6a/bf0.bin" "$RUNNER_TEMP/green6a/green.bin"
