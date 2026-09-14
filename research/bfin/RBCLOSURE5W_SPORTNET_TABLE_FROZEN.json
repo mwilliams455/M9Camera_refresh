@@ -1,0 +1,41 @@
+{
+  "schema": "m9.rbclosure5w.sportnet-table-frozen.v1",
+  "source_run": 34834419578,
+  "source_commit": "ecc01500a58f8edcb1e39d0eff46c4e667cc7e5d",
+  "artifact": "M9-RB-RBCLOSURE5W-SPORTNET-TABLE",
+  "artifact_id": 10343388401,
+  "artifact_zip_sha256": "84a0ee01cd1fcf026ce7502ce0705bd4377008e113d045c28ba32da9d887e773",
+  "selected_bf561_pair": 3,
+  "table": {
+    "address": "0xfeb00050",
+    "name": "g_pSportNetFunctions",
+    "size": 144,
+    "record_schema": ["callback", "payload_length", "command_id"]
+  },
+  "schema_validation_examples": [
+    {"callback":"SPI_AccessMem","payload_length":12,"command_id":3},
+    {"callback":"SPI_SetNextImage","payload_length":1,"command_id":10},
+    {"callback":"SPI_ReadMem","payload_length":12,"command_id":5},
+    {"callback":"SPI_TransferStart","payload_length":23,"command_id":4},
+    {"callback":"SPI_AppendSettings","payload_length":37,"command_id":7},
+    {"callback":"SPI_TransferArchive","payload_length":9,"command_id":8},
+    {"callback":"SPI_TransferArchiveDone","payload_length":0,"command_id":1},
+    {"callback":"SPI_GetStatus","payload_length":0,"command_id":12},
+    {"callback":"SPI_FastPreview","payload_length":26,"command_id":6},
+    {"callback":"SPI_TransferStop","payload_length":0,"command_id":255}
+  ],
+  "target_command": {
+    "command_id": 7,
+    "callback": "SPI_AppendSettings @ 0xffa11862",
+    "payload_length": 37,
+    "mode_field": "payload byte 4",
+    "full_received_object_offset": 11,
+    "downstream": "payload byte4 -> queue record +4 -> ImageSettings+4 -> SetStructParameter/Set mode mask"
+  },
+  "mode_consequence": {
+    "payload_byte4_eq_2": "Run mask 0x3407; Green bit4 off; R/B bit5 off",
+    "payload_byte4_eq_3": "Run mask 0x17ff; Green bit4 on; R/B bit5 on; Green then R/B proven by RBCLOSURE5I"
+  },
+  "next_gate": "Locate the sender/producer of SportNet command ID 7 in the main/ARM-side M9 firmware and recover how payload byte4 is selected for normal color capture.",
+  "production_status": "untouched"
+}
