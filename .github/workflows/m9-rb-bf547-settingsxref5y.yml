@@ -1,0 +1,136 @@
+name: M9 R/B RBCLOSURE5Y BF547 Settings Xrefs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bf547-settingsxref5y.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  xrefs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover BF547 and trace settings strings
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5y"
+          mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          BF=$(find "$ROOT/pass" -path '*/bf547_*/BF547.bin' | head -1); test -n "$BF"; cp "$BF" "$ROOT/BF547.bin"
+          "$BFIN_OBJDUMP" -D -b binary -m bfin "$ROOT/BF547.bin" > "$ROOT/BF547.dis"
+          python3 - <<'PY'
+          import os,pathlib,re,json,struct,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5y'; data=(root/'BF547.bin').read_bytes()
+          targets=[
+            'WARNING: check MARKER for Processing-Settings!!',
+            'Settings:',
+            'bfSpi',
+            'PROCESS',
+            'InterpolationGreen',
+            'InterpolationRedBlue',
+          ]
+          deltas=(0,0x20000,0x40000,0x80000,0x100000)
+          rows=[]
+          for text in targets:
+              needle=text.encode(); start=0
+              while True:
+                  off=data.find(needle,start)
+                  if off<0: break
+                  refs=[]
+                  for delta in deltas:
+                      addr=off+delta; p=struct.pack('<I',addr&0xffffffff); s=0
+                      while True:
+                          x=data.find(p,s)
+                          if x<0: break
+                          refs.append({'delta':f'0x{delta:x}','pointer_value':f'0x{addr:x}','xref_off':f'0x{x:x}'})
+                          s=x+1
+                  rows.append({'text':text,'string_off':f'0x{off:x}','xrefs':refs})
+                  start=off+1
+          (root/'strings.json').write_text(json.dumps(rows,indent=2)+'\n')
+          print(json.dumps(rows,indent=2))
+          PY
+
+      - name: Correlate string xrefs with command-7/37 code
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5y"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5y'; rows=json.load(open(root/'strings.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          ins=[]
+          for line in (root/'BF547.dis').read_text(errors='replace').splitlines():
+              m=rx.match(line)
+              if m: ins.append({'off':int(m.group(1),16),'asm':m.group(2).strip()})
+          offsets=[x['off'] for x in ins]
+          def nearest_idx(off):
+              lo,hi=0,len(offsets)
+              while lo<hi:
+                  mid=(lo+hi)//2
+                  if offsets[mid]<off:lo=mid+1
+                  else:hi=mid
+              return min(max(lo,0),len(offsets)-1)
+          contexts=[]
+          for row in rows:
+              for ref in row['xrefs']:
+                  off=int(ref['xref_off'],16); i=nearest_idx(off); ctx=ins[max(0,i-100):min(len(ins),i+160)]
+                  c7=[]; c37=[]; calls=[]
+                  for q in ctx:
+                      u=q['asm'].upper()
+                      if re.search(r'(^|[^0-9A-F])0X0?7([^0-9A-F]|$)',u) or re.search(r'\(\s*7\s*\)',u):c7.append(q)
+                      if re.search(r'(^|[^0-9A-F])0X25([^0-9A-F]|$)',u) or re.search(r'\(\s*37\s*\)',u):c37.append(q)
+                      if 'CALL ' in u:calls.append(q)
+                  contexts.append({'string':row['text'],'string_off':row['string_off'],'xref':ref,'nearest_instruction':f"0x{ins[i]['off']:x}",'command7_hits':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in c7],'length37_hits':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in c37],'calls':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in calls],'context':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in ctx]})
+          # Include exact 0x471c4 candidate window for side-by-side correlation.
+          ci=nearest_idx(0x471c4); cand=ins[max(0,ci-50):min(len(ins),ci+130)]
+          rep={'schema':'m9.rbclosure5y.settings-xrefs.v1','string_xref_contexts':contexts,'candidate_0x471c4':[{'off':f"0x{q['off']:x}",'asm':q['asm']} for q in cand],'closure_goal':'Tie BF547 processing-settings diagnostics to the command-7/37 sender candidate and recover payload construction including mode byte4.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'settings_xrefs.json').write_bytes(raw)
+          with open(root/'evidence'/'settings_xrefs.txt','w') as f:
+              for c in contexts:
+                  f.write(f"\n=== {c['string']} xref {c['xref']['xref_off']} ptr={c['xref']['pointer_value']} ===\n")
+                  f.write('CMD7 '+json.dumps(c['command7_hits'])+'\nLEN37 '+json.dumps(c['length37_hits'])+'\n')
+                  for q in c['context']:f.write(f"{q['off']}  {q['asm']}\n")
+              f.write('\n=== CANDIDATE 0x471c4 ===\n'); [f.write(f"{q['off']}  {q['asm']}\n") for q in rep['candidate_0x471c4']]
+          (root/'evidence'/'settings_xrefs.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  settings_xrefs.json\n'); print((root/'evidence'/'settings_xrefs.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload BF547 settings evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5Y-BF547-SETTINGS-XREFS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5y/evidence/*
+
+      - name: Remove firmware bytes
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5y/pass" "$RUNNER_TEMP/rb5y/m9.upd" "$RUNNER_TEMP/rb5y/mm.upm" "$RUNNER_TEMP/rb5y/m9.dec" "$RUNNER_TEMP/rb5y/BF547.bin" "$RUNNER_TEMP/rb5y/BF547.dis" "$RUNNER_TEMP/rb5y/strings.json"
