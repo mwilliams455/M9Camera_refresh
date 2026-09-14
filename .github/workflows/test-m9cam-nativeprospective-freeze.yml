@@ -6,6 +6,7 @@ on:
     branches: [research/sharpness-rbclosure1d-packedphase1a]
     paths:
       - 'patches/apply-m9cam-nativeprospective1a-fix1.py'
+      - 'patches/verify-m9cam-nativeprospective1a-fix1.py'
       - '.github/workflows/test-m9cam-nativeprospective-freeze.yml'
 
 permissions:
@@ -19,7 +20,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify FIX1/FIX2 harness syntax
-        run: python3 -m py_compile patches/apply-m9cam-nativeprospective1a-fix1.py
+        run: |
+          python3 -m py_compile patches/apply-m9cam-nativeprospective1a-fix1.py
+          python3 -m py_compile patches/verify-m9cam-nativeprospective1a-fix1.py
 
       - name: Clone pinned PhotonCamera baseline
         run: |
@@ -66,6 +69,8 @@ jobs:
           set -euo pipefail
           test -f NATIVEPROSPECTIVE1A_PATCH.log
           grep -q 'verify-m9cam-nativeprospective1a-fix1.py' NATIVEPROSPECTIVE1A_PATCH.log
+          grep -q 'NATIVEPROSPECTIVE1A verification OK' NATIVEPROSPECTIVE1A_PATCH.log
           ! grep -q 'unexpectedly changed frozen renderCore' NATIVEPROSPECTIVE1A_PATCH.log
+          ! grep -q 'frozen renderCore SHA mismatch' NATIVEPROSPECTIVE1A_PATCH.log
           ! grep -q 'FIX2 imports unexpectedly changed frozen renderCore' NATIVEPROSPECTIVE1A_PATCH.log
           echo 'NATIVEPROSPECTIVE1A freeze harness regression PASS'
