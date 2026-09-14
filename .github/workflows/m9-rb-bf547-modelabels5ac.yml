@@ -1,0 +1,67 @@
+name: M9 R/B RBCLOSURE5AC BF547 Mode Labels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-bf547-modelabels5ac.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover BF547 and decode diagnostic string table
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5ac"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          BF=$(find "$ROOT/pass" -path '*/bf547_*/BF547.bin' | head -1); test -n "$BF"
+          python3 - "$BF" "$ROOT/evidence" <<'PY'
+          import sys,pathlib,json,hashlib,string
+          bf=pathlib.Path(sys.argv[1]).read_bytes(); out=pathlib.Path(sys.argv[2])
+          # 5AA proved runtime 0xF5254 maps to file 0xD5254 (delta +0x20000).
+          addrs=[0xD5254,0xD5260,0xD5264,0xD5270,0xD5274,0xD5278,0xD5294,0xD52A8,0xD52C0,0xD52D0,0xD52E8,0xD52F0,0xD52FC,0xD530C,0xD5314,0xD5320,0xD532C,0xD5334,0xD5340]
+          def cstr(off,maxn=160):
+              if not (0<=off<len(bf)): return None
+              e=bf.find(b'\0',off,min(len(bf),off+maxn)); e=len(bf) if e<0 else e
+              raw=bf[off:e]
+              try: return raw.decode('latin1')
+              except: return raw.hex()
+          rows=[{'file_off':f'0x{x:x}','runtime_addr':f'0x{x+0x20000:x}','string':cstr(x)} for x in addrs]
+          # Enumerate all printable C strings in the narrow diagnostic region.
+          region=[]; s=0xD5200; e=0xD5360; i=s
+          while i<e:
+              if 32<=bf[i]<127:
+                  j=i
+                  while j<e and 32<=bf[j]<127: j+=1
+                  if j-i>=2 and j<len(bf) and bf[j]==0:
+                      region.append({'file_off':f'0x{i:x}','runtime_addr':f'0x{i+0x20000:x}','string':bf[i:j].decode('ascii','replace')}); i=j+1; continue
+              i+=1
+          rep={'schema':'m9.rbclosure5ac.bf547-mode-labels.v1','known_indexing':'At BF547 0x4c970 settings byte +4 indexes four pointers: runtime 0xF5260, 0xF5264, 0xF5270, 0xF5274.','indexed_targets':rows[:5],'selected_strings':rows,'region_strings':region}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (out/'mode_labels.json').write_bytes(raw)
+          (out/'mode_labels.txt').write_text('\n'.join(f"{r['file_off']} {r['runtime_addr']} {r['string']!r}" for r in region)+'\n')
+          (out/'mode_labels.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  mode_labels.json\n')
+          print((out/'mode_labels.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5AC-BF547-MODE-LABELS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5ac/evidence/*
+      - name: Remove firmware bytes
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5ac/pass" "$RUNNER_TEMP/rb5ac/m9.upd" "$RUNNER_TEMP/rb5ac/mm.upm" "$RUNNER_TEMP/rb5ac/m9.dec"
