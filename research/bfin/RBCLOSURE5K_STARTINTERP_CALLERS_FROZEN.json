@@ -1,0 +1,37 @@
+{
+  "schema": "m9.rbclosure5k.startinterp-callers-frozen.v1",
+  "source_run": 34831263493,
+  "source_commit": "796f6b42d3f4a5934d9b75b4bae61d2ea978707e",
+  "artifact": "M9-RB-RBCLOSURE5K-STARTINTERP-CALLERS",
+  "artifact_id": 10342566686,
+  "artifact_zip_sha256": "3ef23a56de39b2d241b2b7f3151a22de76e9e50977f51fa13e68127b3e74542c",
+  "selected_bf561_pair": 3,
+  "target": "StartInterpolation_Jolos @ 0xffa1249c",
+  "direct_callers": [
+    {
+      "site": "0xffa1256e",
+      "owner": "StartInterpolation @ 0xffa12512",
+      "mode_condition": "B[StartInterpolation arg2 + 4] == 3",
+      "argument_flow": "R1 = R5 = original StartInterpolation R1"
+    },
+    {
+      "site": "0xffa125a6",
+      "owner": "StartInterpolation @ 0xffa12512",
+      "mode_condition": "B[StartInterpolation arg2 + 4] == 2",
+      "argument_flow": "R1 = R5 = original StartInterpolation R1"
+    }
+  ],
+  "startinterp_entry_flow": [
+    "0xffa12518: R6 = R0  (preserve arg0)",
+    "0xffa12520: R7 = R2  (preserve arg2)",
+    "0xffa12522: R5 = R1  (preserve descriptor arg1)"
+  ],
+  "mode_dispatch": {
+    "mode_lt_2": "0xffa12562 -> 0xffa12412 (non-Jolos path)",
+    "mode_2": "0xffa125a6 -> StartInterpolation_Jolos",
+    "mode_3": "0xffa1256e -> StartInterpolation_Jolos"
+  },
+  "descriptor_provenance": "For both production Jolos paths, the pointer that eventually becomes Run arg0 and R7=[descriptor] is StartInterpolation original R1, passed through unchanged via R5. Neither StartInterpolation nor StartInterpolation_Jolos constructs descriptor word 0.",
+  "next_gate": "Trace direct callers/references of StartInterpolation at 0xffa12512 and backward-slice R1 to its allocation/initialization. Locate writes or constants for descriptor word 0, especially bits 4 and 5.",
+  "production_status": "untouched"
+}
