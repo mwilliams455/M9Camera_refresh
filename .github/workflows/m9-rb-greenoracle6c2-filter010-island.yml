@@ -1,0 +1,116 @@
+name: M9 R/B GREENORACLE6C2 Filter010 Executable Island
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths: ['.github/workflows/m9-rb-greenoracle6c2-filter010-island.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  island:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b; cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover exact 0x200-byte executable island
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6c2"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          PAIR=$(find "$ROOT/pass" -type f -name bf0.map -printf '%h\n' | sort | head -1); cp "$PAIR/bf0.map" "$ROOT/bf0.map"; cp "$PAIR/bf0.bin" "$ROOT/bf0.bin"
+          python3 - <<'PY'
+          import os,pathlib,struct,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6c2'; mp=(root/'bf0.map').read_bytes(); ldr=(root/'bf0.bin').read_bytes()
+          start=0xFFA03E00; end=0xFFA04000
+          sy=[]
+          for o in range(0,len(mp),32):
+              r=mp[o:o+32]; n=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'"); a,s=struct.unpack_from('<II',r,24)
+              if n: sy.append((a,s,n))
+          exact=[x for x in sy if x[0]==start]
+          if not any(n=='ASMFilter_010_101_010_2' for a,s,n in exact): raise SystemExit(f'entry mismatch {exact}')
+          off=4; blocks=[]
+          while off+10<=len(ldr):
+              ba,c,fl=struct.unpack_from('<IIH',ldr,off); off+=10
+              if c>16*1024*1024: break
+              if fl&1:p=bytes(c)
+              else:
+                  if off+c>len(ldr): break
+                  p=ldr[off:off+c]; off+=c
+              blocks.append((ba,c,fl,p))
+              if fl&0x8000:break
+          body=bytearray(end-start); cov=bytearray(end-start); cover=[]
+          for ba,c,fl,p in blocks:
+              lo=max(start,ba); hi=min(end,ba+c)
+              if lo<hi:
+                  body[lo-start:hi-start]=p[lo-ba:hi-ba]; cov[lo-start:hi-start]=b'\x01'*(hi-lo)
+                  cover.append({'address':hex(ba),'count':c,'flags':hex(fl),'overlap':[hex(lo),hex(hi)]})
+          if not all(cov): raise SystemExit('0x200 island unexpectedly not fully covered')
+          (root/'island.bin').write_bytes(body)
+          meta={'schema':'m9.greenoracle6c2.filter010-island.v1','entry':hex(start),'end':hex(end),'size':len(body),'sha256':hashlib.sha256(body).hexdigest(),'entry_symbols':[{'address':hex(a),'size':s,'name':n} for a,s,n in exact],'nearby_symbols':[{'address':hex(a),'size':s,'name':n} for a,s,n in sy if start<=a<end],'covering_blocks':cover,'source_observation':'GREENORACLE6C proved coverage is contiguous for exactly the first 0x200 bytes and absent beginning at +0x200.'}
+          (root/'evidence'/'filter010_island_meta.json').write_text(json.dumps(meta,indent=2)+'\n'); print(json.dumps(meta,indent=2))
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xFFA03E00 "$ROOT/island.bin" > "$ROOT/evidence/filter010_island_disasm.txt"
+
+      - name: Analyze entry CFG surface and return candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6c2"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6c2'; txt=(root/'evidence'/'filter010_island_disasm.txt').read_text(errors='replace')
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2}\s+)+)(.+)$',re.I); ins=[]
+          for l in txt.splitlines():
+              m=rx.match(l)
+              if m: ins.append({'address':f"0x{int(m.group(1),16):08x}",'bytes':' '.join(m.group(2).split()),'asm':m.group(3).strip()})
+          def pick(fn): return [x for x in ins if fn(x['asm'].upper())]
+          rets=pick(lambda a:any(k in a for k in ('RTS','RTI','RTX','RTN','RTE')))
+          calls=pick(lambda a:'CALL' in a); loops=pick(lambda a:'LSETUP' in a or re.search(r'\bLOOP\b',a) is not None)
+          branches=pick(lambda a:'JUMP' in a or a.startswith('IF ') or ' IF ' in a)
+          arith=pick(lambda a:any(k in a for k in ('A0','A1','ASHIFT','LSHIFT','RND','SAT','PACK','SIGNBITS','(FU)','(TFU)','(IS)','(S2RND)','*')))
+          ep=[]
+          for i,x in enumerate(ins):
+              if any(k in x['asm'].upper() for k in ('RTS','RTI','RTX','RTN','RTE')): ep.append(ins[max(0,i-12):i+1])
+          rep={'schema':'m9.greenoracle6c2.filter010-island-analysis.v1','instruction_count':len(ins),'returns':rets,'calls':calls,'loops':loops,'branches':branches,'arithmetic_candidates':arith,'epilogue_contexts':ep,'all_instructions':ins,'policy':'No extent claim until reachable terminal return from 0xFFA03E00 is manually confirmed.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'filter010_island_analysis.json').write_bytes(raw); (root/'evidence'/'filter010_island_analysis.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter010_island_analysis.json\n')
+          with open(root/'evidence'/'filter010_island_summary.txt','w') as f:
+              f.write(f"instructions={len(ins)} returns={len(rets)} calls={len(calls)} loops={len(loops)} branches={len(branches)} arith={len(arith)}\n\nRETURNS\n")
+              for x in rets:f.write(f"{x['address']} {x['asm']}\n")
+              f.write('\nEPILOGUES\n')
+              for c in ep:
+                  f.write('---\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in c]
+              f.write('\nCALLS\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in calls]
+              f.write('\nLOOPS\n'); [f.write(f"{x['address']} {x['asm']}\n") for x in loops]
+          print((root/'evidence'/'filter010_island_summary.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload Filter010 island evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6C2-FILTER010-ISLAND
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6c2/evidence/*
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/green6c2/pass" "$RUNNER_TEMP/green6c2/m9.upd" "$RUNNER_TEMP/green6c2/mm.upm" "$RUNNER_TEMP/green6c2/m9.dec" "$RUNNER_TEMP/green6c2/bf0.map" "$RUNNER_TEMP/green6c2/bf0.bin" "$RUNNER_TEMP/green6c2/island.bin"
