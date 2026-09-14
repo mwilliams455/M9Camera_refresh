@@ -1,0 +1,39 @@
+{
+  "schema": "m9.greenoracle6m.phase1-scratch-correction-frozen.v1",
+  "source_run": 34855971040,
+  "source_artifact_id": 10353640846,
+  "source_commit": "3caf3cd2e2f5feb749ec66cce75faffd57d8974a",
+  "artifact_digest_sha256": "b57580459868e8775c9fff49d5f7909c27b1abedb747757212f84aa8d9ecd528",
+  "routine": {
+    "name": "ASMFilter_101_040_101_An",
+    "address": "0xffa000be",
+    "size": 400,
+    "sha256": "c09c342ca374a32eb08b86b8136c27af403ccad5eba57aa25aee6c0526e30389"
+  },
+  "test_contract": {
+    "source_pointer": "0x4402 (mod4 == 2)",
+    "out1_pointer": "0x7042",
+    "out2_pointer": "0x8044",
+    "out2_pre_pointer_probe": "0x8040 (out2_ptr - 4 bytes; capture index 32)",
+    "out2_sentinel": "0x2468",
+    "cases": [
+      "inner2 outer1 stride4",
+      "inner2 outer3 stride6",
+      "inner4 outer2 stride8",
+      "inner8 outer4 stride16"
+    ],
+    "source_data": "deterministic random u16 data, distinct seed per geometry"
+  },
+  "observation": {
+    "out2_ptr_minus_4_changed_in_any_case": false,
+    "first_changed_out2_index_all_cases": 34,
+    "first_changed_out2_address_all_cases": "0x8044",
+    "formal_stream2_start": "0x8044"
+  },
+  "conclusion": {
+    "status": "correction",
+    "statement": "GREENORACLE6M falsifies the prior assumption that R0 mod4==2 universally causes a physical write at out2_ptr-4. Across four random-data geometries the pre-pointer cell remains sentinel and the first changed stream2 cell is the formal out2 pointer.",
+    "supersedes_for_composite_scalar": "BFINORACLE3D phase1_scratch note must not be modeled as an unconditional out2_ptr-4 write.",
+    "production_impact": "none; research scalar/evidence only"
+  }
+}
