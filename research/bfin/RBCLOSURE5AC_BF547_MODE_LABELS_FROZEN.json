@@ -1,0 +1,38 @@
+{
+  "schema": "m9.rbclosure5ac.bf547-mode-labels.frozen.v1",
+  "workflow_run": 34839409488,
+  "artifact_id": 10344509579,
+  "artifact_digest": "sha256:1f4f122f998b7d764bf4401f8463ff8cbf629e1efe8c325f76f589d664ed862e",
+  "status": "CLOSED — ImageSettings+4 mode identity proven by Leica diagnostic string table",
+  "diagnostic_code": {
+    "function_entry": "0x4c940",
+    "mode_read": "B[P5+0x4]",
+    "indexing_sequence": "P1 = mode; P2 = FP + (P1 << 2); R1 = [P2 - 0x10]",
+    "indexed_runtime_string_pointers": [
+      "0xF5260",
+      "0xF5264",
+      "0xF5270",
+      "0xF5274"
+    ]
+  },
+  "mode_labels": {
+    "0": "Raw",
+    "1": "RawTotal",
+    "2": "Dng",
+    "3": "Jpg"
+  },
+  "rb_dispatch_consequence": {
+    "Dng_mode_2": {
+      "Set_mask": "0x3407",
+      "bit4_GreenInterpolationWithCo": false,
+      "bit5_ASMRedBlueInterpolation1": false
+    },
+    "Jpg_mode_3": {
+      "Set_mask": "0x17FF",
+      "bit4_GreenInterpolationWithCo": true,
+      "bit5_ASMRedBlueInterpolation1": true,
+      "order": "GreenInterpolationWithCo then ASMRedBlueInterpolation1 in the same Run invocation, proven by RBCLOSURE5I selector/resume CFG"
+    }
+  },
+  "conclusion": "The Leica M9 JPEG processing path is definitively the mode-3 path that enables Green and R/B interpolation. DNG mode 2 deliberately skips those image interpolation stages. The production JPEG Green->R/B ordering question is closed."
+}
