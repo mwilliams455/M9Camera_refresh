@@ -1,0 +1,74 @@
+{
+  "schema": "m9.greenoracle6k.all-helper-abi-trace-frozen.v1",
+  "workflow_run": 34854557905,
+  "source_commit": "35b55b877538a33935440ad3ad00819bf34a8852",
+  "artifact": "M9-RB-GREENORACLE6K-ALL-HELPER-ABI-TRACE",
+  "artifact_id": 10352496837,
+  "artifact_digest": "sha256:10f7cc537e6e5afdd7c37728d92d1cd96f9fe9cdfccc129a43c3504f0e856c0c",
+  "status": "TWO GNU-SIM PACKET SEMANTIC DISCREPANCIES ISOLATED; ALL TEN GREEN HELPER ABIS OBSERVED",
+  "production_green": {
+    "name": "GreenInterpolationWithCo",
+    "address": "0xFEB10660",
+    "size": 810,
+    "sha256": "22d97e0b1283b60b6f38b97387e1d2a204cdb6c890b4de374c88a4b30fc3bcc5",
+    "bytes_modified": false
+  },
+  "test_geometry": {
+    "stride": 16,
+    "height": 12,
+    "phase_initial": 0,
+    "shift": 2,
+    "expected_helper_calls": 10,
+    "observed_helper_calls": 10
+  },
+  "confirmed_simulator_discrepancies": [
+    {
+      "firmware_packet": "0xFEB10786",
+      "instruction": "R7 = R4 + R3 || [SP+0x0c] = R7",
+      "affected_call": "second ASMFilter_101_040_101_An",
+      "bf561_expected_old_value": 8,
+      "gnu_sim_observed_post_write_value": "0x4220",
+      "effect": "helper inner count is corrupted unless the simulator target shim restores 8"
+    },
+    {
+      "firmware_packet": "0xFEB10964",
+      "instruction": "R1 = R4 + R3 || [SP+0x0c] = R1",
+      "affected_call": "second ASMFilter_101_000_101_2",
+      "bf561_expected_old_value": 3,
+      "gnu_sim_observed_post_write_value": "0x4260",
+      "effect": "helper outer count is corrupted to a pointer-sized value and exact helper execution eventually traps"
+    }
+  ],
+  "suspected_but_empirically_cleared_packets": [
+    {
+      "firmware_packet": "0xFEB108AA",
+      "instruction_class": "shift plus parallel stack store of same register",
+      "observed_second_difference_inner": 6,
+      "bf561_expected": 6,
+      "result": "GNU sim preserved old value correctly"
+    },
+    {
+      "firmware_packet": "0xFEB10924",
+      "instruction_class": "ROT plus parallel stack store of same register",
+      "observed_first_101000_outer": 3,
+      "bf561_expected": 3,
+      "result": "GNU sim preserved old value correctly"
+    },
+    {
+      "firmware_packet": "0xFEB10930",
+      "instruction_class": "shift plus parallel [P5] store of same register",
+      "downstream_second_101000_addresses": ["0xA288", "0x4288"],
+      "bf561_expected_addresses": ["0xA288", "0x4288"],
+      "result": "phase progression remained BF561-correct; no correction required"
+    }
+  ],
+  "call_sequence_result": {
+    "calls_1_through_9": "BF561 expected ABI exact after the known 0xFEB10786 simulator correction",
+    "call_10": "all register arguments and stride exact; only stack outer count differs due to 0xFEB10964",
+    "sim_returncode": 4,
+    "green_returned": false,
+    "interpretation": "remaining trap is simulator-induced, not evidence of a Green scalar arithmetic mismatch"
+  },
+  "next": "GREENORACLE6L: add only the second confirmed BF561-semantics compatibility correction at the 101000 target (outer2), retain exact Leica Green/helper bodies, and rerun whole-buffer machine/scalar parity.",
+  "production_status": "untouched"
+}
