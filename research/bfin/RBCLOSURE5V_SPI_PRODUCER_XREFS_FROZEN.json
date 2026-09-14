@@ -1,0 +1,31 @@
+{
+  "schema": "m9.rbclosure5v.spi-producer-xrefs-frozen.v1",
+  "source_run": 34834214701,
+  "source_commit": "970c79c3aa5642fecd593b43ae3aaed687116670",
+  "artifact": "M9-RB-RBCLOSURE5V-SPI-PRODUCER-XREFS",
+  "artifact_id": 10342748693,
+  "artifact_zip_sha256": "06faefb669912f8e6f34ab01ff06b0619f548888451312412ccbbe71edc827f5",
+  "selected_bf561_pair": 3,
+  "target": "SPI_AppendSettings @ 0xffa11862",
+  "direct_code_refs": 0,
+  "address_materializations": 0,
+  "raw_pointer_occurrences": [
+    {
+      "address": "0xfeb00090",
+      "owner": "g_pSportNetFunctions @ 0xfeb00050",
+      "owner_size": 144,
+      "value": "0xffa11862"
+    }
+  ],
+  "surrounding_aligned_words": [
+    ["0xfeb00088", "0x00000017"],
+    ["0xfeb0008c", "0x00000004"],
+    ["0xfeb00090", "0xffa11862"],
+    ["0xfeb00094", "0x00000025"],
+    ["0xfeb00098", "0x00000007"],
+    ["0xfeb0009c", "0xffa118ba"]
+  ],
+  "interpretation": "SPI_AppendSettings is registered through the SportNet callback/function table rather than directly called. The adjacent 0x25 value equals the proven 37-byte settings payload length, but table field order and command ID must be decoded before assigning semantics.",
+  "next_gate": "Dump all 144 bytes of g_pSportNetFunctions, resolve each function pointer to its map symbol, infer the repeated entry layout from handler behavior and known payload lengths, and identify the exact command/message metadata associated with SPI_AppendSettings.",
+  "production_status": "untouched"
+}
