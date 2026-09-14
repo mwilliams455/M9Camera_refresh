@@ -1,0 +1,36 @@
+{
+  "schema": "m9.rbclosure5l.startinterpolation-upstream-frozen.v1",
+  "source_run": 34831548156,
+  "source_commit": "4442d950013cb7b2f27fb1eb7d5ac0f14e059a08",
+  "artifact": "M9-RB-RBCLOSURE5L-STARTINTERPOLATION-UPSTREAM",
+  "artifact_id": 10341843933,
+  "artifact_zip_sha256": "857101c4f4521ea4dd857ebcb11651b635b84e9923d7070e7913cff1a06eabcc",
+  "selected_bf561_pair": 3,
+  "target": "StartInterpolation @ 0xffa12512",
+  "sole_direct_caller": {
+    "site": "0xfeb13a42",
+    "owner": "Task_TaskInterpolation @ 0xfeb139e8",
+    "argument_setup": [
+      "0xfeb139fa: R6.L = 0x02e8",
+      "0xfeb139fe: R6.H = 0xfeb0",
+      "0xfeb13a3e: R1 = R6",
+      "0xfeb13a40: R0 = R5",
+      "0xfeb13a42: CALL StartInterpolation"
+    ]
+  },
+  "production_descriptor": {
+    "address": "0xfeb002e8",
+    "proven_flow": "Task_TaskInterpolation R6 -> StartInterpolation arg1 -> StartInterpolation_Jolos arg1 -> Run arg0 -> Run R7=[arg0]",
+    "dispatch_bits_already_closed": {
+      "bit4": "GreenInterpolationWithCo",
+      "bit5": "ASMRedBlueInterpolation1"
+    }
+  },
+  "related_fixed_objects_in_task": {
+    "arg0": "R5 = 0xfeb00258",
+    "arg2": "R4 = 0xfeb00ea8"
+  },
+  "interpretation": "The R/B dispatcher flag word is no longer an unknown caller-owned pointer. Its production descriptor has a concrete global address, 0xfeb002e8. The next proof can inspect its initial bytes and all code references/writes directly.",
+  "next_gate": "Read the canonical LDR bytes at 0xfeb002e8, identify map symbols covering the object, and scan every selected-BF561 instruction block for materialization/references/writes to 0xfeb002e8 or its first word. Determine the production bit4/bit5 state and whether it is static or mutated before Run.",
+  "production_status": "untouched"
+}
