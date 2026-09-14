@@ -1,0 +1,136 @@
+name: M9 R/B RBCLOSURE5U Enqueue Mode Mapping
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-enqueuemode5u.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mapping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz
+          mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover producer bodies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5u"
+          mkdir -p "$ROOT/evidence" "$ROOT/bodies"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5u'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=m.parse_map(mp)
+          targets={'SPI_AppendSettings':0xffa11862,'IM_AppendItem':0xfeb13940,'Preprocess37':0xfeb13330}
+          out={'schema':'m9.rbclosure5u.setup.v1','selected_pair':pair,'targets':{}}
+          for label,addr in targets.items():
+              exact=[];cover=[]
+              for s in syms:
+                  try:a=int(s['addr']);z=int(s.get('size',0))
+                  except Exception:continue
+                  if a==addr: exact.append({'name':s.get('name'),'addr':a,'size':z})
+                  if z>0 and a<=addr<a+z: cover.append({'name':s.get('name'),'addr':a,'size':z})
+              chosen=next((q for q in exact if q['size']>0),None) or next((q for q in cover if q['size']>0),None)
+              if not chosen: raise SystemExit(f'no sized symbol for {label} 0x{addr:08x}')
+              body=m.read_overlay(blocks,chosen['addr'],chosen['size']); fn=f'{label}.bin'; (root/'bodies'/fn).write_bytes(body)
+              out['targets'][label]={'target':f'0x{addr:08x}','exact_symbols':[{**q,'addr':f"0x{q['addr']:08x}"} for q in exact],'covering_symbols':[{**q,'addr':f"0x{q['addr']:08x}"} for q in cover],'chosen':{'name':chosen['name'],'addr':f"0x{chosen['addr']:08x}",'size':chosen['size'],'sha256':hashlib.sha256(body).hexdigest()},'bin':fn}
+          (root/'setup.json').write_text(json.dumps(out,indent=2)+'\n'); print(json.dumps(out,indent=2))
+          PY
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5u'; d=json.load(open(root/'setup.json'))
+          with open(root/'objdump.sh','w') as f:
+              f.write('set -euo pipefail\n')
+              for label,v in d['targets'].items():
+                  f.write(f'"$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma={v["chosen"]["addr"]} "$RUNNER_TEMP/rb5u/bodies/{v["bin"]}" > "$RUNNER_TEMP/rb5u/bodies/{label}.dis"\n')
+          PY
+          bash "$ROOT/objdump.sh"
+
+      - name: Extract SPI-to-queue mode dataflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5u"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5u'; setup=json.load(open(root/'setup.json'))
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I)
+          def parse(label):
+              out=[]
+              for line in (root/'bodies'/f'{label}.dis').read_text(errors='replace').splitlines():
+                  m=rx.match(line)
+                  if m: out.append({'addr':f"0x{int(m.group(1),16):08x}",'asm':m.group(2).strip()})
+              return out
+          funcs={k:parse(k) for k in setup['targets']}
+          # Pull all memory operations and loop/copy signatures so exact byte/word mapping can be reviewed deterministically.
+          analyses={}
+          for name,ins in funcs.items():
+              mem=[]; calls=[]; loops=[]
+              for x in ins:
+                  u=x['asm'].upper()
+                  if '[' in u and ']' in u: mem.append(x)
+                  if 'CALL ' in u: calls.append(x)
+                  if 'LSETUP' in u or 'LC0' in u or 'LC1' in u: loops.append(x)
+              analyses[name]={'instructions':ins,'memory_ops':mem,'calls':calls,'loops':loops}
+          # Known ABI from producer callsite.
+          facts={
+            'SPI_AppendSettings_entry':'R0 = SPI command/settings object',
+            'Preprocess37_call':'R0=local FP-0x25, R1=input+7, R2=37',
+            'IM_AppendItem_call':'R0=g_ProcessingList, R1=local FP-0x25',
+            'consumer_mode':'IM_GetHead copies queue record +4 to ImageSettings+4; StartInterpolation reads B[ImageSettings+4]'
+          }
+          rep={'schema':'m9.rbclosure5u.enqueue-mode-mapping.v1','setup':setup,'facts':facts,'functions':analyses,'closure_goal':'Determine whether queued record +4 is copied from local settings +4 and how local settings +4 derives from SPI input+7; recover external mode field selecting 2 vs 3.'}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'enqueue_mode_mapping.json').write_bytes(raw)
+          with open(root/'evidence'/'enqueue_mode_mapping.txt','w') as f:
+              f.write('SETUP\n'+json.dumps(setup,indent=2)+'\n')
+              f.write('\nFACTS\n'+json.dumps(facts,indent=2)+'\n')
+              for name,a in analyses.items():
+                  f.write(f'\n=== {name} ===\n'); [f.write(f"{x['addr']}  {x['asm']}\n") for x in a['instructions']]
+          (root/'evidence'/'enqueue_mode_mapping.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  enqueue_mode_mapping.json\n'); print((root/'evidence'/'enqueue_mode_mapping.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload enqueue-mode evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5U-ENQUEUE-MODE-MAPPING
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5u/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5u/pass" "$RUNNER_TEMP/rb5u/m9.upd" "$RUNNER_TEMP/rb5u/mm.upm" "$RUNNER_TEMP/rb5u/m9.dec" "$RUNNER_TEMP/rb5u/bodies" "$RUNNER_TEMP/rb5u/setup.json" "$RUNNER_TEMP/rb5u/objdump.sh"
