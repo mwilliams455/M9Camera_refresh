@@ -1,0 +1,34 @@
+{
+  "schema": "m9.bfinoracle4c.filter101000-arithmetic-frozen.v1",
+  "source_run": 34812006670,
+  "source_commit": "59af3440be7bc11f6342f678dcb59556e8d04dfd",
+  "artifact": "M9-RB-BFINORACLE4C-FILTER101000-ARITHMETIC",
+  "artifact_sha256": "2cefe3c95c287daf65cd66a267f3343aac4f52f4e3d89fa5634ae991a8f6eebb",
+  "arithmetic_json_sha256": "bbc377f6b1b439ff2369a8f2c43217ec24fd2262f1ecf4c2b989c414f8e4387b",
+  "routine": "ASMFilter_101_000_101_2",
+  "routine_sha256": "e2f41a23716e5462d137ff5a5ee75064a4aec10ded22df61ee682901d22cbccd",
+  "exact_arithmetic": {
+    "tap_domain": "signed 16-bit",
+    "formula": "(s16(nw) + s16(ne) + s16(sw) + s16(se)) >> 2",
+    "shift_semantics": "two's-complement arithmetic right shift / floor toward negative infinity",
+    "stored_domain": "low 16-bit two's-complement result",
+    "weights": ["1/4", "1/4", "1/4", "1/4"]
+  },
+  "discriminating_vectors": [
+    {"sum": 1, "output": 0},
+    {"sum": 2, "output": 0},
+    {"sum": 3, "output": 0},
+    {"sum": 4, "output": 1},
+    {"sum": -1, "output": -1},
+    {"sum": -2, "output": -1},
+    {"sum": -3, "output": -1},
+    {"sum": -4, "output": -1},
+    {"sum": -5, "output": -2},
+    {"sum": -10, "output": -3},
+    {"sum": -2, "output": -1, "case": "0x7fff,-0x8000,0x7fff,-0x8000"},
+    {"sum": 131068, "output": 32767},
+    {"sum": -131072, "output": -32768}
+  ],
+  "phase_result": "identical arithmetic in even-stride and odd-stride packed-lane branches",
+  "status": "exact per-sample arithmetic closed; random full-domain direct parity next"
+}
