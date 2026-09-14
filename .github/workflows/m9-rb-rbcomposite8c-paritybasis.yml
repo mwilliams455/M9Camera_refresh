@@ -1,0 +1,125 @@
+name: M9 R/B RBCOMPOSITE8C Parity Basis
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-rbcomposite8c-paritybasis.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+
+      - name: Recover canonical BF561 map and blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb8c"; mkdir -p "$ROOT/evidence" "$ROOT/blocks"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,bisect,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb8c'; d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+            det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+            if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin')); mp=next(pdir.rglob('bf0.map'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          _,blocks=m.parse_ldr(bf0); syms=sorted(m.parse_map(mp),key=lambda s:int(s['addr'])); starts=[int(s['addr']) for s in syms]
+          target=0xfeb0140c
+          def owner(addr):
+            j=bisect.bisect_right(starts,addr)-1
+            if j<0:return None
+            s=syms[j]; return {'name':s['name'],'addr':f"0x{int(s['addr']):08x}",'size':int(s.get('size',0) or 0),'offset':addr-int(s['addr'])}
+          initial=m.read_overlay(blocks,target,16)
+          meta={'selected_pair':pair,'target':'0xfeb0140c','owner':owner(target),
+                'exact_symbols':[{'name':s['name'],'size':int(s.get('size',0) or 0)} for s in syms if int(s['addr'])==target],
+                'initial_16_bytes_hex':initial.hex(),'initial_u32_le':int.from_bytes(initial[:4],'little') if len(initial)>=4 else None}
+          (root/'evidence'/'identity.json').write_text(json.dumps(meta,indent=2)+'\n')
+          manifest=[]
+          for bi,b in enumerate(blocks):
+            addr=int(b.get('addr',b.get('address',0))); data=b.get('data',b.get('payload',b''))
+            if not isinstance(data,(bytes,bytearray)) or not data: continue
+            p=root/'blocks'/f'{bi:03d}_{addr:08x}.bin'; p.write_bytes(data); manifest.append({'file':p.name,'addr':addr,'size':len(data)})
+          (root/'manifest.json').write_text(json.dumps(manifest))
+          PY
+          while read -r file addr; do "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$addr" "$ROOT/blocks/$file" > "$ROOT/blocks/$file.dis"; done < <(python3 - <<'PY'
+          import json,os,pathlib
+          r=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb8c'
+          for x in json.load(open(r/'manifest.json')): print(x['file'],f"{x['addr']:x}")
+          PY
+          )
+
+      - name: Find parity-basis references and likely writers
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb8c"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb8c'
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I)
+          def parse(p):
+            out=[]
+            for line in pathlib.Path(p).read_text(errors='replace').splitlines():
+              m=rx.match(line)
+              if m: out.append({'addr':int(m.group(1),16),'bytes':m.group(2).strip(),'asm':m.group(3).strip()})
+            return out
+          def ser(xs): return [{'addr':f"0x{x['addr']:08x}",'bytes':x['bytes'],'asm':x['asm']} for x in xs]
+          refs=[]
+          for p in sorted((root/'blocks').glob('*.dis')):
+            xs=parse(p)
+            for i,x in enumerate(xs):
+              asm=x['asm'].lower().replace(' ','')
+              # Direct absolute, or low-half materialization with FEB0 high-half in a tight neighborhood.
+              hit=('0xfeb0140c' in asm) or ('0x140c' in asm and any('0xfeb0' in q['asm'].lower() for q in xs[max(0,i-5):min(len(xs),i+6)]))
+              if hit:
+                refs.append({'file':p.name,'at':f"0x{x['addr']:08x}",'context':ser(xs[max(0,i-10):min(len(xs),i+11)])})
+          report={'schema':'m9.rbcomposite8c.parity-basis.v1','target':'0xfeb0140c','references':refs,'reference_count':len(refs),
+                  'question':'Identify the runtime producer(s) of the global word whose parity Run reconciles against FP+8 before ASMRedBlueInterpolation1.'}
+          raw=(json.dumps(report,indent=2)+'\n').encode(); (root/'evidence'/'refs.json').write_bytes(raw)
+          with open(root/'evidence'/'refs.txt','w') as f:
+            for r in refs:
+              f.write(f"\n{r['file']} {r['at']}\n")
+              for x in r['context']: f.write(f"  {x['addr']}  {x['asm']}\n")
+          (root/'evidence'/'refs.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  refs.json\n')
+          print((root/'evidence'/'refs.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+
+      - name: Upload derived parity-basis evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCOMPOSITE8C-PARITY-BASIS
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb8c/evidence/*
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb8c/pass" "$RUNNER_TEMP/rb8c/blocks" "$RUNNER_TEMP/rb8c/m9.upd" "$RUNNER_TEMP/rb8c/mm.upm" "$RUNNER_TEMP/rb8c/m9.dec" "$RUNNER_TEMP/rb8c/manifest.json"
