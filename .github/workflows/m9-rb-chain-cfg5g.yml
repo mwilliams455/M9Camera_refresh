@@ -1,0 +1,98 @@
+name: M9 R/B RBCLOSURE5G Caller Control Flow
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths:
+      - '.github/workflows/m9-rb-chain-cfg5g.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cfg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b && cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover canonical caller block
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5g"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5g'; d=json.load(open(root/'pass/report.json')); cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}; t=det.get('targets',{}) if isinstance(det,dict) else {}
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]; pdir=root/'pass'/f'bf561_pair_{pair:02d}'; bf0=next(pdir.rglob('bf0.bin'))
+          spec=importlib.util.spec_from_file_location('base','tools/m9_sharpnessforensics1a.py'); m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m); _,blocks=m.parse_ldr(bf0)
+          lo,hi=0xffa10a80,0xffa10d40; block=None
+          for b in blocks:
+              if int(b['addr']) <= lo and hi <= int(b['addr'])+int(b['count']): block=b; break
+          if block is None:
+              for b in blocks:
+                  if int(b['addr']) <= 0xffa10bea < int(b['addr'])+int(b['count']): block=b; break
+          if block is None: raise SystemExit('caller block not found')
+          base=int(block['addr']); (root/'caller.bin').write_bytes(block['data']); (root/'base.txt').write_text(f'{base:x}\n')
+          (root/'evidence'/'cfg_meta.json').write_text(json.dumps({'selected_pair':pair,'block_base':f'0x{base:08x}','block_size':len(block['data']),'range':['0xffa10a80','0xffa10d40'],'interp_call':'0xffa10bea','green_call':'0xffa10cbc','block_sha256':hashlib.sha256(block['data']).hexdigest()},indent=2)+'\n')
+          PY
+          BASE=$(cat "$ROOT/base.txt"); "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$BASE" "$ROOT/caller.bin" > "$ROOT/caller.dis"
+      - name: Extract control-flow span
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rb5g"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rb5g'; lines=(root/'caller.dis').read_text(errors='replace').splitlines(); lo=0xffa10a80; hi=0xffa10d40
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+([0-9a-f ]+?)\s+(.+)$',re.I); ins=[]
+          for l in lines:
+              m=rx.match(l)
+              if not m: continue
+              a=int(m.group(1),16)
+              if lo <= a < hi: ins.append({'addr':f'0x{a:08x}','bytes':m.group(2).strip(),'asm':m.group(3).strip()})
+          ctr=[]
+          for x in ins:
+              a=x['asm'].upper()
+              if 'CALL ' in a or 'JUMP ' in a or 'RTS' in a or 'RETX' in a or 'RETI' in a or 'RETN' in a or 'RTE' in a:
+                  ctr.append(x)
+          rep={'schema':'m9.rbclosure5g.caller-cfg.v1','range':['0xffa10a80','0xffa10d40'],'instructions':ins,'control_transfers':ctr}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'caller_cfg.json').write_bytes(raw)
+          (root/'evidence'/'caller_cfg.txt').write_text('\n'.join(f"{x['addr']}  {x['asm']}" for x in ins)+'\n')
+          (root/'evidence'/'caller_cfg.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  caller_cfg.json\n')
+          print('\n'.join(f"{x['addr']}  {x['asm']}" for x in ctr))
+          if not any(x['addr']=='0xffa10bea' for x in ctr): raise SystemExit('interp call absent')
+          if not any(x['addr']=='0xffa10cbc' for x in ctr): raise SystemExit('green call absent')
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload derived CFG evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-RBCLOSURE5G-CALLER-CFG
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/rb5g/evidence/*
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rb5g/pass" "$RUNNER_TEMP/rb5g/m9.upd" "$RUNNER_TEMP/rb5g/mm.upm" "$RUNNER_TEMP/rb5g/m9.dec" "$RUNNER_TEMP/rb5g/caller.bin" "$RUNNER_TEMP/rb5g/caller.dis" "$RUNNER_TEMP/rb5g/base.txt"
