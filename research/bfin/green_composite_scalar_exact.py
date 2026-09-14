@@ -4,7 +4,7 @@
 The four helper arithmetic/geometry contracts are independently frozen by
 BFINORACLE/BFINSCALAR and GREENORACLE6E.  This file translates the production
 0xFEB10660 orchestrator pointer arithmetic directly; it does not touch Android.
-Memory is a little-endian u16 address space so physical scratch writes remain
+Memory is a little-endian u16 address space so physical side effects remain
 visible to whole-buffer parity.
 """
 
@@ -72,14 +72,12 @@ def abs16_v(v):
 
 
 def filter101040(mem, src, out1, out2, inner, outer, stride):
-    """ASMFilter_101_040_101_An logical outputs plus proven phase scratch."""
+    """ASMFilter_101_040_101_An logical output streams."""
     if inner <= 0 or inner & 1 or outer <= 0 or stride <= 0 or stride & 1:
         raise ValueError(('filter101040 geometry', inner, outer, stride))
-    # BFINORACLE3D proves one extra physical stream2 write at out2-4 for the
-    # R0 mod4==2 lane branch. Prior direct observations produced zero here;
-    # 6F compares the containing plane so any broader-domain behavior is exposed.
-    if src & 0x2:
-        mem.write(out2 - 4, 0)
+    # GREENORACLE6M random-data physical-write coverage falsified the older
+    # assumption that R0 mod4==2 universally writes out2-4.  Do not invent a
+    # pre-pointer store; only model physical writes proven by the exact helper.
     for r in range(outer):
         for c in range(inner):
             center = src + 4*c + 4*stride*r
