@@ -1,0 +1,41 @@
+{
+  "schema": "m9.rbclosure5t.job-queue-producers-frozen.v1",
+  "source_run": 34833771592,
+  "source_commit": "c24867ab2bfa5eb5953961c5c17a74b41daf5ee7",
+  "artifact": "M9-RB-RBCLOSURE5T-JOB-QUEUE-PRODUCERS",
+  "artifact_id": 10343517009,
+  "artifact_zip_sha256": "4ab286811558d6fa63da1cd445a9abd30cb4df2cbe6a3ff01dd0a7c78819f9e7",
+  "selected_bf561_pair": 3,
+  "queue": {
+    "address": "0xfeb1e0a8",
+    "name": "g_ProcessingList",
+    "size": 956,
+    "layout_observation": "956 = 4 + 14*68, consistent with queue control bytes plus fourteen 68-byte ImageSettings records"
+  },
+  "materializations": [
+    {
+      "site": "Task_TaskInterpolation @ 0xfeb139e8",
+      "role": "consumer",
+      "helpers": ["IM_Init", "IM_WaitForJob", "IM_GetHead", "IM_SetCurrentJob"]
+    },
+    {
+      "site": "SPI_AppendSettings @ 0xffa11862",
+      "role": "producer",
+      "enqueue_call": "0xffa11888 -> IM_AppendItem @ 0xfeb13940"
+    },
+    {
+      "site": "PlatformStartup @ 0xffa12954",
+      "role": "queue initialization",
+      "call": "IM_Init"
+    }
+  ],
+  "SPI_AppendSettings_prefix": [
+    "R6 = input R0; R6 += 7",
+    "R7 = local buffer at FP-0x25",
+    "R0=R7, R1=input+7, R2=0x25 (37), CALL 0xfeb13330",
+    "R1=R7, R0=g_ProcessingList, CALL IM_AppendItem"
+  ],
+  "mode_provenance": "ImageSettings+4 consumed by StartInterpolation originates in the record enqueued by SPI_AppendSettings. The remaining translation boundary is the 37-byte SPI-side settings preprocessing and IM_AppendItem expansion/copy.",
+  "next_gate": "Disassemble SPI_AppendSettings, helper 0xfeb13330, and IM_AppendItem. Recover how the SPI-side payload maps into the 68-byte queue record, especially queued record offset +4 / ImageSettings+4, and identify the external field/value selecting mode 2 versus 3.",
+  "production_status": "untouched"
+}
