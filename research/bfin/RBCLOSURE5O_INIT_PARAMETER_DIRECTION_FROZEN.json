@@ -1,0 +1,42 @@
+{
+  "schema": "m9.rbclosure5o.init-parameter-direction-frozen.v1",
+  "source_run": 34832323153,
+  "source_commit": "dcda7a2d05a253080649f52968a62de056d75444",
+  "artifact": "M9-RB-RBCLOSURE5O-INIT-PARAMETER-DIRECTION",
+  "artifact_id": 10342865586,
+  "artifact_zip_sha256": "48b454d864b06cb047e7734a97b5642ca5762d04f9bb2201131a20dfbb0011fd",
+  "selected_bf561_pair": 3,
+  "downstream_init": {
+    "address": "0xfeb16190",
+    "map_symbol": "Init",
+    "size": 802,
+    "argument_2": "R2 = g_L2Parameter @ 0xfeb002e8",
+    "entry_sequence": [
+      "0xfeb16196: P5 = R2",
+      "0xfeb16198: R4 = R2",
+      "0xfeb161a6: R6 = -1",
+      "0xfeb161a8: [P5++] = R6",
+      "0xfeb161b2: [P5++] = R6"
+    ],
+    "proven_initial_words": {
+      "g_L2Parameter_word0": "0xffffffff",
+      "g_L2Parameter_word1": "0xffffffff"
+    },
+    "dispatch_implication": "Immediately after these writes, word0 has both bit4 (GreenInterpolationWithCo) and bit5 (ASMRedBlueInterpolation1) set, along with all other bits."
+  },
+  "start_event": {
+    "object_address": "0xfeb00250",
+    "map_names": ["g_hSyncPreInterpolation", "g_hSyncDMA"],
+    "waiter": "RI_WaitForStart @ 0xffa122b2 -> Kernel_PendEvent",
+    "poster": "RI_Start @ 0xffa1228c -> Kernel_PostEvent @ 0xffa122a8",
+    "relation_to_mask": "Init executes after RI_WaitForStart in Task_TaskInterpolation and writes word0 itself; therefore the start event is not required to explain the initial 0xffffffff dispatch mask."
+  },
+  "remaining_mutation_gate": {
+    "site": "StartInterpolation_Jolos @ 0xffa124cc",
+    "call": "CALL 0xfeb11430 with R2 = preserved g_L2Parameter pointer",
+    "then": "0xffa124d0 R0=g_L2Parameter; 0xffa124d4 CALL Run",
+    "reason": "0xfeb11430 is the last observed call receiving the parameter block before Run loads word0 into R7. Its write/read semantics must be closed before declaring the production bit4+bit5 state final."
+  },
+  "next_gate": "Disassemble 0xfeb11430, resolve its map symbol and trace its R2 argument. Prove whether it writes g_L2Parameter word0 or merely consumes/prepares associated data. If word0 is untouched, bit4+bit5 coexistence and Green-before-R/B order are closed for the production Jolos Run path.",
+  "production_status": "untouched"
+}
