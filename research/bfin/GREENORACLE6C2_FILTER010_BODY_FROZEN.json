@@ -1,0 +1,45 @@
+{
+  "schema": "m9.greenoracle6c2.filter010-body-frozen.v1",
+  "source_run": 34844337001,
+  "source_commit": "54e5a0bba95cb727b2ba3beae4711901dbee4329",
+  "artifact": "M9-RB-GREENORACLE6C2-FILTER010-ISLAND",
+  "artifact_id": 10348040520,
+  "artifact_digest": "sha256:4643964ed37a464a2aad83dcd5e726428a71de1b565ea7454477788826af8fb8",
+  "routine": {
+    "name": "ASMFilter_010_101_010_2",
+    "entry": "0xffa03e00",
+    "terminal_return": "0xffa03fa0",
+    "end_exclusive": "0xffa03fa2",
+    "exact_body_size_bytes": 418,
+    "exact_body_sha256": "7d6846f6954ff09bb532ea99fac8633bfa0716458a4f8dbb448704517bb0f5a7",
+    "direct_call_count": 0
+  },
+  "extent_proof": {
+    "executable_island": ["0xffa03e00", "0xffa04000"],
+    "island_size_bytes": 512,
+    "island_sha256": "3868b92299c168a4f95671e78c5b8f58f57c53a1592aaeaef66d98efc27436a1",
+    "terminal_epilogue": [
+      "ffa03f9c: P1 += -0x4",
+      "ffa03f9e: (R7:4, P5:3) = [SP++]",
+      "ffa03fa0: RTS"
+    ],
+    "next_independent_code": "code after 0xffa03fa2 is padding/other routines; Kernel_Lock begins at 0xffa03fa8",
+    "map_warning": "The map reports ASMFilter_010_101_010_2 size 0 and contains overlapping SPI_/IM_/RIM_ aliases inside the executable body. Those labels are not valid routine-extent evidence. The body boundary is established from contiguous recovered bytes and the terminal return reached from the production entry."
+  },
+  "body_shape": {
+    "call_free": true,
+    "implementation": "four inlined nested-loop variants selected by the phase/scale argument and address phase",
+    "hardware_loop_setup_count_in_island_inventory": 22,
+    "production_green_call_count": 4,
+    "known_production_call_sites": [
+      "0xfeb106d8",
+      "0xfeb1070c",
+      "0xfeb10786",
+      "0xfeb107ba"
+    ],
+    "known_mode_values_at_green_calls": [2, 2, 0, 0]
+  },
+  "verification_note": "The exact body SHA was independently reconstructed from objdump byte fields including continuation words for the full address interval 0xffa03e00..0xffa03fa1 with no gaps or overlaps.",
+  "status": "exact body and extent frozen; arithmetic/geometry direct oracle parity remains",
+  "production_status": "untouched"
+}
