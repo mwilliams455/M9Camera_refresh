@@ -1,0 +1,108 @@
+name: M9 R/B GREENORACLE6B Filter010 Primitive
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1d-packedphase1a]
+    paths: ['.github/workflows/m9-rb-greenoracle6b-filter010.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  filter010:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq; sudo apt-get install -y -qq build-essential curl xz-utils
+          cd "$RUNNER_TEMP"; curl -fsSL --retry 4 -o b.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+          tar -xf b.tar.xz; mkdir b; cd b
+          ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim >/dev/null
+          make -j4 all-binutils >/dev/null
+          echo "BFIN_OBJDUMP=$PWD/binutils/objdump" >> "$GITHUB_ENV"
+      - name: Recover exact filter010 body
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6b"; mkdir -p "$ROOT/evidence"
+          curl -fsSL --retry 4 -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -fsSL --retry 4 -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/evidence/recovery_meta.json" >/dev/null
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass" >/dev/null
+          PAIR=$(find "$ROOT/pass" -type f -name bf0.map -printf '%h\n' | sort | head -1); cp "$PAIR/bf0.map" "$ROOT/bf0.map"; cp "$PAIR/bf0.bin" "$ROOT/bf0.bin"
+          python3 - <<'PY'
+          import os,pathlib,struct,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6b'; mp=(root/'bf0.map').read_bytes(); ldr=(root/'bf0.bin').read_bytes(); target=0xFFA03E00
+          sy=[]
+          for o in range(0,len(mp),32):
+              r=mp[o:o+32]; n=r[:24].split(b'\0',1)[0].decode('ascii','replace').rstrip("'"); a,s=struct.unpack_from('<II',r,24)
+              if n: sy.append((a,s,n))
+          exact=[x for x in sy if x[0]==target]
+          if not any(n=='ASMFilter_010_101_010_2' for a,s,n in exact): raise SystemExit(f'target symbol mismatch {exact}')
+          next_starts=sorted(set(a for a,s,n in sy if target<a<0xFFA10000))
+          if not next_starts: raise SystemExit('no next symbol')
+          end=next_starts[0]; size=end-target
+          # Allow aliases at target but cap implausible gap.
+          if size<=0 or size>0x1000: raise SystemExit(f'implausible body size {size:#x}, next={end:#x}')
+          off=4; blocks=[]
+          while off+10<=len(ldr):
+              ba,c,fl=struct.unpack_from('<IIH',ldr,off); off+=10
+              if c>16*1024*1024: break
+              if fl&1:p=bytes(c)
+              else:
+                  if off+c>len(ldr): break
+                  p=ldr[off:off+c]; off+=c
+              blocks.append((ba,c,fl,p))
+              if fl&0x8000:break
+          body=bytearray(size); cov=bytearray(size)
+          for ba,c,fl,p in blocks:
+              lo=max(target,ba); hi=min(end,ba+c)
+              if lo<hi: body[lo-target:hi-target]=p[lo-ba:hi-ba]; cov[lo-target:hi-target]=b'\1'*(hi-lo)
+          if not all(cov): raise SystemExit('body not fully covered')
+          (root/'filter010.bin').write_bytes(body)
+          nearby=[{'address':hex(a),'size':s,'name':n} for a,s,n in sy if target-0x80<=a<=end+0x80]
+          meta={'schema':'m9.greenoracle6b.filter010-body.v1','target':hex(target),'end':hex(end),'size':size,'body_sha256':hashlib.sha256(body).hexdigest(),'exact_symbols':[{'address':hex(a),'size':s,'name':n} for a,s,n in exact],'nearby_symbols':nearby}
+          (root/'evidence'/'filter010_meta.json').write_text(json.dumps(meta,indent=2)+'\n'); print(json.dumps(meta,indent=2))
+          PY
+          "$BFIN_OBJDUMP" -D -b binary -m bfin --adjust-vma=0xFFA03E00 "$ROOT/filter010.bin" > "$ROOT/evidence/filter010_disasm.txt"
+      - name: Analyze ABI and arithmetic
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/green6b"
+          python3 - <<'PY'
+          import os,pathlib,re,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'green6b'; txt=(root/'evidence'/'filter010_disasm.txt').read_text(errors='replace')
+          rx=re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2}\s+)+(.+)$',re.I); ins=[]
+          for l in txt.splitlines():
+              m=rx.match(l)
+              if m:ins.append({'address':f"0x{int(m.group(1),16):08x}",'asm':m.group(2).strip()})
+          mem=[x for x in ins if '[' in x['asm'] and ']' in x['asm']]; stack=[x for x in ins if 'SP' in x['asm'] or 'FP' in x['asm']]
+          mac=[x for x in ins if any(k in x['asm'].upper() for k in ('A0','A1','MAC','M =','*','RND','SAT','PACK','SIGNBITS'))]
+          loops=[x for x in ins if any(k in x['asm'].upper() for k in ('LOOP','LSETUP'))]
+          branches=[x for x in ins if any(k in x['asm'].upper() for k in ('JUMP','IF CC','IF !CC'))]
+          meta=json.loads((root/'evidence'/'filter010_meta.json').read_text())
+          rep={'schema':'m9.greenoracle6b.filter010-analysis.v1','meta':meta,'instruction_count':len(ins),'instructions':ins,'memory_accesses':mem,'stack_fp':stack,'mac_round_sat':mac,'loops':loops,'branches':branches}
+          raw=(json.dumps(rep,indent=2)+'\n').encode(); (root/'evidence'/'filter010_analysis.json').write_bytes(raw); (root/'evidence'/'filter010_analysis.sha256.txt').write_text(hashlib.sha256(raw).hexdigest()+'  filter010_analysis.json\n')
+          with open(root/'evidence'/'filter010_summary.txt','w') as f:
+              f.write(json.dumps(meta)+'\n'); f.write(f"instructions={len(ins)} mem={len(mem)} stack={len(stack)} mac={len(mac)} loops={len(loops)}\n\n")
+              for x in ins:f.write(f"{x['address']} {x['asm']}\n")
+          print((root/'evidence'/'filter010_summary.txt').read_text())
+          PY
+          sha256sum "$ROOT/evidence"/* > "$ROOT/evidence/SHA256SUMS.txt"
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-RB-GREENORACLE6B-FILTER010
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/green6b/evidence/*
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/green6b/pass" "$RUNNER_TEMP/green6b/m9.upd" "$RUNNER_TEMP/green6b/mm.upm" "$RUNNER_TEMP/green6b/m9.dec" "$RUNNER_TEMP/green6b/bf0.map" "$RUNNER_TEMP/green6b/bf0.bin" "$RUNNER_TEMP/green6b/filter010.bin"
