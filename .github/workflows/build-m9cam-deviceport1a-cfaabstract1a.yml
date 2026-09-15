@@ -145,12 +145,39 @@ jobs:
             > assembled-deviceport1a-cfaabstract1a/FROZEN_RENDER_ANCHORS.txt
           sha256sum assembled-deviceport1a-cfaabstract1a/* | tee assembled-deviceport1a-cfaabstract1a/SHA256SUMS.txt
 
-      - uses: android-actions/setup-android@v3
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in \
+              "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" \
+              "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" \
+              "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" \
+              -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo 'No usable sdkmanager found on ubuntu-latest runner' >&2
+            exit 1
+          fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "Using sdkmanager: $SDKMANAGER"
+          "$SDKMANAGER" --version
 
       - name: Install Android build components
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
 
       - name: Build DEVICEPORT1A probe APK
         run: |
