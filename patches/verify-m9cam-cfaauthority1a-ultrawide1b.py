@@ -10,6 +10,9 @@ image_saver = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processi
 queue = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java').read_text()
 params = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java').read_text()
 dng = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java').read_text()
+legacy_call = renderer.find('M9NativeColorCore.demosaicMhcRggb(')
+generic_call = renderer.find('M9NativeColorCore.demosaicMhcBayer(')
+legacy_dispatch = renderer.find('if (sourceCfaPattern == 0 && sourceRawOriginX == 0 && sourceRawOriginY == 0)')
 
 checks = {
     'renderer Camera2 physical CFA authority': 'sourceCfaAuthority = "physical_camera2_characteristics"' in renderer,
@@ -18,9 +21,9 @@ checks = {
     'authority before raw shading audit': renderer.find('params.cfaPattern = (byte) sourceCfaPattern;') < renderer.find('M9RawShadingAudit1A.captureAndWrite('),
     'authority before source calibration audit': renderer.find('params.cfaPattern = (byte) sourceCfaPattern;') < renderer.find('M9SourceCalibrationAudit1A.captureAndWrite('),
     'renderer authority diagnostic': 'out.diagnostics.put("cfaAuthority", sourceCfaAuthority);' in renderer,
-    'generic four-CFA native path retained': 'M9NativeColorCore.demosaicMhcBayer(' in renderer,
-    'legacy RGGB MHC path retained': 'M9NativeColorCore.demosaicMhcRggb(' in renderer,
-    'legacy CFA0 dispatch retained': 'if (sourceCfaPattern == 0 && RAW_ORIGIN_X == 0 && RAW_ORIGIN_Y == 0)' in renderer,
+    'generic four-CFA native path retained': generic_call >= 0,
+    'legacy RGGB MHC path retained': legacy_call >= 0,
+    'legacy CFA0 dispatch retained': legacy_dispatch >= 0 and legacy_call > legacy_dispatch and generic_call > legacy_call,
     'M9-specific DNG helper added': 'saveSingleRawM9PhysicalCfa(' in image_saver,
     'ordinary Photon saveSingleRaw remains non-authoritative': 'cameraRotation, false);' in image_saver,
     'M9 DNG helper requests physical authority': 'cameraRotation, true);' in image_saver,
