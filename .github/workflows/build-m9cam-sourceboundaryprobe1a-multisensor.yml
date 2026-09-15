@@ -6,6 +6,7 @@ on:
     branches: [research/sourceboundaryprobe1a-multisensor]
     paths:
       - 'patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py'
+      - 'patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py'
       - 'patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py'
       - '.github/workflows/build-m9cam-sourceboundaryprobe1a-multisensor.yml'
 
@@ -24,6 +25,7 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-cobaltrolepurge1a-nativefirmware1a.py
           python3 -m py_compile patches/verify-m9cam-cobaltrolepurge1a-nativefirmware1a.py
           python3 -m py_compile patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py
+          python3 -m py_compile patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py
           python3 -m py_compile patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py
 
       - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
@@ -98,6 +100,7 @@ jobs:
           set -euxo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           python3 patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py "$ROOT"
+          python3 patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py "$ROOT"
           python3 patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py "$ROOT" | tee SOURCEBOUNDARYPROBE1A_VERIFY.txt
 
       - name: Prove native core portability and calibration assets unchanged by probe
