@@ -34,6 +34,8 @@ public final class M9RawSensorDescriptor {
     public final int characteristicsWhiteLevel;
     public final boolean lensShadingAppliedToRaw;
     public final boolean lensShadingMapAvailable;
+    public final int lensShadingMapRows;
+    public final int lensShadingMapColumns;
 
     private final Parameters params;
     private final CameraCharacteristics characteristics;
@@ -44,6 +46,7 @@ public final class M9RawSensorDescriptor {
                                   int camera2Cfa, M9CfaResolver.Pattern cfaPattern,
                                   int[] blackLevel, int whiteLevel, int characteristicsWhiteLevel,
                                   boolean lensShadingAppliedToRaw, boolean lensShadingMapAvailable,
+                                  int lensShadingMapRows, int lensShadingMapColumns,
                                   Parameters params, CameraCharacteristics characteristics,
                                   CaptureResult captureResult, CaptureRequest captureRequest) {
         this.rawWidth = rawWidth;
@@ -61,6 +64,8 @@ public final class M9RawSensorDescriptor {
         this.characteristicsWhiteLevel = characteristicsWhiteLevel;
         this.lensShadingAppliedToRaw = lensShadingAppliedToRaw;
         this.lensShadingMapAvailable = lensShadingMapAvailable;
+        this.lensShadingMapRows = lensShadingMapRows;
+        this.lensShadingMapColumns = lensShadingMapColumns;
         this.params = params;
         this.characteristics = characteristics;
         this.captureResult = captureResult;
@@ -86,11 +91,14 @@ public final class M9RawSensorDescriptor {
                 ? characteristics.get(CameraCharacteristics.SENSOR_INFO_LENS_SHADING_APPLIED) : null;
         LensShadingMap shadingMap = captureResult != null
                 ? captureResult.get(CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP) : null;
+        int mapRows = shadingMap != null ? shadingMap.getRowCount() : -1;
+        int mapColumns = shadingMap != null ? shadingMap.getColumnCount() : -1;
 
         return new M9RawSensorDescriptor(rawWidth, rawHeight, rawBufferCapacityBytes,
                 cfa, M9CfaResolver.fromCamera2(cfa), black, wl,
                 charWl != null ? charWl : -1, Boolean.TRUE.equals(shadingApplied),
-                shadingMap != null, params, characteristics, captureResult, captureRequest);
+                shadingMap != null, mapRows, mapColumns,
+                params, characteristics, captureResult, captureRequest);
     }
 
     private static int[] activeBlack(Parameters params, CameraCharacteristics characteristics) {
@@ -138,6 +146,7 @@ public final class M9RawSensorDescriptor {
                 ? M9CfaResolver.localPhaseName(cfaPattern, rawOriginX, rawOriginY) : "UNSUPPORTED");
 
         out.put("blackLevelPattern", ints(blackLevel));
+        out.put("blackLevelPlaneOrder", "local_raw_2x2_order_only_phase_not_yet_proven");
         out.put("whiteLevel", whiteLevel);
         out.put("characteristicsWhiteLevel", characteristicsWhiteLevel);
         if (whiteLevel > 0 && characteristicsWhiteLevel > 0) {
@@ -154,9 +163,6 @@ public final class M9RawSensorDescriptor {
                     rect(characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)));
             Integer orientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             out.put("sensorOrientation", orientation != null ? orientation : JSONObject.NULL);
-
-            Size shadeSize = characteristics.get(CameraCharacteristics.LENS_INFO_SHADING_MAP_SIZE);
-            out.put("lensShadingMapSize", size(shadeSize));
             out.put("lensShadingAppliedToRaw", lensShadingAppliedToRaw);
 
             out.put("referenceIlluminant1",
@@ -175,9 +181,12 @@ public final class M9RawSensorDescriptor {
                     matrix(characteristics.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1)));
             out.put("forwardMatrix2",
                     matrix(characteristics.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2)));
+            out.put("matrixSerialization", "Camera2_ColorSpaceTransform_copyElements_row_major");
         }
 
         out.put("lensShadingMapAvailable", lensShadingMapAvailable);
+        out.put("lensShadingMapRows", lensShadingMapRows >= 0 ? lensShadingMapRows : JSONObject.NULL);
+        out.put("lensShadingMapColumns", lensShadingMapColumns >= 0 ? lensShadingMapColumns : JSONObject.NULL);
         if (captureResult != null) {
             Integer mapMode = captureResult.get(CaptureResult.STATISTICS_LENS_SHADING_MAP_MODE);
             out.put("lensShadingMapModeResult", mapMode != null ? mapMode : JSONObject.NULL);
@@ -205,7 +214,7 @@ public final class M9RawSensorDescriptor {
         return a;
     }
 
-    private static JSONArray rationals(Rational[] values) {
+    private static JSONArray rationals(Rational[] values) throws Exception {
         if (values == null) return null;
         JSONArray a = new JSONArray();
         for (Rational v : values) a.put(v != null ? v.doubleValue() : JSONObject.NULL);
@@ -232,13 +241,15 @@ public final class M9RawSensorDescriptor {
         return o;
     }
 
-    private static JSONArray matrix(ColorSpaceTransform t) {
+    private static JSONArray matrix(ColorSpaceTransform t) throws Exception {
         if (t == null) return null;
+        Rational[] elements = new Rational[9];
+        t.copyElements(elements, 0);
         JSONArray rows = new JSONArray();
         for (int r = 0; r < 3; r++) {
             JSONArray row = new JSONArray();
             for (int c = 0; c < 3; c++) {
-                Rational v = t.getElement(r, c);
+                Rational v = elements[r * 3 + c];
                 row.put(v != null ? v.doubleValue() : JSONObject.NULL);
             }
             rows.put(row);
