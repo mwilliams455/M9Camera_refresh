@@ -14,8 +14,9 @@ audit = (base / 'M9DevicePortAudit1A.java').read_text()
 
 checks = {
     'renderer_probe_hook': 'M9DevicePortAudit1A.captureAndWrite(' in renderer,
-    'frozen_rggb_gate_retained': 'R3.5 v0.7 main-camera parity build expects RGGB CFA=0' in renderer,
-    'frozen_opencv_rggb_retained': 'Imgproc.COLOR_BayerRG2BGR_EA' in renderer,
+    'frozen_rggb_gate_retained': 'if (params.cfaPattern != 0)' in renderer,
+    'probe_precedes_frozen_gate': renderer.find('M9DevicePortAudit1A.captureAndWrite(') < renderer.find('if (params.cfaPattern != 0)'),
+    'frozen_opencv_rggb_control_retained': 'Imgproc.COLOR_BayerRG2BGR_EA' in renderer,
     'frozen_raw_max_retained': 'private static final int RAW_MAX = 16383;' in renderer,
     'frozen_jpeg_quality_retained': 'public static final int JPEG_QUALITY = 95;' in renderer,
     'four_bayer_patterns': all(x in cfa for x in ('RGGB(0)', 'GRBG(1)', 'GBRG(2)', 'BGGR(3)')),
@@ -25,8 +26,10 @@ checks = {
     'descriptor_black_level': 'SENSOR_BLACK_LEVEL_PATTERN' in desc,
     'descriptor_white_level': 'SENSOR_INFO_WHITE_LEVEL' in desc,
     'descriptor_lens_shading': 'SENSOR_INFO_LENS_SHADING_APPLIED' in desc and 'STATISTICS_LENS_SHADING_CORRECTION_MAP' in desc,
+    'descriptor_no_nonexistent_shading_key': 'LENS_INFO_SHADING_MAP_SIZE' not in desc,
     'descriptor_arrays': 'SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE' in desc and 'SENSOR_INFO_ACTIVE_ARRAY_SIZE' in desc,
     'descriptor_matrices': 'SENSOR_FORWARD_MATRIX1' in desc and 'SENSOR_COLOR_TRANSFORM1' in desc and 'SENSOR_CALIBRATION_TRANSFORM1' in desc,
+    'descriptor_matrix_copyelements': 'copyElements(elements, 0)' in desc and 'getElement(' not in desc,
     'inventory_raw_capability': 'REQUEST_AVAILABLE_CAPABILITIES_RAW' in audit,
     'inventory_physical_ids': 'getPhysicalCameraIds()' in audit,
     'inventory_raw_sizes': 'ImageFormat.RAW_SENSOR' in audit,
