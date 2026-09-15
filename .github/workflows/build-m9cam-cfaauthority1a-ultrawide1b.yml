@@ -71,7 +71,7 @@ jobs:
           sha256sum \
             "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
-            > "$GITHUB_WORKSPACE/CFAAUTHORITY1A_NATIVE_BEFORE.sha256"
+            > CFAAUTHORITY1A_NATIVE_BEFORE.sha256
 
       - name: Apply CFAAUTHORITY1A ULTRAWIDE1B
         run: |
@@ -87,7 +87,7 @@ jobs:
           sha256sum \
             "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
-            > "$GITHUB_WORKSPACE/CFAAUTHORITY1A_NATIVE_AFTER.sha256"
+            > CFAAUTHORITY1A_NATIVE_AFTER.sha256
           diff -u CFAAUTHORITY1A_NATIVE_BEFORE.sha256 CFAAUTHORITY1A_NATIVE_AFTER.sha256
 
       - name: Set up JDK 17
@@ -102,8 +102,7 @@ jobs:
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           TESTDIR="$RUNNER_TEMP/m9-cfa-authority-test"
           mkdir -p "$TESTDIR/com/particlesdevs/photoncamera/m9/render"
-          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
-             "$TESTDIR/com/particlesdevs/photoncamera/m9/render/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" "$TESTDIR/com/particlesdevs/photoncamera/m9/render/"
           cat > "$TESTDIR/M9CfaAuthorityTest.java" <<'JAVA'
           import com.particlesdevs.photoncamera.m9.render.M9CfaResolver;
           public final class M9CfaAuthorityTest {
@@ -115,18 +114,17 @@ jobs:
               static void eq(int a, int b) { if (a != b) throw new AssertionError(a + " != " + b); }
               static void eq(String a, String b) { if (!b.equals(a)) throw new AssertionError(a + " != " + b); }
               public static void main(String[] args) {
-                  eq(resolve(0,0),0);                 // 15U main: no change
-                  eq(resolve(1,0),1);                 // 15U ultrawide: physical GRBG wins
+                  eq(resolve(0,0),0);
+                  eq(resolve(1,0),1);
                   eq(resolve(2,0),2);
                   eq(resolve(3,0),3);
-                  eq(resolve(-1,0),0);                // missing metadata: Photon fallback
+                  eq(resolve(-1,0),0);
                   eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.GRBG,0,0),"GRBG");
                   System.out.println("CFAAUTHORITY1A HOST PASS");
               }
           }
           JAVA
-          (cd "$TESTDIR" && javac com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java M9CfaAuthorityTest.java && java M9CfaAuthorityTest) \
-            | tee CFAAUTHORITY1A_HOST_TEST.txt
+          (cd "$TESTDIR" && javac com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java M9CfaAuthorityTest.java && java M9CfaAuthorityTest) | tee CFAAUTHORITY1A_HOST_TEST.txt
 
       - name: Snapshot assembled authority sources
         run: |
@@ -139,7 +137,7 @@ jobs:
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java" "$OUT/"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java" "$OUT/"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java" "$OUT/"
-          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/Parameters.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java" "$OUT/"
           cp CFAAUTHORITY1A_VERIFY.txt CFAAUTHORITY1A_HOST_TEST.txt "$OUT/"
           cp CFAAUTHORITY1A_NATIVE_BEFORE.sha256 CFAAUTHORITY1A_NATIVE_AFTER.sha256 "$OUT/"
           sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
@@ -149,20 +147,14 @@ jobs:
           set -euo pipefail
           SDKMANAGER="$(command -v sdkmanager || true)"
           if [ -z "$SDKMANAGER" ]; then
-            for candidate in \
-              "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" \
-              "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" \
-              "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
               if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
             done
           fi
           if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" \
-              -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
           fi
-          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
-            echo 'No usable sdkmanager found' >&2; exit 1
-          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
           SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
           echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
