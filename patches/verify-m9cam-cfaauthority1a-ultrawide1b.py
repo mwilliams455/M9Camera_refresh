@@ -8,7 +8,7 @@ root = Path(sys.argv[1]).resolve()
 renderer = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java').read_text()
 image_saver = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java').read_text()
 queue = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java').read_text()
-params = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/Parameters.java').read_text()
+params = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java').read_text()
 dng = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java').read_text()
 
 checks = {
