@@ -1,0 +1,91 @@
+name: Build M9Cam CFAABSTRACT1B ULTRAWIDE1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/cfaabstract1b-ultrawide1a]
+    paths:
+      - 'patches/apply-m9cam-cfaabstract1b-ultrawide1a.py'
+      - 'patches/verify-m9cam-cfaabstract1b-ultrawide1a.py'
+      - '.github/workflows/build-m9cam-cfaabstract1b-ultrawide1a.yml'
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-sharpness-sharpsource1c-rbanchor1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact UPSTREAMAXIS1A parent assembly',
+              'Assemble frozen neutral-MHC parent',
+              'Assemble SHARPSOURCE1C RBANCHOR1A',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('baseline run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected baseline indentation: ' + line)
+                  i += 1
+              p = Path(f'/tmp/cfaabstract_baseline_{idx}.sh')
+              p.write_text('\n'.join(out) + '\n')
+              print(p, name)
+          PY
+          for s in /tmp/cfaabstract_baseline_*.sh; do
+            echo "===== replay $s ====="
+            bash "$s"
+          done
+
+      - name: Apply proven DEVICEPORT1A diagnostic extension
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/verify-m9cam-deviceport1a-cfaabstract1a.py "$ROOT" | tee DEVICEPORT1A_VERIFY.txt
+
+      - name: Snapshot exact post-replay source before CFAABSTRACT1B
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-pre-cfaabstract1b"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawSensorDescriptor.java" "$OUT/"
+          cp "$ROOT/app/src/main/cpp/m9color_jni.cpp" "$OUT/"
+          cp DEVICEPORT1A_VERIFY.txt "$OUT/"
+          grep -n 'demosaicMhcRggb\|expects RGGB CFA=0\|applyNativeProspectiveGainMapRggb\|planeBase' \
+            "$OUT/M9R35Renderer.java" "$OUT/M9NativeColorCore.java" "$OUT/m9color_jni.cpp" \
+            > "$OUT/RGGB_SEAMS.txt" || true
+          sha256sum "$OUT"/* | tee "$OUT/SHA256SUMS.txt"
+
+      - name: Upload exact pre-CFA source
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-CFAABSTRACT1B-PREPATCH-EXACT-SOURCE
+          path: assembled-pre-cfaabstract1b/
