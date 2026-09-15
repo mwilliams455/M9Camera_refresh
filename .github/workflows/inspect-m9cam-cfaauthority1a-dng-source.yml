@@ -1,0 +1,83 @@
+name: Inspect M9Cam CFAAUTHORITY1A DNG source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/cfaauthority1a-ultrawide1b]
+    paths:
+      - '.github/workflows/inspect-m9cam-cfaauthority1a-dng-source.yml'
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-sharpness-sharpsource1c-rbanchor1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact UPSTREAMAXIS1A parent assembly',
+              'Assemble frozen neutral-MHC parent',
+              'Assemble SHARPSOURCE1C RBANCHOR1A',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |': i += 1
+              if i >= len(lines): raise SystemExit('baseline run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected baseline indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/cfaauthority_baseline_{idx}.sh').write_text('\n'.join(out) + '\n')
+          PY
+          for s in /tmp/cfaauthority_baseline_*.sh; do bash "$s"; done
+
+      - name: Apply DEVICEPORT1A and CFAABSTRACT1B exactly
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/verify-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/apply-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+          python3 patches/verify-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+
+      - name: Snapshot exact CFA and DNG authority sources
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/cfaauthority1a-source"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java" "$OUT/DngCreator.java"
+          find "$ROOT/app/src/main/java" -name 'Parameters.java' -print -exec cp {} "$OUT/Parameters.java" \;
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/M9R35Renderer.java"
+          grep -R -n -E 'new DngCreator|DngCreator\(|writeImage\(|writeByteBuffer\(' "$ROOT/app/src/main/java" > "$OUT/DNG_CALLS.txt" || true
+          grep -R -n -E 'mCameraCharacteristics|cfaPattern|COLOR_FILTER_ARRANGEMENT' \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java" \
+            "$ROOT/app/src/main/java"/* 2>/dev/null > "$OUT/CFA_AUTHORITY_GREP.txt" || true
+          while IFS=: read -r path line rest; do
+            [ -f "$path" ] || continue
+            base="$(basename "$path")"
+            cp "$path" "$OUT/callsite_${base}"
+          done < "$OUT/DNG_CALLS.txt"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Upload exact authority source
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-CFAAUTHORITY1A-EXACT-DNG-SOURCE
+          path: cfaauthority1a-source/
