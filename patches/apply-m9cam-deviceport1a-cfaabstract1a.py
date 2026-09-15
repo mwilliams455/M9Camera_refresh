@@ -15,11 +15,19 @@ renderer_rel = Path('app/src/main/java/com/particlesdevs/photoncamera/m9/render/
 renderer_path = root / renderer_rel
 renderer = renderer_path.read_text()
 
-fill_anchor = '            params.FillDynamicParameters(captureResult, captureRequest, iso);\n            params.cameraRotation = cameraRotation;\n'
-if renderer.count(fill_anchor) != 1:
-    raise SystemExit('DEVICEPORT1A dynamic-parameter hook anchor count != 1')
-if 'if (params.cfaPattern != 0)' not in renderer:
+gate_token = 'if (params.cfaPattern != 0)'
+gate = renderer.find(gate_token)
+if gate < 0:
     raise SystemExit('DEVICEPORT1A expected frozen RGGB fail-closed gate missing')
+
+fill_token = 'params.FillDynamicParameters(captureResult, captureRequest, iso);'
+rotation_token = '            params.cameraRotation = cameraRotation;\n'
+rotation = renderer.rfind(rotation_token, 0, gate)
+fill = renderer.rfind(fill_token, 0, rotation if rotation >= 0 else gate)
+if rotation < 0 or fill < 0:
+    raise SystemExit('DEVICEPORT1A could not resolve dynamic-parameter block immediately before CFA gate')
+if gate - rotation > 1600 or rotation - fill > 800:
+    raise SystemExit('DEVICEPORT1A resolved anchors are too far apart; refusing ambiguous insertion')
 
 payload_base = repo / 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render'
 target_base = root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render'
@@ -45,8 +53,10 @@ probe = '''
 '''
 
 if 'M9DevicePortAudit1A.captureAndWrite(' not in renderer:
-    renderer = renderer.replace(fill_anchor, fill_anchor + probe, 1)
+    insert_at = rotation + len(rotation_token)
+    renderer = renderer[:insert_at] + probe + renderer[insert_at:]
     renderer_path.write_text(renderer)
 
 print('DEVICEPORT1A/CFAABSTRACT1A applied')
-print('photographic renderer remains on the frozen RGGB gate in this probe build')
+print(' - active probe anchored immediately before the existing RGGB fail-closed gate')
+print(' - photographic renderer remains frozen in this probe build')
