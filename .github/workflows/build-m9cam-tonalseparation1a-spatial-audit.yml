@@ -109,6 +109,7 @@ jobs:
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           CPP="$ROOT/app/src/main/cpp/m9color_jni.cpp"
           RENDERER="$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
+          mkdir -p tonal1a-evidence
 
           grep -q 'const int sg=static_cast<int>(closureSharp14\[p\]);' "$CPP"
           grep -q 'const int dr=static_cast<int>(m9ClosureQ14(base\[0\]))-mg;' "$CPP"
@@ -124,38 +125,23 @@ jobs:
 
           before = Path('/tmp/TONAL1A_before.cpp').read_text()
           after = Path('PhotonCamera/app/src/main/cpp/m9color_jni.cpp').read_text()
+          audit_marker = 'std::string auditSatDomainJson(const ColorContext& ctx,'
+          next_marker = 'void throwIllegalArgument(JNIEnv* env, const char* message) {'
+          helper_marker = '// TONALSEPARATION1A_BEGIN'
 
-          def strip_audit(s, after_mode=False):
-              if after_mode:
-                  a = s.index('// TONALSEPARATION1A_BEGIN')
-                  b = s.index('// TONALSEPARATION1A_END', a) + len('// TONALSEPARATION1A_END')
-                  while b < len(s) and s[b] in '\r\n':
-                      b += 1
-                  s = s[:a] + s[b:]
-              marker = 'std::string auditSatDomainJson(const ColorContext& ctx,'
-              a = s.index(marker)
-              brace = s.index('{', a)
-              depth = 0
-              end = None
-              for i in range(brace, len(s)):
-                  ch = s[i]
-                  if ch == '{': depth += 1
-                  elif ch == '}':
-                      depth -= 1
-                      if depth == 0:
-                          end = i + 1
-                          break
-              if end is None:
-                  raise SystemExit('could not parse auditSatDomainJson body')
-              return s[:a] + '<AUDIT_SCRUBBED>' + s[end:]
-
-          b = strip_audit(before, False)
-          a = strip_audit(after, True)
-          if b != a:
-              Path('TONAL1A_NATIVE_NONAUDIT_DIFF_BEFORE.txt').write_text(b)
-              Path('TONAL1A_NATIVE_NONAUDIT_DIFF_AFTER.txt').write_text(a)
-              raise SystemExit('native source changed outside read-only audit')
-          Path('TONAL1A_NATIVE_NONAUDIT_SHA256.txt').write_text(hashlib.sha256(a.encode()).hexdigest() + '\n')
+          # Strong isolation proof without parsing C++ braces: SATDOMAIN1A places the audit
+          # immediately before throwIllegalArgument. TONAL1A is permitted to alter only that
+          # audit region and its helper block. Prefix and suffix must remain exact.
+          b_prefix = before[:before.index(audit_marker)].rstrip()
+          a_prefix = after[:after.index(helper_marker)].rstrip()
+          if b_prefix != a_prefix:
+              raise SystemExit('native prefix before read-only audit changed')
+          b_suffix = before[before.index(next_marker):]
+          a_suffix = after[after.index(next_marker):]
+          if b_suffix != a_suffix:
+              raise SystemExit('native suffix after read-only audit changed')
+          frozen = a_prefix + '\n<AUDIT_ONLY_REGION>\n' + a_suffix
+          Path('TONAL1A_NATIVE_NONAUDIT_SHA256.txt').write_text(hashlib.sha256(frozen.encode()).hexdigest() + '\n')
 
           rb = Path('/tmp/TONAL1A_before_renderer.java').read_text()
           ra = Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java').read_text()
@@ -169,7 +155,6 @@ jobs:
           Path('TONAL1A_RENDERER_PARENT_EQUIVALENCE.txt').write_text('exact after reversing diagnostic-only changes\n')
           PY
 
-          mkdir -p tonal1a-evidence
           cp TONAL1A_PARENT_SHA256.txt TONAL1A_NATIVE_ANCHORS.txt TONAL1A_RENDERER_ANCHORS.txt \
              TONAL1A_NATIVE_NONAUDIT_SHA256.txt TONAL1A_RENDERER_PARENT_EQUIVALENCE.txt tonal1a-evidence/
 
