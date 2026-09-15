@@ -1,0 +1,190 @@
+name: Build M9Cam DEVICEPORT1A CFAABSTRACT1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/deviceport1a-cfaabstract1a]
+    paths:
+      - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java'
+      - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawSensorDescriptor.java'
+      - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DevicePortAudit1A.java'
+      - 'patches/apply-m9cam-deviceport1a-cfaabstract1a.py'
+      - 'patches/verify-m9cam-deviceport1a-cfaabstract1a.py'
+      - '.github/workflows/build-m9cam-deviceport1a-cfaabstract1a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify DEVICEPORT1A patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-deviceport1a-cfaabstract1a.py
+          python3 -m py_compile patches/verify-m9cam-deviceport1a-cfaabstract1a.py
+
+      - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-sharpness-sharpsource1c-rbanchor1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact UPSTREAMAXIS1A parent assembly',
+              'Assemble frozen neutral-MHC parent',
+              'Assemble SHARPSOURCE1C RBANCHOR1A',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('baseline run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected baseline indentation: ' + line)
+                  i += 1
+              p = Path(f'/tmp/deviceport_baseline_{idx}.sh')
+              p.write_text('\n'.join(out) + '\n')
+              print(p, name)
+          PY
+          for s in /tmp/deviceport_baseline_*.sh; do
+            echo "===== replay $s ====="
+            bash "$s"
+          done
+
+      - name: Apply DEVICEPORT1A CFAABSTRACT1A diagnostic extension
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/verify-m9cam-deviceport1a-cfaabstract1a.py "$ROOT" | tee DEVICEPORT1A_CFAABSTRACT1A_VERIFY.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Host-test four Bayer layouts and local phase
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          TESTDIR="$RUNNER_TEMP/m9-cfa-test"
+          mkdir -p "$TESTDIR/com/particlesdevs/photoncamera/m9/render"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+             "$TESTDIR/com/particlesdevs/photoncamera/m9/render/"
+          cat > "$TESTDIR/M9CfaResolverTest.java" <<'JAVA'
+          import com.particlesdevs.photoncamera.m9.render.M9CfaResolver;
+          public final class M9CfaResolverTest {
+              private static void eq(String actual, String expected) {
+                  if (!expected.equals(actual)) throw new AssertionError(actual + " != " + expected);
+              }
+              private static void site(M9CfaResolver.Pattern p, int x, int y,
+                                       M9CfaResolver.Site expected) {
+                  M9CfaResolver.Site actual = M9CfaResolver.colorAt(x, y, p, 0, 0);
+                  if (actual != expected) throw new AssertionError(p + " @" + x + "," + y + " = " + actual);
+              }
+              public static void main(String[] args) {
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.RGGB,0,0), "RGGB");
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.GRBG,0,0), "GRBG");
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.GBRG,0,0), "GBRG");
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.BGGR,0,0), "BGGR");
+                  site(M9CfaResolver.Pattern.RGGB,0,0,M9CfaResolver.Site.RED);
+                  site(M9CfaResolver.Pattern.RGGB,1,0,M9CfaResolver.Site.GREEN_1);
+                  site(M9CfaResolver.Pattern.RGGB,0,1,M9CfaResolver.Site.GREEN_2);
+                  site(M9CfaResolver.Pattern.RGGB,1,1,M9CfaResolver.Site.BLUE);
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.RGGB,1,0), "GRBG");
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.RGGB,0,1), "GBRG");
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.RGGB,1,1), "BGGR");
+                  if (M9CfaResolver.isSupported(4) || M9CfaResolver.isSupported(5)
+                          || M9CfaResolver.isSupported(6) || M9CfaResolver.isSupported(-1)) {
+                      throw new AssertionError("unsupported Camera2 CFA must fail closed");
+                  }
+                  boolean threw = false;
+                  try {
+                      M9CfaResolver.colorAt(0,0,M9CfaResolver.Pattern.UNSUPPORTED,0,0);
+                  } catch (IllegalArgumentException expected) { threw = true; }
+                  if (!threw) throw new AssertionError("unsupported resolver did not throw");
+                  System.out.println("CFAABSTRACT1A PASS");
+              }
+          }
+          JAVA
+          (cd "$TESTDIR" && javac com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java M9CfaResolverTest.java && java M9CfaResolverTest) \
+            | tee CFAABSTRACT1A_HOST_TEST.txt
+
+      - name: Snapshot DEVICEPORT1A assembled source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          mkdir -p assembled-deviceport1a-cfaabstract1a
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" assembled-deviceport1a-cfaabstract1a/
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" assembled-deviceport1a-cfaabstract1a/
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawSensorDescriptor.java" assembled-deviceport1a-cfaabstract1a/
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DevicePortAudit1A.java" assembled-deviceport1a-cfaabstract1a/
+          cp DEVICEPORT1A_CFAABSTRACT1A_VERIFY.txt assembled-deviceport1a-cfaabstract1a/
+          cp CFAABSTRACT1A_HOST_TEST.txt assembled-deviceport1a-cfaabstract1a/
+          grep -n 'M9DevicePortAudit1A.captureAndWrite\|expects RGGB CFA=0\|COLOR_BayerRG2BGR_EA\|RAW_MAX = 16383\|JPEG_QUALITY = 95' \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
+            > assembled-deviceport1a-cfaabstract1a/FROZEN_RENDER_ANCHORS.txt
+          sha256sum assembled-deviceport1a-cfaabstract1a/* | tee assembled-deviceport1a-cfaabstract1a/SHA256SUMS.txt
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build DEVICEPORT1A probe APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/DEVICEPORT1A_CFAABSTRACT1A_GRADLE.log"
+
+      - name: Record probe APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee DEVICEPORT1A_CFAABSTRACT1A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-DEVICEPORT1A-CFAABSTRACT1A-ASSEMBLED-SOURCE
+          path: assembled-deviceport1a-cfaabstract1a/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-DEVICEPORT1A-CFAABSTRACT1A-BUILDLOG
+          path: DEVICEPORT1A_CFAABSTRACT1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload DEVICEPORT1A probe APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-DEVICEPORT1A-CFAABSTRACT1A-PROBE
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            DEVICEPORT1A_CFAABSTRACT1A_APK_SHA256.txt
+            DEVICEPORT1A_CFAABSTRACT1A_VERIFY.txt
+            CFAABSTRACT1A_HOST_TEST.txt
