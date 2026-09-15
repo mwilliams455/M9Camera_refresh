@@ -1,7 +1,7 @@
 package com.particlesdevs.photoncamera.m9.render;
 
 /**
- * CFAABSTRACT1A.
+ * CFAABSTRACT1A/1B.
  * Pure-Java Bayer lattice resolver. No Android/OpenCV dependency.
  */
 public final class M9CfaResolver {
@@ -68,6 +68,25 @@ public final class M9CfaResolver {
 
     public static boolean isGreen2Site(int x, int y, Pattern p, int ox, int oy) {
         return colorAt(x, y, p, ox, oy) == Site.GREEN_2;
+    }
+
+    /**
+     * Camera2 LensShadingMap channel for this Bayer sample.
+     * Android defines the channels as [R, G-even-sensor-row, G-odd-sensor-row, B].
+     */
+    public static int lensShadingChannelAt(int localX, int localY,
+                                           Pattern pattern, int originX, int originY) {
+        Site site = colorAt(localX, localY, pattern, originX, originY);
+        if (site == Site.RED) return 0;
+        if (site == Site.BLUE) return 3;
+        return Math.floorMod(localY + originY, 2) == 0 ? 1 : 2;
+    }
+
+    public static int lensShadingChannelAt(int localX, int localY,
+                                           int camera2Pattern, int originX, int originY) {
+        Pattern p = fromCamera2(camera2Pattern);
+        if (p == Pattern.UNSUPPORTED) throw new IllegalArgumentException("unsupported CFA pattern");
+        return lensShadingChannelAt(localX, localY, p, originX, originY);
     }
 
     public static String localPhaseName(Pattern p, int ox, int oy) {
