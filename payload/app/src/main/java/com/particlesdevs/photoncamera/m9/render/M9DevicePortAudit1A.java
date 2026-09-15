@@ -200,7 +200,7 @@ public final class M9DevicePortAudit1A {
     private static JSONArray floats(float[] values) {
         if (values == null) return null;
         JSONArray a = new JSONArray();
-        for (float v : values) a.put(v);
+        for (float v : values) a.put((double) v);
         return a;
     }
 
