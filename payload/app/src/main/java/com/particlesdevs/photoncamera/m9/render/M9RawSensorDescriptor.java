@@ -325,7 +325,7 @@ public final class M9RawSensorDescriptor {
     private static JSONArray floats(float[] values) {
         if (values == null) return null;
         JSONArray a = new JSONArray();
-        for (float v : values) a.put((double) v);
+        for (float v : values) a.put(Double.valueOf((double) v));
         return a;
     }
 
