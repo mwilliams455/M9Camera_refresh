@@ -5,18 +5,25 @@ on:
   push:
     branches: [research/cfaabstract1b-ultrawide1a]
     paths:
+      - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java'
       - 'patches/apply-m9cam-cfaabstract1b-ultrawide1a.py'
       - 'patches/verify-m9cam-cfaabstract1b-ultrawide1a.py'
       - '.github/workflows/build-m9cam-cfaabstract1b-ultrawide1a.yml'
 
 jobs:
-  snapshot:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Verify CFAABSTRACT1B patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-cfaabstract1b-ultrawide1a.py
+          python3 -m py_compile patches/verify-m9cam-cfaabstract1b-ultrawide1a.py
 
       - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
         shell: bash
@@ -53,7 +60,6 @@ jobs:
                   i += 1
               p = Path(f'/tmp/cfaabstract_baseline_{idx}.sh')
               p.write_text('\n'.join(out) + '\n')
-              print(p, name)
           PY
           for s in /tmp/cfaabstract_baseline_*.sh; do
             echo "===== replay $s ====="
@@ -67,7 +73,7 @@ jobs:
           python3 patches/apply-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
           python3 patches/verify-m9cam-deviceport1a-cfaabstract1a.py "$ROOT" | tee DEVICEPORT1A_VERIFY.txt
 
-      - name: Snapshot exact post-replay source before CFAABSTRACT1B
+      - name: Snapshot exact source before CFAABSTRACT1B
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
@@ -76,16 +82,157 @@ jobs:
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" "$OUT/"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" "$OUT/"
-          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawSensorDescriptor.java" "$OUT/"
           cp "$ROOT/app/src/main/cpp/m9color_jni.cpp" "$OUT/"
-          cp DEVICEPORT1A_VERIFY.txt "$OUT/"
-          grep -n 'demosaicMhcRggb\|expects RGGB CFA=0\|applyNativeProspectiveGainMapRggb\|planeBase' \
-            "$OUT/M9R35Renderer.java" "$OUT/M9NativeColorCore.java" "$OUT/m9color_jni.cpp" \
-            > "$OUT/RGGB_SEAMS.txt" || true
           sha256sum "$OUT"/* | tee "$OUT/SHA256SUMS.txt"
 
-      - name: Upload exact pre-CFA source
+      - name: Apply CFAABSTRACT1B ULTRAWIDE1A
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+          python3 patches/verify-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT" | tee CFAABSTRACT1B_VERIFY.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Host-test Bayer lattice and Camera2 LensShadingMap channels
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          TESTDIR="$RUNNER_TEMP/m9-cfa1b-test"
+          mkdir -p "$TESTDIR/com/particlesdevs/photoncamera/m9/render"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+             "$TESTDIR/com/particlesdevs/photoncamera/m9/render/"
+          cat > "$TESTDIR/M9CfaResolver1BTest.java" <<'JAVA'
+          import com.particlesdevs.photoncamera.m9.render.M9CfaResolver;
+          public final class M9CfaResolver1BTest {
+              static void eq(int a,int e,String s){if(a!=e)throw new AssertionError(s+": "+a+" != "+e);}
+              static void eq(String a,String e,String s){if(!a.equals(e))throw new AssertionError(s+": "+a+" != "+e);}
+              static void channels(int cfa,int[] expected){
+                  int[] actual={
+                      M9CfaResolver.lensShadingChannelAt(0,0,cfa,0,0),
+                      M9CfaResolver.lensShadingChannelAt(1,0,cfa,0,0),
+                      M9CfaResolver.lensShadingChannelAt(0,1,cfa,0,0),
+                      M9CfaResolver.lensShadingChannelAt(1,1,cfa,0,0)};
+                  for(int i=0;i<4;i++)eq(actual[i],expected[i],"cfa"+cfa+" slot"+i);
+              }
+              public static void main(String[] args){
+                  channels(0,new int[]{0,1,2,3});
+                  channels(1,new int[]{1,0,3,2});
+                  channels(2,new int[]{1,3,0,2});
+                  channels(3,new int[]{3,1,2,0});
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.RGGB,1,0),"GRBG","phase x");
+                  eq(M9CfaResolver.localPhaseName(M9CfaResolver.Pattern.RGGB,0,1),"GBRG","phase y");
+                  // With a one-row RAW origin shift, local row0 is sensor-odd: green is Godd.
+                  eq(M9CfaResolver.lensShadingChannelAt(0,0,0,0,1),2,"origin-y green channel");
+                  eq(M9CfaResolver.lensShadingChannelAt(1,1,0,0,1),1,"origin-y second green channel");
+                  if(M9CfaResolver.isSupported(4)||M9CfaResolver.isSupported(5))throw new AssertionError("unsupported CFA accepted");
+                  System.out.println("CFAABSTRACT1B HOST PASS");
+              }
+          }
+          JAVA
+          (cd "$TESTDIR" && javac com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java M9CfaResolver1BTest.java && java M9CfaResolver1BTest) \
+            | tee CFAABSTRACT1B_HOST_TEST.txt
+
+      - name: Verify frozen photographic anchors
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          grep -n 'SHARPNESS_SHARPSOURCE1C_RBANCHOR1A_ID\|JPEG_QUALITY = 95\|NORM030\|curve02\|TC20' \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" > CFAABSTRACT1B_FROZEN_ANCHORS.txt
+          grep -q 'Exact validated 15U-main path' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
+          grep -q 'M9NativeColorCore_demosaicMhcRggb' "$ROOT/app/src/main/cpp/m9color_jni.cpp"
+          grep -q 'M9NativeColorCore_demosaicMhcBayer' "$ROOT/app/src/main/cpp/m9color_jni.cpp"
+
+      - name: Snapshot assembled CFAABSTRACT1B source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-cfaabstract1b"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawSensorDescriptor.java" "$OUT/"
+          cp "$ROOT/app/src/main/cpp/m9color_jni.cpp" "$OUT/"
+          cp DEVICEPORT1A_VERIFY.txt CFAABSTRACT1B_VERIFY.txt CFAABSTRACT1B_HOST_TEST.txt CFAABSTRACT1B_FROZEN_ANCHORS.txt "$OUT/"
+          sha256sum "$OUT"/* | tee "$OUT/SHA256SUMS.txt"
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in \
+              "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" \
+              "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" \
+              "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          test -n "$SDKMANAGER" -a -x "$SDKMANAGER"
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          "$SDKMANAGER" --version
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build CFAABSTRACT1B probe APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/CFAABSTRACT1B_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee CFAABSTRACT1B_APK_SHA256.txt
+
+      - name: Upload pre-patch exact source
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: M9-CFAABSTRACT1B-PREPATCH-EXACT-SOURCE
           path: assembled-pre-cfaabstract1b/
+
+      - name: Upload assembled CFAABSTRACT1B source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-CFAABSTRACT1B-ULTRAWIDE1A-ASSEMBLED-SOURCE
+          path: assembled-cfaabstract1b/
+          if-no-files-found: ignore
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-CFAABSTRACT1B-ULTRAWIDE1A-BUILDLOG
+          path: CFAABSTRACT1B_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload CFAABSTRACT1B APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-CFAABSTRACT1B-ULTRAWIDE1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            CFAABSTRACT1B_APK_SHA256.txt
+            CFAABSTRACT1B_VERIFY.txt
+            CFAABSTRACT1B_HOST_TEST.txt
+            CFAABSTRACT1B_FROZEN_ANCHORS.txt
