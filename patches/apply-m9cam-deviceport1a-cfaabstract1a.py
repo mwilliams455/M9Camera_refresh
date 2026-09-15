@@ -15,9 +15,10 @@ renderer_rel = Path('app/src/main/java/com/particlesdevs/photoncamera/m9/render/
 renderer_path = root / renderer_rel
 renderer = renderer_path.read_text()
 
-if 'params.FillDynamicParameters(captureResult, captureRequest, iso);' not in renderer:
-    raise SystemExit('DEVICEPORT1A dynamic-parameter anchor missing')
-if 'R3.5 v0.7 main-camera parity build expects RGGB CFA=0' not in renderer:
+fill_anchor = '            params.FillDynamicParameters(captureResult, captureRequest, iso);\n            params.cameraRotation = cameraRotation;\n'
+if renderer.count(fill_anchor) != 1:
+    raise SystemExit('DEVICEPORT1A dynamic-parameter hook anchor count != 1')
+if 'if (params.cfaPattern != 0)' not in renderer:
     raise SystemExit('DEVICEPORT1A expected frozen RGGB fail-closed gate missing')
 
 payload_base = repo / 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render'
@@ -29,14 +30,7 @@ for name in ('M9CfaResolver.java', 'M9RawSensorDescriptor.java', 'M9DevicePortAu
     target_base.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target_base / name)
 
-anchor = '''            params.FillDynamicParameters(captureResult, captureRequest, iso);
-            params.cameraRotation = cameraRotation;
-
-            // Frozen main-camera R3.5 reference is RGGB.  Fail loudly rather than
-'''
-insert = '''            params.FillDynamicParameters(captureResult, captureRequest, iso);
-            params.cameraRotation = cameraRotation;
-
+probe = '''
             // DEVICEPORT1A/CFAABSTRACT1A: probe source RAW metadata before the frozen
             // RGGB photographic gate. Diagnostic only; no descriptor value feeds pixels.
             M9DevicePortAudit1A.captureAndWrite(
@@ -48,14 +42,10 @@ insert = '''            params.FillDynamicParameters(captureResult, captureReque
                     characteristics,
                     captureResult,
                     captureRequest);
-
-            // Frozen main-camera R3.5 reference is RGGB.  Fail loudly rather than
 '''
 
 if 'M9DevicePortAudit1A.captureAndWrite(' not in renderer:
-    if renderer.count(anchor) != 1:
-        raise SystemExit('DEVICEPORT1A renderer hook anchor count != 1')
-    renderer = renderer.replace(anchor, insert, 1)
+    renderer = renderer.replace(fill_anchor, fill_anchor + probe, 1)
     renderer_path.write_text(renderer)
 
 print('DEVICEPORT1A/CFAABSTRACT1A applied')
