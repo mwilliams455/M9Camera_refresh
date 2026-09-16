@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import sys, re
+import re
+import sys
 
 if len(sys.argv) != 2:
     raise SystemExit('usage: verify-m9cam-hsmab1a-sameraw-bank.py <PhotonCamera-root>')
@@ -12,7 +13,7 @@ s = p.read_text()
 
 def require(token, label):
     if token not in s:
-        raise SystemExit(f'HSMAB1A verify missing {label}: {token}')
+        raise SystemExit(f'HSMAB1A FIX1 verify missing {label}: {token}')
 
 def span(start_token, end_token):
     a = s.index(start_token)
@@ -29,51 +30,67 @@ require('_HSMBYPASS1A_SAMERAW_GAINLOCK', 'B suffix')
 require('HSMBYPASS1A_B_locked_to_HSMCONTROL1A_A_exact_effective_render_gain', 'gain telemetry')
 require('skipped_hsmab1a_requires_conventional_bayer', 'generic Bayer gate')
 if 'skipped_legacy_diagnostic_requires_RGGB' in s:
-    raise SystemExit('HSMAB1A verify legacy RGGB-only diagnostic gate still present')
+    raise SystemExit('HSMAB1A FIX1 legacy RGGB-only diagnostic gate still present')
 
 mode4 = span('            } else if (bridgeProbeMode == 4) {',
              '            } else if (bridgeProbeMode == 60) {')
 for token in ['targetInputAdapter1AApplied = true;', 'cal.hsmA[i]', 'cal.hsmD65[i]',
               'ctx.hueDivisions = cal.hueDivisions;', 'ctx.satDivisions = cal.satDivisions;']:
     if token not in mode4:
-        raise SystemExit('HSMAB1A verify A control lost ' + token)
+        raise SystemExit('HSMAB1A FIX1 A control lost ' + token)
 
 mode60 = span('            } else if (bridgeProbeMode == 60) {',
               '            } else if (bridgeProbeMode != 0) {')
-for token in ['targetInputAdapter1AApplied = true;',
-              'TargetInputAdapter1A targetInput = buildTargetInputAdapter1A(nativeSource, cal);',
-              'ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);',
-              'ctx.hueDivisions = 2;', 'ctx.satDivisions = 2;']:
+for token in [
+        'targetInputAdapter1AApplied = true;',
+        'TargetInputAdapter1A targetInput = buildTargetInputAdapter1A(nativeSource, cal);',
+        'ctx.camToPp = matMul3(bridgeProbeBasis, nativeCamToPpBeforeProbe);',
+        'cal.hueDivisions != 90 || cal.satDivisions != 30',
+        'ctx.hsm = new double[identityHsmLength];',
+        'ctx.hsm[i] = 0.0;',
+        'ctx.hsm[i + 1] = 1.0;',
+        'ctx.hsm[i + 2] = 1.0;',
+        'ctx.hueDivisions = cal.hueDivisions;',
+        'ctx.satDivisions = cal.satDivisions;']:
     if token not in mode60:
-        raise SystemExit('HSMAB1A verify B lost ' + token)
-if 'cal.hsmA' in mode60 or 'cal.hsmD65' in mode60:
-    raise SystemExit('HSMAB1A verify B still references historical Cobalt HSM tables')
-if mode60.count('0.0, 1.0, 1.0') != 4:
-    raise SystemExit('HSMAB1A verify B identity HSM is not exact 2x2 identity')
+        raise SystemExit('HSMAB1A FIX1 B lost ' + token)
+if 'ctx.hueDivisions = 2;' in mode60 or 'ctx.satDivisions = 2;' in mode60:
+    raise SystemExit('HSMAB1A FIX1 compact 2x2 geometry still present in mode60')
+if 'targetInput.historical15.wA * cal.hsmA[i]' in mode60 or 'cal.hsmD65[i]' in mode60:
+    raise SystemExit('HSMAB1A FIX1 B still interpolates historical Cobalt HSM content')
+
+# The reason FIX1 exists: the frozen evaluator indexes the historical 90x30 grid.
+apply_hsm = span('    private static void applyHsm(',
+                 '    /** Input hue is already guaranteed in [0,6)')
+for token in ['double hp = h * 15.0;', 'double sp = s * 29.0;',
+              'int e00 = (h0 * 30 + s0) * 3;']:
+    if token not in apply_hsm:
+        raise SystemExit('HSMAB1A FIX1 evaluator geometry evidence lost ' + token)
 
 prod = span('private static RenderCore renderNativeSourceProduction1P(',
             '    private static RenderCore renderCore(')
 if not re.search(r'1\.0,\s*\n\s*true,\s*\n\s*4,\s*\n\s*true,', prod):
-    raise SystemExit('HSMAB1A verify primary production mode is no longer mode 4')
+    raise SystemExit('HSMAB1A FIX1 primary production mode is no longer mode 4')
 for token in ['d.put("cobaltHueSatMapApplied", true);',
               'd.put("identityHsmApplied", false);',
               'd.put("targetInputAdapter1AProduction", true);']:
     if token not in prod:
-        raise SystemExit('HSMAB1A verify primary control telemetry lost ' + token)
+        raise SystemExit('HSMAB1A FIX1 primary control telemetry lost ' + token)
 
 main_save = s.index('boolean jpgSaved = ImageSaver.Util.saveBitmapAsJPGPayloadM9')
 bank = s.index('if (primaryRoute && DEMOSAIC_DIAGNOSTIC_BANK_ENABLED)')
 if bank <= main_save:
-    raise SystemExit('HSMAB1A diagnostic bank runs before primary JPEG save')
+    raise SystemExit('HSMAB1A FIX1 diagnostic bank runs before primary JPEG save')
 require('variantFixedGain = skyChromaControlEffectiveRenderGain;', 'B uses A gain')
 require('variantDiag.put("sameRawAsPrimary", true);', 'same RAW telemetry')
 require('nativeAb1A.put("productionBehaviorChanged", false);', 'primary preservation telemetry')
 
-print('HSMAB1A_SAMERAW_BANK verify OK')
+print('HSMAB1A_SAMERAW_BANK FIX1 verify OK')
 print('  primary: frozen TARGETINPUTADAPTER1A + historical HSM mode4')
 print('  A diagnostic: mode4 same-RAW control')
-print('  B diagnostic: mode60 target-input + exact identity HSM')
+print('  B diagnostic: mode60 target-input + full 90x30 exact identity HSM')
 print('  B gain locked to A: yes')
+print('  identity geometry matches frozen evaluator: yes')
 print('  conventional Bayer CFA 0..3 eligible: yes')
 print('  SAT3/JPEG95 frozen: yes')
 print('  diagnostic bank runs after primary JPEG save: yes')
