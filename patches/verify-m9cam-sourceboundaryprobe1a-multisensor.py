@@ -30,6 +30,15 @@ required = [
     'sourceBoundaryProbe1APixelMutation", false',
     'sourceBoundaryProbe1AGainMutation", false',
     'sourceBoundaryProbe1ATargetRendererMutation", false',
+    'physicalSensorGeneric", true',
+    'physical_RAW_characteristics_and_measured_sensor_parameters_not_zoom_or_lens_label',
+    'cameraIdUsedForBehavior", false',
+    'focalLengthUsedForBehavior", false',
+    'zoomLabelUsedForBehavior", false',
+    'geometryDerivedFromActiveInput", true',
+    'any_supported_physical_Bayer_sensor',
+    'locate_physical_sensor_domain_divergence_relative_to_SOURCECAL2A_common_scene_boundary',
+    'for_any_physical_sensor_pair_first_stage_with_material_between_sensor_jump',
     'COBALTROLEPURGE1A_NATIVEFIRMWARE1A_SOURCEBOUNDARYPROBE1A',
     'research/sourceboundaryprobe1a-multisensor',
     'mixedCalibrationAssetUsage", "none_production"',
@@ -39,6 +48,12 @@ required = [
 ]
 for token in required:
     if token not in s: raise SystemExit('missing SOURCEBOUNDARYPROBE1A invariant: ' + token)
+
+# Zoom/lens categories are test labels only. They must not survive as decision semantics.
+for forbidden_label in ('3x_vs_main', 'three_x_vs_main', 'camera4_only', 'focalLengthUsedForBehavior", true',
+                        'cameraIdUsedForBehavior", true', 'zoomLabelUsedForBehavior", true'):
+    if forbidden_label in s:
+        raise SystemExit('physical-sensor-generic invariant violated: ' + forbidden_label)
 
 # Exact production call must remain source-only / identity-HSM mode 0 and self-metered.
 prod_sig = 'private static RenderCore renderNativeSourceProduction1P('
@@ -61,6 +76,8 @@ if 'cam16.get(y, 0, row);' not in probe:
     raise SystemExit('probe must read demosaiced rows directly')
 if 'Imgproc.resize' in probe:
     raise SystemExit('probe must not blur chroma noise through resize/interpolation')
+if 'cam16.cols()' not in probe or 'cam16.rows()' not in probe:
+    raise SystemExit('probe geometry must be derived from the active physical RAW input')
 
 # Production target calibration remains dedicated curve02 only.
 loader = target_loader.read_text()
@@ -71,6 +88,8 @@ if len(target_asset.read_bytes()) != 2048:
 
 print('SOURCEBOUNDARYPROBE1A_MULTISENSOR_VERIFY PASS')
 print('diagnostic-only stage boundary telemetry present')
+print('physical-sensor-generic selection invariant present; zoom/lens labels are diagnostic only')
+print('active RAW geometry drives probe dimensions')
 print('production source-only mode 0 / identity HSM preserved')
 print('Cobalt production dependency remains disabled')
 print('target-only curve02 remains 2048 bytes')
