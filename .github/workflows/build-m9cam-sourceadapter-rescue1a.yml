@@ -12,9 +12,6 @@ on:
       - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingAudit1A.java'
       - 'patches/apply-m9cam-sourceshading1a-portable.py'
       - 'patches/verify-m9cam-sourceshading1a-portable.py'
-      - 'patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py'
-      - 'patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py'
-      - 'patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py'
       - '.github/workflows/build-m9cam-sourceadapter-rescue1a.yml'
 
 jobs:
@@ -37,9 +34,6 @@ jobs:
           python3 -m py_compile patches/verify-m9cam-targethsm1a-rescue.py
           python3 -m py_compile patches/apply-m9cam-sourceshading1a-portable.py
           python3 -m py_compile patches/verify-m9cam-sourceshading1a-portable.py
-          python3 -m py_compile patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py
-          python3 -m py_compile patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py
-          python3 -m py_compile patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py
 
       - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
         shell: bash
@@ -84,7 +78,7 @@ jobs:
           python3 patches/apply-m9cam-cfaauthority1a-ultrawide1b.py "$ROOT"
           python3 patches/verify-m9cam-cfaauthority1a-ultrawide1b.py "$ROOT" | tee CFAAUTHORITY1A_VERIFY.txt
 
-      - name: Apply native firmware architecture baseline
+      - name: Apply native source architecture baseline
         run: |
           set -euxo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
@@ -98,13 +92,12 @@ jobs:
           python3 patches/apply-m9cam-targethsm1a-rescue.py "$ROOT"
           python3 patches/verify-m9cam-targethsm1a-rescue.py "$ROOT" | tee TARGETHSM1A_VERIFY.txt
 
-      - name: Freeze rescued target before source diagnostics
+      - name: Freeze rescued native and target assets
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           sha256sum \
             "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
-            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
             "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
@@ -117,32 +110,22 @@ jobs:
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           python3 patches/apply-m9cam-sourceshading1a-portable.py "$ROOT"
           python3 patches/verify-m9cam-sourceshading1a-portable.py "$ROOT" | tee SOURCESHADING1A_VERIFY.txt
+          # Re-run target verifier after instrumentation: shading telemetry must not
+          # undo the rescued production source/target role split.
+          python3 patches/verify-m9cam-targethsm1a-rescue.py "$ROOT" | tee TARGETHSM1A_POST_SHADING_VERIFY.txt
 
-      - name: Apply source boundary probe
-        run: |
-          set -euxo pipefail
-          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
-          python3 patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py "$ROOT"
-          python3 patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py "$ROOT"
-          python3 patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py "$ROOT" | tee SOURCEBOUNDARYPROBE1A_VERIFY.txt
-
-      - name: Prove source diagnostics did not alter rescued target
+      - name: Prove shading diagnostics leave native target assets unchanged
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           sha256sum \
             "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
-            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
             "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
             "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
             > RESCUE1A_TARGET_AFTER.sha256
-          # SOURCEBOUNDARYPROBE intentionally instruments M9R35Renderer diagnostics, so compare
-          # the true target/native assets separately rather than requiring renderer text identity.
-          grep -v 'M9R35Renderer.java' RESCUE1A_TARGET_BEFORE.sha256 > /tmp/before.target
-          grep -v 'M9R35Renderer.java' RESCUE1A_TARGET_AFTER.sha256 > /tmp/after.target
-          diff -u /tmp/before.target /tmp/after.target
+          diff -u RESCUE1A_TARGET_BEFORE.sha256 RESCUE1A_TARGET_AFTER.sha256
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -160,7 +143,7 @@ jobs:
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DevicePortAudit1A.java" "$OUT/"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingAudit1A.java" "$OUT/"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" "$OUT/"
-          cp DEVICEPORT_PERF1A_VERIFY.txt TARGETHSM1A_VERIFY.txt SOURCESHADING1A_VERIFY.txt SOURCEBOUNDARYPROBE1A_VERIFY.txt COBALTROLEPURGE1A_VERIFY.txt CFAAUTHORITY1A_VERIFY.txt "$OUT/"
+          cp DEVICEPORT_PERF1A_VERIFY.txt TARGETHSM1A_VERIFY.txt TARGETHSM1A_POST_SHADING_VERIFY.txt SOURCESHADING1A_VERIFY.txt COBALTROLEPURGE1A_VERIFY.txt CFAAUTHORITY1A_VERIFY.txt "$OUT/"
           cp RESCUE1A_TARGET_BEFORE.sha256 RESCUE1A_TARGET_AFTER.sha256 "$OUT/"
           sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
 
@@ -225,5 +208,5 @@ jobs:
             SOURCEADAPTER_RESCUE1A_APK_SHA256.txt
             DEVICEPORT_PERF1A_VERIFY.txt
             TARGETHSM1A_VERIFY.txt
+            TARGETHSM1A_POST_SHADING_VERIFY.txt
             SOURCESHADING1A_VERIFY.txt
-            SOURCEBOUNDARYPROBE1A_VERIFY.txt
