@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import runpy
 import sys
 
 if len(sys.argv) != 2:
@@ -46,6 +47,23 @@ if 'm9cam.setuptrace.v1a.readonly' not in s:
     s = s.replace(old, new, 1)
 
 renderer_path.write_text(s)
+
+# TARGETINPUTADAPTER1A-PHYSICALSOURCEAGNOSTIC1A: this is deliberately chained
+# after SETUPTRACE so the existing proven assembly recipe stays unchanged while
+# the final pixel path becomes camera-array/role agnostic. Both tools fail closed.
+patch_dir = Path(__file__).resolve().parent
+saved_argv = list(sys.argv)
+try:
+    for tool_name in ('apply-m9cam-physicalsourceagnostic1a.py',
+                      'verify-m9cam-physicalsourceagnostic1a.py'):
+        tool = patch_dir / tool_name
+        if not tool.exists():
+            raise SystemExit(f'SETUPTRACE1A missing chained physical-source tool: {tool}')
+        sys.argv = [str(tool), str(root)]
+        runpy.run_path(str(tool), run_name='__main__')
+finally:
+    sys.argv = saved_argv
+
 print('SETUPTRACE1A applied')
 print(' - pre-render setup split into OpenCV, snapshot, FillConst, FillDynamic, DEVICEPORT, physical-result, shading, SOURCECAL and bookkeeping timings')
-print(' - diagnostic-only; no RAW/JPEG/render arithmetic changes')
+print(' - PHYSICALSOURCEAGNOSTIC1A chained after trace: camera ID is provenance/lookup only; geometry/CFA/source metadata drive pixels')
