@@ -10,6 +10,8 @@ params = (root / 'app/src/main/java/com/particlesdevs/photoncamera/processing/re
 renderer = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java').read_text()
 spool = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java').read_text()
 
+# Verify only DNG writer-input and pixel-freeze invariants here. TARGETHSM1A is
+# assembled later in the workflow and is independently verified after assembly.
 checks = {
     'dngphysicalmeta1a_recalc_retained': 'ReCalcColorPhysical(boolean customNeutr' in params,
     'm9_dng_physical_recalc_retained': 'parameters.ReCalcColorPhysical(false, captureResult, characteristics);' in saver,
@@ -29,7 +31,6 @@ checks = {
     'raw_writer_unchanged': 'dngCreator.writeBuffer(outputStream, buffer, parameters.rawSize.x, parameters.rawSize.y);' in saver,
     'renderer_not_dependent_on_dng_trace': 'DNGPHYSICALMETA1B' not in renderer,
     'jpeg_quality_95_retained': 'JPEG_QUALITY = 95' in renderer,
-    'target_hsm_retained': 'TARGETHSM1A' in renderer,
 }
 for name, ok in checks.items():
     print(('PASS ' if ok else 'FAIL ') + name)
