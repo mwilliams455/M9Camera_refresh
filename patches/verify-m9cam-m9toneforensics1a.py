@@ -41,9 +41,10 @@ for bad in [
 ]:
     ck("no feedback: " + bad, re.search(bad, s) is None)
 
-# Freeze the true-SAT2 colour baseline while tone is diagnosed. Production mode
-# is derived from SATURATION_BANK rather than assigned as a literal 9.
-ck("SAT2 bank constant", re.search(r'private\s+static\s+final\s+int\s+SATURATION_BANK\s*=\s*2\s*;', s) is not None)
+# Freeze the true-SAT2 colour baseline while tone is diagnosed. The reconstructed
+# parent executes the dedicated SAT2STANDARD1B verifier first, so here we guard
+# the actual production selection seams rather than duplicating its source-format
+# check for the SATURATION_BANK declaration.
 ck("production SAT2 maps bank2 to native mode9", 'SATURATION_BANK == 2 ? 9' in s)
 ck("native context consumes selected mode", 'nativeSaturationMode1A);' in s)
 ck("runtime native mode telemetry", 'd.put("nativeSaturationMode1A", nativeSaturationMode1A);' in s)
