@@ -1,0 +1,264 @@
+name: Build M9Cam HSMBYPASS1A SAMERAW
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9nativehsm1a-sameraw-ab]
+    paths:
+      - 'patches/apply-m9cam-hsmbypass1a-sameraw.py'
+      - 'patches/verify-m9cam-hsmbypass1a-sameraw.py'
+      - '.github/workflows/build-m9cam-hsmbypass1a-sameraw.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-cobaltrolepurge1a-nativefirmware1a.py
+          python3 -m py_compile patches/verify-m9cam-cobaltrolepurge1a-nativefirmware1a.py
+          python3 -m py_compile patches/apply-m9cam-deviceport-perf1a-hotpath.py
+          python3 -m py_compile patches/verify-m9cam-deviceport-perf1a-hotpath.py
+          python3 -m py_compile patches/apply-m9cam-targethsm1a-rescue.py
+          python3 -m py_compile patches/verify-m9cam-targethsm1a-rescue.py
+          python3 -m py_compile patches/apply-m9cam-sourceshading1a-portable.py
+          python3 -m py_compile patches/verify-m9cam-sourceshading1a-portable.py
+          python3 -m py_compile patches/apply-m9cam-dngphysicalmeta1a.py
+          python3 -m py_compile patches/verify-m9cam-dngphysicalmeta1a.py
+          python3 -m py_compile patches/apply-m9cam-setuptrace1a.py
+          python3 -m py_compile patches/verify-m9cam-setuptrace1a.py
+          python3 -m py_compile patches/apply-m9cam-hsmbypass1a-sameraw.py
+          python3 -m py_compile patches/verify-m9cam-hsmbypass1a-sameraw.py
+
+      - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-sharpness-sharpsource1c-rbanchor1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact UPSTREAMAXIS1A parent assembly',
+              'Assemble frozen neutral-MHC parent',
+              'Assemble SHARPSOURCE1C RBANCHOR1A',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |': i += 1
+              if i >= len(lines): raise SystemExit('baseline run block missing: ' + name)
+              i += 1; out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected baseline indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/hsmbypass1a_baseline_{idx}.sh').write_text('\n'.join(out) + '\n')
+          PY
+          for s in /tmp/hsmbypass1a_baseline_*.sh; do bash "$s"; done
+
+      - name: Apply DEVICEPORT1A and CFA abstractions
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/verify-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/apply-m9cam-deviceport-perf1a-hotpath.py "$ROOT"
+          python3 patches/verify-m9cam-deviceport-perf1a-hotpath.py "$ROOT" | tee DEVICEPORT_PERF1A_VERIFY.txt
+          python3 patches/apply-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+          python3 patches/verify-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+          python3 patches/apply-m9cam-cfaauthority1a-ultrawide1b.py "$ROOT"
+          python3 patches/verify-m9cam-cfaauthority1a-ultrawide1b.py "$ROOT" | tee CFAAUTHORITY1A_VERIFY.txt
+
+      - name: Bind M9 DNG metadata to physical sensor
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" > /tmp/renderer_before_dngmeta.sha256
+          python3 patches/apply-m9cam-dngphysicalmeta1a.py "$ROOT"
+          python3 patches/verify-m9cam-dngphysicalmeta1a.py "$ROOT" | tee DNGPHYSICALMETA1A_VERIFY.txt
+          sha256sum "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" > /tmp/renderer_after_dngmeta.sha256
+          diff -u /tmp/renderer_before_dngmeta.sha256 /tmp/renderer_after_dngmeta.sha256
+
+      - name: Apply native source architecture baseline
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-cobaltrolepurge1a-nativefirmware1a.py "$ROOT"
+          python3 patches/verify-m9cam-cobaltrolepurge1a-nativefirmware1a.py "$ROOT" | tee COBALTROLEPURGE1A_VERIFY.txt
+
+      - name: Restore shared target H25 HSM role
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-targethsm1a-rescue.py "$ROOT"
+          python3 patches/verify-m9cam-targethsm1a-rescue.py "$ROOT" | tee TARGETHSM1A_VERIFY.txt
+
+      - name: Freeze rescued native and target assets
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > HSMBYPASS1A_TARGET_BEFORE_DIAGNOSTICS.sha256
+
+      - name: Apply portable source shading descriptor
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-sourceshading1a-portable.py "$ROOT"
+          python3 patches/verify-m9cam-sourceshading1a-portable.py "$ROOT" | tee SOURCESHADING1A_VERIFY.txt
+          python3 patches/verify-m9cam-targethsm1a-rescue.py "$ROOT" | tee TARGETHSM1A_POST_SHADING_VERIFY.txt
+
+      - name: Apply read-only setup timing trace
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-setuptrace1a.py "$ROOT"
+          python3 patches/verify-m9cam-setuptrace1a.py "$ROOT" | tee SETUPTRACE1A_VERIFY.txt
+          python3 patches/verify-m9cam-targethsm1a-rescue.py "$ROOT" | tee TARGETHSM1A_POST_TRACE_VERIFY.txt
+
+      - name: Prove diagnostics leave native target assets unchanged
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > HSMBYPASS1A_TARGET_AFTER_DIAGNOSTICS.sha256
+          diff -u HSMBYPASS1A_TARGET_BEFORE_DIAGNOSTICS.sha256 HSMBYPASS1A_TARGET_AFTER_DIAGNOSTICS.sha256
+
+      - name: Apply isolated HSMBYPASS1A same-RAW variant
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" > HSMBYPASS1A_RENDERER_BEFORE.sha256
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > HSMBYPASS1A_FROZEN_NONRENDERER_BEFORE.sha256
+          python3 patches/apply-m9cam-hsmbypass1a-sameraw.py "$ROOT"
+          python3 patches/verify-m9cam-hsmbypass1a-sameraw.py "$ROOT" | tee HSMBYPASS1A_VERIFY.txt
+          sha256sum "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" > HSMBYPASS1A_RENDERER_AFTER.sha256
+          if cmp -s HSMBYPASS1A_RENDERER_BEFORE.sha256 HSMBYPASS1A_RENDERER_AFTER.sha256; then
+            echo 'HSMBYPASS1A renderer unexpectedly unchanged' >&2
+            exit 1
+          fi
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > HSMBYPASS1A_FROZEN_NONRENDERER_AFTER.sha256
+          diff -u HSMBYPASS1A_FROZEN_NONRENDERER_BEFORE.sha256 HSMBYPASS1A_FROZEN_NONRENDERER_AFTER.sha256
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Snapshot assembled validation source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-hsmbypass1a-sameraw"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DevicePortAudit1A.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingAudit1A.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java" "$OUT/"
+          cp DEVICEPORT_PERF1A_VERIFY.txt CFAAUTHORITY1A_VERIFY.txt DNGPHYSICALMETA1A_VERIFY.txt SETUPTRACE1A_VERIFY.txt "$OUT/"
+          cp TARGETHSM1A_VERIFY.txt TARGETHSM1A_POST_SHADING_VERIFY.txt TARGETHSM1A_POST_TRACE_VERIFY.txt "$OUT/"
+          cp SOURCESHADING1A_VERIFY.txt COBALTROLEPURGE1A_VERIFY.txt HSMBYPASS1A_VERIFY.txt "$OUT/"
+          cp HSMBYPASS1A_RENDERER_BEFORE.sha256 HSMBYPASS1A_RENDERER_AFTER.sha256 "$OUT/"
+          cp HSMBYPASS1A_FROZEN_NONRENDERER_BEFORE.sha256 HSMBYPASS1A_FROZEN_NONRENDERER_AFTER.sha256 "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build HSMBYPASS1A SAMERAW APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/HSMBYPASS1A_SAMERAW_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee HSMBYPASS1A_SAMERAW_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-HSMBYPASS1A-SAMERAW-ASSEMBLED-SOURCE
+          path: assembled-hsmbypass1a-sameraw/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-HSMBYPASS1A-SAMERAW-BUILDLOG
+          path: HSMBYPASS1A_SAMERAW_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-HSMBYPASS1A-SAMERAW
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            HSMBYPASS1A_SAMERAW_APK_SHA256.txt
+            HSMBYPASS1A_VERIFY.txt
+            DNGPHYSICALMETA1A_VERIFY.txt
+            SETUPTRACE1A_VERIFY.txt
+            DEVICEPORT_PERF1A_VERIFY.txt
+            TARGETHSM1A_VERIFY.txt
+            SOURCESHADING1A_VERIFY.txt
