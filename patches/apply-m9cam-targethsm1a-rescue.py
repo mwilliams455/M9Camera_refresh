@@ -47,9 +47,10 @@ if prod.count(mode0) != 1:
     raise SystemExit('TARGETHSM1A expected exactly one production identity-HSM mode0 call')
 prod = prod.replace(mode0, mode3, 1)
 
+# Only patch semantic/telemetry fields that live inside this method. The explanatory
+# route comment sits immediately before the method signature, so it is deliberately
+# not an anchor: comments must never decide whether the photographic rescue applies.
 replacements = {
-    '// COBALTROLEPURGE1A-NATIVEFIRMWARE1A production route.':
-        '// TARGETHSM1A rescue route: native SOURCECAL2A followed by the frozen shared historical H25/HSM target role.',
     'd.put("schema", "m9cam.renderer.nativefirmware.v1a.production");':
         'd.put("schema", "m9cam.renderer.targethsm.v1a.sourceadapterrescue.production");',
     'd.put("architectureRevision", "COBALTROLEPURGE1A_NATIVEFIRMWARE1A");':
