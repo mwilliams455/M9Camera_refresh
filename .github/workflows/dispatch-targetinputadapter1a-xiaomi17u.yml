@@ -1,0 +1,29 @@
+name: Dispatch M9Cam TARGETINPUTADAPTER1A Xiaomi17U
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/targetinputadapter1a-xiaomi17u-setuptrace1a]
+    paths:
+      - 'patches/apply-m9cam-targethsm1a-rescue.py'
+      - 'patches/verify-m9cam-targethsm1a-rescue.py'
+      - '.github/workflows/dispatch-targetinputadapter1a-xiaomi17u.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch proven SETUPTRACE assembly on this ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run build-m9cam-dngphysicalmeta1a-setuptrace1a.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$REF_NAME"
+          echo "Dispatched SETUPTRACE assembly on $REF_NAME"
