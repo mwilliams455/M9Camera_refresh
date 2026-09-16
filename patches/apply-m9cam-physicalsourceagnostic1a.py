@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import runpy
 import sys
 
 if len(sys.argv) != 2:
@@ -107,8 +108,26 @@ if s.count(diag_anchor) != 1:
 s = s.replace(diag_anchor, diag_new, 1)
 
 p.write_text(s)
+
+# DEVICEPORTSPOOL1B: the physical-source descriptor is still captured per frame, but
+# its diagnostic JSON must never block the render worker on direct/SAF persistence.
+# Reuse the already-proven diagnostic spool used by SOURCECAL and RAWSHADING.
+patch_dir = Path(__file__).resolve().parent
+saved_argv = list(sys.argv)
+try:
+    for tool_name in ('apply-m9cam-deviceportspool1b.py',
+                      'verify-m9cam-deviceportspool1b.py'):
+        tool = patch_dir / tool_name
+        if not tool.exists():
+            raise SystemExit(f'PHYSICALSOURCEAGNOSTIC1A missing DEVICEPORT spool tool: {tool}')
+        sys.argv = [str(tool), str(root)]
+        runpy.run_path(str(tool), run_name='__main__')
+finally:
+    sys.argv = saved_argv
+
 print('PHYSICALSOURCEAGNOSTIC1A applied')
 print(' - physical camera ID is lookup/provenance only')
 print(' - RAW origin is derived from active physical sensor geometry and fails closed if ambiguous')
 print(' - source CFA/shading plane phase follows the proven sensor-coordinate origin')
 print(' - dormant NATIVEAB bank no longer keys on physical camera 2')
+print(' - DEVICEPORTSPOOL1B chained: diagnostic file persistence removed from render-worker hot path')
