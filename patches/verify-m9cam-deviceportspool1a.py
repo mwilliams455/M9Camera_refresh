@@ -9,6 +9,9 @@ device = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9D
 spool = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java').read_text()
 renderer = (root / 'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java').read_text()
 
+# This verifier intentionally checks only invariants available immediately after
+# DEVICEPORT/CFA assembly. SOURCESHADING1A and TARGETHSM1A are applied later and
+# have their own dedicated post-assembly verifiers.
 checks = {
     'existing_private_spool_schema': 'm9cam.sidecarspool.v1.privatebundle1b' in spool,
     'deviceport_uses_private_spool': 'M9DiagnosticBurstSpool.stage(' in device,
@@ -18,8 +21,6 @@ checks = {
     'camera_manager_inventory_still_disabled': 'captureHotPathCameraManagerEnumeration", false' in device,
     'offline_inventory_policy_retained': 'disabled_on_capture_hot_path_use_explicit_one_shot_inventory_if_needed' in device,
     'descriptor_retained': 'M9RawSensorDescriptor.fromActive(' in device,
-    'source_shading_descriptor_retained': 'M9SourceShadingAudit1A.describe(' in device,
-    'renderer_target_hsm_retained': 'TARGETHSM1A' in renderer,
     'jpeg_quality_95_retained': 'JPEG_QUALITY = 95' in renderer,
 }
 for name, ok in checks.items():
