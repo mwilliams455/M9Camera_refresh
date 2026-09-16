@@ -1,4 +1,4 @@
-name: Dispatch M9Cam TARGETINPUTADAPTER1A Xiaomi17U
+name: Dispatch M9Cam TARGETINPUTADAPTER1A Physical Source
 
 on:
   workflow_dispatch:
@@ -7,6 +7,9 @@ on:
     paths:
       - 'patches/apply-m9cam-targethsm1a-rescue.py'
       - 'patches/verify-m9cam-targethsm1a-rescue.py'
+      - 'patches/apply-m9cam-setuptrace1a.py'
+      - 'patches/apply-m9cam-physicalsourceagnostic1a.py'
+      - 'patches/verify-m9cam-physicalsourceagnostic1a.py'
       - '.github/workflows/dispatch-targetinputadapter1a-xiaomi17u.yml'
 
 permissions:
@@ -26,4 +29,4 @@ jobs:
           gh workflow run build-m9cam-dngphysicalmeta1a-setuptrace1a.yml \
             --repo "${{ github.repository }}" \
             --ref "$REF_NAME"
-          echo "Dispatched SETUPTRACE assembly on $REF_NAME"
+          echo "Dispatched topology-agnostic physical-source SETUPTRACE assembly on $REF_NAME"
