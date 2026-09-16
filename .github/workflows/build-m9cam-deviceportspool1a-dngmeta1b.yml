@@ -8,6 +8,7 @@ on:
       - 'patches/apply-m9cam-deviceportspool1a.py'
       - 'patches/verify-m9cam-deviceportspool1a.py'
       - 'patches/apply-m9cam-dngphysicalmeta1b-trace.py'
+      - 'patches/fix-m9cam-dngphysicalmeta1b-jsonexception1a.py'
       - 'patches/verify-m9cam-dngphysicalmeta1b-trace.py'
       - '.github/workflows/build-m9cam-deviceportspool1a-dngmeta1b.yml'
 
@@ -26,6 +27,7 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-deviceportspool1a.py
           python3 -m py_compile patches/verify-m9cam-deviceportspool1a.py
           python3 -m py_compile patches/apply-m9cam-dngphysicalmeta1b-trace.py
+          python3 -m py_compile patches/fix-m9cam-dngphysicalmeta1b-jsonexception1a.py
           python3 -m py_compile patches/verify-m9cam-dngphysicalmeta1b-trace.py
           python3 -m py_compile patches/apply-m9cam-dngphysicalmeta1a.py
           python3 -m py_compile patches/verify-m9cam-dngphysicalmeta1a.py
@@ -85,6 +87,7 @@ jobs:
           python3 patches/apply-m9cam-dngphysicalmeta1a.py "$ROOT"
           python3 patches/verify-m9cam-dngphysicalmeta1a.py "$ROOT" | tee DNGPHYSICALMETA1A_VERIFY.txt
           python3 patches/apply-m9cam-dngphysicalmeta1b-trace.py "$ROOT"
+          python3 patches/fix-m9cam-dngphysicalmeta1b-jsonexception1a.py "$ROOT"
           python3 patches/verify-m9cam-dngphysicalmeta1b-trace.py "$ROOT" | tee DNGPHYSICALMETA1B_VERIFY.txt
           sha256sum "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" > /tmp/renderer_after_dngmeta.sha256
           diff -u /tmp/renderer_before_dngmeta.sha256 /tmp/renderer_after_dngmeta.sha256
