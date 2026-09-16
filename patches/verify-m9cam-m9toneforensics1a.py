@@ -41,11 +41,15 @@ for bad in [
 ]:
     ck("no feedback: " + bad, re.search(bad, s) is None)
 
-# Freeze the true-SAT2 colour baseline while tone is diagnosed.
-ck("true native SAT2 mode 9", 'nativeSaturationMode1A = 9' in s)
+# Freeze the true-SAT2 colour baseline while tone is diagnosed. Production mode
+# is derived from SATURATION_BANK rather than assigned as a literal 9.
+ck("SAT2 bank constant", re.search(r'private\s+static\s+final\s+int\s+SATURATION_BANK\s*=\s*2\s*;', s) is not None)
+ck("production SAT2 maps bank2 to native mode9", 'SATURATION_BANK == 2 ? 9' in s)
+ck("native context consumes selected mode", 'nativeSaturationMode1A);' in s)
+ck("runtime native mode telemetry", 'd.put("nativeSaturationMode1A", nativeSaturationMode1A);' in s)
+ck("runtime actual bank telemetry", 'd.put("nativeSaturationBankActuallySelected", SATURATION_BANK);' in s)
+ck("runtime M04/M05 telemetry", 'nativeSaturationMode1A == 9 ? "M04_M05"' in s)
 ck("SAT2 selected telemetry", 'SAT2_STANDARD_M04_M05' in s)
-ck("SAT2 bank actually selected", 'nativeSaturationBankActuallySelected", 2' in s)
-ck("M04/M05 telemetry", 'nativeSaturationMatrixPairActuallySelected", "M04_M05"' in s)
 ck("identity HSM retained", 'identity_90x30_no_Adobe_HueSatMap_target_stage' in s)
 ck("Cobalt HSM disabled", 'cobaltHueSatMapApplied", false' in s)
 ck("curve02 retained", 'curve02 normal-ISO sRGB Standard' in s)
