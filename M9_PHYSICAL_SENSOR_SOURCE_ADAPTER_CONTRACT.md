@@ -1,7 +1,7 @@
 # M9 Physical-Sensor Source Adapter Contract
 
 Date: 2026-09-16
-Branch: `research/sourceboundaryprobe1a-multisensor`
+Branch: `research/sourceadapter-shading1a-portable`
 
 ## Purpose
 
@@ -16,13 +16,18 @@ The unit of adaptation is the **physical RAW source**, not a zoom label, focal-l
 ```text
 physical RAW buffer
   -> PhysicalRawDescriptor
-  -> source normalization / SourceAdapter
+  -> RawGeometryCfa
+  -> BlackWhiteNormalize
+  -> SourceShadingNormalize
+  -> SensorColorNormalize (SOURCECAL)
   -> CommonSceneFrame
   -> one shared M9 target renderer
 ```
 
 Everything before `CommonSceneFrame` may vary when justified by physical sensor/module evidence.
 Everything after `CommonSceneFrame` MUST be identical for every supported source.
+
+SOURCECAL is the source-normalization boundary/orchestrator. It must not hide spatial shading inside a colour matrix: `SourceShadingNormalize` and `SensorColorNormalize` remain separable and independently measurable source-domain stages.
 
 ## PhysicalRawDescriptor
 
@@ -36,16 +41,17 @@ A source descriptor should carry, with provenance and confidence where applicabl
 6. static and dynamic black level, including plane ordering
 7. static and dynamic white level
 8. LensShadingMap / GainMap geometry and values
-9. Camera2/DNG calibration transforms
-10. Camera2/DNG color matrices
-11. Camera2/DNG forward matrices
-12. reference illuminants
-13. live/as-shot neutral
-14. sensitivity / ISO metadata and analogue/digital gain evidence when available
-15. sensor noise-model metadata when available
-16. evidence of vendor scaling, nonlinear RAW, PDAF masking, remosaic/binning, baked preprocessing, or other source quirks
-17. physical camera identity only as provenance, never as a photographic policy selector
-18. focal length/aperture only as provenance or physically relevant optical metadata, never as a target-renderer selector
+9. whether lens shading is already partially/fully applied to RAW and the live remaining-correction semantics
+10. Camera2/DNG calibration transforms
+11. Camera2/DNG color matrices
+12. Camera2/DNG forward matrices
+13. reference illuminants
+14. live/as-shot neutral
+15. sensitivity / ISO metadata and analogue/digital gain evidence when available
+16. sensor noise-model metadata when available
+17. evidence of vendor scaling, nonlinear RAW, PDAF masking, remosaic/binning, baked preprocessing, or other source quirks
+18. physical camera identity only as provenance, never as a photographic policy selector
+19. focal length/aperture only as provenance or physically relevant optical metadata, never as a target-renderer selector
 
 Unknown or unproven values must remain explicitly unknown rather than silently inheriting the main camera's assumptions.
 
@@ -55,12 +61,14 @@ A SourceAdapter may perform only operations required to make physically differen
 
 - CFA/phase-correct demosaic input interpretation
 - black/white normalization
-- source shading normalization when justified by the RAW contract
+- exactly-once source shading normalization using authoritative/measured source data
 - source colour calibration using the active physical sensor's metadata
 - live neutral handling in the proven Camera2/DNG domain
 - geometry/origin/stride handling
 - sensor signal/noise-domain normalization when measured evidence proves it is necessary
 - correction for proven vendor RAW preprocessing or scaling
+
+Source shading normalization must preserve four-channel Bayer shading semantics where provided. It must respect whether RAW shading was already applied and must not apply an assumed complete map on top of an already corrected RAW. If RAW-buffer-to-active-array geometry is unproven, shading mutation fails closed and remains diagnostic.
 
 A SourceAdapter MUST NOT contain:
 
@@ -71,7 +79,7 @@ A SourceAdapter MUST NOT contain:
 - per-lens curve02 changes
 - per-lens BT.601 changes
 - per-lens TG1 changes
-- aesthetic tuning keyed to camera ID, focal length, zoom label, or lens name
+- aesthetic tuning keyed to camera ID, focal length, zoom label, lens name, or manufacturer name
 
 ## CommonSceneFrame contract
 
@@ -86,6 +94,7 @@ The common-scene boundary must eventually define and verify at least:
 - treatment of negative matrix results
 - expected noise/signal semantics, if a common noise domain is required
 - geometry handed to the target renderer
+- source lens/color shading normalized to the degree supported by authoritative source evidence
 
 The boundary should be testable independently of the M9 target stages.
 
@@ -96,6 +105,14 @@ Source adaptation is selected or parameterized from physical RAW characteristics
 Camera ID may locate the active Camera2 characteristics object, but a literal camera ID must not become the reason for a colour/tone/noise look. Focal length and zoom label must not select source-normalization behaviour except where a physical optical parameter is directly part of the measured source correction (for example the active module's own shading data).
 
 Two modules with similar focal lengths may require different source normalization. Two differently labelled modules may share the same normalization if their physical RAW contracts are equivalent.
+
+## Source shading rule
+
+For Camera2 RAW sources, the live lens-shading correction map is interpreted as source metadata, not target look data. It spans the active pixel array, has four API Bayer channels `[R, G_even, G_odd, B]`, and is bilinearly interpolated. When RAW shading has already been applied, the live map represents the remaining correction; otherwise it represents the complete correction.
+
+The source adapter therefore works from the map actually returned for the capture and its physical geometry. Manufacturer, camera ID, focal-length class and zoom label never substitute for those semantics.
+
+Detailed requirements are frozen in `M9_SOURCE_SHADING_NORMALIZATION_CONTRACT.md`.
 
 ## Current Xiaomi 15 Ultra validation matrix
 
