@@ -68,7 +68,7 @@ jobs:
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           sha256sum "$ROOT/app/src/main/cpp/m9color_jni.cpp" > TONEFORENSICS_CPP_BEFORE.sha256
-          grep -n 'nativeSaturationMode1A\|nativeSaturationBankActuallySelected\|nativeSaturationMatrixPairActuallySelected' \
+          grep 'nativeSaturationMode1A\|nativeSaturationBankActuallySelected\|nativeSaturationMatrixPairActuallySelected' \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
             > TONEFORENSICS_SAT2_BEFORE.txt
 
@@ -80,7 +80,7 @@ jobs:
           python3 patches/verify-m9cam-m9toneforensics1a.py "$ROOT" | tee M9TONEFORENSICS1A_VERIFY.txt
           sha256sum "$ROOT/app/src/main/cpp/m9color_jni.cpp" > TONEFORENSICS_CPP_AFTER.sha256
           diff -u TONEFORENSICS_CPP_BEFORE.sha256 TONEFORENSICS_CPP_AFTER.sha256
-          grep -n 'nativeSaturationMode1A\|nativeSaturationBankActuallySelected\|nativeSaturationMatrixPairActuallySelected' \
+          grep 'nativeSaturationMode1A\|nativeSaturationBankActuallySelected\|nativeSaturationMatrixPairActuallySelected' \
             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
             > TONEFORENSICS_SAT2_AFTER.txt
           diff -u TONEFORENSICS_SAT2_BEFORE.txt TONEFORENSICS_SAT2_AFTER.txt
