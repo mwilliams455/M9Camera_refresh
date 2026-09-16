@@ -76,3 +76,5 @@ print('M9TONEAUTH1B runtime fix applied')
 print('A/B/C now use exact production bridge mode 4')
 print('unrelated skin/HSM audits disabled')
 print('per-variant diagnostics embedded in primary sidecar only')
+
+# Branch-local build trigger: runtime behavior is unchanged by this marker.
