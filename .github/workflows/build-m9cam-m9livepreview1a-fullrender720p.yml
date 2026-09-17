@@ -233,13 +233,19 @@ jobs:
           if b''.join(struct.pack('<q',x) for x in sat2[:9]) not in b: raise SystemExit('SAT2 M04 missing')
           if b''.join(struct.pack('<q',x) for x in sat2[9:]) not in b: raise SystemExit('SAT2 M05 missing')
           dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
-          markers=[b'M9LIVEPREVIEW1A_FULLRENDER720P',
-                   b'FULL_PRODUCTION_RENDER_REDUCED_RAW_960x720',
-                   b'M9SENSORTARGET1A', b'm9SensorTarget1ARuntimeVerified']
+          markers=[
+              b'M9LivePreview1A',
+              b'renderLivePreview1A',
+              b'requestM9LivePreviewProbe1A',
+              b'FULL_PRODUCTION_RENDER_REDUCED_RAW_960x720',
+              b'M9LIVEPREVIEW1A requires RAW_SENSOR image',
+              b'M9LIVEPREVIEW1A full-render frame failed',
+              b'm9LivePreviewMode'
+          ]
           for marker in markers:
               ok=marker in dex
               print(marker.decode('ascii'), ok)
-              if not ok: raise SystemExit('missing marker '+marker.decode('ascii'))
+              if not ok: raise SystemExit('missing runtime marker '+marker.decode('ascii'))
           print('M9LIVEPREVIEW1A APK PROOF PASS')
           PY
 
