@@ -61,7 +61,8 @@ if n != 2:
     raise SystemExit(f'output json telemetry: expected 2 matches, found {n}')
 s = s.replace(old,
 '''                                variantDiag.put("outputJsonPath", JSONObject.NULL);
-                                variantDiag.put("outputJsonEmbeddedInPrimarySidecar", true);''')
+                                variantDiag.put("outputJsonEmbeddedInPrimarySidecar", true);
+                                variantDiag.put("toneBankFullSourceReference", "FULL_LIVE_REMAINING_CAMERA2_MAP_FIXED_PRIMARY_GAIN");''')
 
 one(
 '''                            try {
@@ -83,4 +84,5 @@ print('M9 TONEBANK1A TARGETDIRECTFIX applied')
 print('A/B/C bridge modes remain exact production TARGETDIRECT mode 0')
 print('A=full TC20, B=half TC20 EV authority, C=zero TC20 authority')
 print('primary JPEG/capture/TONEBOUND050/SAT2/curve02 unchanged')
+print('full-source gain-lock provenance stamped in tone-bank diagnostics')
 print('per-variant diagnostics embedded in primary sidecar only')
