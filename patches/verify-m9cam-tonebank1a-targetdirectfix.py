@@ -29,8 +29,6 @@ ck('capture_mutation_false', '"toneAuthorityCaptureExposureMutation", false' in 
 ck('primary_mutation_false', '"toneAuthorityPrimaryJpegMutation", false' in s and '"primaryJpegChanged", false' in s)
 ck('same_raw_true', '"toneAuthoritySameRaw", true' in s)
 
-# Current production tone path is TONEBOUND050, not the older direct
-# effectiveRenderGain = meterParityRenderBaseGain seam.
 ck('tonebound050_retained', 'm9cam.tonebound.v1a.050ev' in s)
 ck('tonebound_limit_retained', 'final double toneBoundLimitEv1A = 0.5;' in s)
 ck('tonebound_bounded_gain_retained', 'final double effectiveRenderGain = toneBoundUnboundedEffectiveGain1A * toneBoundScale1A;' in s)
@@ -38,7 +36,9 @@ ck('original_tc20_decision_retained', 'final double toneBoundOriginalTc20Gain1A 
 
 ck('m9_sensor_target_retained', 'M9SENSORTARGET1A' in s)
 ck('fullsource_gainlock_retained', '_M9_SOURCEFULLNORM1A_GAINLOCK.jpg' in s)
-ck('fullsource_method_retained', 'FULL_LIVE_REMAINING_CAMERA2_MAP_FIXED_PRIMARY_GAIN' in s)
+ck('fullsource_alpha1_retained', 'full_live_remaining_LensShadingMap_common_luma_alpha_1p0' in s)
+ck('fullsource_authority_role_retained', 'source_common_luminance_shading_authority_NORM030_to_full_physical_remaining_map' in s)
+ck('fullsource_primary_final_gain_lock_retained', 'primaryFinalLinearGain' in s and 'gainLockPassed' in s)
 ck('identity_hsm_retained', 'identity_90x30_no_Adobe_HueSatMap_target_stage' in s)
 ck('sat2_label', '"toneAuthoritySaturationBank", "SAT2_M04_M05"' in s)
 ck('sat2_constant', 'public static final int SATURATION_BANK = 2;' in s)
