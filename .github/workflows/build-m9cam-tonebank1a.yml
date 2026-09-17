@@ -9,9 +9,8 @@ on:
       - 'patches/apply-m9cam-fullsourcenorm1a.py'
       - 'patches/verify-m9cam-fullsourcenorm1a.py'
       - 'patches/apply-m9cam-m9toneauth1a.py'
-      - 'patches/verify-m9cam-m9toneauth1a.py'
-      - 'patches/apply-m9cam-m9toneauth1b-runtimefix.py'
-      - 'patches/verify-m9cam-m9toneauth1b-runtimefix.py'
+      - 'patches/apply-m9cam-tonebank1a-targetdirectfix.py'
+      - 'patches/verify-m9cam-tonebank1a-targetdirectfix.py'
 
 jobs:
   build:
@@ -28,9 +27,8 @@ jobs:
           python3 -m py_compile patches/apply-m9cam-fullsourcenorm1a.py
           python3 -m py_compile patches/verify-m9cam-fullsourcenorm1a.py
           python3 -m py_compile patches/apply-m9cam-m9toneauth1a.py
-          python3 -m py_compile patches/verify-m9cam-m9toneauth1a.py
-          python3 -m py_compile patches/apply-m9cam-m9toneauth1b-runtimefix.py
-          python3 -m py_compile patches/verify-m9cam-m9toneauth1b-runtimefix.py
+          python3 -m py_compile patches/apply-m9cam-tonebank1a-targetdirectfix.py
+          python3 -m py_compile patches/verify-m9cam-tonebank1a-targetdirectfix.py
 
       - name: Replay exact FULLSOURCENORM1A assembled parent
         shell: bash
@@ -91,9 +89,8 @@ jobs:
           set -euxo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
           python3 patches/apply-m9cam-m9toneauth1a.py "$ROOT" | tee TONEBANK1A_METHOD.txt
-          python3 patches/apply-m9cam-m9toneauth1b-runtimefix.py "$ROOT" | tee -a TONEBANK1A_METHOD.txt
-          python3 patches/verify-m9cam-m9toneauth1a.py "$ROOT" | tee TONEBANK1A_VERIFY_A.txt
-          python3 patches/verify-m9cam-m9toneauth1b-runtimefix.py "$ROOT" | tee TONEBANK1A_VERIFY_B.txt
+          python3 patches/apply-m9cam-tonebank1a-targetdirectfix.py "$ROOT" | tee -a TONEBANK1A_METHOD.txt
+          python3 patches/verify-m9cam-tonebank1a-targetdirectfix.py "$ROOT" | tee TONEBANK1A_VERIFY.txt
 
       - name: Verify experiment contract
         run: |
@@ -104,6 +101,8 @@ jobs:
           grep -F '_TONEAUTH_A_FULL_TC20' "$R"
           grep -F '_TONEAUTH_B_HALF_TC20' "$R"
           grep -F '_TONEAUTH_C_ZERO_TC20' "$R"
+          grep -F 'int[] bridgeProbeModes = {0, 0, 0};' "$R"
+          grep -F 'm9cam.tonebound.v1a.050ev' "$R"
           grep -F 'FULL_LIVE_REMAINING_CAMERA2_MAP_FIXED_PRIMARY_GAIN' "$R"
           grep -F '_M9_SOURCEFULLNORM1A_GAINLOCK.jpg' "$R"
           grep -F 'SAT2_M04_M05' "$R"
@@ -117,11 +116,13 @@ jobs:
           diff -u TONEBANK1A_FROZEN_BEFORE.sha256 TONEBANK1A_FROZEN_AFTER.sha256
           cat > TONEBANK1A_CONTRACT.txt <<'EOF'
           M9TONEBANK1A
+          Parent: FULLSOURCENORM1A / TARGETDIRECT1A / M9SENSORTARGET1A / TONEBOUND050.
           Primary JPEG unchanged by diagnostic bank.
           Existing FULLSOURCENORM1A gain-locked secondary retained.
           A = current/full TC20 authority control.
           B = half TC20 displacement in EV around unity.
           C = zero TC20 global exposure authority (unity gain; existing edge term preserved).
+          All A/B/C variants use exact TARGETDIRECT production bridge mode 0.
           Capture exposure unchanged.
           Source calibration unchanged.
           M9 target calibration unchanged.
@@ -129,7 +130,7 @@ jobs:
           SAT2 M04/M05 unchanged.
           curve02 unchanged.
           BT.601/TG1 unchanged.
-          No local tone mapping, HDR, semantic scene recognition, or toe modification in this build.
+          No local tone mapping, HDR, semantic scene recognition, falloff change, or toe modification in this build.
           EOF
 
       - name: Snapshot assembled source
@@ -139,7 +140,7 @@ jobs:
           OUT="$GITHUB_WORKSPACE/assembled-tonebank1a"
           mkdir -p "$OUT"
           cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
-          cp TONEBANK1A_METHOD.txt TONEBANK1A_VERIFY_A.txt TONEBANK1A_VERIFY_B.txt TONEBANK1A_CONTRACT.txt "$OUT/"
+          cp TONEBANK1A_METHOD.txt TONEBANK1A_VERIFY.txt TONEBANK1A_CONTRACT.txt "$OUT/"
           cp TONEBANK1A_FROZEN_BEFORE.sha256 TONEBANK1A_FROZEN_AFTER.sha256 "$OUT/"
           sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
 
@@ -200,6 +201,7 @@ jobs:
               b'_TONEAUTH_A_FULL_TC20',
               b'_TONEAUTH_B_HALF_TC20',
               b'_TONEAUTH_C_ZERO_TC20',
+              b'm9cam.tonebound.v1a.050ev',
               b'SAT2_M04_M05',
           ]
           for marker in markers:
@@ -240,5 +242,4 @@ jobs:
             TONEBANK1A_APK_SHA256.txt
             TONEBANK1A_APK_PROOF.txt
             TONEBANK1A_CONTRACT.txt
-            TONEBANK1A_VERIFY_A.txt
-            TONEBANK1A_VERIFY_B.txt
+            TONEBANK1A_VERIFY.txt
