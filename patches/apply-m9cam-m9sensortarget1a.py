@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
 if len(sys.argv) != 2:
@@ -147,20 +148,22 @@ helpers = r'''
 s = s[:insert_at] + helpers + s[insert_at:]
 
 # Enforce the invariant in the actual core after the active source context has
-# been built and before any target rendering can consume it.
+# been built and before any target rendering can consume it. Match only the
+# context assignment so later diagnostic/timing insertions cannot invalidate the patch.
 cs, ce = method_span(s, 'private static RenderCore renderNativeProspectiveCore(')
 core = s[cs:ce]
-anchor = '''            ColorContext ctx = nativeSource.ctx;
-            colorContextElapsedMs = (System.nanoTime() - colorContextStartedNs) / 1_000_000L;'''
-replacement = '''            ColorContext ctx = nativeSource.ctx;
-            if (bridgeProbeMode == 0) {
-                m9SensorTarget1AAssertProductionContext(
-                        nativeSource, ctx, cal, bridgeProbeMode);
-            }
-            colorContextElapsedMs = (System.nanoTime() - colorContextStartedNs) / 1_000_000L;'''
-if core.count(anchor) != 1:
-    raise SystemExit('M9SENSORTARGET1A context assertion anchor count=' + str(core.count(anchor)))
-core = core.replace(anchor, replacement, 1)
+context_matches = list(re.finditer(r'(?m)^(\s*)ColorContext\s+ctx\s*=\s*nativeSource\.ctx\s*;\s*$', core))
+if len(context_matches) != 1:
+    occurrences = [m.start() for m in re.finditer(r'nativeSource\.ctx', core)]
+    raise SystemExit('M9SENSORTARGET1A context assignment matches=' + str(len(context_matches))
+                     + ' nativeSource.ctx occurrences=' + str(occurrences))
+m = context_matches[0]
+indent = m.group(1)
+insertion = m.group(0) + '\n' + indent + '''if (bridgeProbeMode == 0) {
+''' + indent + '''    m9SensorTarget1AAssertProductionContext(
+''' + indent + '''            nativeSource, ctx, cal, bridgeProbeMode);
+''' + indent + '''}'''
+core = core[:m.start()] + insertion + core[m.end():]
 
 diag_anchor = '                d.put("targetCalibrationAsset", "m9/m9_curve02_firmware.bin");'
 if core.count(diag_anchor) != 1:
