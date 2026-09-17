@@ -1,0 +1,241 @@
+name: Build M9Cam SOURCESHADING2A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9sourceshading2a]
+    paths:
+      - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingApply2A.java'
+      - 'patches/apply-m9cam-sourceshading2a.py'
+      - 'patches/apply-m9cam-sourceshading2a-fix1.py'
+      - 'patches/verify-m9cam-sourceshading2a.py'
+      - '.github/workflows/build-m9cam-sourceshading2a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify SOURCESHADING2A patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-sourceshading2a.py
+          python3 -m py_compile patches/apply-m9cam-sourceshading2a-fix1.py
+          python3 -m py_compile patches/verify-m9cam-sourceshading2a.py
+
+      - name: Replay exact M9SENSORTARGET1A assembled parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-m9sensortarget1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Verify M9SENSORTARGET1A patch syntax',
+              'Replay exact TARGETDIRECT1A assembled baseline',
+              'Freeze retained historical controls before sensor-target patch',
+              'Apply sensor-derived Leica M9 target test',
+              'Prove historical Cobalt controls retained but untouched',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              if target not in lines:
+                  raise SystemExit('M9SENSORTARGET1A parent step missing: ' + name)
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('M9SENSORTARGET1A parent run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected M9SENSORTARGET1A indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/sourceshading2a_parent_{idx:02d}.sh').write_text('\n'.join(out) + '\n')
+          PY
+          for s in /tmp/sourceshading2a_parent_*.sh; do
+            echo "=== replay $s ==="
+            bash "$s"
+          done
+
+      - name: Freeze M9 target core before SOURCESHADING2A
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration_manifest.json" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > SOURCESHADING2A_FROZEN_TARGET_BEFORE.sha256
+
+      - name: Apply acquisition-proven source shading same-RAW bank
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-sourceshading2a-fix1.py "$ROOT"
+          python3 patches/verify-m9cam-sourceshading2a.py "$ROOT" | tee SOURCESHADING2A_VERIFY.txt
+
+      - name: Prove M9 target core unchanged
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration_manifest.json" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > SOURCESHADING2A_FROZEN_TARGET_AFTER.sha256
+          diff -u SOURCESHADING2A_FROZEN_TARGET_BEFORE.sha256 SOURCESHADING2A_FROZEN_TARGET_AFTER.sha256
+
+      - name: Snapshot assembled validation source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-sourceshading2a"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageFrame.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/SaverImplementation.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingApply2A.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" "$OUT/"
+          cp SOURCESHADING2A_VERIFY.txt "$OUT/"
+          cp SOURCESHADING2A_FROZEN_TARGET_BEFORE.sha256 SOURCESHADING2A_FROZEN_TARGET_AFTER.sha256 "$OUT/"
+          cp M9SENSORTARGET1A_VERIFY.txt M9TONEBOUND1A_VERIFY.txt TARGETDIRECT1A_VERIFY.txt TARGETDOMAINTRACE1A_VERIFY.txt "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+        with:
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build SOURCESHADING2A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/SOURCESHADING2A_GRADLE.log"
+
+      - name: Verify packaged validation candidate
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/sourceshading2a-apk
+          mkdir -p /tmp/sourceshading2a-apk
+          unzip -q "$APK" -d /tmp/sourceshading2a-apk
+          python3 - <<'PY' | tee SOURCESHADING2A_APK_PROOF.txt
+          from pathlib import Path
+          import hashlib, struct
+          root=Path('/tmp/sourceshading2a-apk')
+          curve=root/'assets/m9/m9_curve02_firmware.bin'
+          cobalt=root/'assets/m9/m9_r35_calibration.bin'
+          native=root/'lib/arm64-v8a/libm9color.so'
+          if not curve.exists() or not cobalt.exists() or not native.exists(): raise SystemExit(1)
+          ch=hashlib.sha256(curve.read_bytes()).hexdigest()
+          print('CURVE02_SHA256', ch)
+          if ch != '5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c': raise SystemExit(1)
+          b=native.read_bytes()
+          sat2=[13659,-4457,-1004,-2244,13469,-3033,-199,-6014,14398,
+                14811,-5604,-1004,-2455,13688,-3033,393,-6588,14398]
+          p1=b''.join(struct.pack('<q',x) for x in sat2[:9])
+          p2=b''.join(struct.pack('<q',x) for x in sat2[9:])
+          print('SAT2_M04_PRESENT', p1 in b)
+          print('SAT2_M05_PRESENT', p2 in b)
+          if p1 not in b or p2 not in b: raise SystemExit(1)
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          markers=[
+              b'M9SENSORTARGET1A',
+              b'm9SensorTarget1ARuntimeVerified',
+              b'SOURCESHADING2A_ACQUISITIONPROOF_SAMERAW_GAINLOCK',
+              b'_SOURCESHADING2A_SAMERAW_GAINLOCK.jpg',
+              b'applied_live_Camera2_map_exactly_once',
+              b'sourceShading2ATc20GainLockedToControl',
+          ]
+          for marker in markers:
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok: raise SystemExit(1)
+          print('COBALT_CONTROL_ASSET_RETAINED', cobalt.exists())
+          print('SOURCESHADING2A APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee SOURCESHADING2A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SOURCESHADING2A-ASSEMBLED-SOURCE
+          path: assembled-sourceshading2a/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SOURCESHADING2A-BUILDLOG
+          path: SOURCESHADING2A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-SOURCESHADING2A-SAMERAW-GAINLOCK-TONEBOUND050
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            SOURCESHADING2A_APK_SHA256.txt
+            SOURCESHADING2A_VERIFY.txt
+            SOURCESHADING2A_APK_PROOF.txt
+            SOURCESHADING2A_FROZEN_TARGET_BEFORE.sha256
+            SOURCESHADING2A_FROZEN_TARGET_AFTER.sha256
+            M9SENSORTARGET1A_VERIFY.txt
+            M9TONEBOUND1A_VERIFY.txt
+            TARGETDIRECT1A_VERIFY.txt
+            TARGETDOMAINTRACE1A_VERIFY.txt
