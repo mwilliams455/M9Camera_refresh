@@ -1,0 +1,244 @@
+name: Build M9Cam TONEBANK1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9tonebank1a]
+    paths:
+      - '.github/workflows/build-m9cam-tonebank1a.yml'
+      - 'patches/apply-m9cam-fullsourcenorm1a.py'
+      - 'patches/verify-m9cam-fullsourcenorm1a.py'
+      - 'patches/apply-m9cam-m9toneauth1a.py'
+      - 'patches/verify-m9cam-m9toneauth1a.py'
+      - 'patches/apply-m9cam-m9toneauth1b-runtimefix.py'
+      - 'patches/verify-m9cam-m9toneauth1b-runtimefix.py'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify experiment patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-fullsourcenorm1a.py
+          python3 -m py_compile patches/verify-m9cam-fullsourcenorm1a.py
+          python3 -m py_compile patches/apply-m9cam-m9toneauth1a.py
+          python3 -m py_compile patches/verify-m9cam-m9toneauth1a.py
+          python3 -m py_compile patches/apply-m9cam-m9toneauth1b-runtimefix.py
+          python3 -m py_compile patches/verify-m9cam-m9toneauth1b-runtimefix.py
+
+      - name: Replay exact FULLSOURCENORM1A assembled parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-fullsourcenorm1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact SOURCEGEOMETRYPROOF2A assembled parent',
+              'Freeze target assets before A/B patch',
+              'Apply gain-locked full source normalization A/B',
+              'Prove target assets unchanged by A/B patch',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              if target not in lines:
+                  raise SystemExit('FULLSOURCENORM1A parent step missing: ' + name)
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('FULLSOURCENORM1A parent run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected parent indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/tonebank1a_parent_{idx:02d}.sh').write_text('\n'.join(out) + '\n')
+          PY
+          for script in /tmp/tonebank1a_parent_*.sh; do
+            echo "=== replay $script ==="
+            bash "$script"
+          done
+
+      - name: Freeze source and target assets before tone bank
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > TONEBANK1A_FROZEN_BEFORE.sha256
+
+      - name: Apply same-RAW TC20 authority bank
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9toneauth1a.py "$ROOT" | tee TONEBANK1A_METHOD.txt
+          python3 patches/apply-m9cam-m9toneauth1b-runtimefix.py "$ROOT" | tee -a TONEBANK1A_METHOD.txt
+          python3 patches/verify-m9cam-m9toneauth1a.py "$ROOT" | tee TONEBANK1A_VERIFY_A.txt
+          python3 patches/verify-m9cam-m9toneauth1b-runtimefix.py "$ROOT" | tee TONEBANK1A_VERIFY_B.txt
+
+      - name: Verify experiment contract
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          R="$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"
+          grep -F 'M9TONEAUTH1A_sameRAW_ABC' "$R"
+          grep -F '_TONEAUTH_A_FULL_TC20' "$R"
+          grep -F '_TONEAUTH_B_HALF_TC20' "$R"
+          grep -F '_TONEAUTH_C_ZERO_TC20' "$R"
+          grep -F 'FULL_LIVE_REMAINING_CAMERA2_MAP_FIXED_PRIMARY_GAIN' "$R"
+          grep -F '_M9_SOURCEFULLNORM1A_GAINLOCK.jpg' "$R"
+          grep -F 'SAT2_M04_M05' "$R"
+          grep -F 'curve02' "$R"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > TONEBANK1A_FROZEN_AFTER.sha256
+          diff -u TONEBANK1A_FROZEN_BEFORE.sha256 TONEBANK1A_FROZEN_AFTER.sha256
+          cat > TONEBANK1A_CONTRACT.txt <<'EOF'
+          M9TONEBANK1A
+          Primary JPEG unchanged by diagnostic bank.
+          Existing FULLSOURCENORM1A gain-locked secondary retained.
+          A = current/full TC20 authority control.
+          B = half TC20 displacement in EV around unity.
+          C = zero TC20 global exposure authority (unity gain; existing edge term preserved).
+          Capture exposure unchanged.
+          Source calibration unchanged.
+          M9 target calibration unchanged.
+          Identity HSM unchanged.
+          SAT2 M04/M05 unchanged.
+          curve02 unchanged.
+          BT.601/TG1 unchanged.
+          No local tone mapping, HDR, semantic scene recognition, or toe modification in this build.
+          EOF
+
+      - name: Snapshot assembled source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-tonebank1a"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp TONEBANK1A_METHOD.txt TONEBANK1A_VERIFY_A.txt TONEBANK1A_VERIFY_B.txt TONEBANK1A_CONTRACT.txt "$OUT/"
+          cp TONEBANK1A_FROZEN_BEFORE.sha256 TONEBANK1A_FROZEN_AFTER.sha256 "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build TONEBANK1A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/TONEBANK1A_GRADLE.log"
+
+      - name: Verify packaged experiment markers
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/tonebank1a-apk
+          mkdir -p /tmp/tonebank1a-apk
+          unzip -q "$APK" -d /tmp/tonebank1a-apk
+          python3 - <<'PY' | tee TONEBANK1A_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/tonebank1a-apk')
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          markers=[
+              b'FULLSOURCENORM1A',
+              b'_M9_SOURCEFULLNORM1A_GAINLOCK.jpg',
+              b'M9TONEAUTH1A_sameRAW_ABC',
+              b'_TONEAUTH_A_FULL_TC20',
+              b'_TONEAUTH_B_HALF_TC20',
+              b'_TONEAUTH_C_ZERO_TC20',
+              b'SAT2_M04_M05',
+          ]
+          for marker in markers:
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok:
+                  raise SystemExit('missing APK marker '+marker.decode('ascii'))
+          print('M9TONEBANK1A APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee TONEBANK1A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-TONEBANK1A-ASSEMBLED-SOURCE
+          path: assembled-tonebank1a/
+          if-no-files-found: ignore
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-TONEBANK1A-BUILDLOG
+          path: TONEBANK1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-TONEBANK1A-FULLNORM-TC20-ABC
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            TONEBANK1A_APK_SHA256.txt
+            TONEBANK1A_APK_PROOF.txt
+            TONEBANK1A_CONTRACT.txt
+            TONEBANK1A_VERIFY_A.txt
+            TONEBANK1A_VERIFY_B.txt
