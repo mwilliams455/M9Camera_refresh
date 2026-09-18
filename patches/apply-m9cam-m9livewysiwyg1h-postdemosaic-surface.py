@@ -217,9 +217,9 @@ prefix='''            final Mat m9LiveRenderCam1H =
                     Math.multiplyExact(m9LiveRenderWidth1H, m9LiveRenderHeight1H);
             long fullRenderStartedNs = System.nanoTime();'''
 block=block.replace('            long fullRenderStartedNs = System.nanoTime();',prefix,1)
-block=re.sub(r'\\bcam16\\b','m9LiveRenderCam1H',block)
-block=re.sub(r'\\bwidth\\b','m9LiveRenderWidth1H',block)
-block=re.sub(r'\\bheight\\b','m9LiveRenderHeight1H',block)
+block=re.sub(r'\bcam16\b','m9LiveRenderCam1H',block)
+block=re.sub(r'\bwidth\b','m9LiveRenderWidth1H',block)
+block=re.sub(r'\bheight\b','m9LiveRenderHeight1H',block)
 # The cleanup must release the full-resolution demosaic Mat in both paths, plus retained meter Mat for live.
 block=block.replace(
     '            m9LiveRenderCam1H.release();',
