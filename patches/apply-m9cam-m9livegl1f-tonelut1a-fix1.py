@@ -119,3 +119,78 @@ if count != 1:
 main_path.write_text(main.replace(old_upload, new_upload, 1))
 print("M9LIVEGL1F_UNPACK1 applied: RGB8 rowBytes=867 uses GL_UNPACK_ALIGNMENT=1")
 
+
+
+# M9LIVEGL1G_DISPLAYDELTA1A
+# Paired device evidence shows that applying fixed 0.40 linear gain + exact
+# curve02 to Photon OES double-tones an already display-rendered preview.
+# Keep GL1B exposure authority, but return to display space without re-running
+# the still curve. This is the clean baseline for a calibrated residual delta.
+root = Path(sys.argv[1]).resolve()
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+
+helper_anchor = """vec3 srgbToLinearM9(vec3 c) {
+    vec3 lo = c / 12.92;
+    vec3 hi = pow((c + vec3(0.055)) / 1.055, vec3(2.4));
+    return mix(lo, hi, step(vec3(0.04045), c));
+}
+"""
+helper_new = helper_anchor + """
+vec3 linearToSrgbM9(vec3 c) {
+    c = max(c, vec3(0.0));
+    vec3 lo = c * 12.92;
+    vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - vec3(0.055);
+    return mix(lo, hi, step(vec3(0.0031308), c));
+}
+"""
+if shader.count(helper_anchor) != 1:
+    raise SystemExit("GL1G helper anchor count=" + str(shader.count(helper_anchor)))
+shader = shader.replace(helper_anchor, helper_new, 1)
+
+old_transform = """    // M9LIVEGL1F_TONELUT1A
+    // Keep GL1E's validated display-domain colour boundary: no sensor matrix,
+    // firmware SAT2, or TG1 is called on the already-rendered OES texture.
+    // GL1B exposure intent remains the first photographic authority.
+    linear *= uM9ExposureScale1B;
+
+    // Dynamic scene placement predicts the still tone decision without executing
+    // the RAW renderer. The falloff hook remains frozen/identity.
+    linear = tonePlacement1F(linear);
+    linear *= falloffGain1C(uv);
+
+    vec3 toned1F = clamp(linear * uM9DisplayGain, vec3(0.0), vec3(1.0));
+    vec3 curved1F = vec3(curve02M9(toned1F.r),
+                         curve02M9(toned1F.g),
+                         curve02M9(toned1F.b));
+
+    // Colour only: display-domain Standard prototype after exact curve02.
+    return previewLut1F(curved1F);
+"""
+new_transform = """    // M9LIVEGL1G_DISPLAYDELTA1A
+    // Photon OES is already display-rendered. Re-applying the fixed 0.40 gain
+    // and exact still curve02 double-toned the live image (paired validation:
+    // crushed shadows, excessive contrast). Preserve only intended exposure
+    // here; subsequent M9 appearance work must be a calibrated display delta.
+    linear *= uM9ExposureScale1B;
+    linear *= falloffGain1C(uv);
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+if shader.count(old_transform) != 1:
+    raise SystemExit("GL1G active transform anchor count=" + str(shader.count(old_transform)))
+shader = shader.replace(old_transform, new_transform, 1)
+shader_path.write_text(shader)
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+log_anchor = 'Log.d("M9LiveGL1F", "M9LIVEGL1F_LUTPACK1 layout=G_rows_B_tiles_R_inner");'
+if log_anchor in main:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1G", "M9LIVEGL1G_DISPLAYDELTA1A active=EXPOSURE_ONLY curve02_live=false lut_live=false displayGain040_live=false");', 1)
+else:
+    # Marker may live in the texture-init log block in reconstructed parent.
+    marker = 'M9LIVEGL1F_TONELUT1A LUT=STANDARD_PROTOTYPE_17'
+    if marker not in main:
+        raise SystemExit("GL1G MainRenderer log anchor missing")
+    main = main.replace(marker, marker + ' M9LIVEGL1G_DISPLAYDELTA1A', 1)
+main_path.write_text(main)
+print("M9LIVEGL1G_DISPLAYDELTA1A applied: OES + GL1B exposure, no live curve02/0.40/LUT")

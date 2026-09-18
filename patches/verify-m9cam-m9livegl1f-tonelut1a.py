@@ -34,7 +34,8 @@ checks = [
     ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
     ("shader tone placement", "tonePlacement1F(linear)" in shader),
     ("shader curve02 after tone", "curve02M9(toned1F.r)" in shader),
-    ("shader display LUT", "previewLut1F(curved1F)" in shader),
+    ("GL1G display-delta marker", "M9LIVEGL1G_DISPLAYDELTA1A" in shader),
+    ("GL1G linear to sRGB", "linearToSrgbM9(linear)" in shader),
     ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
     ("unpack alignment restored", "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)" in main),
     ("LUT packed layout marker", "M9LIVEGL1F_LUTPACK1" in (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").read_text() if (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").exists() else True),
@@ -51,10 +52,14 @@ end = shader.find("\n}", start)
 if end < 0:
     raise SystemExit("GL1F display transform end missing")
 transform = shader[start:end + 2]
-for marker in (
+if "linear *= uM9ExposureScale1B" not in transform:\n    raise SystemExit("GL1G exposure authority missing from active transform")\nfor marker in (
     "sourceToM9Target1D(linear)",
     "sat2M9(linear)",
     "tungstenGuard1D(",
+    "tonePlacement1F(linear)",
+    "linear * uM9DisplayGain",
+    "curve02M9(toned1F.r)",
+    "previewLut1F(curved1F)",
 ):
     ok = marker not in transform
     print(("OK   " if ok else "FAIL ") + "live bypass " + marker)

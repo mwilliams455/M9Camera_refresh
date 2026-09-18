@@ -195,14 +195,16 @@ jobs:
           required=(
               'M9LIVEGL1F_TONELUT1A',
               'linear *= uM9ExposureScale1B',
-              'linear = tonePlacement1F(linear)',
-              'curve02M9(toned1F.r)',
-              'previewLut1F(curved1F)',
+              'linearToSrgbM9(linear)',
           )
           forbidden=(
               'sourceToM9Target1D(linear)',
               'sat2M9(linear)',
               'tungstenGuard1D(',
+              'tonePlacement1F(linear)',
+              'linear * uM9DisplayGain',
+              'curve02M9(toned1F.r)',
+              'previewLut1F(curved1F)',
           )
           for marker in required:
               ok=marker in transform
@@ -219,6 +221,7 @@ jobs:
               b'fillLiveToneStats1F',
               b'M9LIVEGL1F_UNPACK1',
               b'M9LIVEGL1F_LUTPACK1',
+              b'M9LIVEGL1G_DISPLAYDELTA1A',
               b'Photon_GL_IsoExpoSelector_intended_pair'):
               ok=marker in dex
               print(marker.decode('ascii'),ok)
@@ -238,7 +241,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-M9LIVEGL1F-TONELUT1A-LUTPACK1
+          name: M9Cam-M9LIVEGL1G-DISPLAYDELTA1A
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             M9LIVEGL1F_APK_SHA256.txt
