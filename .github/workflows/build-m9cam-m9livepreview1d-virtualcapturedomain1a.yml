@@ -1,0 +1,765 @@
+name: Build M9Cam M9LIVEPREVIEW1D Virtual Capture-Domain
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9livepreview1d-virtualcapturedomain1a]
+    paths:
+      - 'patches/apply-m9cam-m9livepreview1d-virtualcapturedomain1a.py'
+      - 'patches/verify-m9cam-m9livepreview1d-virtualcapturedomain1a.py'
+      - '.github/workflows/build-m9cam-m9livepreview1d-virtualcapturedomain1a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-m9sensortarget1a.py
+          python3 -m py_compile patches/verify-m9cam-m9sensortarget1a.py
+          python3 -m py_compile patches/apply-m9cam-m9livepreview1a-fullrender720p.py
+          python3 -m py_compile patches/verify-m9cam-m9livepreview1a-fullrender720p.py
+          python3 -m py_compile patches/apply-m9cam-m9livepreview1b-fullrender1080p-main.py
+          python3 -m py_compile patches/verify-m9cam-m9livepreview1b-fullrender1080p-main.py
+          python3 -m py_compile patches/apply-m9cam-m9sensorport1a-anyraw-fallofftgt1a.py
+          python3 -m py_compile patches/verify-m9cam-m9sensorport1a-anyraw-fallofftgt1a.py
+          python3 -m py_compile patches/apply-m9cam-m9liveparity1a-previewstill-diag.py
+          python3 -m py_compile patches/verify-m9cam-m9liveparity1a-previewstill-diag.py
+          python3 -m py_compile patches/apply-m9cam-m9liveparity1b-viewfinder-reference.py
+          python3 -m py_compile patches/verify-m9cam-m9liveparity1b-viewfinder-reference.py
+          python3 -m py_compile patches/apply-m9cam-m9livepreview1d-virtualcapturedomain1a.py
+          python3 -m py_compile patches/verify-m9cam-m9livepreview1d-virtualcapturedomain1a.py
+
+      - name: Replay exact M9SENSORTARGET1A assembled baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-m9sensortarget1a.yml')
+          lines = wf.read_text().splitlines()
+          target = '      - name: Replay exact TARGETDIRECT1A assembled baseline'
+          if target not in lines:
+              raise SystemExit('M9SENSORTARGET1A replay step missing')
+          i = lines.index(target)
+          while i < len(lines) and lines[i].strip() != 'run: |':
+              i += 1
+          if i >= len(lines):
+              raise SystemExit('M9SENSORTARGET1A replay run block missing')
+          i += 1
+          out = []
+          while i < len(lines):
+              line = lines[i]
+              if line.startswith('      - name:') or line.startswith('      - uses:'):
+                  break
+              if line.startswith('          '): out.append(line[10:])
+              elif not line.strip(): out.append('')
+              else: raise SystemExit('unexpected parent indentation: ' + line)
+              i += 1
+          Path('/tmp/m9livepreview_parent.sh').write_text('\n'.join(out) + '\n')
+          PY
+          bash /tmp/m9livepreview_parent.sh
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9sensortarget1a.py "$ROOT"
+          python3 patches/verify-m9cam-m9sensortarget1a.py "$ROOT" | tee M9SENSORTARGET1A_VERIFY.txt
+
+      - name: Apply validated 720p full-render live-preview baseline
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9livepreview1a-fullrender720p.py "$ROOT"
+          python3 patches/verify-m9cam-m9livepreview1a-fullrender720p.py "$ROOT" | tee M9LIVEPREVIEW1A_VERIFY.txt
+
+      - name: Freeze photographic core before 1080p overlay
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPREVIEW1B_CORE_BEFORE.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPREVIEW1B_ASSETS_BEFORE.sha256
+
+      - name: Apply 1080p main-sensor preview overlay
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9livepreview1b-fullrender1080p-main.py "$ROOT"
+          python3 patches/verify-m9cam-m9livepreview1b-fullrender1080p-main.py "$ROOT" | tee M9LIVEPREVIEW1B_VERIFY.txt
+
+      - name: Prove photographic core unchanged by 1080p overlay
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPREVIEW1B_CORE_AFTER.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          diff -u M9LIVEPREVIEW1B_CORE_BEFORE.sha256 M9LIVEPREVIEW1B_CORE_AFTER.sha256
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPREVIEW1B_ASSETS_AFTER.sha256
+          diff -u M9LIVEPREVIEW1B_ASSETS_BEFORE.sha256 M9LIVEPREVIEW1B_ASSETS_AFTER.sha256
+
+      - name: Freeze photographic core before M9SENSORPORT1A overlay
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9SENSORPORT1A_CORE_BEFORE.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9SENSORPORT1A_ASSETS_BEFORE.sha256
+
+      - name: Apply M9SENSORPORT1A generic descriptor and falloff contract
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9sensorport1a-anyraw-fallofftgt1a.py "$ROOT"
+          python3 patches/verify-m9cam-m9sensorport1a-anyraw-fallofftgt1a.py "$ROOT" | tee M9SENSORPORT1A_VERIFY.txt
+
+      - name: Prove frozen M9 photographic core unchanged
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9SENSORPORT1A_CORE_AFTER.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          diff -u M9SENSORPORT1A_CORE_BEFORE.sha256 M9SENSORPORT1A_CORE_AFTER.sha256
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9SENSORPORT1A_ASSETS_AFTER.sha256
+          diff -u M9SENSORPORT1A_ASSETS_BEFORE.sha256 M9SENSORPORT1A_ASSETS_AFTER.sha256
+
+      - name: Freeze photographic core before M9LIVEPARITY1A diagnostics
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPARITY1A_CORE_BEFORE.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPARITY1A_ASSETS_BEFORE.sha256
+
+      - name: Apply M9LIVEPARITY1A preview-still diagnostic overlay
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9liveparity1a-previewstill-diag.py "$ROOT"
+          python3 patches/verify-m9cam-m9liveparity1a-previewstill-diag.py "$ROOT" | tee M9LIVEPARITY1A_VERIFY.txt
+
+      - name: Prove M9LIVEPARITY1A changed diagnostics only
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPARITY1A_CORE_AFTER.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          diff -u M9LIVEPARITY1A_CORE_BEFORE.sha256 M9LIVEPARITY1A_CORE_AFTER.sha256
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPARITY1A_ASSETS_AFTER.sha256
+          diff -u M9LIVEPARITY1A_ASSETS_BEFORE.sha256 M9LIVEPARITY1A_ASSETS_AFTER.sha256
+
+      - name: Freeze photographic core before M9LIVEPARITY1B overlay
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPARITY1B_CORE_BEFORE.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPARITY1B_ASSETS_BEFORE.sha256
+
+      - name: Apply M9LIVEPARITY1B viewfinder-reference overlay
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9liveparity1b-viewfinder-reference.py "$ROOT"
+          python3 patches/verify-m9cam-m9liveparity1b-viewfinder-reference.py "$ROOT" | tee M9LIVEPARITY1B_VERIFY.txt
+
+      - name: Prove M9LIVEPARITY1B left photographic core unchanged
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPARITY1B_CORE_AFTER.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          diff -u M9LIVEPARITY1B_CORE_BEFORE.sha256 M9LIVEPARITY1B_CORE_AFTER.sha256
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPARITY1B_ASSETS_AFTER.sha256
+          diff -u M9LIVEPARITY1B_ASSETS_BEFORE.sha256 M9LIVEPARITY1B_ASSETS_AFTER.sha256
+
+      - name: Freeze photographic core before M9LIVEPREVIEW1D overlay
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPREVIEW1D_CORE_BEFORE.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPREVIEW1D_ASSETS_BEFORE.sha256
+
+      - name: Apply M9LIVEPREVIEW1D virtual capture-domain overlay
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9livepreview1d-virtualcapturedomain1a.py "$ROOT"
+          python3 patches/verify-m9cam-m9livepreview1d-virtualcapturedomain1a.py "$ROOT" | tee M9LIVEPREVIEW1D_VERIFY.txt
+
+      - name: Prove M9LIVEPREVIEW1D left still photographic core unchanged
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s=p.read_text()
+          def method(sig):
+              start=s.find(sig)
+              if start < 0: raise SystemExit('method missing: '+sig)
+              brace=s.find('{',start); depth=0; state='code'; quote=''; esc=False; i=brace
+              while i < len(s):
+                  ch=s[i]; nxt=s[i+1] if i+1<len(s) else ''
+                  if state=='line':
+                      if ch=='\n': state='code'
+                  elif state=='block':
+                      if ch=='*' and nxt=='/': state='code'; i+=1
+                  elif state=='string':
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: state='code'
+                  else:
+                      if ch=='/' and nxt=='/': state='line'; i+=1
+                      elif ch=='/' and nxt=='*': state='block'; i+=1
+                      elif ch in ('"',"'"): state='string'; quote=ch
+                      elif ch=='{': depth+=1
+                      elif ch=='}':
+                          depth-=1
+                          if depth==0: return s[start:i+1].encode()
+                  i+=1
+              raise SystemExit('unterminated '+sig)
+          sigs=['private static RenderCore renderNativeSourceProduction1P(',
+                'private static RenderCore renderNativeProspectiveCore(']
+          with open('M9LIVEPREVIEW1D_CORE_AFTER.sha256','w') as f:
+              for sig in sigs: f.write(hashlib.sha256(method(sig)).hexdigest()+'  '+sig+'\n')
+          PY
+          diff -u M9LIVEPREVIEW1D_CORE_BEFORE.sha256 M9LIVEPREVIEW1D_CORE_AFTER.sha256
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEPREVIEW1D_ASSETS_AFTER.sha256
+          diff -u M9LIVEPREVIEW1D_ASSETS_BEFORE.sha256 M9LIVEPREVIEW1D_ASSETS_AFTER.sha256
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build M9LIVEPREVIEW1D APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9LIVEPREVIEW1D_GRADLE.log"
+
+      - name: Verify packaged 1080p candidate
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livepreview1b-apk
+          mkdir -p /tmp/m9livepreview1b-apk
+          unzip -q "$APK" -d /tmp/m9livepreview1b-apk
+          python3 - <<'PY' | tee M9LIVEPREVIEW1B_APK_PROOF.txt
+          from pathlib import Path
+          import hashlib, struct
+          root=Path('/tmp/m9livepreview1b-apk')
+          curve=root/'assets/m9/m9_curve02_firmware.bin'
+          native=root/'lib/arm64-v8a/libm9color.so'
+          if not curve.exists() or not native.exists(): raise SystemExit('M9 target assets missing')
+          ch=hashlib.sha256(curve.read_bytes()).hexdigest()
+          print('CURVE02_SHA256', ch)
+          if ch != '5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c': raise SystemExit('curve02 mismatch')
+          b=native.read_bytes()
+          sat2=[13659,-4457,-1004,-2244,13469,-3033,-199,-6014,14398,
+                14811,-5604,-1004,-2455,13688,-3033,393,-6588,14398]
+          if b''.join(struct.pack('<q',x) for x in sat2[:9]) not in b: raise SystemExit('SAT2 M04 missing')
+          if b''.join(struct.pack('<q',x) for x in sat2[9:]) not in b: raise SystemExit('SAT2 M05 missing')
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in (b'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN',
+                         b'FULL_PRODUCTION_RENDER_REDUCED_RAW_1440x1080_MAIN'):
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok: raise SystemExit('missing runtime marker '+marker.decode('ascii'))
+          print('M9LIVEPREVIEW1B APK PROOF PASS')
+          PY
+
+      - name: Verify packaged M9SENSORPORT1A markers
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9sensorport1a-apk
+          mkdir -p /tmp/m9sensorport1a-apk
+          unzip -q "$APK" -d /tmp/m9sensorport1a-apk
+          python3 - <<'PY' | tee M9SENSORPORT1A_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/m9sensorport1a-apk')
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          markers=[
+              b'M9SENSORPORT1A_ANYRAW_FALLOFFTGT1A',
+              b'm9cam.sensor_descriptor.v1a',
+              b'normalized_image_coordinates_center_0_corner_radius_1',
+              b'PENDING_GENUINE_M9_EVIDENCE',
+              b'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN',
+          ]
+          for marker in markers:
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok: raise SystemExit('missing APK marker '+marker.decode('ascii'))
+          print('M9SENSORPORT1A APK PROOF PASS')
+          PY
+
+      - name: Verify packaged M9LIVEPARITY1B markers
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9liveparity1b-apk
+          mkdir -p /tmp/m9liveparity1b-apk
+          unzip -q "$APK" -d /tmp/m9liveparity1b-apk
+          python3 - <<'PY' | tee M9LIVEPARITY1B_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/m9liveparity1b-apk')
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          markers=[
+              b'M9LIVEPARITY1B_VIEWFINDER_REFERENCE',
+              b'm9cam.liveparity.v1b.viewfinder_reference',
+              b'predict_unchanged_final_JPEG',
+              b'ImageView_displayed',
+              b'm9cam.liveparity.v1b.display_luma',
+              b'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN',
+          ]
+          for marker in markers:
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok: raise SystemExit('missing APK marker '+marker.decode('ascii'))
+          print('M9LIVEPARITY1B APK PROOF PASS')
+          PY
+
+      - name: Verify packaged M9LIVEPREVIEW1D markers
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livepreview1d-apk
+          mkdir -p /tmp/m9livepreview1d-apk
+          unzip -q "$APK" -d /tmp/m9livepreview1d-apk
+          python3 - <<'PY' | tee M9LIVEPREVIEW1D_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/m9livepreview1d-apk')
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          markers=[
+              b'M9LIVEPREVIEW1D_VIRTUALCAPTUREDOMAIN1A',
+              b'm9cam.livepreview.virtualcapturedomain.v1a',
+              b'Image_timestamp_matches_TotalCaptureResult_SENSOR_TIMESTAMP',
+              b'black_relative_linear_Bayer_after_exact_frame_pairing',
+              b'sensorProbeExposureMutation',
+              b'M9LIVEPARITY1B_VIEWFINDER_REFERENCE',
+              b'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN',
+          ]
+          for marker in markers:
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok: raise SystemExit('missing APK marker '+marker.decode('ascii'))
+          print('M9LIVEPREVIEW1D APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee M9LIVEPREVIEW1D_APK_SHA256.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9LIVEPREVIEW1D-VIRTUALCAPTUREDOMAIN1A-BUILDLOG
+          path: M9LIVEPREVIEW1D_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9LIVEPREVIEW1D-VIRTUALCAPTUREDOMAIN1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            M9LIVEPREVIEW1D_APK_SHA256.txt
+            M9LIVEPREVIEW1D_VERIFY.txt
+            M9LIVEPREVIEW1D_APK_PROOF.txt
+            M9LIVEPREVIEW1D_CORE_BEFORE.sha256
+            M9LIVEPREVIEW1D_CORE_AFTER.sha256
+            M9LIVEPREVIEW1D_ASSETS_BEFORE.sha256
+            M9LIVEPREVIEW1D_ASSETS_AFTER.sha256
+            M9LIVEPARITY1B_VERIFY.txt
+            M9LIVEPARITY1B_APK_PROOF.txt
+            M9LIVEPARITY1B_CORE_BEFORE.sha256
+            M9LIVEPARITY1B_CORE_AFTER.sha256
+            M9LIVEPARITY1B_ASSETS_BEFORE.sha256
+            M9LIVEPARITY1B_ASSETS_AFTER.sha256
+            M9LIVEPARITY1A_VERIFY.txt
+            M9LIVEPARITY1A_APK_PROOF.txt
+            M9LIVEPARITY1A_CORE_BEFORE.sha256
+            M9LIVEPARITY1A_CORE_AFTER.sha256
+            M9LIVEPARITY1A_ASSETS_BEFORE.sha256
+            M9LIVEPARITY1A_ASSETS_AFTER.sha256
+            M9SENSORPORT1A_VERIFY.txt
+            M9SENSORPORT1A_APK_PROOF.txt
+            M9SENSORPORT1A_CORE_BEFORE.sha256
+            M9SENSORPORT1A_CORE_AFTER.sha256
+            M9SENSORPORT1A_ASSETS_BEFORE.sha256
+            M9SENSORPORT1A_ASSETS_AFTER.sha256
+            M9LIVEPREVIEW1A_VERIFY.txt
+            M9LIVEPREVIEW1B_VERIFY.txt
+            M9LIVEPREVIEW1B_APK_PROOF.txt
+            M9LIVEPREVIEW1B_CORE_BEFORE.sha256
+            M9LIVEPREVIEW1B_CORE_AFTER.sha256
+            M9LIVEPREVIEW1B_ASSETS_BEFORE.sha256
+            M9LIVEPREVIEW1B_ASSETS_AFTER.sha256
