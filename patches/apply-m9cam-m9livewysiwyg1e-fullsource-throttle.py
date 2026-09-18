@@ -44,15 +44,15 @@ for marker in (
 c = replace_once(
     c,
     '    private static final long M9_LIVE_PREVIEW_INTERVAL_MS = 140L;',
-    '    private static final long M9_LIVE_PREVIEW_INTERVAL_MS = 180L;\\n'
-    '    // M9LIVEWYSIWYG1E_FULLSOURCE_THROTTLE: preserve exact 1C pixels, reduce duty cycle only.\\n'
+    '    private static final long M9_LIVE_PREVIEW_INTERVAL_MS = 180L;\n'
+    '    // M9LIVEWYSIWYG1E_FULLSOURCE_THROTTLE: preserve exact 1C pixels, reduce duty cycle only.\n'
     '    private static final long M9_LIVE_PREVIEW_MIN_IDLE_AFTER_RENDER_MS = 800L;',
     'interval constants')
 
 c = replace_once(
     c,
     '    private final AtomicBoolean m9LivePreviewRenderBusy = new AtomicBoolean(false);',
-    '    private final AtomicBoolean m9LivePreviewRenderBusy = new AtomicBoolean(false);\\n'
+    '    private final AtomicBoolean m9LivePreviewRenderBusy = new AtomicBoolean(false);\n'
     '    private volatile long m9LivePreviewLastRenderEndElapsedMs1E = 0L;',
     'last render timestamp')
 
