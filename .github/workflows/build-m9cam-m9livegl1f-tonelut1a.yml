@@ -91,7 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE/PhotonCamera"
-          python3 patches/apply-m9cam-m9livegl1f-tonelut1a.py "$ROOT"
+          python3 patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py "$ROOT"
           python3 patches/verify-m9cam-m9livegl1f-tonelut1a.py "$ROOT" \
             | tee M9LIVEGL1F_VERIFY.txt
 
