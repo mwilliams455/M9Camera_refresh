@@ -70,7 +70,7 @@ r=replace_once(
     '    private static final ThreadLocal<JSONObject> M9_LIVE_PREVIEW_1C_CAPTURE_EVIDENCE = new ThreadLocal<>();',
     '    private static final ThreadLocal<JSONObject> M9_LIVE_PREVIEW_1C_CAPTURE_EVIDENCE = new ThreadLocal<>();\n'
     '    // M9LIVEWYSIWYG1H_POSTDEMOSAIC_SURFACE: full RAW source preparation is retained;\n'
-    '    // only the final M9 colour/tone pixel surface uses TC20\\'s existing post-demosaic reference.',
+    '    // only the final M9 colour/tone pixel surface uses the existing TC20 post-demosaic reference.',
     '1H marker')
 
 # Skip still-file forensic audit writers during live viewfinder rendering. They do not feed pixels.
