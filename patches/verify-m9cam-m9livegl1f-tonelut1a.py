@@ -1,3 +1,77 @@
 #!/usr/bin/env python3
-import base64,zlib
-exec(compile(zlib.decompress(base64.b64decode('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')), 'verify_gl1f.py', 'exec'))
+from pathlib import Path
+import hashlib
+import sys
+
+if len(sys.argv) != 2:
+    raise SystemExit("usage: verify-m9cam-m9livegl1f-tonelut1a.py <PhotonCamera-root>")
+root = Path(sys.argv[1]).resolve()
+
+files = {
+    "main_renderer": root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java",
+    "shader": root / "app/src/main/assets/shaders/preview/main_fs.glsl",
+    "tone_model": root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java",
+    "analyzer": root / "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java",
+    "lut_raw": root / "app/src/main/assets/m9/m9_preview_standard_gl1f_17.rgb",
+    "lut_cube": root / "app/src/main/assets/m9/m9_preview_standard_gl1f_17.cube",
+    "curve02": root / "app/src/main/assets/m9/m9_curve02_firmware.bin",
+}
+for name, p in files.items():
+    if not p.exists():
+        raise SystemExit(f"GL1F missing {name}: {p}")
+
+main = files["main_renderer"].read_text()
+shader = files["shader"].read_text()
+tone = files["tone_model"].read_text()
+analyzer = files["analyzer"].read_text()
+
+checks = [
+    ("MainRenderer build marker", "M9LIVEGL1F_TONELUT1A" in main),
+    ("MainRenderer gain uniform", "uM9PreviewGainEv1F" in main),
+    ("MainRenderer shadow uniform", "uM9PreviewShadow1F" in main),
+    ("MainRenderer gamma uniform", "uM9PreviewGamma1F" in main),
+    ("MainRenderer shoulder uniform", "uM9PreviewShoulder1F" in main),
+    ("tone model schema", "m9cam.livepreview.gl1f.tonelut1a" in tone),
+    ("tone model preview luma input", "previewLuma" in tone),
+    ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
+    ("shader GL1F marker", "M9LIVEGL1F_TONELUT1A" in shader),
+    ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
+    ("shader tone placement", "tonePlacement1F(linear)" in shader),
+    ("shader curve02 after tone", "curve02M9(toned1F.r)" in shader),
+    ("shader display LUT", "previewLut1F(curved1F)" in shader),
+]
+for label, ok in checks:
+    print(("OK   " if ok else "FAIL ") + label)
+    if not ok:
+        raise SystemExit("GL1F contract failure: " + label)
+
+start = shader.find("vec3 m9DisplayTransform(vec3 photonSrgb, vec2 uv)")
+if start < 0:
+    raise SystemExit("GL1F display transform missing")
+end = shader.find("\n}", start)
+if end < 0:
+    raise SystemExit("GL1F display transform end missing")
+transform = shader[start:end + 2]
+for marker in (
+    "sourceToM9Target1D(linear)",
+    "sat2M9(linear)",
+    "tungstenGuard1D(",
+):
+    ok = marker not in transform
+    print(("OK   " if ok else "FAIL ") + "live bypass " + marker)
+    if not ok:
+        raise SystemExit("GL1F forbidden live colour operation active: " + marker)
+
+raw = files["lut_raw"].read_bytes()
+expected = 17 * 17 * 17 * 3
+print("LUT_BYTES", len(raw), "EXPECTED", expected)
+if len(raw) != expected:
+    raise SystemExit(f"GL1F raw LUT size mismatch: {len(raw)} != {expected}")
+
+cube = files["lut_cube"].read_text()
+if "LUT_3D_SIZE 17" not in cube:
+    raise SystemExit("GL1F cube LUT size declaration missing")
+
+print("CURVE02_SHA256", hashlib.sha256(files["curve02"].read_bytes()).hexdigest())
+print("PREVIEW_LUT_SHA256", hashlib.sha256(raw).hexdigest())
+print("M9LIVEGL1F readable verification PASS")
