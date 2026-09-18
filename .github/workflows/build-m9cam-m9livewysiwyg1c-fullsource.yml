@@ -1,0 +1,332 @@
+name: Build M9Cam LIVEWYSIWYG1C Full Source Final Boundary
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [research/m9livewysiwyg1b-displayedcapturelock]
+    paths:
+      - 'patches/apply-m9cam-m9livewysiwyg1c-fullsource.py'
+      - 'patches/verify-m9cam-m9livewysiwyg1c-fullsource.py'
+      - '.github/workflows/build-m9cam-m9livewysiwyg1c-fullsource.yml'
+  push:
+    branches: [research/m9livewysiwyg1c-fullsource]
+    paths:
+      - 'patches/apply-m9cam-m9livewysiwyg1c-fullsource.py'
+      - 'patches/verify-m9cam-m9livewysiwyg1c-fullsource.py'
+      - '.github/workflows/build-m9cam-m9livewysiwyg1c-fullsource.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify LIVEWYSIWYG1C patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-m9livewysiwyg1c-fullsource.py
+          python3 -m py_compile patches/verify-m9cam-m9livewysiwyg1c-fullsource.py
+
+      - name: Replay exact LIVEWYSIWYG1B assembled baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-m9livewysiwyg1b-displayedcapturelock.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Verify LIVEWYSIWYG1B patch syntax',
+              'Replay exact LIVEWYSIWYG1A assembled baseline',
+              'Freeze photographic core before LIVEWYSIWYG1B',
+              'Apply displayed-preview capture lock',
+              'Prove renderer and target assets unchanged',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              if target not in lines:
+                  raise SystemExit('LIVEWYSIWYG1B replay block missing: ' + name)
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('LIVEWYSIWYG1B run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected LIVEWYSIWYG1B indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/m9livewysiwyg1c_parent_{idx:02d}.sh').write_text(
+                  '\n'.join(out) + '\n')
+          PY
+          for s in /tmp/m9livewysiwyg1c_parent_*.sh; do
+            echo "=== replay $s ==="
+            bash "$s"
+          done
+
+      - name: Freeze production still core before LIVEWYSIWYG1C
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s = p.read_text()
+          def method(sig):
+              start = s.find(sig)
+              if start < 0: raise SystemExit('method missing: ' + sig)
+              brace = s.find('{', start); depth = 0; state = 'code'; quote = ''; esc = False; i = brace
+              while i < len(s):
+                  ch = s[i]; nxt = s[i+1] if i+1 < len(s) else ''
+                  if state == 'line':
+                      if ch == '\n': state = 'code'
+                  elif state == 'block':
+                      if ch == '*' and nxt == '/': state = 'code'; i += 1
+                  elif state == 'string':
+                      if esc: esc = False
+                      elif ch == '\\': esc = True
+                      elif ch == quote: state = 'code'
+                  else:
+                      if ch == '/' and nxt == '/': state = 'line'; i += 1
+                      elif ch == '/' and nxt == '*': state = 'block'; i += 1
+                      elif ch in ('"', "'"): state = 'string'; quote = ch
+                      elif ch == '{': depth += 1
+                      elif ch == '}':
+                          depth -= 1
+                          if depth == 0: return s[start:i+1].encode()
+                  i += 1
+              raise SystemExit('unterminated: ' + sig)
+          sigs = [
+              'private static RenderCore renderNativeSourceProduction1P(',
+              'private static RenderCore renderNativeProspectiveCore(',
+          ]
+          with open('LIVEWYSIWYG1C_CORE_BEFORE.sha256','w') as f:
+              for sig in sigs:
+                  f.write(hashlib.sha256(method(sig)).hexdigest() + '  ' + sig + '\n')
+          PY
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementBestFit2AController.java" \
+            > LIVEWYSIWYG1C_ASSETS_BEFORE.sha256
+          sha256sum \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java" \
+            > LIVEWYSIWYG1C_SELECTOR_BEFORE.sha256
+
+      - name: Apply full-source final-boundary WYSIWYG
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9livewysiwyg1c-fullsource.py "$ROOT"
+          python3 patches/verify-m9cam-m9livewysiwyg1c-fullsource.py "$ROOT" \
+            | tee LIVEWYSIWYG1C_VERIFY.txt
+
+      - name: Prove frozen still core assets and exposure lock unchanged
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java')
+          s = p.read_text()
+          def method(sig):
+              start = s.find(sig)
+              if start < 0: raise SystemExit('method missing: ' + sig)
+              brace = s.find('{', start); depth = 0; state = 'code'; quote = ''; esc = False; i = brace
+              while i < len(s):
+                  ch = s[i]; nxt = s[i+1] if i+1 < len(s) else ''
+                  if state == 'line':
+                      if ch == '\n': state = 'code'
+                  elif state == 'block':
+                      if ch == '*' and nxt == '/': state = 'code'; i += 1
+                  elif state == 'string':
+                      if esc: esc = False
+                      elif ch == '\\': esc = True
+                      elif ch == quote: state = 'code'
+                  else:
+                      if ch == '/' and nxt == '/': state = 'line'; i += 1
+                      elif ch == '/' and nxt == '*': state = 'block'; i += 1
+                      elif ch in ('"', "'"): state = 'string'; quote = ch
+                      elif ch == '{': depth += 1
+                      elif ch == '}':
+                          depth -= 1
+                          if depth == 0: return s[start:i+1].encode()
+                  i += 1
+              raise SystemExit('unterminated: ' + sig)
+          sigs = [
+              'private static RenderCore renderNativeSourceProduction1P(',
+              'private static RenderCore renderNativeProspectiveCore(',
+          ]
+          with open('LIVEWYSIWYG1C_CORE_AFTER.sha256','w') as f:
+              for sig in sigs:
+                  f.write(hashlib.sha256(method(sig)).hexdigest() + '  ' + sig + '\n')
+          PY
+          diff -u LIVEWYSIWYG1C_CORE_BEFORE.sha256 LIVEWYSIWYG1C_CORE_AFTER.sha256
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementBestFit2AController.java" \
+            > LIVEWYSIWYG1C_ASSETS_AFTER.sha256
+          diff -u LIVEWYSIWYG1C_ASSETS_BEFORE.sha256 LIVEWYSIWYG1C_ASSETS_AFTER.sha256
+          sha256sum \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java" \
+            > LIVEWYSIWYG1C_SELECTOR_AFTER.sha256
+          diff -u LIVEWYSIWYG1C_SELECTOR_BEFORE.sha256 LIVEWYSIWYG1C_SELECTOR_AFTER.sha256
+
+      - name: Snapshot assembled LIVEWYSIWYG1C source
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/assembled-livewysiwyg1c"
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePreview1A.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java" "$OUT/"
+          cp LIVEWYSIWYG1C_VERIFY.txt "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo 'No usable sdkmanager found' >&2
+            exit 1
+          fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build LIVEWYSIWYG1C APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 \
+            | tee "$GITHUB_WORKSPACE/LIVEWYSIWYG1C_GRADLE.log"
+
+      - name: Verify packaged LIVEWYSIWYG1C contract
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livewysiwyg1c-apk
+          mkdir -p /tmp/m9livewysiwyg1c-apk
+          unzip -q "$APK" -d /tmp/m9livewysiwyg1c-apk
+          python3 - <<'PY' | tee LIVEWYSIWYG1C_APK_PROOF.txt
+          from pathlib import Path
+          import hashlib
+          root = Path('/tmp/m9livewysiwyg1c-apk')
+          curve = root / 'assets/m9/m9_curve02_firmware.bin'
+          native = root / 'lib/arm64-v8a/libm9color.so'
+          if not curve.exists() or not native.exists():
+              raise SystemExit('M9 target assets missing')
+          curve_sha = hashlib.sha256(curve.read_bytes()).hexdigest()
+          print('CURVE02_SHA256', curve_sha)
+          if curve_sha != '5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c':
+              raise SystemExit('curve02 mismatch')
+          dex = b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          required = [
+              b'M9LIVEWYSIWYG1C_FULLSOURCE_FINALBOUNDARY',
+              b'FULL_PRODUCTION_RENDER_FULL_SOURCE_FINAL_BITMAP',
+              b'full_resolution_RAW_is_renderer_input_no_pre_render_reduction',
+              b'post_render_final_M9_bitmap_only',
+              b'after_edgePlacementBestFit2A_before_JPEG_encode',
+              b'live_current_scene_evidence',
+              b'M9LIVEWYSIWYG1B_DISPLAYEDCAPTURELOCK',
+              b'setExactExposureM9Wysiwyg1B',
+              b'ImageView_displayed_M9_frame',
+          ]
+          for marker in required:
+              ok = marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok:
+                  raise SystemExit('missing APK marker ' + marker.decode('ascii'))
+          forbidden = [
+              b'FULL_PRODUCTION_RENDER_REDUCED_RAW_1440x1080_MAIN',
+              b'reduceBayerParityPreserving',
+          ]
+          for marker in forbidden:
+              present = marker in dex
+              print('FORBIDDEN', marker.decode('ascii'), present)
+              if present:
+                  raise SystemExit('forbidden reduced-preview marker packaged: ' + marker.decode('ascii'))
+          print('LIVEWYSIWYG1C APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk \
+            | tee LIVEWYSIWYG1C_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-LIVEWYSIWYG1C-FULLSOURCE-ASSEMBLED-SOURCE
+          path: assembled-livewysiwyg1c/
+          if-no-files-found: ignore
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-LIVEWYSIWYG1C-FULLSOURCE-FINALBOUNDARY
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            LIVEWYSIWYG1C_APK_SHA256.txt
+            LIVEWYSIWYG1C_VERIFY.txt
+            LIVEWYSIWYG1C_APK_PROOF.txt
+            LIVEWYSIWYG1C_CORE_BEFORE.sha256
+            LIVEWYSIWYG1C_CORE_AFTER.sha256
+            LIVEWYSIWYG1C_ASSETS_BEFORE.sha256
+            LIVEWYSIWYG1C_ASSETS_AFTER.sha256
+            LIVEWYSIWYG1C_SELECTOR_BEFORE.sha256
+            LIVEWYSIWYG1C_SELECTOR_AFTER.sha256
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-LIVEWYSIWYG1C-FULLSOURCE-BUILDLOG
+          path: LIVEWYSIWYG1C_GRADLE.log
+          if-no-files-found: ignore
