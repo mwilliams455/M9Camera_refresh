@@ -209,3 +209,5 @@ jobs:
           name: M9-LIVEWYSIWYG1H-POSTDEMOSAIC-BUILDLOG
           path: LIVEWYSIWYG1H_GRADLE.log
           if-no-files-found: ignore
+
+# LIVEWYSIWYG1H CI trigger
