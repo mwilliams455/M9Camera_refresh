@@ -141,7 +141,7 @@ diag_anchor='''                    previewDiag.put("previewVirtualCaptureDomain1
 diag_new=diag_anchor+'''                    JSONObject fullResOracle1E = new JSONObject();
                     fullResOracle1E.put("schema", "m9cam.livepreview.fullresoracle.v1a");
                     fullResOracle1E.put("revision", "M9LIVEPREVIEW1E_FULLRESORACLE1A");
-                    fullResOracle1E.put("sourceRaster", width + "x" + height);
+                    fullResOracle1E.put("sourceRaster", frame.width + "x" + frame.height);
                     fullResOracle1E.put("rendererDecisionRaster", "ORIGINAL_FULL_RESOLUTION_RAW");
                     fullResOracle1E.put("spatialReductionBeforeM9Renderer", false);
                     fullResOracle1E.put("displayReductionAfterM9Renderer", true);
