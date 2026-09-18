@@ -220,6 +220,17 @@ block=block.replace('            long fullRenderStartedNs = System.nanoTime();',
 block=re.sub(r'\bcam16\b','m9LiveRenderCam1H',block)
 block=re.sub(r'\bwidth\b','m9LiveRenderWidth1H',block)
 block=re.sub(r'\bheight\b','m9LiveRenderHeight1H',block)
+# Restore the false arms of the live/still selector definitions; the word-boundary
+# propagation above intentionally rewrites only downstream full-colour block usage.
+block=block.replace(
+    'm9LivePostDemosaicSurface1H ? meterCam16 : m9LiveRenderCam1H;',
+    'm9LivePostDemosaicSurface1H ? meterCam16 : cam16;', 1)
+block=block.replace(
+    'm9LivePostDemosaicSurface1H ? meterW : m9LiveRenderWidth1H;',
+    'm9LivePostDemosaicSurface1H ? meterW : width;', 1)
+block=block.replace(
+    'm9LivePostDemosaicSurface1H ? meterH : m9LiveRenderHeight1H;',
+    'm9LivePostDemosaicSurface1H ? meterH : height;', 1)
 # The cleanup must release the full-resolution demosaic Mat in both paths, plus retained meter Mat for live.
 block=block.replace(
     '            m9LiveRenderCam1H.release();',
