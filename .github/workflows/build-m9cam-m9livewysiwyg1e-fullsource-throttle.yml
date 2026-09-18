@@ -219,3 +219,5 @@ jobs:
           name: M9-LIVEWYSIWYG1E-FULLSOURCE-THROTTLE-BUILDLOG
           path: LIVEWYSIWYG1E_GRADLE.log
           if-no-files-found: ignore
+
+# LIVEWYSIWYG1E CI trigger
