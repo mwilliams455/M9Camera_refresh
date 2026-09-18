@@ -77,7 +77,7 @@ for token in (
         'sameParityNear1D',
         'u16At1D',
         'a + b + cc + d + 2',
-        'dstW * dstH'):
+        'Math.multiplyExact(Math.multiplyExact(dstW, dstH), 2)'):
     if token not in reducer:
         raise SystemExit('M9LIVEWYSIWYG1D reducer marker missing: ' + token)
 for forbidden in ('CONTROL_AE_MODE', 'SENSOR_SENSITIVITY', 'SENSOR_EXPOSURE_TIME'):
