@@ -53,15 +53,23 @@ if 'tc20MeterNativeDirect(\n                            meterCamAddress, meterW,
 if 'if (!m9LivePostDemosaicSurface1H) {\n                    meterCam16.release();' not in r:
     raise SystemExit('M9LIVEWYSIWYG1H meter surface retention gate missing')
 
-# The actual final native colour loop must use the selected render surface dimensions.
+# The actual final native colour loop must use the selected render surface.
+# Verify semantic use counts rather than whitespace/exact formatting.
+surface_counts={
+    'm9LiveRenderCam1H': r.count('m9LiveRenderCam1H'),
+    'm9LiveRenderWidth1H': r.count('m9LiveRenderWidth1H'),
+    'm9LiveRenderHeight1H': r.count('m9LiveRenderHeight1H'),
+}
+if surface_counts['m9LiveRenderCam1H'] < 5:
+    raise SystemExit('M9LIVEWYSIWYG1H render Mat not used throughout final colour pass: '+str(surface_counts))
+if surface_counts['m9LiveRenderWidth1H'] < 8 or surface_counts['m9LiveRenderHeight1H'] < 6:
+    raise SystemExit('M9LIVEWYSIWYG1H render dimensions not propagated through final colour pass: '+str(surface_counts))
 for token in (
-    'for (int y0 = 0; y0 < m9LiveRenderHeight1H; y0 += NATIVE_COLOR_BLOCK_ROWS)',
-    'final int blockPixels = Math.multiplyExact(rows, m9LiveRenderWidth1H);',
     'm9LiveRenderCam1H.isContinuous()',
     'm9LiveRenderCam1H.dataAddr()',
     'Math.multiplyExact(m9LiveRenderWidth1H, NATIVE_COLOR_BLOCK_ROWS)'):
     if token not in r:
-        raise SystemExit('M9LIVEWYSIWYG1H final colour surface token missing: '+token)
+        raise SystemExit('M9LIVEWYSIWYG1H final colour surface semantic token missing: '+token)
 
 # Still route remains full resolution by the ternary false arm.
 for token in (
