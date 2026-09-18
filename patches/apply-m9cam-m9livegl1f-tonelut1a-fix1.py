@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 import base64
-import re
 import sys
 import zlib
 from pathlib import Path
 
 base = Path(__file__).with_name("apply-m9cam-m9livegl1f-tonelut1a.py")
 text = base.read_text()
-m = re.search(r"b64decode\\\('([^']+)'\\\)", text)
-if not m:
-    raise SystemExit("GL1F base loader payload not found")
-src = zlib.decompress(base64.b64decode(m.group(1))).decode()
+marker = "b64decode('"
+start = text.find(marker)
+if start < 0:
+    raise SystemExit("GL1F base loader payload start not found")
+start += len(marker)
+end = text.find("')", start)
+if end < 0:
+    raise SystemExit("GL1F base loader payload end not found")
+src = zlib.decompress(base64.b64decode(text[start:end])).decode()
 
 old_uniform = """uniform_anchor = '''        uM9FalloffPower1C = GLES20.glGetUniformLocation(hProgram, \"uM9FalloffPower1C\");
         GLES20.glUniform1i(uM9Curve, 1);
@@ -54,8 +58,9 @@ for label, old, new in (
     ("uniform", old_uniform, new_uniform),
     ("draw", old_draw, new_draw),
 ):
-    if src.count(old) != 1:
-        raise SystemExit(f"GL1F FIX1 {label} patch-source anchor count={src.count(old)}")
+    count = src.count(old)
+    if count != 1:
+        raise SystemExit(f"GL1F FIX1 {label} patch-source anchor count={count}")
     src = src.replace(old, new, 1)
 
 exec(compile(src, "apply_gl1f_fix1.py", "exec"))
