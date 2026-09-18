@@ -323,21 +323,21 @@ public final class M9SensorDescriptor1A {
         return a;
     }
 
-    private static Object floatArray(float[] v) {
+    private static Object floatArray(float[] v) throws Exception {
         if (v == null) return JSONObject.NULL;
         JSONArray a = new JSONArray();
         for (float x : v) a.put((double) x);
         return a;
     }
 
-    private static Object rationalArray(Rational[] v) {
+    private static Object rationalArray(Rational[] v) throws Exception {
         if (v == null) return JSONObject.NULL;
         JSONArray a = new JSONArray();
         for (Rational x : v) a.put(x != null ? x.doubleValue() : JSONObject.NULL);
         return a;
     }
 
-    private static Object matrix(ColorSpaceTransform t) {
+    private static Object matrix(ColorSpaceTransform t) throws Exception {
         if (t == null) return JSONObject.NULL;
         Rational[] v = new Rational[9];
         t.copyElements(v, 0);
