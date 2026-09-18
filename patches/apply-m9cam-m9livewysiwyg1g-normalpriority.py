@@ -61,6 +61,18 @@ c = replace_once(
     '    // M9LIVEWYSIWYG1G_NORMALPRIORITY: scheduling-only speed recovery; pixels frozen.',
     'idle interval')
 
+exec_header_old = '''        m9LivePreviewExecutor.execute(() -> {
+            android.graphics.Bitmap rendered = null;
+            try {
+'''
+exec_header_new = '''        m9LivePreviewExecutor.execute(() -> {
+            android.graphics.Bitmap rendered = null;
+            final long m9LiveRenderStartedElapsedMs1G =
+                    android.os.SystemClock.elapsedRealtime();
+            try {
+'''
+c = replace_once(c, exec_header_old, exec_header_new, 'timing scope')
+
 old_priority = '''                // The full-source M9 renderer is intentionally expensive. Run the preview worker
                 // below interactive/UI priority rather than changing a single photographic pixel.
                 try {
@@ -75,8 +87,6 @@ new_priority = '''                // M9LIVEWYSIWYG1G_NORMALPRIORITY
                 try {
                     android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DEFAULT);
                 } catch (Throwable ignored) {}
-                final long m9LiveRenderStartedElapsedMs1G =
-                        android.os.SystemClock.elapsedRealtime();
 '''
 c = replace_once(c, old_priority, new_priority, 'worker priority')
 
