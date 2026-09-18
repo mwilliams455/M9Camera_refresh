@@ -44,7 +44,7 @@ if "com.particlesdevs.photoncamera.ui.camera.views.viewfinder.GLPreview" not in 
 lp = live_preview.read_text()
 lp = one(lp,
          "    public static final boolean ENABLED = true;",
-         "    // M9LIVEGL1A_RAW_LIVE_OVERLAY_DISABLED: Photon OES preview is the live carrier.\\n"
+         "    // M9LIVEGL1A_RAW_LIVE_OVERLAY_DISABLED: Photon OES preview is the live carrier.\n"
          "    public static final boolean ENABLED = false;",
          "disable periodic RAW overlay")
 live_preview.write_text(lp)
