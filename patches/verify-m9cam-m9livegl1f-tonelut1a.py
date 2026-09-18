@@ -52,7 +52,9 @@ end = shader.find("\n}", start)
 if end < 0:
     raise SystemExit("GL1F display transform end missing")
 transform = shader[start:end + 2]
-if "linear *= uM9ExposureScale1B" not in transform:\n    raise SystemExit("GL1G exposure authority missing from active transform")\nfor marker in (
+if "linear *= uM9ExposureScale1B" not in transform:
+    raise SystemExit("GL1G exposure authority missing from active transform")
+for marker in (
     "sourceToM9Target1D(linear)",
     "sat2M9(linear)",
     "tungstenGuard1D(",
