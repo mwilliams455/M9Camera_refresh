@@ -35,6 +35,8 @@ checks = [
     ("shader tone placement", "tonePlacement1F(linear)" in shader),
     ("shader curve02 after tone", "curve02M9(toned1F.r)" in shader),
     ("shader display LUT", "previewLut1F(curved1F)" in shader),
+    ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
+    ("unpack alignment restored", "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)" in main),
 ]
 for label, ok in checks:
     print(("OK   " if ok else "FAIL ") + label)
@@ -61,6 +63,10 @@ for marker in (
 raw = files["lut_raw"].read_bytes()
 expected = 17 * 17 * 17 * 3
 print("LUT_BYTES", len(raw), "EXPECTED", expected)
+row_bytes = 17 * 17 * 3
+print("LUT_ROW_BYTES", row_bytes, "MOD4", row_bytes % 4)
+if row_bytes % 4 == 0:
+    raise SystemExit("GL1F verifier premise changed: RGB8 row unexpectedly 4-byte aligned")
 if len(raw) != expected:
     raise SystemExit(f"GL1F raw LUT size mismatch: {len(raw)} != {expected}")
 

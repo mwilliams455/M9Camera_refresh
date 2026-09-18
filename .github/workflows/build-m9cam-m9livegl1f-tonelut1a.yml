@@ -6,6 +6,7 @@ on:
     branches: [research/m9livegl1e-colorisolate]
     paths:
       - 'patches/apply-m9cam-m9livegl1f-tonelut1a.py'
+      - 'patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py'
       - 'patches/verify-m9cam-m9livegl1f-tonelut1a.py'
       - '.github/workflows/build-m9cam-m9livegl1f-tonelut1a.yml'
   push:
@@ -28,6 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile patches/apply-m9cam-m9livegl1f-tonelut1a.py
+          python3 -m py_compile patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py
           python3 -m py_compile patches/verify-m9cam-m9livegl1f-tonelut1a.py
 
       - name: Replay exact M9LIVEGL1E assembled baseline
@@ -214,6 +216,7 @@ jobs:
               b'M9LIVEGL1F_TONELUT1A',
               b'm9cam.livepreview.gl1f.tonelut1a',
               b'fillLiveToneStats1F',
+              b'M9LIVEGL1F_UNPACK1',
               b'Photon_GL_IsoExpoSelector_intended_pair'):
               ok=marker in dex
               print(marker.decode('ascii'),ok)
@@ -233,7 +236,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-M9LIVEGL1F-TONELUT1A
+          name: M9Cam-M9LIVEGL1F-TONELUT1A-UNPACK1
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             M9LIVEGL1F_APK_SHA256.txt

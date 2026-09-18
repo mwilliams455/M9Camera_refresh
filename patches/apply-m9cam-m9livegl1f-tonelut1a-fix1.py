@@ -64,3 +64,35 @@ for label, old, new in (
     src = src.replace(old, new, 1)
 
 exec(compile(src, "apply_gl1f_fix1.py", "exec"))
+
+# M9LIVEGL1F_UNPACK1
+# The packed 17^3 LUT is uploaded as a 289x17 RGB8 texture. Each source row is
+# 289*3 = 867 bytes, which is not compatible with OpenGL ES's default
+# GL_UNPACK_ALIGNMENT=4. Force byte alignment for the upload, then restore 4.
+root = Path(sys.argv[1]).resolve()
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+old_upload = """        // 17 blue slices are tiled horizontally; R varies within a tile, G vertically.
+        GLES30.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGB8,
+                M9_LIVE_GL1F_LUT_SIZE * M9_LIVE_GL1F_LUT_SIZE,
+                M9_LIVE_GL1F_LUT_SIZE, 0,
+                GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, data);
+"""
+new_upload = """        // M9LIVEGL1F_UNPACK1
+        // 289x17 RGB8 => 867 bytes/row. Default GL_UNPACK_ALIGNMENT=4 would
+        // advance rows as if padded to 868 bytes, corrupting RGB after row 0.
+        GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1);
+        // 17 blue slices are tiled horizontally; R varies within a tile, G vertically.
+        GLES30.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGB8,
+                M9_LIVE_GL1F_LUT_SIZE * M9_LIVE_GL1F_LUT_SIZE,
+                M9_LIVE_GL1F_LUT_SIZE, 0,
+                GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, data);
+        GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4);
+        Log.d("M9LiveGL1F", "M9LIVEGL1F_UNPACK1 rowBytes=867 unpackAlignment=1");
+"""
+count = main.count(old_upload)
+if count != 1:
+    raise SystemExit(f"GL1F UNPACK1 upload anchor count={count}")
+main_path.write_text(main.replace(old_upload, new_upload, 1))
+print("M9LIVEGL1F_UNPACK1 applied: RGB8 rowBytes=867 uses GL_UNPACK_ALIGNMENT=1")
+
