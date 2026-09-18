@@ -32,8 +32,10 @@ checks = [
     ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
     ("shader GL1F marker", "M9LIVEGL1F_TONELUT1A" in shader),
     ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
-    ("GL1G display-delta marker", "M9LIVEGL1G_DISPLAYDELTA1A" in shader),
-    ("GL1G linear to sRGB", "linearToSrgbM9(linear)" in shader),
+    ("GL1H luminance-gamma marker", "M9LIVEGL1H_LUMAGAMMA1A" in shader),
+    ("GL1H linear to sRGB", "linearToSrgbM9(linear)" in shader),
+    ("GL1H gamma constant", "pow(y1H, 1.22)" in shader),
+    ("GL1H luminance coefficients", "vec3(0.2126, 0.7152, 0.0722)" in shader),
     ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
     ("unpack alignment restored", "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)" in main),
     ("LUT packed layout marker", "M9LIVEGL1F_LUTPACK1" in (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").read_text() if (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").exists() else True),
@@ -51,7 +53,9 @@ if end < 0:
     raise SystemExit("GL1F display transform end missing")
 transform = shader[start:end + 2]
 if "linear *= uM9ExposureScale1B" not in transform:
-    raise SystemExit("GL1G exposure authority missing from active transform")
+    raise SystemExit("GL1H exposure authority missing from active transform")
+if "pow(y1H, 1.22)" not in transform or "linear *= y1HTarget / y1H" not in transform:
+    raise SystemExit("GL1H luminance gamma missing from active transform")
 for marker in (
     "sourceToM9Target1D(linear)",
     "sat2M9(linear)",

@@ -194,3 +194,52 @@ else:
     main = main.replace(marker, marker + ' M9LIVEGL1G_DISPLAYDELTA1A', 1)
 main_path.write_text(main)
 print("M9LIVEGL1G_DISPLAYDELTA1A applied: OES + GL1B exposure, no live curve02/0.40/LUT")
+
+
+# M9LIVEGL1H_LUMAGAMMA1A
+# Paired GL1G device validation (14685 preview vs 14686 output) shows colour
+# chroma is already close but live shadows/midtones remain too bright while
+# highlights are near parity. A luminance-only linear-light gamma preserves
+# colour direction and leaves white fixed.
+root = Path(sys.argv[1]).resolve()
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+
+old_transform = """    // M9LIVEGL1G_DISPLAYDELTA1A
+    // Photon OES is already display-rendered. Re-applying the fixed 0.40 gain
+    // and exact still curve02 double-toned the live image (paired validation:
+    // crushed shadows, excessive contrast). Preserve only intended exposure
+    // here; subsequent M9 appearance work must be a calibrated display delta.
+    linear *= uM9ExposureScale1B;
+    linear *= falloffGain1C(uv);
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+new_transform = """    // M9LIVEGL1H_LUMAGAMMA1A
+    // Photon OES is already display-rendered. Preserve GL1B intended exposure,
+    // then apply the measured residual as luminance only. 1.22 was fitted from
+    // the aligned GL1G preview/output pair: it darkens mids/shadows while
+    // leaving the white point fixed and avoids per-channel hue distortion.
+    linear *= uM9ExposureScale1B;
+    linear *= falloffGain1C(uv);
+    float y1H = max(dot(linear, vec3(0.2126, 0.7152, 0.0722)), 1e-6);
+    float y1HTarget = pow(y1H, 1.22);
+    linear *= y1HTarget / y1H;
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+if shader.count(old_transform) != 1:
+    raise SystemExit("GL1H active transform anchor count=" + str(shader.count(old_transform)))
+shader = shader.replace(old_transform, new_transform, 1)
+shader_path.write_text(shader)
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+log_anchor = 'Log.d("M9LiveGL1G", "M9LIVEGL1G_DISPLAYDELTA1A active=EXPOSURE_ONLY curve02_live=false lut_live=false displayGain040_live=false");'
+if log_anchor in main:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1H", "M9LIVEGL1H_LUMAGAMMA1A gamma=1.22 chromaPreserving=true curve02_live=false lut_live=false");', 1)
+else:
+    marker = 'M9LIVEGL1G_DISPLAYDELTA1A'
+    if marker not in main:
+        raise SystemExit("GL1H MainRenderer log anchor missing")
+    main = main.replace(marker, marker + ' M9LIVEGL1H_LUMAGAMMA1A', 1)
+main_path.write_text(main)
+print("M9LIVEGL1H_LUMAGAMMA1A applied: linear-light luminance gamma=1.22, chroma-preserving")
