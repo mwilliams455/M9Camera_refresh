@@ -282,3 +282,5 @@ jobs:
           name: M9-LIVEWYSIWYG1D-METER1600-BUILDLOG
           path: LIVEWYSIWYG1D_GRADLE.log
           if-no-files-found: ignore
+
+# LIVEWYSIWYG1D CI trigger
