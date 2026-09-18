@@ -2,6 +2,12 @@ name: Build M9Cam LIVEWYSIWYG1A Current Exposure
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [research/m9sensorport1a-anyraw-fallofftgt1a]
+    paths:
+      - 'patches/apply-m9cam-m9livewysiwyg1a-currentexposure.py'
+      - 'patches/verify-m9cam-m9livewysiwyg1a-currentexposure.py'
+      - '.github/workflows/build-m9cam-m9livewysiwyg1a-currentexposure.yml'
   push:
     branches: [research/m9livewysiwyg1a-currentexposure]
     paths:
