@@ -56,7 +56,7 @@ controller_required = [
     'm9LiveWysiwygPairLock1A',
     'm9LiveWysiwygPendingImage1A',
     'tryDispatchM9LiveWysiwygPair1A()',
-    'rawResultTimestampDeltaNs',
+    'pairDeltaNs',
     'pairDeltaNs > 2_000_000L',
     'M9LivePreview1A.render(',
     'm9LivePreviewImageView.setImageBitmap(ready);',
