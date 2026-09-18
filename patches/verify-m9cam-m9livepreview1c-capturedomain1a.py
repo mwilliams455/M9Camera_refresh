@@ -36,7 +36,7 @@ preview_markers=[
     'scaleExposureDomainCode',
     'CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN',
     'CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL',
-    'probeResultIso',
+    'probeIso',
 ]
 for m in preview_markers:
     if m not in ps: raise SystemExit('M9LIVEPREVIEW1C preview marker missing: '+m)
