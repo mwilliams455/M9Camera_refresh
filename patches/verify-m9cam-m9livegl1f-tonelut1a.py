@@ -32,10 +32,12 @@ checks = [
     ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
     ("shader GL1F marker", "M9LIVEGL1F_TONELUT1A" in shader),
     ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
-    ("GL1H luminance-gamma marker", "M9LIVEGL1H_LUMAGAMMA1A" in shader),
-    ("GL1H linear to sRGB", "linearToSrgbM9(linear)" in shader),
-    ("GL1H gamma constant", "pow(y1H, 1.22)" in shader),
-    ("GL1H luminance coefficients", "vec3(0.2126, 0.7152, 0.0722)" in shader),
+    ("GL1I scene-key marker", "M9LIVEGL1I_SCENEKEY1A" in shader),
+    ("GL1I linear to sRGB", "linearToSrgbM9(linear)" in shader),
+    ("GL1I dynamic gain", "uM9PreviewGainEv1F" in shader and "gain1I" in shader),
+    ("GL1I dynamic gamma", "uM9MidtoneGamma1F" in shader and "gamma1I" in shader),
+    ("GL1I luma coefficients", "vec3(0.2126, 0.7152, 0.0722)" in shader),
+    ("GL1I model scene key", "sceneKey1I" in tone and "0.65 * backlit + 0.35 * highlightPressure" in tone),
     ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
     ("unpack alignment restored", "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)" in main),
     ("LUT packed layout marker", "M9LIVEGL1F_LUTPACK1" in (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").read_text() if (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").exists() else True),
@@ -53,9 +55,9 @@ if end < 0:
     raise SystemExit("GL1F display transform end missing")
 transform = shader[start:end + 2]
 if "linear *= uM9ExposureScale1B" not in transform:
-    raise SystemExit("GL1H exposure authority missing from active transform")
-if "pow(y1H, 1.22)" not in transform or "linear *= y1HTarget / y1H" not in transform:
-    raise SystemExit("GL1H luminance gamma missing from active transform")
+    raise SystemExit("GL1I exposure authority missing from active transform")
+if "gain1I * pow(y1I, gamma1I)" not in transform or "linear *= y1ITarget / y1I" not in transform:
+    raise SystemExit("GL1I scene-key display delta missing from active transform")
 for marker in (
     "sourceToM9Target1D(linear)",
     "sat2M9(linear)",
