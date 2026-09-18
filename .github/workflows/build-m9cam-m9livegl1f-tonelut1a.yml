@@ -193,7 +193,7 @@ jobs:
           if start < 0 or end < 0: raise SystemExit('GL1F transform missing')
           transform=t[start:end+2]
           required=(
-              'M9LIVEGL1F_TONELUT1A',
+              'M9LIVEGL1G_DISPLAYDELTA1A',
               'linear *= uM9ExposureScale1B',
               'linearToSrgbM9(linear)',
           )
