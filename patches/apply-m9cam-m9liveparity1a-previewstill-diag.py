@@ -127,7 +127,7 @@ lines = method.splitlines(True)
 candidates = []
 for idx, line in enumerate(lines):
     stripped = line.strip()
-    if stripped.startswith('JSONObject ') and '= out.diagnostics;' in stripped:
+    if stripped == 'JSONObject diag = out.diagnostics;':
         candidates.append((idx, line))
 if len(candidates) != 1:
     debug = [line.strip() for line in lines
