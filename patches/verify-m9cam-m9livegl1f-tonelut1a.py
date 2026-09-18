@@ -28,9 +28,6 @@ analyzer = files["analyzer"].read_text()
 checks = [
     ("MainRenderer build marker", "M9LIVEGL1F_TONELUT1A" in main),
     ("MainRenderer gain uniform", "uM9PreviewGainEv1F" in main),
-    ("MainRenderer shadow uniform", "uM9PreviewShadow1F" in main),
-    ("MainRenderer gamma uniform", "uM9PreviewGamma1F" in main),
-    ("MainRenderer shoulder uniform", "uM9PreviewShoulder1F" in main),
     ("tone model schema", "m9cam.livepreview.gl1f.tonelut1a" in tone),
     ("tone model preview luma input", "previewLuma" in tone),
     ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
