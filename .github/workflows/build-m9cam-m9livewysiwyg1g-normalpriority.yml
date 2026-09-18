@@ -211,3 +211,5 @@ jobs:
           name: M9-LIVEWYSIWYG1G-NORMALPRIORITY-BUILDLOG
           path: LIVEWYSIWYG1G_GRADLE.log
           if-no-files-found: ignore
+
+# LIVEWYSIWYG1G CI trigger
