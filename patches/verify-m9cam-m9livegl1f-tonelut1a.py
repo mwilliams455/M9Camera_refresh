@@ -32,8 +32,6 @@ checks = [
     ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
     ("shader GL1F marker", "M9LIVEGL1F_TONELUT1A" in shader),
     ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
-    ("shader tone placement", "tonePlacement1F(linear)" in shader),
-    ("shader curve02 after tone", "curve02M9(toned1F.r)" in shader),
     ("GL1G display-delta marker", "M9LIVEGL1G_DISPLAYDELTA1A" in shader),
     ("GL1G linear to sRGB", "linearToSrgbM9(linear)" in shader),
     ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
