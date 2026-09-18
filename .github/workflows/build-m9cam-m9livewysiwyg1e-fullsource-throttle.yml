@@ -170,7 +170,7 @@ jobs:
               b'M9LIVEWYSIWYG1C_FULLSOURCE_FINALBOUNDARY',
               b'FULL_PRODUCTION_RENDER_FULL_SOURCE_FINAL_BITMAP',
               b'full_resolution_RAW_is_renderer_input_no_pre_render_reduction',
-              b'M9LIVEWYSIWYG1E_FULLSOURCE_THROTTLE',
+              b'm9LivePreviewLastRenderEndElapsedMs1E',
               b'M9LIVEWYSIWYG1B_DISPLAYEDCAPTURELOCK',
               b'setExactExposureM9Wysiwyg1B',
               b'ImageView_displayed_M9_frame',
