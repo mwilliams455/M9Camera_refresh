@@ -111,7 +111,7 @@ new_upload = """        // M9LIVEGL1F_UNPACK1
                 M9_LIVE_GL1F_LUT_SIZE, 0,
                 GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, data);
         GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4);
-        Log.d("M9LiveGL1F", "M9LIVEGL1F_UNPACK1 rowBytes=867 unpackAlignment=1");
+        Log.d("M9LiveGL1F", "M9LIVEGL1F_UNPACK1 rowBytes=867 unpackAlignment=1");\n        Log.d("M9LiveGL1F", "M9LIVEGL1F_LUTPACK1 layout=G_rows_B_tiles_R_inner");
 """
 count = main.count(old_upload)
 if count != 1:
