@@ -117,16 +117,25 @@ c = replace_once(c, stop_old, stop_new, 'stop reset')
 controller.write_text(c)
 
 g = gradle.read_text()
-import re
-m = re.search(r'versionName\\s+["\\']([^"\\']+)["\\']', g)
-if not m:
+lines = g.splitlines()
+changed = False
+for i, line in enumerate(lines):
+    stripped = line.strip()
+    if stripped.startswith('versionName '):
+        if 'm9livewysiwyg1e' not in stripped.lower():
+            prefix = line[:len(line) - len(line.lstrip())]
+            value = stripped[len('versionName '):].strip()
+            quote = '"' if value.startswith('"') else "'"
+            if not (value.startswith(quote) and value.endswith(quote)):
+                raise SystemExit('M9LIVEWYSIWYG1E unsupported versionName syntax: ' + line)
+            base = value[1:-1]
+            lines[i] = prefix + 'versionName ' + quote + base + '-m9livewysiwyg1e-fullsource-throttle' + quote
+            changed = True
+        break
+else:
     raise SystemExit('M9LIVEWYSIWYG1E versionName missing')
-if 'm9livewysiwyg1e' not in m.group(1).lower():
-    old = m.group(0)
-    quote = '"' if '"' in old else "'"
-    g = g.replace(old, 'versionName ' + quote + m.group(1)
-                  + '-m9livewysiwyg1e-fullsource-throttle' + quote, 1)
-    gradle.write_text(g)
+if changed:
+    gradle.write_text('\n'.join(lines) + ('\n' if g.endswith('\n') else ''))
 
 print('M9LIVEWYSIWYG1E_FULLSOURCE_THROTTLE applied')
 print(' - exact 1C full-resolution RAW -> production M9 renderer path retained')
