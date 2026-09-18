@@ -115,7 +115,7 @@ preview_anchor = '''                    previewDiag.put("sourceGeometryAuthority
                             "original_full_resolution_RAW_descriptor_retained_before_preview_reduction");
 '''
 preview_new = preview_anchor + '''                    captureM9LiveParity1APreview(
-                            previewDiag, captureResult, captureRequest, width, height);
+                            previewDiag, captureResult, captureRequest, frame.width, frame.height);
 '''
 s = replace_once(s, preview_anchor, preview_new, 'preview completed-render capture')
 
