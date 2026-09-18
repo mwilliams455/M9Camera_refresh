@@ -1,0 +1,237 @@
+name: Build M9Cam M9LIVEGL1A Photon Shader
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [research/m9livewysiwyg1g-normalpriority]
+    paths:
+      - 'patches/apply-m9cam-m9livegl1a-photonshader.py'
+      - 'patches/verify-m9cam-m9livegl1a-photonshader.py'
+      - '.github/workflows/build-m9cam-m9livegl1a-photonshader.yml'
+  push:
+    branches: [research/m9livegl1a-photonshader]
+    paths:
+      - 'patches/apply-m9cam-m9livegl1a-photonshader.py'
+      - 'patches/verify-m9cam-m9livegl1a-photonshader.py'
+      - '.github/workflows/build-m9cam-m9livegl1a-photonshader.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify M9LIVEGL1A patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-m9livegl1a-photonshader.py
+          python3 -m py_compile patches/verify-m9cam-m9livegl1a-photonshader.py
+
+      - name: Replay exact LIVEWYSIWYG1G assembled baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/build-m9cam-m9livewysiwyg1g-normalpriority.yml')
+          lines=wf.read_text().splitlines()
+          names=[
+              'Verify LIVEWYSIWYG1G patch syntax',
+              'Replay exact LIVEWYSIWYG1F assembled baseline',
+              'Freeze photographic path before LIVEWYSIWYG1G',
+              'Apply normal-priority scheduler',
+              'Prove photographic path unchanged',
+          ]
+          for idx,name in enumerate(names):
+              target='      - name: '+name
+              if target not in lines:
+                  raise SystemExit('LIVEWYSIWYG1G replay block missing: '+name)
+              i=lines.index(target)
+              while i<len(lines) and lines[i].strip()!='run: |':
+                  i+=1
+              if i>=len(lines):
+                  raise SystemExit('LIVEWYSIWYG1G run block missing: '+name)
+              i+=1
+              out=[]
+              while i<len(lines):
+                  line=lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected LIVEWYSIWYG1G indentation: '+line)
+                  i+=1
+              Path(f'/tmp/m9livegl1a_parent_{idx:02d}.sh').write_text('\n'.join(out)+'\n')
+          PY
+          for s in /tmp/m9livegl1a_parent_*.sh; do
+            echo "=== replay $s ==="
+            bash "$s"
+          done
+
+      - name: Freeze exact still M9 renderer before M9LIVEGL1A
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementBestFit2AController.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java" \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEGL1A_STILL_BEFORE.sha256
+
+      - name: Apply Photon GL M9 display transform
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9livegl1a-photonshader.py "$ROOT"
+          python3 patches/verify-m9cam-m9livegl1a-photonshader.py "$ROOT" \
+            | tee M9LIVEGL1A_VERIFY.txt
+
+      - name: Prove exact still M9 renderer unchanged
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementBestFit2AController.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java" \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > M9LIVEGL1A_STILL_AFTER.sha256
+          diff -u M9LIVEGL1A_STILL_BEFORE.sha256 M9LIVEGL1A_STILL_AFTER.sha256
+
+      - name: Snapshot GL preview sources
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-m9livegl1a"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java" "$OUT/"
+          cp "$ROOT/app/src/main/assets/shaders/preview/main_fs.glsl" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePreview1A.java" "$OUT/"
+          cp M9LIVEGL1A_VERIFY.txt "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build M9LIVEGL1A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 \
+            | tee "$GITHUB_WORKSPACE/M9LIVEGL1A_GRADLE.log"
+
+      - name: Verify packaged M9LIVEGL1A contract
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livegl1a-apk
+          mkdir -p /tmp/m9livegl1a-apk
+          unzip -q "$APK" -d /tmp/m9livegl1a-apk
+          python3 - <<'PY' | tee M9LIVEGL1A_APK_PROOF.txt
+          from pathlib import Path
+          import hashlib
+          root=Path('/tmp/m9livegl1a-apk')
+          curve=root/'assets/m9/m9_curve02_firmware.bin'
+          mainfs=root/'assets/shaders/preview/main_fs.glsl'
+          if not curve.exists() or not mainfs.exists():
+              raise SystemExit('M9LIVEGL1A required assets missing')
+          curve_sha=hashlib.sha256(curve.read_bytes()).hexdigest()
+          print('CURVE02_SHA256', curve_sha)
+          if curve_sha != '5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c':
+              raise SystemExit('curve02 mismatch')
+          t=mainfs.read_text()
+          for marker in ('M9LIVEGL1A_PHOTON_SHADER','uM9Curve','uM9DisplayGain',
+                         'sat2M9','curve02M9'):
+              ok=marker in t
+              print(mainfs.name, marker, ok)
+              if not ok:
+                  raise SystemExit('shader marker missing '+marker)
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in (
+              b'M9LIVEGL1A_PHOTON_SHADER',
+              b'PHOTON_OES_PREVIEW_M9_DISPLAY_TRANSFORM',
+              b'RAW_LIVE_OVERLAY_DISABLED',
+              b'Photon_GL_current_preview_result'):
+              ok=marker in dex
+              print(marker.decode('ascii'), ok)
+              if not ok:
+                  raise SystemExit('DEX marker missing '+marker.decode('ascii'))
+          print('M9LIVEGL1A APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk \
+            | tee M9LIVEGL1A_APK_SHA256.txt
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9LIVEGL1A-PHOTONSHADER
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            M9LIVEGL1A_APK_SHA256.txt
+            M9LIVEGL1A_VERIFY.txt
+            M9LIVEGL1A_APK_PROOF.txt
+            M9LIVEGL1A_STILL_BEFORE.sha256
+            M9LIVEGL1A_STILL_AFTER.sha256
+
+      - name: Upload assembled GL source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9LIVEGL1A-ASSEMBLED-SOURCE
+          path: assembled-m9livegl1a/
+          if-no-files-found: ignore
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9LIVEGL1A-BUILDLOG
+          path: M9LIVEGL1A_GRADLE.log
+          if-no-files-found: ignore
