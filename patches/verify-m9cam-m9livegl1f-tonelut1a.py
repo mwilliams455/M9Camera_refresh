@@ -37,6 +37,7 @@ checks = [
     ("shader display LUT", "previewLut1F(curved1F)" in shader),
     ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
     ("unpack alignment restored", "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)" in main),
+    ("LUT packed layout marker", "M9LIVEGL1F_LUTPACK1" in (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").read_text() if (root.parent / "patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py").exists() else True),
 ]
 for label, ok in checks:
     print(("OK   " if ok else "FAIL ") + label)
@@ -73,6 +74,40 @@ if len(raw) != expected:
 cube = files["lut_cube"].read_text()
 if "LUT_3D_SIZE 17" not in cube:
     raise SystemExit("GL1F cube LUT size declaration missing")
+
+# Verify the raw texture is packed exactly as the shader expects:
+# cube sequence = [B][G][R], texture memory = [G row][B tile][R].
+vals = []
+for line in cube.splitlines():
+    line = line.strip()
+    if not line or line.startswith(("TITLE", "LUT_3D_SIZE", "DOMAIN_")):
+        continue
+    parts = line.split()
+    if len(parts) == 3:
+        vals.append(tuple(float(x) for x in parts))
+if len(vals) != 17*17*17:
+    raise SystemExit(f"GL1F cube value count mismatch: {len(vals)}")
+
+max_err = 0
+for b in range(17):
+    for g in range(17):
+        for r in range(17):
+            cube_i = (b*17 + g)*17 + r
+            tex_i = (g*17*17 + b*17 + r)*3
+            exp = tuple(int(round(max(0.0, min(1.0, x))*255.0)) for x in vals[cube_i])
+            got = tuple(raw[tex_i+k] for k in range(3))
+            max_err = max(max_err, *(abs(got[k]-exp[k]) for k in range(3)))
+if max_err > 1:
+    raise SystemExit(f"GL1F LUT packed-layout mismatch max_byte_error={max_err}")
+print("LUTPACK1_MAX_BYTE_ERROR", max_err)
+
+# Neutral diagonal must remain neutral after packing.
+for i in (0, 1, 4, 8, 12, 16):
+    tex_i = (i*17*17 + i*17 + i)*3
+    rgb = tuple(raw[tex_i+k] for k in range(3))
+    if max(rgb) - min(rgb) > 1:
+        raise SystemExit(f"GL1F neutral diagonal corrupted at {i}: {rgb}")
+print("LUTPACK1_NEUTRALS PASS")
 
 print("CURVE02_SHA256", hashlib.sha256(files["curve02"].read_bytes()).hexdigest())
 print("PREVIEW_LUT_SHA256", hashlib.sha256(raw).hexdigest())

@@ -217,6 +217,7 @@ jobs:
               b'm9cam.livepreview.gl1f.tonelut1a',
               b'fillLiveToneStats1F',
               b'M9LIVEGL1F_UNPACK1',
+              b'M9LIVEGL1F_LUTPACK1',
               b'Photon_GL_IsoExpoSelector_intended_pair'):
               ok=marker in dex
               print(marker.decode('ascii'),ok)
@@ -236,7 +237,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-M9LIVEGL1F-TONELUT1A-UNPACK1
+          name: M9Cam-M9LIVEGL1F-TONELUT1A-LUTPACK1
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             M9LIVEGL1F_APK_SHA256.txt

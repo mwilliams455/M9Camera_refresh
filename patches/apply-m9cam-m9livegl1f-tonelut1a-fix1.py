@@ -65,6 +65,29 @@ for label, old, new in (
 
 exec(compile(src, "apply_gl1f_fix1.py", "exec"))
 
+# M9LIVEGL1F_LUTPACK1
+# Base asset is emitted in conventional .cube traversal [B][G][R], R fastest.
+# The shader's 2-sample tiled layout expects image memory [G row][B tile][R].
+# Repack the raw RGB8 asset so shader coordinates and file layout agree.
+root = Path(sys.argv[1]).resolve()
+lut_path = root / "app/src/main/assets/m9/m9_preview_standard_gl1f_17.rgb"
+raw = lut_path.read_bytes()
+n = 17
+expected = n * n * n * 3
+if len(raw) != expected:
+    raise SystemExit(f"GL1F LUTPACK1 raw size={len(raw)} expected={expected}")
+packed = bytearray(expected)
+for b in range(n):
+    for g in range(n):
+        for r in range(n):
+            src_pixel = ((b * n + g) * n + r)
+            dst_pixel = (g * n * n + b * n + r)
+            so = src_pixel * 3
+            do = dst_pixel * 3
+            packed[do:do+3] = raw[so:so+3]
+lut_path.write_bytes(packed)
+print("M9LIVEGL1F_LUTPACK1 applied: canonical [B][G][R] -> texture [G][B][R]")
+
 # M9LIVEGL1F_UNPACK1
 # The packed 17^3 LUT is uploaded as a 289x17 RGB8 texture. Each source row is
 # 289*3 = 867 bytes, which is not compatible with OpenGL ES's default
