@@ -31,7 +31,7 @@ required = [
     '"requestShadingMode"',
     '"sensorDescriptor1A"',
     '"targetFalloff1A"',
-    'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN',
+    'FULL_PRODUCTION_RENDER_REDUCED_RAW_1440x1080_MAIN',
     'M9SENSORTARGET1A',
     'SAT2_M04_M05',
 ]
