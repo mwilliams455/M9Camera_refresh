@@ -13,6 +13,7 @@ on:
     branches: [research/m9livegl1f-tonelut1a]
     paths:
       - 'patches/apply-m9cam-m9livegl1f-tonelut1a.py'
+      - 'patches/apply-m9cam-m9livegl1f-tonelut1a-fix1.py'
       - 'patches/verify-m9cam-m9livegl1f-tonelut1a.py'
       - '.github/workflows/build-m9cam-m9livegl1f-tonelut1a.yml'
 
