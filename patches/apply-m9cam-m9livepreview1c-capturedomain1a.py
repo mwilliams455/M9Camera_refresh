@@ -400,13 +400,15 @@ cleanup_new='''            M9_LIVE_PREVIEW_1A_SENSOR_DESCRIPTOR.remove();
 r=replace_once(r,cleanup,cleanup_new,'renderer exposure-domain cleanup')
 
 # Let the 1B parity snapshot copy this preview-only record if a displayed frame exists.
-key_anchor='''                    "targetFalloff1A"
-'''
+key_anchor='''                    "sensorDescriptor1A",
+                    "targetFalloff1A"
+            };'''
 if key_anchor not in r:
     raise SystemExit('M9LIVEPREVIEW1C parity key-list anchor missing')
-r=r.replace(key_anchor,'''                    "targetFalloff1A",
+r=r.replace(key_anchor,'''                    "sensorDescriptor1A",
+                    "targetFalloff1A",
                     "previewExposureDomain1C"
-''',1)
+            };''',1)
 
 renderer.write_text(r)
 
