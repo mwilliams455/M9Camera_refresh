@@ -58,7 +58,7 @@ for marker in (
         'M9LIVEPARITY1A_PREVIEWSTILL_DIAG',
         'FULL_PRODUCTION_RENDER_REDUCED_RAW_1440x1080_MAIN',
         'M9_LIVE_PARITY_1A_LAST_PREVIEW',
-        'M9SENSORPORT1A_ANYRAW_FALLOFFTGT1A',
+        'sensorDescriptor1A',
         'SAT2_M04_M05'):
     if marker not in s:
         raise SystemExit('M9LIVEPARITY1B baseline marker missing: ' + marker)
