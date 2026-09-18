@@ -330,3 +330,5 @@ jobs:
           name: M9-LIVEWYSIWYG1C-FULLSOURCE-BUILDLOG
           path: LIVEWYSIWYG1C_GRADLE.log
           if-no-files-found: ignore
+
+# LIVEWYSIWYG1C sync trigger
