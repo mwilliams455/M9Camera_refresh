@@ -2,6 +2,12 @@ name: Build M9Cam M9LIVEGL1B Exposure Intent
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [research/m9livegl1a-photonshader]
+    paths:
+      - 'patches/apply-m9cam-m9livegl1b-exposureintent.py'
+      - 'patches/verify-m9cam-m9livegl1b-exposureintent.py'
+      - '.github/workflows/build-m9cam-m9livegl1b-exposureintent.yml'
   push:
     branches: [research/m9livegl1b-exposureintent]
     paths:
