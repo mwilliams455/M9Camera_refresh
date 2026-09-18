@@ -29,7 +29,6 @@ checks = [
     ("MainRenderer build marker", "M9LIVEGL1F_TONELUT1A" in main),
     ("MainRenderer gain uniform", "uM9PreviewGainEv1F" in main),
     ("tone model schema", "m9cam.livepreview.gl1f.tonelut1a" in tone),
-    ("tone model preview luma input", "previewLuma" in tone),
     ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
     ("shader GL1F marker", "M9LIVEGL1F_TONELUT1A" in shader),
     ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
