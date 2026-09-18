@@ -27,7 +27,6 @@ frame = paths['frame'].read_text()
 saver = paths['saver'].read_text()
 
 required_renderer = [
-    'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN',
     'M9SENSORTARGET1A',
     'M9_LIVE_PREVIEW_1A_SENSOR_DESCRIPTOR',
     'sensorDescriptor1A',
@@ -37,6 +36,9 @@ required_renderer = [
 for marker in required_renderer:
     if marker not in r:
         raise SystemExit('M9SENSORPORT1A renderer marker missing: ' + marker)
+
+if 'M9LIVEPREVIEW1B_FULLRENDER1080P_MAIN' not in p:
+    raise SystemExit('M9SENSORPORT1A preview 1080p runtime marker missing')
 
 required_preview = [
     'LANDSCAPE_WIDTH = 1440',
