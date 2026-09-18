@@ -30,12 +30,16 @@ for token in (
         raise SystemExit('M9LIVEWYSIWYG1H renderer token missing: '+token)
 
 # Source-sensitive stages must remain before the reduced live surface.
+core_start=r.find('    private static RenderCore renderNativeProspectiveCore(ByteBuffer rawBuffer,')
+if core_start < 0:
+    raise SystemExit('M9LIVEWYSIWYG1H prospective core missing')
+core=r[core_start:]
 positions={
-    'normalize': r.find('M9NativeColorCore.normalizeRawDirect('),
-    'shading': r.find('applyNativeProspectiveGainMapLumaDecomp1A('),
-    'demosaic': r.find('M9NativeColorCore.demosaicMhcRggb('),
-    'meter_resize': r.find('Imgproc.resize(cam16, meterCam16'),
-    'live_surface': r.find('final Mat m9LiveRenderCam1H ='),
+    'normalize': core.find('M9NativeColorCore.normalizeRawDirect('),
+    'shading': core.find('applyNativeProspectiveGainMapLumaDecomp1A('),
+    'demosaic': core.find('M9NativeColorCore.demosaicMhcRggb('),
+    'meter_resize': core.find('Imgproc.resize(cam16, meterCam16'),
+    'live_surface': core.find('final Mat m9LiveRenderCam1H ='),
 }
 for k,v in positions.items():
     if v<0: raise SystemExit('M9LIVEWYSIWYG1H stage missing: '+k)
