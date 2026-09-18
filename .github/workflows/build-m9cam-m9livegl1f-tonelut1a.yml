@@ -248,7 +248,7 @@ jobs:
         with:
           name: M9-M9LIVEGL1F-ASSEMBLED-SOURCE
           path: assembled-m9livegl1f/
-          if-no-files-found: igore
+          if-no-files-found: ignore
 
       - name: Upload build log
         if: always()
@@ -256,4 +256,4 @@ jobs:
         with:
           name: M9-M9LIVEGL1F-BULDLOG
           path: M9LIVEGL1F_GRADLE.log
-          if-no-files-found: igore
+          if-no-files-found: ignore
