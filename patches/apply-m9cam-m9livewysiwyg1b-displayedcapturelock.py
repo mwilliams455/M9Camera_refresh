@@ -118,7 +118,7 @@ insert = r'''
         builder.set(CaptureRequest.SENSOR_SENSITIVITY, iso);
         lastSelectedExposure = exposureNs;
 
-        Log.v(TAG, "M9LIVEWYSIWYG1B exact displayed exposure: ISO="
+        Log.v(TAG, "M9LIVEWYSIWYG1B_DISPLAYEDCAPTURELOCK exact displayed exposure: ISO="
                 + iso + " exposureNs=" + exposureNs + " step=" + step);
     }
 '''
