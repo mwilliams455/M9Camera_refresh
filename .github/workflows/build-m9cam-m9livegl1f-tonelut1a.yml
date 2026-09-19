@@ -196,7 +196,8 @@ jobs:
               'M9LIVEGL1N_LOWPIVOT1A',
               'linear *= uM9ExposureScale1B',
               'gain1I * pow(y1I, gamma1I)',
-              'linear *= y1ITarget / y1I',
+              'pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N)',
+              'linear *= y1N / y1I',
               'linearToSrgbM9(linear)',
           )
           forbidden=(
