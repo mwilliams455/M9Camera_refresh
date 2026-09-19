@@ -389,3 +389,77 @@ shader = shader.replace("exp2(clamp(uM9PreviewGainEv1F, -2.50, 0.50))",
                         "exp2(clamp(uM9PreviewGainEv1F, -1.50, 0.50))")
 shader_path.write_text(shader)
 print("M9LIVEGL1J_DUALDEVICE1A applied: GL1I classifier retained, gain slope 3.00 -> 1.40")
+
+
+# M9LIVEGL1K_PIVOTGAMMA1A
+# GL1J 17U aligned fit shows the residual is primarily contrast, not exposure:
+# y_final ~= 2.37 * y_preview^2.26, whose fixed point is ~0.50 linear.
+# Drive scene-key contrast around that fixed pivot instead of global darkening.
+root = Path(sys.argv[1]).resolve()
+
+tone_path = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java"
+tone = tone_path.read_text()
+tone = tone.replace("public static final float DEFAULT_GAIN_EV = -0.30f;",
+                    "public static final float DEFAULT_GAIN_EV = 0.20f;")
+tone = tone.replace("public static final float DEFAULT_GAMMA = 1.120f;",
+                    "public static final float DEFAULT_GAMMA = 1.200f;")
+
+old_gain = """        double gainEv = -0.30 - 1.40 * sceneKey1I;
+        gainEv = clamp(gainEv, -1.50, -0.25);
+"""
+new_gain = """        // M9LIVEGL1K_PIVOTGAMMA1A
+        // Preserve a 0.50 linear-light pivot. For y' = gain * y^gamma,
+        // gainEv = gamma - 1 exactly keeps y=0.5 fixed.
+        final double gamma1K = clamp(1.20 + 1.10 * sceneKey1I, 1.18, 2.30);
+        double gainEv = gamma1K - 1.0;
+        gainEv = clamp(gainEv, 0.18, 1.30);
+"""
+if tone.count(old_gain) != 1:
+    raise SystemExit("GL1K gain anchor count=" + str(tone.count(old_gain)))
+tone = tone.replace(old_gain, new_gain, 1)
+
+old_gamma = """        // Chroma-preserving residual contrast. The scene-key fit is intentionally
+        // modest; the large scene change is carried by gain, not by crushing black.
+        double gamma = 1.12 + 0.26 * sceneKey1I;
+        gamma = clamp(gamma, 1.10, 1.32);
+"""
+new_gamma = """        // Scene-key now controls contrast around the 0.50 pivot; no independent
+        // exposure darkening. Strong backlight can reach the measured ~2.25 fit.
+        double gamma = gamma1K;
+"""
+if tone.count(old_gamma) != 1:
+    raise SystemExit("GL1K gamma anchor count=" + str(tone.count(old_gamma)))
+tone = tone.replace(old_gamma, new_gamma, 1)
+tone_path.write_text(tone)
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+main = main.replace("private volatile float mM9PreviewGainEv1F = -0.30f;",
+                    "private volatile float mM9PreviewGainEv1F = 0.20f;")
+main = main.replace("private volatile float mM9MidtoneGamma1F = 1.120f;",
+                    "private volatile float mM9MidtoneGamma1F = 1.200f;")
+main = main.replace("if (!Float.isFinite(gainEv)) gainEv = -0.30f;",
+                    "if (!Float.isFinite(gainEv)) gainEv = 0.20f;")
+main = main.replace("if (!Float.isFinite(midtoneGamma)) midtoneGamma = 1.120f;",
+                    "if (!Float.isFinite(midtoneGamma)) midtoneGamma = 1.200f;")
+main = main.replace("mM9PreviewGainEv1F = Math.max(-1.50f, Math.min(0.50f, gainEv));",
+                    "mM9PreviewGainEv1F = Math.max(0.00f, Math.min(1.50f, gainEv));")
+main = main.replace("mM9MidtoneGamma1F = Math.max(1.00f, Math.min(1.40f, midtoneGamma));",
+                    "mM9MidtoneGamma1F = Math.max(1.00f, Math.min(2.40f, midtoneGamma));")
+log_anchor = 'Log.d("M9LiveGL1J", "M9LIVEGL1J_DUALDEVICE1A gain=[-1.50,-0.25] sceneKeySlope=1.40 calibrated15U17U=true");'
+if main.count(log_anchor) == 1:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1K", "M9LIVEGL1K_PIVOTGAMMA1A pivot=0.50 gamma=[1.18,2.30] gainEv=gammaMinus1 chromaPreserving=true");', 1)
+else:
+    raise SystemExit("GL1K log anchor count=" + str(main.count(log_anchor)))
+main_path.write_text(main)
+
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+shader = shader.replace("// M9LIVEGL1J_DUALDEVICE1A\n    // GL1I classifier retained; gain amplitude recalibrated from 15U + 17U pairs.",
+                        "// M9LIVEGL1K_PIVOTGAMMA1A\n    // Scene-key contrast around a 0.50 linear pivot; no global darkening.")
+shader = shader.replace("float gamma1I = clamp(uM9MidtoneGamma1F, 1.00, 1.40);",
+                        "float gamma1I = clamp(uM9MidtoneGamma1F, 1.00, 2.40);")
+shader = shader.replace("float gain1I = exp2(clamp(uM9PreviewGainEv1F, -1.50, 0.50));",
+                        "float gain1I = exp2(clamp(uM9PreviewGainEv1F, 0.00, 1.50));")
+shader_path.write_text(shader)
+print("M9LIVEGL1K_PIVOTGAMMA1A applied: scene-key contrast around 0.50 linear pivot")
