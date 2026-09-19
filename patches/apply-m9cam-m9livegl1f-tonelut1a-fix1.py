@@ -616,3 +616,47 @@ shader = shader.replace("// M9LIVEGL1M_BRACKETREFINE1A",
                         "// M9LIVEGL1N_LOWPIVOT1A\n    // GL1M gain retained; measured low-pivot residual contrast added.")
 shader_path.write_text(shader)
 print("M9LIVEGL1N_LOWPIVOT1A applied: pivot=0.071 residualGammaMax=1.675")
+
+
+# M9LIVEGL1O_TOELOCK1A
+# GL1N aligned residual shows near-black is close while upper mids/highlights
+# remain too low. Add a second scene-weighted low-pivot contrast refinement,
+# but protect the toe so sub-~0.015 linear values are not driven further down.
+root = Path(sys.argv[1]).resolve()
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+log_anchor = 'Log.d("M9LiveGL1N", "M9LIVEGL1N_LOWPIVOT1A pivotLinear=0.071 residualGammaMax=1.675 sceneWeighted=true chromaPreserving=true");'
+if main.count(log_anchor) == 1:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1O", "M9LIVEGL1O_TOELOCK1A pivotLinear=0.071 extraGammaMax=1.60 toe=[0.015,0.055] sceneWeighted=true");', 1)
+else:
+    raise SystemExit("GL1O log anchor count=" + str(main.count(log_anchor)))
+main_path.write_text(main)
+
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+old = """    float y1N = pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N);
+
+    linear *= y1N / y1I;
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+new = """    float y1N = pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N);
+
+    // M9LIVEGL1O_TOELOCK1A
+    // Second measured residual: preserve deepest toe, increase separation around
+    // the same low pivot, and lift upper mids/highlights in strong backlight.
+    float residualGamma1O = mix(1.0, 1.60, scene1N);
+    float y1OCurve = pivot1N * pow(max(y1N, 1e-6) / pivot1N, residualGamma1O);
+    float toeBlend1O = smoothstep(0.015, 0.055, y1N);
+    float y1O = mix(y1N, y1OCurve, toeBlend1O);
+
+    linear *= y1O / y1I;
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+if shader.count(old) != 1:
+    raise SystemExit("GL1O shader anchor count=" + str(shader.count(old)))
+shader = shader.replace(old, new, 1)
+shader = shader.replace("// M9LIVEGL1N_LOWPIVOT1A",
+                        "// M9LIVEGL1O_TOELOCK1A\n    // GL1N retained; toe-protected residual refinement added.")
+shader_path.write_text(shader)
+print("M9LIVEGL1O_TOELOCK1A applied: extraGammaMax=1.60 toeProtect=[0.015,0.055]")

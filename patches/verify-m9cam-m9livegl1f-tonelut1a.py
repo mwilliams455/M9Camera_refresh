@@ -32,7 +32,7 @@ checks = [
     ("analyzer live tone stats", "fillLiveToneStats1F" in analyzer),
     ("shader GL1F marker", "M9LIVEGL1F_TONELUT1A" in shader),
     ("shader intended exposure", "linear *= uM9ExposureScale1B" in shader),
-    ("GL1N low-pivot marker", "M9LIVEGL1N_LOWPIVOT1A" in shader),
+    ("GL1O toelock marker", "M9LIVEGL1O_TOELOCK1A" in shader),
     ("GL1I linear to sRGB", "linearToSrgbM9(linear)" in shader),
     ("GL1I dynamic gain", "uM9PreviewGainEv1F" in shader and "gain1I" in shader),
     ("GL1I dynamic gamma", "uM9MidtoneGamma1F" in shader and "gamma1I" in shader),
@@ -42,6 +42,9 @@ checks = [
     ("GL1N pivot", "pivot1N = 0.071" in shader),
     ("GL1N residual gamma", "mix(1.0, 1.675, scene1N)" in shader),
     ("GL1N scene weighting", "(gamma1I - 1.12) / 0.26" in shader),
+    ("GL1O extra gamma", "mix(1.0, 1.60, scene1N)" in shader),
+    ("GL1O toe protection", "smoothstep(0.015, 0.055, y1N)" in shader),
+    ("GL1O final luma", "linear *= y1O / y1I" in shader),
     ("GL1L gain clamp", "clamp(gainEv, -2.40, -0.25)" in tone),
     ("GL1L gamma restore", "1.12 + 0.26 * sceneKey1I" in tone),
     ("RGB8 unpack alignment fix", "M9LIVEGL1F_UNPACK1" in main and "glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)" in main),
@@ -64,8 +67,10 @@ if "linear *= uM9ExposureScale1B" not in transform:
     raise SystemExit("GL1I exposure authority missing from active transform")
 if "gain1I * pow(y1I, gamma1I)" not in transform:
     raise SystemExit("GL1I scene-key base delta missing from active transform")
-if "pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N)" not in transform or "linear *= y1N / y1I" not in transform:
-    raise SystemExit("GL1N low-pivot residual missing from active transform")
+if "pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N)" not in transform:
+    raise SystemExit("GL1N low-pivot base residual missing from active transform")
+if "smoothstep(0.015, 0.055, y1N)" not in transform or "linear *= y1O / y1I" not in transform:
+    raise SystemExit("GL1O toe-protected residual missing from active transform")
 for marker in (
     "sourceToM9Target1D(linear)",
     "sat2M9(linear)",

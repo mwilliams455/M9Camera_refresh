@@ -193,11 +193,12 @@ jobs:
           if start < 0 or end < 0: raise SystemExit('GL1F transform missing')
           transform=t[start:end+2]
           required=(
-              'M9LIVEGL1N_LOWPIVOT1A',
+              'M9LIVEGL1O_TOELOCK1A',
               'linear *= uM9ExposureScale1B',
               'gain1I * pow(y1I, gamma1I)',
               'pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N)',
-              'linear *= y1N / y1I',
+              'smoothstep(0.015, 0.055, y1N)',
+              'linear *= y1O / y1I',
               'linearToSrgbM9(linear)',
           )
           forbidden=(
@@ -232,6 +233,7 @@ jobs:
               b'M9LIVEGL1L_BRACKETFIT1A',
               b'M9LIVEGL1M_BRACKETREFINE1A',
               b'M9LIVEGL1N_LOWPIVOT1A',
+              b'M9LIVEGL1O_TOELOCK1A',
               b'Photon_GL_IsoExpoSelector_intended_pair'):
               ok=marker in dex
               print(marker.decode('ascii'),ok)
@@ -251,7 +253,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-M9LIVEGL1N-LOWPIVOT1A
+          name: M9Cam-M9LIVEGL1O-TOELOCK1A
           path: |
             PhotonCamera/app/build/outputs/apk/debug/*.apk
             M9LIVEGL1F_APK_SHA256.txt
