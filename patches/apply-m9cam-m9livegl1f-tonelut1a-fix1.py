@@ -572,3 +572,47 @@ shader = shader.replace("// M9LIVEGL1L_BRACKETFIT1A",
                         "// M9LIVEGL1M_BRACKETREFINE1A\n    // GL1J/GL1L same-scene zero-crossing slope=2.02.")
 shader_path.write_text(shader)
 print("M9LIVEGL1M_BRACKETREFINE1A applied: sceneKey slope 2.37 -> 2.02")
+
+
+# M9LIVEGL1N_LOWPIVOT1A
+# GL1M aligned 17U fit: y_final ~= 5.98 * y_preview^1.675,
+# giving a fixed point near 0.071 linear. Apply this as a scene-weighted
+# residual contrast stage after the GL1M exposure/tone delta.
+root = Path(sys.argv[1]).resolve()
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+log_anchor = 'Log.d("M9LiveGL1M", "M9LIVEGL1M_BRACKETREFINE1A sceneKeySlope=2.02 sameScene17U=true");'
+if main.count(log_anchor) == 1:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1N", "M9LIVEGL1N_LOWPIVOT1A pivotLinear=0.071 residualGammaMax=1.675 sceneWeighted=true chromaPreserving=true");', 1)
+else:
+    raise SystemExit("GL1N log anchor count=" + str(main.count(log_anchor)))
+main_path.write_text(main)
+
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+old = """    float y1ITarget = gain1I * pow(y1I, gamma1I);
+    linear *= y1ITarget / y1I;
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+new = """    float y1ITarget = gain1I * pow(y1I, gamma1I);
+
+    // M9LIVEGL1N_LOWPIVOT1A
+    // Derive scene strength from the already-smoothed GL1I/J/M gamma authority.
+    // Strong backlight receives the measured residual contrast; ordinary scenes
+    // remain close to identity. 0.071 linear is the measured fixed point.
+    float scene1N = clamp((gamma1I - 1.12) / 0.26, 0.0, 1.0);
+    float residualGamma1N = mix(1.0, 1.675, scene1N);
+    const float pivot1N = 0.071;
+    float y1N = pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N);
+
+    linear *= y1N / y1I;
+    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
+"""
+if shader.count(old) != 1:
+    raise SystemExit("GL1N shader anchor count=" + str(shader.count(old)))
+shader = shader.replace(old, new, 1)
+shader = shader.replace("// M9LIVEGL1M_BRACKETREFINE1A",
+                        "// M9LIVEGL1N_LOWPIVOT1A\n    // GL1M gain retained; measured low-pivot residual contrast added.")
+shader_path.write_text(shader)
+print("M9LIVEGL1N_LOWPIVOT1A applied: pivot=0.071 residualGammaMax=1.675")
