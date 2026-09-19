@@ -538,3 +538,37 @@ shader = shader.replace("float gain1I = exp2(clamp(uM9PreviewGainEv1F, 0.00, 1.5
                         "float gain1I = exp2(clamp(uM9PreviewGainEv1F, -2.40, 0.50));")
 shader_path.write_text(shader)
 print("M9LIVEGL1L_BRACKETFIT1A applied: GL1I/J zero-crossing slope=2.37")
+
+
+# M9LIVEGL1M_BRACKETREFINE1A
+# Same-scene 17U bracket:
+# GL1J slope=1.40 -> residual -0.99 EV (preview too bright)
+# GL1L slope=2.37 -> residual +0.56 EV (preview too dark)
+# Linear zero-crossing => slope ~= 2.02.
+root = Path(sys.argv[1]).resolve()
+
+tone_path = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java"
+tone = tone_path.read_text()
+old = "double gainEv = -0.30 - 2.37 * sceneKey1I;"
+new = """// M9LIVEGL1M_BRACKETREFINE1A
+        double gainEv = -0.30 - 2.02 * sceneKey1I;"""
+if tone.count(old) != 1:
+    raise SystemExit("GL1M slope anchor count=" + str(tone.count(old)))
+tone = tone.replace(old, new, 1)
+tone_path.write_text(tone)
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+log_anchor = 'Log.d("M9LiveGL1L", "M9LIVEGL1L_BRACKETFIT1A sceneKeySlope=2.37 gain=[-2.40,-0.25] gamma=[1.10,1.32] bracket17U=true");'
+if main.count(log_anchor) == 1:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1M", "M9LIVEGL1M_BRACKETREFINE1A sceneKeySlope=2.02 sameScene17U=true");', 1)
+else:
+    raise SystemExit("GL1M log anchor count=" + str(main.count(log_anchor)))
+main_path.write_text(main)
+
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+shader = shader.replace("// M9LIVEGL1L_BRACKETFIT1A",
+                        "// M9LIVEGL1M_BRACKETREFINE1A\n    // GL1J/GL1L same-scene zero-crossing slope=2.02.")
+shader_path.write_text(shader)
+print("M9LIVEGL1M_BRACKETREFINE1A applied: sceneKey slope 2.37 -> 2.02")
