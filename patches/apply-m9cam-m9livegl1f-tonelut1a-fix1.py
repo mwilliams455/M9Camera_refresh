@@ -346,3 +346,46 @@ if shader.count(old_transform) != 1:
 shader = shader.replace(old_transform, new_transform, 1)
 shader_path.write_text(shader)
 print("M9LIVEGL1I_SCENEKEY1A applied: live scene-key gain/gamma display delta")
+
+
+# M9LIVEGL1J_DUALDEVICE1A
+# Cross-device paired validation: Xiaomi 15 Ultra and 17 Ultra show the same
+# GL1I residual (~+1.2 EV and ~+1.1 EV final-vs-preview median respectively).
+# Therefore keep the portable classifier but reduce scene-key gain strength.
+root = Path(sys.argv[1]).resolve()
+
+tone_path = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java"
+tone = tone_path.read_text()
+old_gain = """        double gainEv = -0.30 - 3.00 * sceneKey1I;
+        gainEv = clamp(gainEv, -2.50, -0.25);
+"""
+new_gain = """        // M9LIVEGL1J_DUALDEVICE1A
+        // 15U/17U same-scene validation shows GL1I over-dark by ~1.1 EV on
+        // both devices. Preserve scene-key ordering, reduce only its amplitude.
+        double gainEv = -0.30 - 1.40 * sceneKey1I;
+        gainEv = clamp(gainEv, -1.50, -0.25);
+"""
+if tone.count(old_gain) != 1:
+    raise SystemExit("GL1J gain anchor count=" + str(tone.count(old_gain)))
+tone = tone.replace(old_gain, new_gain, 1)
+tone_path.write_text(tone)
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+main = main.replace("mM9PreviewGainEv1F = Math.max(-2.50f, Math.min(0.50f, gainEv));",
+                    "mM9PreviewGainEv1F = Math.max(-1.50f, Math.min(0.50f, gainEv));")
+log_anchor = 'Log.d("M9LiveGL1I", "M9LIVEGL1I_SCENEKEY1A gain=[-2.50,-0.25] gamma=[1.10,1.32] displayDeltaOnly=true");'
+if main.count(log_anchor) == 1:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1J", "M9LIVEGL1J_DUALDEVICE1A gain=[-1.50,-0.25] sceneKeySlope=1.40 calibrated15U17U=true");', 1)
+else:
+    raise SystemExit("GL1J log anchor count=" + str(main.count(log_anchor)))
+main_path.write_text(main)
+
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+shader = shader.replace("// M9LIVEGL1I_SCENEKEY1A",
+                        "// M9LIVEGL1J_DUALDEVICE1A\n    // GL1I classifier retained; gain amplitude recalibrated from 15U + 17U pairs.")
+shader = shader.replace("exp2(clamp(uM9PreviewGainEv1F, -2.50, 0.50))",
+                        "exp2(clamp(uM9PreviewGainEv1F, -1.50, 0.50))")
+shader_path.write_text(shader)
+print("M9LIVEGL1J_DUALDEVICE1A applied: GL1I classifier retained, gain slope 3.00 -> 1.40")
