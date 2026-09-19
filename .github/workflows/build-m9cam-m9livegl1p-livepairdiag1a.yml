@@ -2,6 +2,12 @@ name: Build M9Cam M9LIVEGL1P Live Pair Diagnostics
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [research/m9livegl1f-tonelut1a]
+    paths:
+      - 'patches/apply-m9cam-m9livegl1p-livepairdiag1a.py'
+      - 'patches/verify-m9cam-m9livegl1p-livepairdiag1a.py'
+      - '.github/workflows/build-m9cam-m9livegl1p-livepairdiag1a.yml'
   push:
     branches: [research/m9livegl1p-livepairdiag1a]
     paths:
