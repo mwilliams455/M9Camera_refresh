@@ -463,3 +463,78 @@ shader = shader.replace("float gain1I = exp2(clamp(uM9PreviewGainEv1F, -1.50, 0.
                         "float gain1I = exp2(clamp(uM9PreviewGainEv1F, 0.00, 1.50));")
 shader_path.write_text(shader)
 print("M9LIVEGL1K_PIVOTGAMMA1A applied: scene-key contrast around 0.50 linear pivot")
+
+
+# M9LIVEGL1L_BRACKETFIT1A
+# GL1I and GL1J bracket the target on the same 17 Ultra scene:
+# GL1I residual ~= +0.99 EV (preview too dark), slope=3.00
+# GL1J residual ~= -1.52 EV (preview too bright), slope=1.40
+# Linear zero-crossing gives slope ~= 2.37. Revert GL1K pivot experiment and
+# restore the GL1I/J display-delta architecture at the bracket-fit strength.
+root = Path(sys.argv[1]).resolve()
+
+tone_path = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java"
+tone = tone_path.read_text()
+tone = tone.replace("public static final float DEFAULT_GAIN_EV = 0.20f;",
+                    "public static final float DEFAULT_GAIN_EV = -0.30f;")
+tone = tone.replace("public static final float DEFAULT_GAMMA = 1.200f;",
+                    "public static final float DEFAULT_GAMMA = 1.120f;")
+
+old_gain = """        final double gamma1K = clamp(1.20 + 1.10 * sceneKey1I, 1.18, 2.30);
+        double gainEv = gamma1K - 1.0;
+        gainEv = clamp(gainEv, 0.18, 1.30);
+"""
+new_gain = """        // M9LIVEGL1L_BRACKETFIT1A
+        // Same-scene GL1I/GL1J residual interpolation zero-crosses at slope 2.37.
+        double gainEv = -0.30 - 2.37 * sceneKey1I;
+        gainEv = clamp(gainEv, -2.40, -0.25);
+"""
+if tone.count(old_gain) != 1:
+    raise SystemExit("GL1L gain anchor count=" + str(tone.count(old_gain)))
+tone = tone.replace(old_gain, new_gain, 1)
+
+old_gamma = """        // Scene-key now controls contrast around the 0.50 pivot; no independent
+        // exposure darkening. Strong backlight can reach the measured ~2.25 fit.
+        double gamma = gamma1K;
+"""
+new_gamma = """        // Return to the GL1I/J modest chroma-preserving gamma. The bracket fit
+        // is carried by scene-key gain, not a new contrast architecture.
+        double gamma = 1.12 + 0.26 * sceneKey1I;
+        gamma = clamp(gamma, 1.10, 1.32);
+"""
+if tone.count(old_gamma) != 1:
+    raise SystemExit("GL1L gamma anchor count=" + str(tone.count(old_gamma)))
+tone = tone.replace(old_gamma, new_gamma, 1)
+tone_path.write_text(tone)
+
+main_path = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+main = main_path.read_text()
+main = main.replace("private volatile float mM9PreviewGainEv1F = 0.20f;",
+                    "private volatile float mM9PreviewGainEv1F = -0.30f;")
+main = main.replace("private volatile float mM9MidtoneGamma1F = 1.200f;",
+                    "private volatile float mM9MidtoneGamma1F = 1.120f;")
+main = main.replace("if (!Float.isFinite(gainEv)) gainEv = 0.20f;",
+                    "if (!Float.isFinite(gainEv)) gainEv = -0.30f;")
+main = main.replace("if (!Float.isFinite(midtoneGamma)) midtoneGamma = 1.200f;",
+                    "if (!Float.isFinite(midtoneGamma)) midtoneGamma = 1.120f;")
+main = main.replace("mM9PreviewGainEv1F = Math.max(0.00f, Math.min(1.50f, gainEv));",
+                    "mM9PreviewGainEv1F = Math.max(-2.40f, Math.min(0.50f, gainEv));")
+main = main.replace("mM9MidtoneGamma1F = Math.max(1.00f, Math.min(2.40f, midtoneGamma));",
+                    "mM9MidtoneGamma1F = Math.max(1.00f, Math.min(1.40f, midtoneGamma));")
+log_anchor = 'Log.d("M9LiveGL1K", "M9LIVEGL1K_PIVOTGAMMA1A pivot=0.50 gamma=[1.18,2.30] gainEv=gammaMinus1 chromaPreserving=true");'
+if main.count(log_anchor) == 1:
+    main = main.replace(log_anchor, log_anchor + '\n        Log.d("M9LiveGL1L", "M9LIVEGL1L_BRACKETFIT1A sceneKeySlope=2.37 gain=[-2.40,-0.25] gamma=[1.10,1.32] bracket17U=true");', 1)
+else:
+    raise SystemExit("GL1L log anchor count=" + str(main.count(log_anchor)))
+main_path.write_text(main)
+
+shader_path = root / "app/src/main/assets/shaders/preview/main_fs.glsl"
+shader = shader_path.read_text()
+shader = shader.replace("// M9LIVEGL1K_PIVOTGAMMA1A\n    // Scene-key contrast around a 0.50 linear pivot; no global darkening.",
+                        "// M9LIVEGL1L_BRACKETFIT1A\n    // GL1I/J architecture restored at the measured zero-crossing gain strength.")
+shader = shader.replace("float gamma1I = clamp(uM9MidtoneGamma1F, 1.00, 2.40);",
+                        "float gamma1I = clamp(uM9MidtoneGamma1F, 1.00, 1.40);")
+shader = shader.replace("float gain1I = exp2(clamp(uM9PreviewGainEv1F, 0.00, 1.50));",
+                        "float gain1I = exp2(clamp(uM9PreviewGainEv1F, -2.40, 0.50));")
+shader_path.write_text(shader)
+print("M9LIVEGL1L_BRACKETFIT1A applied: GL1I/J zero-crossing slope=2.37")
