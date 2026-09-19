@@ -172,7 +172,7 @@ jobs:
               if not ok: raise SystemExit('frozen GL1Q marker missing '+marker)
           dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
           for marker in (
-              b'M9LIVEGL1R_EXPOSUREDOMAIN1A',
+              b'm9cam.livepreview.gl1r.exposuredomain1a',
               b'fillLiveToneStats1R',
               b'gl1rPositivePlacementStress',
               b'preview_YUV_plus_GL1B_intended_exposure_only_no_capture_or_JPEG_feedback',
