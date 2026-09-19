@@ -62,8 +62,10 @@ if end < 0:
 transform = shader[start:end + 2]
 if "linear *= uM9ExposureScale1B" not in transform:
     raise SystemExit("GL1I exposure authority missing from active transform")
-if "gain1I * pow(y1I, gamma1I)" not in transform or "linear *= y1ITarget / y1I" not in transform:
-    raise SystemExit("GL1I scene-key display delta missing from active transform")
+if "gain1I * pow(y1I, gamma1I)" not in transform:
+    raise SystemExit("GL1I scene-key base delta missing from active transform")
+if "pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N)" not in transform or "linear *= y1N / y1I" not in transform:
+    raise SystemExit("GL1N low-pivot residual missing from active transform")
 for marker in (
     "sourceToM9Target1D(linear)",
     "sat2M9(linear)",
