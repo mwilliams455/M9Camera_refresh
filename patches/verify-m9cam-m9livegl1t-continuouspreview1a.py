@@ -6,6 +6,7 @@ root=Path(sys.argv[1]).resolve()
 cc=(root/"app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java").read_text()
 shader=(root/"app/src/main/assets/shaders/preview/main_fs.glsl").read_text()
 tone=(root/"app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java").read_text()
+gradle=(root/"app/build.gradle").read_text()
 checks=[
 ("GL1T marker","M9LIVEGL1T_CONTINUOUSPREVIEW1A" in cc),
 ("keep repeating","m9KeepPreviewRepeating1T" in cc and "keepRepeating=true abortCaptures=false" in cc),
@@ -19,6 +20,7 @@ checks=[
 ("GL1B exposure retained","Photon_GL_IsoExpoSelector_intended_pair" in cc and "setExactExposureM9Wysiwyg1B(" in cc),
 ("GL1Q shader retained","M9LIVEGL1Q_PAIRCURVE1A" in shader and "linear *= uM9ExposureScale1B" in shader),
 ("FIX1 retained","M9LIVEGL1R_FIX1_EXPOSUREAUTHORITY1A" in tone),
+("version label","m9livegl1t-continuouspreview1a" in gradle.lower()),
 ]
 for label,ok in checks:
  print(("OK   " if ok else "FAIL ")+label)
