@@ -16,6 +16,8 @@ with tempfile.TemporaryDirectory(prefix='m9-exposure-test-') as d:
   dest=src/(name.replace('.','/')+'.java');dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(path,dest)
  for name in ['m9.M9ExposurePlan1A','m9.M9ExposurePlanDiagnostics1A','m9.M9M10rMfmTest1A','m9.M9ModernExposurePolicy','manual.ParamController','processing.parameters.IsoExpoSelector','processing.parameters.ExposureIndex']:
   copy(J/(name.replace('.','/')+'.java'),P+name)
+ if (J/'m9/preview/M9AutoExposure2D.java').exists():
+  copy(J/'m9/preview/M9AutoExposure2D.java',P+'m9.preview.M9AutoExposure2D')
  copy(ROOT/'circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/ManualParamModel.java',P+'circularbarlib.control.ManualParamModel')
  write('androidx.annotation.NonNull','public @interface NonNull {}')
  write('android.graphics.Rect','public class Rect {public int width(){return 4000;}}')
