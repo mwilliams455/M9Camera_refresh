@@ -4,8 +4,8 @@
              //noinspection ChromeOsAbiSupport
              abiFilters "arm64-v8a", "armeabi-v7a"
          }
--        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a'
-+        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a'
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a'
          versionProps['VERSION_NAME'] = versionName
          proguardFiles
      }
@@ -394,20 +394,21 @@
              JSONObject stillSensorDescriptor1A = M9SensorDescriptor1A.fromImageFrame(
                      frame, params, characteristics, diagnosticCaptureResult1A, captureRequest).toJson();
              out.diagnostics.put("sensorDescriptor1A", stillSensorDescriptor1A);
-@@ -702,6 +708,12 @@
+@@ -702,6 +708,13 @@
              edgeDecision.put("appliedEv", 0.0);
              JSONArray edgeAttempts = new JSONArray();
              String edgeSelector = edgeDecision.optString("selector", "HOLD");
 +            if (exposurePlan1A != null) {
 +                edgeDecision.put("selectorBeforeExposurePlan1A", edgeSelector);
 +                edgeDecision.put("exposurePlanAuthority1A", true);
++                edgeDecision.put("selector", "HOLD");
 +                edgeDecision.put("reason", "shared_exposure_plan_no_post_render_replacement");
 +                edgeSelector = "HOLD";
 +            }
  
              if (edgeSelector.startsWith("DARK_")) {
                  double[] ladder = M9EdgePlacementBestFit2AController.darkLadder(edgeSelector);
-@@ -716,7 +728,7 @@
+@@ -716,7 +729,7 @@
                                  frame.buffer, frame.width, frame.height,
                                  encodedBlack, params.whiteLevel, params.whitePoint,
                                  cameraRotation, candidateEv,
@@ -416,7 +417,7 @@
                          candidateBitmap = candidateCore.bitmap;
                          JSONObject candidateSparse = M9EdgePlacementBestFit2AController.measureSparseLuma(candidateBitmap);
                          boolean safe = M9EdgePlacementBestFit2AController.acceptDarkCandidate(frozenDirectLuma, candidateSparse);
-@@ -1833,7 +1845,7 @@
+@@ -1833,7 +1846,7 @@
                                           double edgePlacementGainEv,
                                           CameraCharacteristics nativeCharacteristics,
                                           CaptureResult nativeCaptureResult,
@@ -425,7 +426,7 @@
          RenderCore out = renderNativeProspectiveCore(
                  rawBuffer, width, height, black, whiteLevel, neutralF,
                  cameraRotation, edgePlacementGainEv,
-@@ -1845,7 +1857,7 @@
+@@ -1845,7 +1858,7 @@
                  false, false,
                  true, 1.0,
                  true, 0.30,
@@ -434,7 +435,7 @@
          JSONObject d = out.diagnostics;
          d.put("schema", "m9cam.renderer.targetinputadapter.v1a.xiaomi17u.production");
          d.put("nativeSourceProduction1A", true);
-@@ -3529,6 +3541,32 @@
+@@ -3529,6 +3542,32 @@
                                           double shadingLumaTargetOutsideMedianEv1A,
                                           double hsmValueStrengthProbe1A,
                                           boolean skinLumaStageAuditEnabled1A) throws Exception {
@@ -467,7 +468,7 @@
          // DEMOSAICAB1A encoded mode 54 is diagnostic-only. It is consumed before
          // bridge decoding and never changes production mode 0/3 arithmetic.
          final boolean demosaicNeutralEa1A = bridgeProbeMode == 54;
-@@ -4051,6 +4089,29 @@
+@@ -4051,6 +4090,29 @@
                  meterTc20ElapsedMs = 0L;
              }
  
@@ -497,7 +498,7 @@
              // Self-meter changes only TC20's baseline gain. Reapply the already-selected
              // Primary DARK exact-render offset through edgePlacementGainEv; BRIGHT pivot is
              // still replicated outside this method exactly as in BASISHSM1A.
-@@ -4127,10 +4188,18 @@
+@@ -4127,10 +4189,18 @@
  
              final JSONObject toneBound1AJson = new JSONObject();
              toneBound1AJson.put("schema", "m9cam.tonebound.v1a.050ev");

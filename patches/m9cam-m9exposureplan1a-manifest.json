@@ -2,8 +2,8 @@
   "baseline": "f5ce9888f62e3f6dced298a0edaf537005fc7d5b / GL1U",
   "changed": {
     "app/build.gradle": {
-      "before": "513ef1fa11e6f94e003e69de27b520251d46c5bebcbd774d5756d145c5684467",
-      "after": "04de1e1b3eae2c8915e22b27fb8dbce6d63b95f8018441ccf75db4039d73dfbc"
+      "before": "4237e633187f75b7cde20a87eece4adcfce987e11c692269aea58f8eb60a66a0",
+      "after": "e34f8011d0f5196b71cfb31350d8a4138723267b085bda3eb7798e3e86e5dbfd"
     },
     "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": {
       "before": "1292332e5ff8be793ad6b97c13c8babfd11aad98110dcf0feaf7eaa657b41e0f",
@@ -27,7 +27,7 @@
     },
     "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
       "before": "6e4946fa871eb07967b250676777319d9f2bf80a5bd5309c9ce93ebc75451097",
-      "after": "9e444bfc8e2451373fdc9092e771dcce5183b1e7b4cc092eb46ae60aa35cdb76"
+      "after": "6dc83c0dfbd8858ad3998b27290413290f552f00733849deaaab19d3313958af"
     },
     "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": {
       "before": "2c8632ea6f2115533ebcbf09e1e7656d92bb5255762b7dbdf64158262f1a1542",
