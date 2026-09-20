@@ -1,0 +1,237 @@
+name: Build M9Cam M9LIVEGL1U Sidecar Transport
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [research/m9livegl1t-continuouspreview1a]
+    paths:
+      - 'patches/apply-m9cam-m9livegl1u-sidecartransport1a.py'
+      - 'patches/verify-m9cam-m9livegl1u-sidecartransport1a.py'
+      - '.github/workflows/build-m9cam-m9livegl1u-sidecartransport1a.yml'
+  push:
+    branches: [research/m9livegl1u-sidecartransport1a]
+    paths:
+      - 'patches/apply-m9cam-m9livegl1u-sidecartransport1a.py'
+      - 'patches/verify-m9cam-m9livegl1u-sidecartransport1a.py'
+      - '.github/workflows/build-m9cam-m9livegl1u-sidecartransport1a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify GL1U patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-m9livegl1u-sidecartransport1a.py
+          python3 -m py_compile patches/verify-m9cam-m9livegl1u-sidecartransport1a.py
+
+      - name: Replay exact M9LIVEGL1T assembled baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/build-m9cam-m9livegl1t-continuouspreview1a.yml')
+          lines=wf.read_text().splitlines()
+          names=[
+              'Verify GL1T patch syntax',
+              'Replay exact M9LIVEGL1S assembled baseline',
+              'Freeze non-CaptureController authority before GL1T',
+              'Apply continuous-preview capture policy',
+              'Prove non-CaptureController authority unchanged',
+              'Verify CaptureController scope',
+          ]
+          for idx,name in enumerate(names):
+              target='      - name: '+name
+              if target not in lines:
+                  raise SystemExit('GL1T replay block missing: '+name)
+              i=lines.index(target)
+              while i<len(lines) and lines[i].strip()!='run: |':
+                  i+=1
+              if i>=len(lines):
+                  raise SystemExit('GL1T run block missing: '+name)
+              i+=1
+              out=[]
+              while i<len(lines):
+                  line=lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected GL1T indentation: '+line)
+                  i+=1
+              Path(f'/tmp/m9livegl1u_parent_{idx:02d}.sh').write_text('\n'.join(out)+'\n')
+          PY
+          for s in /tmp/m9livegl1u_parent_*.sh; do
+            echo "=== replay $s ==="
+            bash "$s"
+          done
+
+      - name: Freeze image and capture authority before GL1U
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementBestFit2AController.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"             "$ROOT/app/src/main/assets/shaders/preview/main_fs.glsl"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java"             "$ROOT/app/src/main/cpp/m9color_jni.cpp"             "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin"             > M9LIVEGL1U_FROZEN_BEFORE.sha256
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java" M9LIVEGL1U_LIVEPAIR_BEFORE.java
+
+      - name: Apply LIVEPAIR spool transport
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9livegl1u-sidecartransport1a.py "$ROOT"
+          python3 patches/verify-m9cam-m9livegl1u-sidecartransport1a.py "$ROOT" | tee M9LIVEGL1U_VERIFY.txt
+
+      - name: Prove image and capture authority unchanged
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementBestFit2AController.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"             "$ROOT/app/src/main/assets/shaders/preview/main_fs.glsl"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java"             "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java"             "$ROOT/app/src/main/cpp/m9color_jni.cpp"             "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin"             > M9LIVEGL1U_FROZEN_AFTER.sha256
+          diff -u M9LIVEGL1U_FROZEN_BEFORE.sha256 M9LIVEGL1U_FROZEN_AFTER.sha256
+
+      - name: Verify LIVEPAIR change scope and PRIMARY transport
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 - <<'PY'
+          from pathlib import Path
+          import difflib
+          before=Path('M9LIVEGL1U_LIVEPAIR_BEFORE.java').read_text().splitlines()
+          after=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java').read_text().splitlines()
+          diff=list(difflib.unified_diff(before,after,lineterm=''))
+          txt='\n'.join(diff)
+          Path('M9LIVEGL1U_LIVEPAIR_DIFF.txt').write_text(txt+'\n')
+          for marker in ('M9LIVEGL1U_SIDECARTRANSPORT1A','M9DiagnosticBurstSpool.stage','live_pair_spool_fallback'):
+              if marker not in txt:
+                  raise SystemExit('GL1U diff missing '+marker)
+          primary=Path('PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java').read_text()
+          for marker in ('M9DiagnosticBurstSpool.stage', '"primary_timing"', 'M9DiagnosticSidecarIO.persist'):
+              if marker not in primary:
+                  raise SystemExit('GL1U PRIMARY transport contract missing '+marker)
+          print('M9LIVEGL1U LIVEPAIR/PRIMARY transport scope PASS')
+          PY
+
+      - name: Snapshot GL1U sources
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-m9livegl1u"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java" "$OUT/"
+          cp M9LIVEGL1U_VERIFY.txt M9LIVEGL1U_LIVEPAIR_DIFF.txt "$OUT/"
+          cp M9LIVEGL1U_FROZEN_BEFORE.sha256 M9LIVEGL1U_FROZEN_AFTER.sha256 "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.."; pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build M9LIVEGL1U APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9LIVEGL1U_GRADLE.log"
+
+      - name: Verify packaged GL1U contract
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livegl1u-apk && mkdir -p /tmp/m9livegl1u-apk
+          unzip -q "$APK" -d /tmp/m9livegl1u-apk
+          python3 - <<'PY' | tee M9LIVEGL1U_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/m9livegl1u-apk')
+          shader=root/'assets/shaders/preview/main_fs.glsl'
+          if not shader.exists(): raise SystemExit('packaged preview shader missing')
+          s=shader.read_text()
+          for marker in ('M9LIVEGL1Q_PAIRCURVE1A','linear *= uM9ExposureScale1B','linear *= y1Q / y1I'):
+              if marker not in s: raise SystemExit('frozen shader marker missing '+marker)
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in (
+              b'M9LIVEGL1U_SIDECARTRANSPORT1A',
+              b'live_pair_spool_fallback',
+              b'm9cam.sidecarspool.v1.privatebundle1b',
+              b'primary_timing',
+              b'M9LIVEGL1T_CONTINUOUSPREVIEW1A',
+              b'Photon_GL_IsoExpoSelector_intended_pair',
+          ):
+              ok=marker in dex
+              print(marker.decode('ascii'),ok)
+              if not ok: raise SystemExit('DEX marker missing '+marker.decode('ascii'))
+          print('M9LIVEGL1U APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee M9LIVEGL1U_APK_SHA256.txt
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9LIVEGL1U-SIDECARTRANSPORT1A
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            M9LIVEGL1U_APK_SHA256.txt
+            M9LIVEGL1U_VERIFY.txt
+            M9LIVEGL1U_APK_PROOF.txt
+            M9LIVEGL1U_LIVEPAIR_DIFF.txt
+            M9LIVEGL1U_FROZEN_BEFORE.sha256
+            M9LIVEGL1U_FROZEN_AFTER.sha256
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9LIVEGL1U-ASSEMBLED-SOURCE
+          path: assembled-m9livegl1u/
+          if-no-files-found: ignore
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9LIVEGL1U-BUILDLOG
+          path: M9LIVEGL1U_GRADLE.log
+          if-no-files-found: ignore
