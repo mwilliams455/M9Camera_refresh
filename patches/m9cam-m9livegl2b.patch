@@ -1,0 +1,280 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -84,6 +84,7 @@
+ import com.particlesdevs.photoncamera.manual.ParamController;
+ import com.particlesdevs.photoncamera.processing.ImageSaver;
+ import com.particlesdevs.photoncamera.m9.preview.M9LivePreview1A;
++import com.particlesdevs.photoncamera.m9.preview.M9FocusContinuity2B;
+ import com.particlesdevs.photoncamera.m9.preview.M9LivePairDiagnostics1P;
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlanDiagnostics1A;
+@@ -546,6 +547,7 @@
+     private Size target;
+     public float mFocus;
+     public int mPreviewAFMode;
++    private boolean m9AutoAfPrimed2B;
+     public int mPreviewAEMode;
+     public MeteringRectangle[] mPreviewMeteringAF;
+     public MeteringRectangle[] mPreviewMeteringAE;
+@@ -694,7 +696,9 @@
+                 mState = STATE_PICTURE_TAKEN;
+                 captureStillPicture();
+             }
+-            if(PreferenceKeys.getAfMode() == CaptureRequest.CONTROL_AF_MODE_AUTO && !burst && (mTouchFocus == null || !mTouchFocus.isTouchFocus)) {
++            if (useM9FocusContinuity2B()) {
++                primeM9AutoFocus2B(result);
++            } else if(PreferenceKeys.getAfMode() == CaptureRequest.CONTROL_AF_MODE_AUTO && !burst && (mTouchFocus == null || !mTouchFocus.isTouchFocus)) {
+                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+                 rebuildPreviewBuilderOneShot();
+             }
+@@ -1495,6 +1499,29 @@
+             return;
+         }
+         startTimerLocked();
++        if (useM9FocusContinuity2B()) {
++            Integer mode = mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AF_MODE);
++            Float minimum = mCameraCharacteristics == null ? null : mCameraCharacteristics.get(
++                    CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
++            if (!M9FocusContinuity2B.canTrigger(mode, minimum)) {
++                // Manual/fixed-focus lenses cannot acknowledge an AF lock.
++                mState = STATE_PICTURE_TAKEN;
++                captureStillPicture();
++                return;
++            }
++            mState = STATE_WAITING_LOCK;
++            try {
++                m9AutoAfPrimed2B = true;
++                M9FocusContinuity2B.triggerOnce(mPreviewRequestBuilder, mCaptureSession,
++                        mCaptureCallback, mBackgroundHandler, CameraMetadata.CONTROL_AF_TRIGGER_START);
++                mPreviewInputRequest = mPreviewRequestBuilder.build();
++                mCaptureSession.setRepeatingRequest(mPreviewInputRequest, mCaptureCallback, mBackgroundHandler);
++            } catch (Exception e) {
++                mState = STATE_PREVIEW;
++                Log.e(TAG, "M9LIVEGL2B focus trigger failed", e);
++            }
++            return;
++        }
+         // This is how to tell the camera to lock focus.
+         mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                 CameraMetadata.CONTROL_AF_TRIGGER_START);
+@@ -1904,6 +1931,7 @@
+     }
+ 
+     private void setCaptureRequestBuilder() throws CameraAccessException {
++        m9AutoAfPrimed2B = false;
+         mPreviewRequestBuilder = null;
+         if (mIsRecordingVideo) {
+             mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+@@ -2186,6 +2214,41 @@
+      * Unlock the focus. This method should be called when still image capture sequence is
+      * finished.
+      */
++    private boolean useM9FocusContinuity2B() {
++        return M9Config.isCaptureTest() && !mIsRecordingVideo
++                && PhotonCamera.getSettings().selectedMode != CameraMode.UNLIMITED
++                && PhotonCamera.getSettings().selectedMode != CameraMode.RAWVIDEO;
++    }
++
++    private void primeM9AutoFocus2B(CaptureResult result) {
++        if (mPreviewRequestBuilder == null || mCaptureSession == null) return;
++        Integer mode = mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AF_MODE);
++        if (mode == null || mode != CaptureRequest.CONTROL_AF_MODE_AUTO) {
++            m9AutoAfPrimed2B = false;
++            return;
++        }
++        // AUTO is trigger driven. Prime once per session/mode entry, then retain
++        // its lock until a deliberate shutter/tap; never restart on every result.
++        if (burst || mState != STATE_PREVIEW || m9AutoAfPrimed2B
++                || (mTouchFocus != null && mTouchFocus.isTouchFocus)) return;
++        Integer state = result.get(CaptureResult.CONTROL_AF_STATE);
++        if (state == null) return;
++        if (state != CaptureResult.CONTROL_AF_STATE_INACTIVE) {
++            m9AutoAfPrimed2B = true;
++            return;
++        }
++        Float minimum = mCameraCharacteristics == null ? null : mCameraCharacteristics.get(
++                CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
++        if (!M9FocusContinuity2B.canTrigger(mode, minimum)) return;
++        m9AutoAfPrimed2B = true;
++        try {
++            M9FocusContinuity2B.triggerOnce(mPreviewRequestBuilder, mCaptureSession,
++                    mCaptureCallback, mBackgroundHandler, CameraMetadata.CONTROL_AF_TRIGGER_START);
++        } catch (Exception e) {
++            Log.e(TAG, "M9LIVEGL2B initial AUTO trigger failed", e);
++        }
++    }
++
+     // M9LIVEGL1T_CONTINUOUSPREVIEW1A
+     // Minimal M9 post-capture AF release. Do NOT reset AE/3A or issue the historical
+     // cancel/start/cancel preview rebuild sequence: device video showed that sequence
+@@ -2197,17 +2260,21 @@
+         }
+         try {
+             mState = STATE_PREVIEW;
+-            mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+-                    CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+-            mCaptureSession.capture(mPreviewRequestBuilder.build(), mCaptureCallback,
+-                    mBackgroundHandler);
++            Integer mode = mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AF_MODE);
++            // CANCEL resumes passive AF in continuous modes. In AUTO/MACRO it
++            // resets AF instead, potentially parking the telephoto lens.
++            if (M9FocusContinuity2B.continuous(mode)) {
++                M9FocusContinuity2B.triggerOnce(mPreviewRequestBuilder, mCaptureSession,
++                        mCaptureCallback, mBackgroundHandler, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
++            }
+             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+                     CameraMetadata.CONTROL_AF_TRIGGER_IDLE);
+             mPreviewInputRequest = mPreviewRequestBuilder.build();
+             mCaptureSession.setRepeatingRequest(mPreviewInputRequest, mCaptureCallback,
+                     mBackgroundHandler);
+-            Log.d(TAG, "M9LIVEGL1T_CONTINUOUSPREVIEW1A minimalUnlock=true"
+-                    + " reset3A=false previewRebuildSequence=false");
++            Log.d(TAG, "M9LIVEGL2B_FOCUSCONTINUITY resumeAfMode=" + mode
++                    + " cancel=" + M9FocusContinuity2B.continuous(mode)
++                    + " lensDiopters=" + mFocus + " repeatTrigger=IDLE reset3A=false");
+         } catch (Exception e) {
+             Log.d(TAG, "M9LIVEGL1T minimal unlock failed:" + e);
+         }
+@@ -2717,6 +2784,11 @@
+                         M9ExposurePlanDiagnostics1A.toJson(capturePlan1A)); }
+                 catch (org.json.JSONException ignored) { }
+             }
++            try {
++                m9LivePairPreviewSnapshot1P.put("focusContinuity2B",
++                        M9LivePairDiagnostics1P.focusSnapshot2B(mPreviewRequestBuilder.build(),
++                                mPreviewCaptureResult));
++            } catch (org.json.JSONException ignored) { }
+ 
+             //captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+             //setCaptureAEMode(captureBuilder);
+@@ -2763,7 +2835,9 @@
+             //IsoExpoSelector.HDR = (PhotonCamera.getSettings().alignAlgorithm == 1);
+             Log.d(TAG, "HDR:" + IsoExpoSelector.HDR);
+             Object mode = mPreviewRequestBuilder.get(CONTROL_AF_MODE);
+-            if(mode != null && (int) mode != CaptureRequest.CONTROL_AF_MODE_AUTO || PreferenceKeys.getAfMode() == CaptureRequest.CONTROL_AF_MODE_AUTO && !PhotonCamera.getSettings().selectedMode.equals(CameraMode.RAWVIDEO)) {
++            if (useM9FocusContinuity2B()) {
++                M9FocusContinuity2B.prepareStill(mPreviewRequestBuilder, captureBuilder);
++            } else if(mode != null && (int) mode != CaptureRequest.CONTROL_AF_MODE_AUTO || PreferenceKeys.getAfMode() == CaptureRequest.CONTROL_AF_MODE_AUTO && !PhotonCamera.getSettings().selectedMode.equals(CameraMode.RAWVIDEO)) {
+                 captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
+                 captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+             }
+@@ -3434,4 +3508,4 @@
+         }
+ 
+     }
+-}
+\ No newline at end of file
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java
+@@ -112,6 +112,8 @@
+             putNumberOrNull(requested, "requestedAeMode", request.get(CaptureRequest.CONTROL_AE_MODE));
+             putNumberOrNull(requested, "requestedAwbMode", request.get(CaptureRequest.CONTROL_AWB_MODE));
+             putNumberOrNull(requested, "requestedAfMode", request.get(CaptureRequest.CONTROL_AF_MODE));
++            putNumberOrNull(requested, "requestedAfTrigger", request.get(CaptureRequest.CONTROL_AF_TRIGGER));
++            putNumberOrNull(requested, "requestedFocusDistanceDiopters", request.get(CaptureRequest.LENS_FOCUS_DISTANCE));
+             root.put("captureRequest", requested);
+ 
+             JSONObject actual = new JSONObject();
+@@ -125,6 +127,9 @@
+             putNumberOrNull(actual, "aeState", result.get(CaptureResult.CONTROL_AE_STATE));
+             putNumberOrNull(actual, "awbState", result.get(CaptureResult.CONTROL_AWB_STATE));
+             putNumberOrNull(actual, "afState", result.get(CaptureResult.CONTROL_AF_STATE));
++            putNumberOrNull(actual, "afMode", result.get(CaptureResult.CONTROL_AF_MODE));
++            putNumberOrNull(actual, "focusDistanceDiopters", result.get(CaptureResult.LENS_FOCUS_DISTANCE));
++            putNumberOrNull(actual, "lensState", result.get(CaptureResult.LENS_STATE));
+             putNumberOrNull(actual, "aeExposureCompensation", result.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION));
+             putNumberOrNull(actual, "focalLengthMm", result.get(CaptureResult.LENS_FOCAL_LENGTH));
+             putNumberOrNull(actual, "aperture", result.get(CaptureResult.LENS_APERTURE));
+@@ -164,6 +169,29 @@
+         }
+     }
+ 
++    public static JSONObject focusSnapshot2B(CaptureRequest preview, CaptureResult result) {
++        JSONObject o = new JSONObject();
++        try {
++            o.put("revision", M9FocusContinuity2B.REVISION);
++            o.put("scope", "shutter_preview_request_and_latest_result_not_post_capture_trace");
++            if (preview != null) {
++                putNumberOrNull(o, "requestAfMode", preview.get(CaptureRequest.CONTROL_AF_MODE));
++                putNumberOrNull(o, "requestAfTrigger", preview.get(CaptureRequest.CONTROL_AF_TRIGGER));
++                putNumberOrNull(o, "requestFocusDistanceDiopters", preview.get(CaptureRequest.LENS_FOCUS_DISTANCE));
++            }
++            if (result != null) {
++                putNumberOrNull(o, "resultAfMode", result.get(CaptureResult.CONTROL_AF_MODE));
++                putNumberOrNull(o, "resultAfState", result.get(CaptureResult.CONTROL_AF_STATE));
++                putNumberOrNull(o, "resultFocusDistanceDiopters", result.get(CaptureResult.LENS_FOCUS_DISTANCE));
++                putNumberOrNull(o, "resultLensState", result.get(CaptureResult.LENS_STATE));
++                putNumberOrNull(o, "resultTimestampNs", result.get(CaptureResult.SENSOR_TIMESTAMP));
++            }
++        } catch (Exception e) {
++            Log.w(TAG, "M9LIVEGL2B focus snapshot failed: " + e);
++        }
++        return o;
++    }
++
+     private static void putNumberOrNull(JSONObject o, String key, Number value) throws Exception {
+         o.put(key, value != null ? value : JSONObject.NULL);
+     }
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9FocusContinuity2B.java
+@@ -0,0 +1,48 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import android.hardware.camera2.CameraAccessException;
++import android.hardware.camera2.CameraCaptureSession;
++import android.hardware.camera2.CaptureRequest;
++import android.os.Handler;
++
++/** Keep focus mode/lock across RAW capture; triggers belong to one request only. */
++public final class M9FocusContinuity2B {
++    public static final String REVISION = "M9LIVEGL2B_FOCUSCONTINUITY";
++    private M9FocusContinuity2B() {}
++
++    public static boolean continuous(Integer mode) {
++        return mode != null && (mode == CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
++                || mode == CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
++    }
++
++    public static boolean canTrigger(Integer mode, Float minimumFocusDistance) {
++        return mode != null && (mode == CaptureRequest.CONTROL_AF_MODE_AUTO
++                || mode == CaptureRequest.CONTROL_AF_MODE_MACRO || continuous(mode))
++                && (minimumFocusDistance == null || minimumFocusDistance > 0);
++    }
++
++    public static void prepareStill(CaptureRequest.Builder preview, CaptureRequest.Builder still) {
++        Integer mode = preview.get(CaptureRequest.CONTROL_AF_MODE);
++        if (mode != null) still.set(CaptureRequest.CONTROL_AF_MODE, mode);
++        still.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
++        still.set(CaptureRequest.CONTROL_AF_REGIONS, preview.get(CaptureRequest.CONTROL_AF_REGIONS));
++        // Zero diopters is a valid manual infinity setting. Do not use the last
++        // measured AF position as a manual-focus override on an automatic lens.
++        if (mode != null && mode == CaptureRequest.CONTROL_AF_MODE_OFF) {
++            Float distance = preview.get(CaptureRequest.LENS_FOCUS_DISTANCE);
++            if (distance != null) still.set(CaptureRequest.LENS_FOCUS_DISTANCE, distance);
++        }
++    }
++
++    public static void triggerOnce(CaptureRequest.Builder preview, CameraCaptureSession session,
++            CameraCaptureSession.CaptureCallback callback, Handler handler, int trigger)
++            throws CameraAccessException {
++        try {
++            preview.set(CaptureRequest.CONTROL_AF_TRIGGER, trigger);
++            session.capture(preview.build(), callback, handler);
++        } finally {
++            // Even a failed submission must not leak START/CANCEL into repeating.
++            preview.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
++        }
++    }
++}

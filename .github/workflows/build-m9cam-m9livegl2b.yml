@@ -1,0 +1,161 @@
+name: Build M9Cam M9LIVEGL2B
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9livegl2b-focuscontinuity]
+    paths:
+      - 'patches/*m9livegl2b*'
+      - 'patches/tests/m9livegl2b/**'
+      - '.github/workflows/build-m9cam-m9livegl2b.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected exposure-plan parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No exposure-plan parent source blocks found')
+          for idx,body in enumerate(blocks):
+              script=Path('/tmp/m9livegl2a-gl1u-'+str(idx)+'.sh')
+              script.write_text(body+'\n')
+              subprocess.run(['bash',str(script)],check=True)
+          PYREPLAY
+
+      - name: Apply GL2A, then focus continuity correction
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera | tee M9LIVEGL2B_VERIFY.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.."; pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Test focus transitions, exposure, source math and atomic publication
+        run: |
+          set -euo pipefail
+          python3 patches/tests/m9livegl2b/run.py PhotonCamera | tee M9LIVEGL2B_FOCUS_TESTS.txt
+          python3 patches/tests/m9exposureplan1b/run.py PhotonCamera | tee M9LIVEGL2B_EXPOSURE_TESTS.txt
+          python3 patches/tests/m9exposureplan1c/run.py PhotonCamera | tee M9LIVEGL2B_EV_FLOOR_TESTS.txt
+          python3 patches/tests/m9livegl2a/run.py PhotonCamera | tee M9LIVEGL2B_HOST_TESTS.txt
+          python3 patches/tests/m9livegl2a/atomic.py PhotonCamera | tee M9LIVEGL2B_ATOMIC_TESTS.txt
+
+      - name: Execute GPU shader against frozen native kernel
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri python3-numpy
+          /usr/bin/python3 patches/tests/m9livegl2a/gpu_test.py PhotonCamera | tee M9LIVEGL2B_GPU_TESTS.json
+
+      - name: Build M9LIVEGL2B APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9LIVEGL2B_GRADLE.log"
+
+      - name: Verify packaged preview and exposure contracts
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livegl2a-apk && mkdir -p /tmp/m9livegl2a-apk
+          unzip -q "$APK" -d /tmp/m9livegl2a-apk
+          python3 - <<'PY' | tee M9LIVEGL2B_APK_PROOF.txt
+          from pathlib import Path
+          import hashlib
+          root=Path('/tmp/m9livegl2a-apk')
+          shader='assets/shaders/preview/main_fs.glsl'
+          assert (root/shader).read_bytes()==(Path('PhotonCamera/app/src/main')/shader).read_bytes()
+          for name in ['m9_curve02_firmware.bin']:
+              assert (root/'assets/m9'/name).read_bytes()==(Path('PhotonCamera/app/src/main/assets/m9')/name).read_bytes()
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in [b'M9LIVEGL2A_CONTROLLEDOES',b'M9LIVEGL2B_FOCUSCONTINUITY',b'M9EXPOSUREPLAN1C',b'shutterPreview1W',
+                         b'incomplete_source_contract',b'controlled_curve_not_reported',
+                         b'unity_pending_live_linear_TC20_meter',b'exportPreviewContext2A',
+                         b'planned_single_RAW_request',b'live_pair_spool_fallback']:
+              assert marker in dex,marker
+          print('M9LIVEGL2B APK PROOF PASS: exact shader/curve bytes and live/source/exposure contracts')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          cp "$APK" M9Cam-M9LIVEGL2B-debug.apk
+          sha256sum M9Cam-M9LIVEGL2B-debug.apk | tee M9LIVEGL2B_APK_SHA256.txt
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9LIVEGL2B
+          path: |
+            M9Cam-M9LIVEGL2B-debug.apk
+            M9LIVEGL2B_APK_SHA256.txt
+            M9LIVEGL2B_VERIFY.txt
+            M9LIVEGL2B_APK_PROOF.txt
+            M9LIVEGL2B_FOCUS_TESTS.txt
+            M9LIVEGL2B_HOST_TESTS.txt
+            M9LIVEGL2B_GPU_TESTS.json
+            M9LIVEGL2B_EV_FLOOR_TESTS.txt
+            M9LIVEGL2B_ATOMIC_TESTS.txt
+            M9LIVEGL2B_EXPOSURE_TESTS.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9LIVEGL2B-BUILDLOG
+          path: M9LIVEGL2B_GRADLE.log
+          if-no-files-found: ignore
