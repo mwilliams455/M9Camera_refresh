@@ -1,0 +1,37 @@
+{
+  "source": "M9_DIAGNOSTICS_BURST_1789901598586_16(1).json",
+  "deviceModel": "25010PN30G",
+  "physicalLimitsNote": "Capture sidecars do not provide exposure-time range. Host uses explicit synthetic bounds; observed/planned values below are actual device records.",
+  "cases": [
+    {
+      "capture": "IMG_20260920_115301_1789901581726_00_M9_PRIMARY.json",
+      "observedIso": 50,
+      "observedExposureNs": 491227,
+      "shownEv": 0,
+      "recordedUserEv": 0,
+      "oldPlannedIso": 50,
+      "oldPlannedExposureNs": 491227,
+      "oldScale": 1
+    },
+    {
+      "capture": "IMG_20260920_115307_1789901587012_00_M9_PRIMARY.json",
+      "observedIso": 50,
+      "observedExposureNs": 551926,
+      "shownEv": 1,
+      "recordedUserEv": 0.9999999701976785,
+      "oldPlannedIso": 50,
+      "oldPlannedExposureNs": 1098332,
+      "oldScale": 1.9899986592405503
+    },
+    {
+      "capture": "IMG_20260920_115312_1789901592731_00_M9_PRIMARY.json",
+      "observedIso": 50,
+      "observedExposureNs": 609503,
+      "shownEv": -1,
+      "recordedUserEv": -0.9999999701976785,
+      "oldPlannedIso": 50,
+      "oldPlannedExposureNs": 603405,
+      "oldScale": 0.9899951271773888
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -2,7 +2,7 @@
+ 
+ /** Immutable per-observation exposure intent. No Android or mutable camera state. */
+ public final class M9ExposurePlan1A {
+-    public static final String REVISION = "M9EXPOSUREPLAN1B";
++    public static final String REVISION = "M9EXPOSUREPLAN1C";
+     public static final long MAX_AGE_MS = 1500L;
+     public final long id, createdMs, sensorTimestampNs;
+     public final String cameraId, mode, autoReason;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+@@ -199,7 +199,18 @@
+         double compensation = Math.pow(2.0, planning ? planInput.ev + planInput.autoEv
+                 : PhotonCamera.getSettings().exposureCompensation);
+         pair.normalizeiso100();
+-        pair.ExpoCompensateLower(1.0/compensation);
++        if (planning) {
++            // M9EXPOSUREPLAN1C_EVENERGY1A
++            // Apply intent before splitting energy into ISO/shutter. The legacy
++            // ISO-first helper loses precision when undoing an integer ISO change:
++            // at base ISO, -0.99999997 EV restores normalized ISO 99 instead of 100
++            // and then incorrectly rolls back the shorter shutter as out of range.
++            // This is an intermediate energy carrier, not a sensor request. The
++            // existing allocator below applies mode caps and physical ISO/time bounds.
++            pair.exposure = Math.max(1L, Math.round((double) pair.exposure * compensation));
++        } else {
++            pair.ExpoCompensateLower(1.0/compensation);
++        }
+         if (!planning && M9Config.isCaptureTest() && step == 0) {
+             M9ExposureAudit.beginStep0(step, getISOLOW(), captureController.mPreviewIso,
+                     captureController.mPreviewExposureTime, pair.iso, pair.exposure);
