@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory(prefix='m9-gl1w-test-') as tmp:
  probe='''import com.particlesdevs.photoncamera.m9.preview.*;
  public class RendererProbe {
  M9GpuPreview2A.Frame bound;
+ M9PreviewEvidence2E mM9Evidence2E;
  Meter mM9Meter2D;static class Meter {void sample(Object... args){}}
  void bindSource2A(M9GpuPreview2A.Frame f){bound=f;}
  volatile M9PreviewFrameState1W mM9FrameState1W=M9PreviewFrameState1W.defaults();
@@ -46,6 +47,7 @@ with tempfile.TemporaryDirectory(prefix='m9-gl1w-test-') as tmp:
  } class GLES11Ext {static final int GL_TEXTURE_EXTERNAL_OES=6;}interface GL10 {}''')
  (src/'SystemClock.java').write_text('package android.os;public class SystemClock {public static long elapsedRealtimeNanos(){return 1000000000;}}')
  (src/'M9GpuPreview2A.java').write_text('package com.particlesdevs.photoncamera.m9.preview;\nimport org.json.*;\npublic class M9GpuPreview2A { public static class Frame {\n public final boolean ready=false;\n public static Frame fallback(String s){return new Frame();}\n public JSONObject diagnostics(){return new JSONObject();}\n}}')
+ (src/'M9PreviewEvidence2E.java').write_text('package com.particlesdevs.photoncamera.m9.preview;public class M9PreviewEvidence2E {public void sample(Object...a){}public org.json.JSONObject snapshot(Object...a){return new org.json.JSONObject();}}')
  shutil.copyfile(here/'AtomicFrameTest.java',src/'AtomicFrameTest.java')
  jar=d/'json.jar'
  if len(sys.argv)>2:shutil.copyfile(sys.argv[2],jar)
