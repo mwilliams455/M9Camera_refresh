@@ -6,7 +6,9 @@ if len(sys.argv) != 2:
     raise SystemExit("usage: apply-m9cam-m9livegl1t-continuouspreview1a.py <PhotonCamera-root>")
 root=Path(sys.argv[1]).resolve()
 ccp=root/"app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java"
+gradle=root/"app/build.gradle"
 if not ccp.exists(): raise SystemExit("GL1T missing CaptureController")
+if not gradle.exists(): raise SystemExit("GL1T missing app/build.gradle")
 cc=ccp.read_text()
 
 def one(old,new,label):
@@ -94,6 +96,29 @@ new_unlock='''                            mBackgroundHandler.post(() -> {
 one(old_unlock,new_unlock,"post capture unlock")
 
 ccp.write_text(cc)
+
+# Make the installed build identifiable in Android App Info.
+g=gradle.read_text()
+lines=g.splitlines()
+changed=False
+for i,line in enumerate(lines):
+    stripped=line.strip()
+    if stripped.startswith("versionName "):
+        if "m9livegl1t-continuouspreview1a" not in stripped.lower():
+            prefix=line[:len(line)-len(line.lstrip())]
+            value=stripped[len("versionName "):].strip()
+            quote='"' if value.startswith('"') else "'"
+            if not (value.startswith(quote) and value.endswith(quote)):
+                raise SystemExit("GL1T unsupported versionName syntax: "+line)
+            base=value[1:-1]
+            lines[i]=prefix+"versionName "+quote+base+"-m9livegl1t-continuouspreview1a"+quote
+            changed=True
+        break
+else:
+    raise SystemExit("GL1T versionName missing")
+if changed:
+    gradle.write_text("\n".join(lines)+("\n" if g.endswith("\n") else ""))
+
 print("M9LIVEGL1T_CONTINUOUSPREVIEW1A applied")
 print(" - M9 RAW capture is inserted while repeating preview stays active")
 print(" - stopRepeating/abortCaptures bypassed for normal M9 still")
