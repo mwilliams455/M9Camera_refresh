@@ -1,0 +1,74 @@
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -2,7 +2,7 @@
+ 
+ /** Immutable per-observation exposure intent. No Android or mutable camera state. */
+ public final class M9ExposurePlan1A {
+-    public static final String REVISION = "M9EXPOSUREPLAN1A";
++    public static final String REVISION = "M9EXPOSUREPLAN1B";
+     public static final long MAX_AGE_MS = 1500L;
+     public final long id, createdMs, sensorTimestampNs;
+     public final String cameraId, mode, autoReason;
+@@ -29,6 +29,11 @@
+         this.userEv=userEv; this.autoEv=autoEv; this.autoReason=autoReason;
+         this.manualExposureNs=manualExposureNs; this.manualIso=manualIso;
+         this.postRawBoost=postRawBoost;
++    }
++
++    /** Motion is a still exposure policy, not permission to bypass the M9 plan. */
++    public static boolean supportsMode1B(String mode) {
++        return "PHOTO".equals(mode) || "MOTION".equals(mode);
+     }
+ 
+     public double previewScale() {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -16,6 +16,8 @@
+             o.put("sourceSensorTimestampNs", plan.sensorTimestampNs);
+             o.put("cameraId", plan.cameraId);
+             o.put("mode", plan.mode);
++            o.put("captureRoute", "planned_single_RAW_request");
++            o.put("zeroShutterLagBufferUsed", false);
+             o.put("observedIso", plan.observedIso);
+             o.put("observedExposureNs", plan.observedExposureNs);
+             o.put("referenceIso", plan.referenceIso);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java
+@@ -132,8 +132,8 @@
+     public boolean useM9ExposurePlan1A() {
+         return M9Config.usesM9Pipeline() && !M9LivePreview1A.ENABLED
+                 && !captureController.isZslMode()
+-                && com.particlesdevs.photoncamera.app.PhotonCamera.getSettings().selectedMode
+-                    == com.particlesdevs.photoncamera.api.CameraMode.PHOTO;
++                && com.particlesdevs.photoncamera.m9.M9ExposurePlan1A.supportsMode1B(
++                        com.particlesdevs.photoncamera.app.PhotonCamera.getSettings().selectedMode.name());
+     }
+ 
+     private void applyM9MeteringReference1A(CaptureRequest.Builder builder) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -2377,6 +2377,13 @@
+     }
+ 
+     public boolean isZslMode() {
++        // M9EXPOSUREPLAN1B: buffered neutral-AE RAW cannot realize an exposure
++        // chosen by the shared plan. Motion uses one planned RAW request while
++        // repeating preview continues; its faster shutter allocation is retained.
++        if (M9Config.usesM9Pipeline() && !M9LivePreview1A.ENABLED
++                && M9ExposurePlan1A.supportsMode1B(PhotonCamera.getSettings().selectedMode.name())) {
++            return false;
++        }
+         return PhotonCamera.getSettings().selectedMode == CameraMode.MOTION
+                 && !IsoExpoSelector.HDR
+                 && !isDualSession;
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
