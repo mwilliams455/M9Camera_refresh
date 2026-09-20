@@ -1,0 +1,66 @@
+{
+  "baseline": "5165fd0be1ca30e2b20635c7ce1b4638f4051c87 / M9EXPOSUREPLAN1C",
+  "changed": {
+    "app/build.gradle": {
+      "before": "c7c6e1df7eeb7fa4f8c1f554445137ddee70d67c5f3e5ab2e6f797201c567d97",
+      "after": "9638854c8d7106742a432790f3ce62315e3c030dc248e51d084b98d1781c8115"
+    },
+    "app/src/main/assets/shaders/preview/main_fs.glsl": {
+      "before": "32c1de6a70051ccb5c9d0f00087a8f0931fbeafd14ef01f95c7180661afff00b",
+      "after": "82c8dc19eec7749e7b25ba1622fb0f5c0f78fd53871522ea6d3b90c4d7d760cb"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": {
+      "before": "f425c820ece2a3ed3692e8e00f9ffc62f9fa957857ffc48d2d3520b48b083ef2",
+      "after": "64b9da3b9b7fa5c45ec2868cd6823ee28cae18c78f15d1edea1c2c2547f7b3d4"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": {
+      "before": "4780a4cc446b0dc44aa614756964d13de4ceb1416e16634e68283e6bce995a2e",
+      "after": "25b8e0ccecebc3358a7def4c1938cb38d6aefdc372e1e3c7d56598eacdd67f8c"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": {
+      "before": "9376c573ffce54535325487f1ef789a2ce55c34c03f6af813f1d79e449fa2449",
+      "after": "5ed4fc32c77acc2d6df8a55c4c86e76cec370d19a6ad41bf72042cf942f29c64"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": {
+      "before": "d4aaa3f6e4dd681841b2e1089b06a12aaa387634f4ec4a75519a2c39b81eacfb",
+      "after": "bd3f93f96ca4da30f4f024cb4b56b7de92bad38816d5aa4d3896ac70425cdfc8"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java": {
+      "before": "05c38a1dedd0809b25cea686cd4bba971766b50f54c13a922e0b137002741b86",
+      "after": "acf0c621f0b64ccc2a4e2970ee4795544c6bf9e1743accfe131af60e62eca052"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
+      "before": "6dc83c0dfbd8858ad3998b27290413290f552f00733849deaaab19d3313958af",
+      "after": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMath2A.java": {
+      "before": null,
+      "after": "373d4d3a9fd4b34558ef4a48cac0a60dcaf600dc4ef18c695f22991691686449"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java": {
+      "before": null,
+      "after": "a3ce019a16af020382b67dd1573bfb41ced4f9deb0218fb0843b0f64c1c3d0a5"
+    }
+  },
+  "frozen": {
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/assets/m9/m9_preview_standard_gl1f_17.cube": "def88c0cde50fb198203e5938eae984930c08507efabafbcd7148a83d679463a",
+    "app/src/main/assets/m9/m9_preview_standard_gl1f_17.rgb": "a94cee9fc9c4e2df40c1cb06b3e8a53927502cb18757fd34ecd8702078cfbee4",
+    "app/src/main/assets/m9/m9_r35_calibration.bin": "5568978ea42e7c65b51f26ffc2d56479418ec6c8d98b242199bab08acb62cbca",
+    "app/src/main/assets/m9/m9_r35_calibration_manifest.json": "21232fb19721f484c8e8d3ce4c19cf9f89143b1185c16021355d3e413607553b",
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9M10rMfmTest1A.java": "20176d1ec67728d31944dd567817e94612a6c339d71e5950b4b6d1229941a7ae",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ModernExposurePolicy.java": "5ecbc4859dc94a89ae6cd938bb931178a01a51597c55ba0f077a7c7a3d32134d",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/FrameNumberSelector.java": "b50b333e858e7e84306ed09413676cd17b181e1e3cfa27c011bdcc6c99975ee0",
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "c9d9a0e17d6ca0382b1bb2bd7a31bccefa1bb56b583dcfb2af6db6485b89e361",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java": "74ae5a48ebe62c336fcecc7b82fad12f5d861ac2d4b1b18a1220aebd993edfb2",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java": "f2d99380bb29f91284c9bb22418e40fbeadd4d816a6333134eb30555493a2979",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java": "0552b83d84896524c0c2fa5f1ec225e244f078bd95d50ea8bd7b0ed908e15a14",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewSpatialStats1V.java": "da86635356617342fc59168f5bb5f735506f9433b4e1f97c8eb53124bcec80e0",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "4d4d557a5601b6d17e1d858b2954df720eac127473fcf03e47a13c0550ee696b",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java": "f970109a367deaf116de1875b208ee74fb7f65054700343a9e68d6ebe5f4da24",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": "3d88378dc3bf0c8738b912ad300b0d6a690fdaa4c74670c168b3686f4f10417f",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java": "a1914b5744e241a385d945c651ec980cc981222eddb7f47811e0425961ffcaee"
+  },
+  "renderer_without_export": "6dc83c0dfbd8858ad3998b27290413290f552f00733849deaaab19d3313958af"
+}
