@@ -72,3 +72,16 @@
          versionProps['VERSION_NAME'] = versionName
          proguardFiles
      }
+--- a/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java
++++ b/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java
+@@ -100,7 +100,9 @@
+     @Override
+     public void onSelectedKnobItemChanged(KnobItemInfo knobItemInfo) {
+         currentInfo = knobItemInfo;
+-        manualParamModel.setCurrentEvValue((int) (knobItemInfo.value / evStep));
++        // Preserve the displayed EV for software exposure planning. Legacy Camera2
++        // requests still quantize in ParamController.setEV(int).
++        manualParamModel.setCurrentEvValue(knobItemInfo.value / evStep);
+     }
+ 
+     private boolean isZero(float value) {

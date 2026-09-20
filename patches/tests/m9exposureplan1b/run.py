@@ -85,6 +85,13 @@ with tempfile.TemporaryDirectory(prefix='m9-exposure-test-') as d:
  imports='import '+P+'app.PhotonCamera;import '+P+'m9.M9Config;import '+P+'m9.M9ExposurePlan1A;import '+P+'m9.preview.M9LivePreview1A;import '+P+'api.CameraMode;import '+P+'processing.parameters.IsoExpoSelector;'
  stub=stub.replace('public class CaptureController',imports+'\npublic class CaptureController')
  captureStub.write_text(stub)
+ # Also compile the actual dial callback, preserving fractional Camera2-step
+ # units until legacy hardware submission (rather than truncating the user's EV).
+ dialSource=(ROOT/'circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java').read_text()
+ begin=dialSource.index('    public void onSelectedKnobItemChanged(KnobItemInfo knobItemInfo) {')
+ end=dialSource.index('\n    private boolean isZero',begin)
+ dial=dialSource[begin:end].strip()
+ write(P+'m9.EvDialProbe', 'public class EvDialProbe {public static class KnobItemInfo {public double value;public KnobItemInfo(double v){value=v;}} Object currentInfo;float evStep;com.particlesdevs.photoncamera.circularbarlib.control.ManualParamModel manualParamModel;public EvDialProbe(com.particlesdevs.photoncamera.circularbarlib.control.ManualParamModel m,float s){manualParamModel=m;evStep=s;}'+dial+'}')
  shutil.copyfile(Path(__file__).with_name('ExposurePlanTest.java'),src/'ExposurePlanTest.java')
  jar=d/'json.jar'
  if len(sys.argv)>2:shutil.copyfile(sys.argv[2],jar)

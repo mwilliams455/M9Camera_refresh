@@ -109,6 +109,18 @@ public class ExposurePlanTest {
             near(p.renderIntentScale(100,shutter),.5*p.renderIntentScale(200,shutter),1e-12,"render honors actual RAW exposure, not requested ISO");
             check(cc.mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AE_MODE)==1,"manual controls preserve neutral metering feed");
         }
+        model.reset();
+        c.set(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP,new Rational(1,6));
+        EvDialProbe dial=new EvDialProbe(model,1f/6f);
+        for(double shown:new double[]{-.25,.25,1.25}) {
+            dial.onSelectedKnobItemChanged(new EvDialProbe.KnobItemInfo(shown));
+            near(cc.getParamController().getM9UserEv1A(),shown,1e-6,"displayed quarter-stop EV reaches software plan");
+            check(cc.mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION)==0,"quarter-stop dial leaves metering reference neutral");
+        }
+        M9Config.pipeline=false;
+        dial.onSelectedKnobItemChanged(new EvDialProbe.KnobItemInfo(1.25));
+        check(cc.mPreviewRequestBuilder.get(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION)==7,"legacy hardware dial quantization retained");
+        M9Config.pipeline=true;model.reset();
         model.setCurrentExposureValue(2000000000L);model.setCurrentISOValue(10000);
         M9ExposurePlan1A limited=IsoExpoSelector.planM9LiveExposure1A(cc,obs);
         check(limited.iso==6400 && limited.exposureNs==1000000000L,"physical bounds apply to manual pair");

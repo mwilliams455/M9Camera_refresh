@@ -25,6 +25,7 @@ The native SAT2/curve02 path is still active. These findings give no reason to r
 - In those modes with GL preview active, route stills through one newly requested RAW at the planned ISO/shutter. M9 Motion no longer drains neutral-AE buffered RAW for the final photograph.
 - Retain Motion's existing faster shutter-allocation limits, the existing single-RAW/no-HDR boundary and the GL1T continuous-preview policy.
 - Keep non-M9 Motion's original ZSL behavior.
+- Preserve the EV dial's quarter-stop value through the software plan. The old UI callback truncated it to whole hardware compensation steps before the planner could read it; quantization now remains only in legacy Camera2 submission. A 1/6-step hardware test checks displayed -0.25, +0.25 and +1.25 EV and retains the old integer request for non-M9.
 - Record `M9EXPOSUREPLAN1B`, `captureRoute: planned_single_RAW_request`, and `zeroShutterLagBufferUsed: false` in each attached plan.
 - Keep the renderer, native color, shader, tone model, allocator, output quality and photographic assets byte-identical to EXPOSUREPLAN1A. This is a routing correction, not a newly tuned backlight curve.
 
@@ -32,10 +33,10 @@ Motion now incurs the same requested-still acquisition as Photo; it no longer pr
 
 ## Verification
 
-472 host assertions pass using actual production plan, manual controls, allocator, MFM and capture-routing method. The earlier harness stubbed `isZslMode()` to false, so it could not discover this integration gap. The new harness compiles the actual method and exercises both Photo and Motion, including the non-M9 ZSL control. Exact parent/overlay and frozen-source hashes also pass. Android build status is tracked in the PR.
+479 host assertions pass using actual production plan, manual controls, allocator, MFM and capture-routing method. The earlier harness stubbed `isZslMode()` to false, so it could not discover this integration gap. The new harness compiles the actual method and exercises both Photo and Motion, including the non-M9 ZSL control. Exact parent/overlay and frozen-source hashes also pass. Android build status is tracked in the PR.
 
 ## Next phone test
 
-Use the same window/toys scene in Motion. Leave ISO and shutter on Auto. Capture at EV0, then -1/3 and +1/3 with unchanged framing, followed by +/-1 if useful. Capture one ordinary indoor frame as a control. Retain corresponding JPEG, DNG, LIVEPAIR and PRIMARY/burst diagnostics, plus a screen recording.
+Use the same window/toys scene in Motion. Leave ISO and shutter on Auto. Capture at EV0, then -0.25 and +0.25 with unchanged framing, followed by +/-1 if useful. Capture one ordinary indoor frame as a control. Retain corresponding JPEG, DNG, LIVEPAIR and PRIMARY/burst diagnostics, plus a screen recording.
 
 First acceptance check: the PRIMARY plan exists, its mode is MOTION, its revision is M9EXPOSUREPLAN1B, and the requested still has AE off. The actual sensor result should be compared with the planned pair. Then assess preview/JPEG response, auto scene placement and continuous preview. The inherited empirical OES color/tone fit and scalar normalization's clipping limits remain unresolved until tested; this correction does not establish full visual parity.

@@ -20,6 +20,10 @@
     "app/build.gradle": {
       "before": "e34f8011d0f5196b71cfb31350d8a4138723267b085bda3eb7798e3e86e5dbfd",
       "after": "3ae28129fd60d0dcc684358b3153e321c0c7afd118b460bf3435bf361418a547"
+    },
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java": {
+      "before": "bbb5765d47f5473fa275721e59575bde0d96f8e7cea644d7ba001db1686b4486",
+      "after": "74ae5a48ebe62c336fcecc7b82fad12f5d861ac2d4b1b18a1220aebd993edfb2"
     }
   },
   "frozen": {
