@@ -1,0 +1,479 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1vspatialgate1a'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -11,12 +11,33 @@
+     public final double userEv, autoEv;
+     public final long manualExposureNs;
+     public final int manualIso;
++    private final String shutterPreviewSnapshot1W;
++
++    public String getShutterPreviewSnapshot1W() { return shutterPreviewSnapshot1W; }
++
++    /** Attach immutable shutter-time evidence without altering exposure authority. */
++    public M9ExposurePlan1A withShutterPreviewSnapshot1W(String snapshot) {
++        return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
++                observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot);
++    }
+ 
+     public M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+             String cameraId, String mode, int observedIso, long observedExposureNs,
+             int referenceIso, long referenceExposureNs, int iso, long exposureNs,
+             double userEv, double autoEv, String autoReason,
+             long manualExposureNs, int manualIso, int postRawBoost) {
++        this(id, createdMs, sensorTimestampNs, cameraId, mode, observedIso, observedExposureNs,
++                referenceIso, referenceExposureNs, iso, exposureNs, userEv, autoEv, autoReason,
++                manualExposureNs, manualIso, postRawBoost, null);
++    }
++
++    private M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
++            String cameraId, String mode, int observedIso, long observedExposureNs,
++            int referenceIso, long referenceExposureNs, int iso, long exposureNs,
++            double userEv, double autoEv, String autoReason,
++            long manualExposureNs, int manualIso, int postRawBoost, String snapshot) {
++        this.shutterPreviewSnapshot1W = snapshot;
+         if (observedIso <= 0 || observedExposureNs <= 0 || referenceIso <= 0
+                 || referenceExposureNs <= 0 || iso <= 0 || exposureNs <= 0
+                 || !Double.isFinite(userEv) || !Double.isFinite(autoEv)) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -12,6 +12,14 @@
+             o.put("schema", "m9cam.exposureplan.v1a");
+             o.put("revision", M9ExposurePlan1A.REVISION);
+             o.put("id", plan.id);
++            String shutterPreview1W = plan.getShutterPreviewSnapshot1W();
++            if (shutterPreview1W != null) {
++                try { o.put("shutterPreview1W", new JSONObject(shutterPreview1W)); }
++                catch (org.json.JSONException invalid) {
++                    o.put("shutterPreview1W", new JSONObject().put("available", false)
++                            .put("reason", "invalid_snapshot_encoding"));
++                }
++            }
+             o.put("createdElapsedMs", plan.createdMs);
+             o.put("sourceSensorTimestampNs", plan.sensorTimestampNs);
+             o.put("cameraId", plan.cameraId);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -84,6 +84,7 @@
+ import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
+ import com.particlesdevs.photoncamera.processing.parameters.ExposureIndex;
+ import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
++import com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W;
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
+ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+ import com.particlesdevs.photoncamera.settings.SettingsManager;
+@@ -113,6 +114,7 @@
+     // exposure state already applied by GL1B to the visible OES preview.
+     private final float[] mM9LiveToneStats1F = new float[20];
+     private final float[] mM9LiveToneParams1F = new float[4];
++    private float mM9WeightA1W, mM9TungstenWeight1W;
+     private volatile float mM9LiveExposureScale1R = 1.0f;
+     private volatile float mM9LiveReferenceScale1A = 1.0f;
+ 
+@@ -463,6 +465,7 @@
+ 
+     @SuppressLint("DefaultLocale")
+     private void updateScreenLog(CaptureResult result) {
++        M9ExposurePlan1A framePlan1W = null;
+         // M9LIVEGL1B_EXPOSUREINTENT
+         // The non-ZSL HUD already advertises IsoExpoSelector.GenerateExpoPair(-1).
+         // GL1A displayed transformed hardware AE but captured hardware AE too, so
+@@ -499,10 +502,10 @@
+                                         M9ExposurePlan1A.energy(exposurePlan1A.referenceIso,
+                                                 exposurePlan1A.referenceExposureNs) / actualEnergy1B))
+                                 : boundedExposureScale1R;
+-                        textureView.setM9ExposureScale1B(boundedExposureScale1R);
++                        framePlan1W = exposurePlan1A;
+                         captureController.updateM9LiveGlIntendedExposure1B(
+                                 intended1B.iso, intended1B.exposure);
+-                        captureController.updateM9ExposurePlan1A(exposurePlan1A);
++                        // Publish the capture plan after the complete GL state below.
+                         // M9LIVEGL1P_LIVEPAIRDIAG1A: passive mirror of the exact
+                         // exposure state already driving GL1B. No authority change.
+                         Long sensorTs1P = result.get(CaptureResult.SENSOR_TIMESTAMP);
+@@ -549,8 +552,8 @@
+                         tgX1D = Math.max(0.0, Math.min(1.0, tgX1D));
+                         double tgWeight1D = tgX1D * tgX1D * (3.0 - 2.0 * tgX1D);
+ 
+-                        textureView.setM9IlluminantState1D(
+-                                (float) weightA1D, (float) tgWeight1D);
++                        mM9WeightA1W = (float) weightA1D;
++                        mM9TungstenWeight1W = (float) tgWeight1D;
+                     }
+                 }
+             } catch (Throwable t) {
+@@ -569,9 +572,16 @@
+                         .fillLiveToneStats1R(mM9LiveReferenceScale1A, mM9LiveToneStats1F);
+                 boolean toneReady1F = com.particlesdevs.photoncamera.m9.preview.M9LiveToneModel1F
+                         .fill(statsReady1F ? mM9LiveToneStats1F : null, mM9LiveToneParams1F);
+-                textureView.setM9ToneState1F(
++                Long timestamp1W = result != null ? result.get(CaptureResult.SENSOR_TIMESTAMP) : null;
++                textureView.setM9FrameState1W(new M9PreviewFrameState1W(
++                        framePlan1W, timestamp1W != null ? timestamp1W : -1L,
++                        com.particlesdevs.photoncamera.m9.M9SubjectMotionAnalyzer.getLatestLumaElapsedRealtimeNs1P(),
++                        mM9LiveExposureScale1R, mM9WeightA1W, mM9TungstenWeight1W,
+                         mM9LiveToneParams1F[0], mM9LiveToneParams1F[1],
+-                        mM9LiveToneParams1F[2], mM9LiveToneParams1F[3]);
++                        mM9LiveToneParams1F[2], mM9LiveToneParams1F[3],
++                        statsReady1F ? mM9LiveToneStats1F : null));
++                if (captureController != null && framePlan1W != null)
++                    captureController.updateM9ExposurePlan1A(framePlan1W);
+                 if (!toneReady1F && mM9LiveToneStats1F[0] < 3.0f) {
+                     // Defaults intentionally equal GL1C while the analyzer warms up.
+                 }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -1,5 +1,6 @@
+ package com.particlesdevs.photoncamera.ui.camera.views.viewfinder;
+ 
++import com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W;
+ import android.graphics.RectF;
+ import android.graphics.SurfaceTexture;
+ import android.opengl.GLES11Ext;
+@@ -23,6 +24,23 @@
+ import javax.microedition.khronos.opengles.GL10;
+ 
+ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
++
++    private volatile M9PreviewFrameState1W mM9FrameState1W = M9PreviewFrameState1W.defaults();
++    private volatile M9PreviewFrameState1W.Draw mM9LastDraw1W;
++    private long mM9DrawSequence1W;
++
++    public void setM9FrameState1W(M9PreviewFrameState1W state) {
++        if (state == null) return;
++        mM9FrameState1W = state;
++        mView.requestRender();
++    }
++
++    public String snapshotM9DrawState1W(long shutterNs,
++            com.particlesdevs.photoncamera.m9.M9ExposurePlan1A plan) {
++        M9PreviewFrameState1W.Draw draw = mM9LastDraw1W;
++        return draw == null ? M9PreviewFrameState1W.unavailable("no_GL_draw_in_this_surface")
++                : draw.snapshot(shutterNs, plan);
++    }
+ 
+     private int[] hTex;
+     private final FloatBuffer pVertex;
+@@ -66,13 +84,16 @@
+                 mUpdateST = false;
+             }
+         }
++        // Read once: the camera callback may publish another state during this draw.
++        final M9PreviewFrameState1W frame1W = mM9FrameState1W;
++        final long textureTimestamp1W = mSTexture.getTimestamp();
+         GLES20.glUniformMatrix4fv(uTexRotateMatrix, 1, false, mTexRotateMatrix, 0);
+         int peakEnabled = getPeakEnabled();
+         GLES20.glUniform1i(enablePeak, peakEnabled);
+         GLES20.glUniform1i(mirror, mMirrorPreview ? 1 : 0);
+         GLES20.glUniform1i(uM9Enabled, mM9CurveTex != 0 ? 1 : 0);
+         GLES20.glUniform1f(uM9DisplayGain, M9_LIVE_GL1A_DISPLAY_GAIN);
+-        GLES20.glUniform1f(uM9ExposureScale1B, mM9ExposureScale1B);
++        GLES20.glUniform1f(uM9ExposureScale1B, frame1W.exposureScale);
+         GLES20.glUniformMatrix3fv(uM9SourceMatrix1C, 1, false, M9_LIVE_GL1C_SOURCE_D65, 0);
+         GLES20.glUniform1f(uM9BlackFloor1C, M9_LIVE_GL1C_BLACK_FLOOR);
+         GLES20.glUniform1f(uM9ShadowPower1C, M9_LIVE_GL1C_SHADOW_POWER);
+@@ -80,12 +101,12 @@
+         GLES20.glUniform1f(uM9FalloffStrength1C, M9_LIVE_GL1C_FALLOFF_STRENGTH);
+         GLES20.glUniform1f(uM9FalloffPower1C, M9_LIVE_GL1C_FALLOFF_POWER);
+         GLES20.glUniformMatrix3fv(uM9SourceMatrixA1D, 1, false, M9_LIVE_GL1D_SOURCE_A, 0);
+-        GLES20.glUniform1f(uM9IlluminantWeightA1D, mM9IlluminantWeightA1D);
+-        GLES20.glUniform1f(uM9TungstenWeight1D, mM9TungstenWeight1D);
+-        GLES20.glUniform1f(uM9PreviewGainEv1F, mM9PreviewGainEv1F);
+-        GLES20.glUniform1f(uM9ShadowPlacement1F, mM9ShadowPlacement1F);
+-        GLES20.glUniform1f(uM9MidtoneGamma1F, mM9MidtoneGamma1F);
+-        GLES20.glUniform1f(uM9HighlightShoulder1F, mM9HighlightShoulder1F);
++        GLES20.glUniform1f(uM9IlluminantWeightA1D, frame1W.weightA);
++        GLES20.glUniform1f(uM9TungstenWeight1D, frame1W.tungstenWeight);
++        GLES20.glUniform1f(uM9PreviewGainEv1F, frame1W.gainEv);
++        GLES20.glUniform1f(uM9ShadowPlacement1F, frame1W.shadowPlacement);
++        GLES20.glUniform1f(uM9MidtoneGamma1F, frame1W.gamma);
++        GLES20.glUniform1f(uM9HighlightShoulder1F, frame1W.pairStrength);
+         GLES20.glUniform1i(uM9PreviewLutEnabled1F, mM9PreviewLutTex1F != 0 ? 1 : 0);
+         GLES20.glUniform1i(uM9Curve, 1);
+         GLES20.glUniform1i(uM9PreviewLut1F, 2);
+@@ -99,6 +120,8 @@
+         GLES20.glVertexAttribPointer(vPosition, 2, GLES20.GL_FLOAT, false, 4 * 2, pVertex);
+         GLES20.glVertexAttribPointer(vTexCoord, 2, GLES20.GL_FLOAT, false, 4 * 2, pTexCoord);
+         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
++        mM9LastDraw1W = new M9PreviewFrameState1W.Draw(frame1W, textureTimestamp1W,
++                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0);
+         // GLES20.glFlush();
+     }
+ 
+@@ -119,7 +142,6 @@
+     private int uM9DisplayGain;
+     private int uM9Curve;
+     // M9LIVEGL1B_EXPOSUREINTENT
+-    private volatile float mM9ExposureScale1B = 1.0f;
+     private int uM9ExposureScale1B;
+     // M9LIVEGL1C_APPEARANCEPARITY
+     private static final float[] M9_LIVE_GL1C_SOURCE_D65 = {
+@@ -133,8 +155,6 @@
+             0.38280546f, 0.76276908f, 0.38316200f,
+             0.07964361f, 0.10808411f, 0.55866248f
+     };
+-    private volatile float mM9IlluminantWeightA1D = 0.0f;
+-    private volatile float mM9TungstenWeight1D = 0.0f;
+     private static final float M9_LIVE_GL1C_BLACK_FLOOR = 0.0030f;
+     private static final float M9_LIVE_GL1C_SHADOW_POWER = 1.040f;
+     private static final float M9_LIVE_GL1C_HIGHLIGHT_SHOULDER = 0.20f;
+@@ -148,10 +168,6 @@
+     private int uM9FalloffPower1C;
+     // M9LIVEGL1F_TONELUT1A
+     private static final int M9_LIVE_GL1F_LUT_SIZE = 17;
+-    private volatile float mM9PreviewGainEv1F = -0.30f;
+-    private volatile float mM9ShadowPlacement1F = 0.0f;
+-    private volatile float mM9MidtoneGamma1F = 1.120f;
+-    private volatile float mM9HighlightShoulder1F = 0.20f;
+     private int mM9PreviewLutTex1F;
+     private int uM9PreviewGainEv1F;
+     private int uM9ShadowPlacement1F;
+@@ -165,6 +181,9 @@
+ 
+     @Override
+     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
++        mM9LastDraw1W = null;
++        mM9FrameState1W = M9PreviewFrameState1W.defaults();
++        mM9DrawSequence1W = 0;
+         initTex();
+         initM9CurveTexture1A();
+         initM9PreviewLutTexture1F();
+@@ -405,40 +424,6 @@
+         return program;
+     }
+ 
+-    public void setM9ExposureScale1B(float scale) {
+-        if (!Float.isFinite(scale) || scale <= 0.0f) scale = 1.0f;
+-        // Preview transport guard only. Normal exposure controls sit comfortably
+-        // inside this +/-4 EV window.
+-        mM9ExposureScale1B = Math.max(0.0625f, Math.min(16.0f, scale));
+-        mView.requestRender();
+-    }
+-
+-    /**
+-     * M9LIVEGL1D_ILLUMINANTCOLOR.
+-     * weightA follows the M9 renderer's reciprocal-temperature A/D65 weighting.
+-     * tungstenWeight follows the frozen TG1 4500K->3200K smoothstep.
+-     */
+-    public void setM9IlluminantState1D(float weightA, float tungstenWeight) {
+-        if (!Float.isFinite(weightA)) weightA = 0.0f;
+-        if (!Float.isFinite(tungstenWeight)) tungstenWeight = 0.0f;
+-        mM9IlluminantWeightA1D = Math.max(0.0f, Math.min(1.0f, weightA));
+-        mM9TungstenWeight1D = Math.max(0.0f, Math.min(1.0f, tungstenWeight));
+-        mView.requestRender();
+-    }
+-
+-    public void setM9ToneState1F(float gainEv, float shadowPlacement,
+-                                    float midtoneGamma, float highlightShoulder) {
+-        if (!Float.isFinite(gainEv)) gainEv = -0.30f;
+-        if (!Float.isFinite(shadowPlacement)) shadowPlacement = 0.0f;
+-        if (!Float.isFinite(midtoneGamma)) midtoneGamma = 1.120f;
+-        if (!Float.isFinite(highlightShoulder)) highlightShoulder = 0.20f;
+-        mM9PreviewGainEv1F = Math.max(-2.40f, Math.min(0.50f, gainEv));
+-        mM9ShadowPlacement1F = Math.max(0.0f, Math.min(0.12f, shadowPlacement));
+-        mM9MidtoneGamma1F = Math.max(1.00f, Math.min(1.40f, midtoneGamma));
+-        mM9HighlightShoulder1F = Math.max(0.0f, Math.min(1.0f, highlightShoulder));
+-        mView.requestRender();
+-    }
+-
+     public void setMirror(boolean mirrorPreview) {
+         mMirrorPreview = mirrorPreview;
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java
+@@ -1,5 +1,6 @@
+ package com.particlesdevs.photoncamera.ui.camera.views.viewfinder;
+ 
++import com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W;
+ import android.content.Context;
+ import android.graphics.Canvas;
+ import android.graphics.Color;
+@@ -201,31 +202,19 @@
+         mRenderer.setOrientation(or);
+     }
+ 
+-    /** M9LIVEGL1F_TONELUT1A: preview-only predictive tone state. */
+-    public void setM9ToneState1F(float gainEv, float shadowPlacement,
+-                                 float midtoneGamma, float highlightShoulder) {
+-        if (mRenderer != null) {
+-            mRenderer.setM9ToneState1F(gainEv, shadowPlacement, midtoneGamma, highlightShoulder);
+-        }
+-    }
+-
+     public void setMirror(boolean mirror) {
+         mRenderer.setMirror(mirror);
+         requestRender();
+     }
+ 
+-    /** M9LIVEGL1B_EXPOSUREINTENT: target/actual exposure energy for the GL M9 view. */
+-    public void setM9ExposureScale1B(float scale) {
+-        if (mRenderer != null) {
+-            mRenderer.setM9ExposureScale1B(scale);
+-        }
+-    }
+-
+-    /** M9LIVEGL1D_ILLUMINANTCOLOR: live M9 A/D65 + TG1 state. */
+-    public void setM9IlluminantState1D(float weightA, float tungstenWeight) {
+-        if (mRenderer != null) {
+-            mRenderer.setM9IlluminantState1D(weightA, tungstenWeight);
+-        }
++    public void setM9FrameState1W(M9PreviewFrameState1W state) {
++        if (mRenderer != null) mRenderer.setM9FrameState1W(state);
++    }
++
++    public String snapshotM9DrawState1W(long shutterNs,
++            com.particlesdevs.photoncamera.m9.M9ExposurePlan1A plan) {
++        return !isAvailable() ? M9PreviewFrameState1W.unavailable("GL_surface_unavailable")
++                : mRenderer.snapshotM9DrawState1W(shutterNs, plan);
+     }
+ 
+     public boolean isAvailable() {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -2591,7 +2591,12 @@
+             // In GL mode the latched intended pair is authoritative because the shader
+             // explicitly simulates that pair from the current OES preview.
+             final boolean plannedCapture1A = paramController.useM9ExposurePlan1A();
+-            final M9ExposurePlan1A capturePlan1A = plannedCapture1A ? getM9ExposurePlan1A() : null;
++            final M9ExposurePlan1A basePlan1W = plannedCapture1A ? getM9ExposurePlan1A() : null;
++            final M9ExposurePlan1A capturePlan1A = basePlan1W == null ? null
++                    : basePlan1W.withShutterPreviewSnapshot1W(mTextureView != null
++                        ? mTextureView.snapshotM9DrawState1W(m9LivePairShutterElapsedNs1P, basePlan1W)
++                        : com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W
++                            .unavailable("GL_view_unavailable"));
+             if (plannedCapture1A && capturePlan1A == null) {
+                 if (mState != STATE_WAITING_EXPOSURE_PLAN1A) {
+                     mState = STATE_WAITING_EXPOSURE_PLAN1A;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+@@ -0,0 +1,120 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
++import org.json.JSONArray;
++import org.json.JSONObject;
++
++/** One immutable publication per camera callback; one read per GL draw. */
++public final class M9PreviewFrameState1W {
++    public static final String REVISION = "M9LIVEGL1W_ATOMICSTATE1A";
++    public final M9ExposurePlan1A plan;
++    public final long resultTimestampNs, analyzerElapsedNs;
++    public final float exposureScale, weightA, tungstenWeight;
++    public final float gainEv, shadowPlacement, gamma, pairStrength;
++    private final float[] stats;
++
++    public M9PreviewFrameState1W(M9ExposurePlan1A plan, long resultTimestampNs,
++            long analyzerElapsedNs, float exposureScale, float weightA, float tungstenWeight,
++            float gainEv, float shadowPlacement, float gamma, float pairStrength, float[] stats) {
++        this.plan = plan;
++        this.resultTimestampNs = resultTimestampNs;
++        this.analyzerElapsedNs = analyzerElapsedNs;
++        // Preserve the GL1V renderer's guards exactly.
++        this.exposureScale = bounded(exposureScale > 0 ? exposureScale : 1, 1, .0625f, 16);
++        this.weightA = bounded(weightA, 0, 0, 1);
++        this.tungstenWeight = bounded(tungstenWeight, 0, 0, 1);
++        this.gainEv = bounded(gainEv, -.30f, -2.40f, .50f);
++        this.shadowPlacement = bounded(shadowPlacement, 0, 0, .12f);
++        this.gamma = bounded(gamma, 1.120f, 1, 1.40f);
++        this.pairStrength = bounded(pairStrength, .20f, 0, 1);
++        this.stats = stats == null ? new float[0] : stats.clone();
++    }
++
++    public static M9PreviewFrameState1W defaults() {
++        return new M9PreviewFrameState1W(null, -1, -1, 1, 0, 0, -.30f, 0, 1.120f, .20f, null);
++    }
++
++    private static float bounded(float v, float fallback, float lo, float hi) {
++        return Math.max(lo, Math.min(hi, Float.isFinite(v) ? v : fallback));
++    }
++
++    /** Describes the commands issued for a draw, not compositor presentation or GPU pixels. */
++    public static final class Draw {
++        public final M9PreviewFrameState1W state;
++        public final long textureTimestampNs, submittedElapsedNs, sequence;
++        public final boolean transformEnabled;
++
++        public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
++                long submittedElapsedNs, long sequence, boolean transformEnabled) {
++            this.state = state;
++            this.textureTimestampNs = textureTimestampNs;
++            this.submittedElapsedNs = submittedElapsedNs;
++            this.sequence = sequence;
++            this.transformEnabled = transformEnabled;
++        }
++
++        public String snapshot(long shutterElapsedNs, M9ExposurePlan1A capturePlan) {
++            JSONObject o = new JSONObject();
++            try {
++                o.put("revision", REVISION);
++                o.put("available", true);
++                o.put("stage", "GL_draw_commands_submitted_not_display_presentation_verified");
++                o.put("sequence", sequence);
++                o.put("submittedElapsedNs", submittedElapsedNs);
++                o.put("shutterElapsedNs", shutterElapsedNs);
++                double age = (shutterElapsedNs - submittedElapsedNs) / 1e6;
++                o.put("drawAgeMsAtShutter", age);
++                o.put("recentDraw", age >= 0 && age <= 1500);
++                o.put("oesTextureTimestampNs", textureTimestampNs);
++                o.put("stateResultTimestampNs", state.resultTimestampNs);
++                boolean comparable = textureTimestampNs > 0 && state.resultTimestampNs > 0;
++                o.put("textureMatchesStateResult", comparable && textureTimestampNs == state.resultTimestampNs);
++                o.put("textureMinusStateResultNs", comparable
++                        ? textureTimestampNs - state.resultTimestampNs : JSONObject.NULL);
++                o.put("analyzerElapsedNs", state.analyzerElapsedNs);
++                o.put("transformEnabled", transformEnabled);
++                o.put("uniformExposureScale", state.exposureScale);
++                o.put("uniformGainEv", state.gainEv);
++                o.put("uniformShadowPlacement", state.shadowPlacement);
++                o.put("uniformGamma", state.gamma);
++                o.put("uniformPairStrength", state.pairStrength);
++                o.put("uniformWeightA", state.weightA);
++                o.put("uniformTungstenWeight", state.tungstenWeight);
++                o.put("toneModel", "M9LIVEGL1V_SPATIALGATE1A");
++                o.put("colourPath", "processed_OES_chroma_with_luma_rescaling");
++                o.put("curve02Live", false);
++                o.put("sat2Live", false);
++                o.put("statePlanId", state.plan != null ? state.plan.id : JSONObject.NULL);
++                o.put("capturePlanId", capturePlan != null ? capturePlan.id : JSONObject.NULL);
++                o.put("samePlanId", state.plan != null && capturePlan != null
++                        && state.plan.id == capturePlan.id);
++                o.put("stateCameraId", state.plan != null ? state.plan.cameraId : JSONObject.NULL);
++                o.put("stateMode", state.plan != null ? state.plan.mode : JSONObject.NULL);
++                o.put("sameCameraAndMode", state.plan != null && capturePlan != null
++                        && java.util.Objects.equals(state.plan.cameraId, capturePlan.cameraId)
++                        && java.util.Objects.equals(state.plan.mode, capturePlan.mode));
++                o.put("stateUserEv", state.plan != null ? state.plan.userEv : JSONObject.NULL);
++                o.put("stateAutoEv", state.plan != null ? state.plan.autoEv : JSONObject.NULL);
++                o.put("statePlannedIso", state.plan != null ? state.plan.iso : JSONObject.NULL);
++                o.put("statePlannedExposureNs", state.plan != null ? state.plan.exposureNs : JSONObject.NULL);
++                o.put("stateObservedIso", state.plan != null ? state.plan.observedIso : JSONObject.NULL);
++                o.put("stateObservedExposureNs", state.plan != null ? state.plan.observedExposureNs : JSONObject.NULL);
++                o.put("statePostRawBoost", state.plan != null ? state.plan.postRawBoost : JSONObject.NULL);
++                JSONArray a = new JSONArray();
++                for (float v : state.stats) a.put(Float.isFinite(v) ? v : JSONObject.NULL);
++                o.put("toneInputStats", a);
++                o.put("toneInputLayout", "frames,median,q95,q99,center,dark64,bright224,bright240,referenceScale,referenceEV,virtualMedian,virtualQ95,virtualQ99,virtualCenter,virtualDark64,virtualBright224,virtualBright240,virtualClip255,regionalLow,regionalHigh");
++                return o.toString();
++            } catch (org.json.JSONException e) {
++                return unavailable("snapshot_encoding_failed");
++            }
++        }
++    }
++
++    public static String unavailable(String reason) {
++        try {
++            return new JSONObject().put("revision", REVISION).put("available", false)
++                    .put("reason", reason).toString();
++        } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
++    }
++}

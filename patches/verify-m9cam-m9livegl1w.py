@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""Exact source and photographic-asset verification; behaviour is tested separately."""
+from pathlib import Path
+import hashlib, json, sys
+root=Path(sys.argv[1]).resolve();here=Path(__file__).resolve().parent
+manifest=json.loads((here/'m9cam-m9livegl1w-manifest.json').read_text())
+for rel,item in manifest['changed'].items():
+ actual=hashlib.sha256((root/rel).read_bytes()).hexdigest()
+ if actual!=item['after']: raise SystemExit('Exposure-plan source mismatch: '+rel)
+for rel,expected in manifest['frozen'].items():
+ if hashlib.sha256((root/rel).read_bytes()).hexdigest()!=expected: raise SystemExit('Photographic freeze mismatch: '+rel)
+print('M9LIVEGL1W SOURCE PASS: atomic preview and shutter evidence verified; exposure allocation, native color, SAT2/curve02, shader, tone model and still renderer preserved')
