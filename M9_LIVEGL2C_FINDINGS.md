@@ -6,9 +6,9 @@
 
 New local recording `upload/01-40123.mp4`: 53.345 s, 1440x3200 H.264, 60 fps, no audio. Main/1x selector, HUD 24 mm f/1.6. The device model and installed APK cannot be established from the recording alone. Do not infer them from the lens selector labels.
 
-As the user points towards the bright sky, foliage becomes very dark. From roughly 35–45 s, raising EV from +0.5 through +1.75 to about +3/+3.25 produces abrupt grey and yellow-green plateaus in the viewfinder. The photo opened in the gallery at the end has much smoother tonal detail. This establishes an unacceptable preview/still appearance discrepancy. It does not measure matching-pixel exposure parity: orientation, time and display scale differ.
+As the user points towards the bright sky, foliage becomes very dark. From roughly 35–45 s, raising EV from +0.5 through +1.75 to about +3/+3.25 produces abrupt grey and yellow-green plateaus in the viewfinder. The DNG opened in the gallery at the end has much smoother tonal detail. The visible filename ends in `.dng`, and the gallery renders it during the transition. This does not establish the M9 JPEG appearance or matching-pixel exposure parity: source processing, orientation, time and display scale differ. The severe live posterization itself is clearly visible.
 
-The displayed capture stem appears to be `IMG_20260920_173642_1789922202808_00`. Its PRIMARY/diagnostic-burst files have not arrived locally. A screen recording cannot identify whether the source-contract path or fallback is active, the current inverse curve/matrices, actual preview energy, or HAL pixel behaviour.
+The displayed capture stem appears to be `IMG_20260920_173642_1789922202535_00`. Its PRIMARY/diagnostic-burst files have not arrived locally. A screen recording cannot identify whether the source-contract path or fallback is active, the current inverse curve/matrices, actual preview energy, or HAL pixel behaviour.
 
 ## Reproduced source defect
 
