@@ -24,6 +24,7 @@ with tempfile.TemporaryDirectory(prefix='m9-gl1w-test-') as tmp:
  probe='''import com.particlesdevs.photoncamera.m9.preview.*;
  public class RendererProbe {
  M9GpuPreview2A.Frame bound;
+ Meter mM9Meter2D;static class Meter {void sample(Object... args){}}
  void bindSource2A(M9GpuPreview2A.Frame f){bound=f;}
  volatile M9PreviewFrameState1W mM9FrameState1W=M9PreviewFrameState1W.defaults();
  volatile M9PreviewFrameState1W.Draw mM9LastDraw1W;long mM9DrawSequence1W;
