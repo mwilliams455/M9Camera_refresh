@@ -1,6 +1,14 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
 Latest continuation:
+[`GREEN_SUPPORT_AND_LOCAL_FITS.md`](GREEN_SUPPORT_AND_LOCAL_FITS.md).
+Matching the R/B footprint to native green improves one synthetic score but
+brings back much of the photographed pink fringe (137,298 flagged pixels vs
+66,712 for the previous local DCB control). Post-interpolation limits and
+uncensored local affine fits also fail the 384-case rejection screen. Exact
+support checks cover all four CFAs. No accepted fix, application change or APK.
+
+Preceding interpolation continuation:
 [`CLIPPED_CONSTRAINTS_AND_INTERPOLATION.md`](CLIPPED_CONSTRAINTS_AND_INTERPOLATION.md).
 A local independent R/B interpolation control reduces the failing RAW's pink
 diagnostic by 61.8% with native green and Sharp exact, but still fails 16/1,536
