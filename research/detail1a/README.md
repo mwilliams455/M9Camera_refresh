@@ -130,3 +130,11 @@ metadata, tile coordinates, every row's metrics and the validation scope.
 carrier and final consumer, with code and five full-RAW comparisons. Both partial
 candidates are rejected for increased edge colour artifacts. Noise2 and upstream
 signal-domain alignment remain open; production stays unchanged.
+
+## DETAIL1D: corrected R/B difference domain
+
+[DETAIL1D.md](DETAIL1D.md) fixes the added DETAIL1C fringe in the offline probes
+by neutralizing R/B before difference construction and restoring camera-channel
+scaling afterward. All 36 known-neutral edge cases improve; five full-RAW JPEG
+comparisons confirm substantially cleaner edges with fixed green and Sharp.
+Noise2 and phone integration remain open.
