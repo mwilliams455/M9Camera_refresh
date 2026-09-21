@@ -3,7 +3,7 @@
   "changed": {
     "app/build.gradle": {
       "before": "6f0888516010b82c22fd7db4067c60aae388e8e80e1e30588f6d101a1b652533",
-      "after": "43d0c358bcd16997ee3aa97bae14adf2d5efffb89850b6835580895382523018"
+      "after": "5aef8db9f7049177e7070a4da864da884a8fe87c4b5eed4bdba1f430befeeb20"
     },
     "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": {
       "before": "da84fc5c5be8d15ec3591a91bea5b5dbccb5561bf430f603ad4f83ec0d9ee006",

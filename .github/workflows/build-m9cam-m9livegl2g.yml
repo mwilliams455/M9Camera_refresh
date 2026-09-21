@@ -138,12 +138,23 @@ jobs:
           print('M9LIVEGL2G APK PROOF PASS: exact shader/curve bytes and live/source/exposure contracts')
           PY
 
+      - name: Verify Android installation metadata, signing and alignment
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p /tmp/m9livegl2g-installcheck
+          javac -cp "$BUILD_TOOLS/lib/apksigner.jar" -d /tmp/m9livegl2g-installcheck patches/tests/m9livegl2g/ApkInstallCheck.java
+          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.61-m9livegl2g-installfix1 | tee M9LIVEGL2G_INSTALL_CHECK.txt
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK" | tee -a M9LIVEGL2G_INSTALL_CHECK.txt
+
       - name: Record APK SHA256
         if: success()
         run: |
           APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
-          cp "$APK" M9Cam-M9LIVEGL2G-debug.apk
-          sha256sum M9Cam-M9LIVEGL2G-debug.apk | tee M9LIVEGL2G_APK_SHA256.txt
+          cp "$APK" M9Cam-M9LIVEGL2G-installfix1.apk
+          sha256sum M9Cam-M9LIVEGL2G-installfix1.apk | tee M9LIVEGL2G_APK_SHA256.txt
 
       - name: Upload validation APK
         if: success()
@@ -151,8 +162,9 @@ jobs:
         with:
           name: M9Cam-M9LIVEGL2G
           path: |
-            M9Cam-M9LIVEGL2G-debug.apk
+            M9Cam-M9LIVEGL2G-installfix1.apk
             M9LIVEGL2G_APK_SHA256.txt
+            M9LIVEGL2G_INSTALL_CHECK.txt
             M9LIVEGL2G_VERIFY.txt
             M9LIVEGL2G_APK_PROOF.txt
             M9LIVEGL2G_ENERGY_TESTS.txt
