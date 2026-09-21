@@ -64,8 +64,26 @@ checks 30 frozen authorities, runs tile/JNI and inherited host/GPU tests, builds
 Android, and checks packaged JNI/diagnostic markers, signature, alignment and
 the short version name `1.61-m9detail1h-nativeguard`.
 
-Android build and phone validation are pending at this source checkpoint.
-Do not infer installability or device quality from host parity alone.
+The dedicated Android build completed successfully:
+[run35596508716](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/35596508716),
+job106322445615, source commit `0726b579055b0ffade7f18f8a8667efdf1333df5`.
+The PR merge tree equals that source tree. Fresh baseline/overlay checks, tile/JNI
+and sanitizer checks, inherited host/GPU tests, Android compilation, packaged
+contracts, signing and alignment all pass.
+
+Delivered APK: `M9Cam-M9DETAIL1H-nativeguard.apk`, 115,502,572 bytes,
+SHA256 `b8ba870e3bac92d862145b271c54623196c7b9e07c261548ad794ae628b63df4`.
+Artifact10637022614 ZIP SHA256 is
+`d81be2fb17bf8cf5893f90255ca5fbf4e00ca8862b302bfe778c7b0d53ae8bc2`;
+the downloaded ZIP and extracted APK match CI checksums.
+
+The compiled APK has package `com.m9project.m9cam.photon`, versionCode26681,
+minSdk26/target35, and version name `1.61-m9detail1h-nativeguard` (27 characters).
+Signer SHA256 is unchanged:
+`255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956`.
+The package and signature support updating the current installation. Actual
+installation, camera operation and photographic quality on the phone remain
+unvalidated until the next captures.
 
 For the first phone check, compare foliage/high-contrast edges and skin/hair,
 including a dim scene and two successive captures. Send the matching JPEG,
