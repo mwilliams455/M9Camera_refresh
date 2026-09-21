@@ -1,0 +1,208 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity-m9livegl2c-m9livegl2e-previewevidence'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity-m9livegl2c-m9livegl2e-previewevidence-m9livegl2g-exposureenergy'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -2,7 +2,7 @@
+ 
+ /** Immutable per-observation exposure intent. No Android or mutable camera state. */
+ public final class M9ExposurePlan1A {
+-    public static final String REVISION = "M9EXPOSUREPLAN2D";
++    public static final String REVISION = "M9EXPOSUREPLAN2G";
+     public static final long MAX_AGE_MS = 1500L;
+     public final long id, createdMs, sensorTimestampNs;
+     public final String cameraId, mode, autoReason;
+@@ -13,12 +13,20 @@
+     public final int manualIso;
+     private final String shutterPreviewSnapshot1W;
+     private final String autoPlacementSnapshot2D;
++    private final String allocationSnapshot2G;
++    public String getAllocationSnapshot2G() { return allocationSnapshot2G; }
++    public M9ExposurePlan1A withAllocationSnapshot2G(String snapshot) {
++        return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
++                observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot);
++    }
+     public String getAutoPlacementSnapshot2D() { return autoPlacementSnapshot2D; }
+     public M9ExposurePlan1A withAutoPlacement2D(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, snapshot);
++                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G);
+     }
+ 
+     public String getShutterPreviewSnapshot1W() { return shutterPreviewSnapshot1W; }
+@@ -27,7 +35,7 @@
+     public M9ExposurePlan1A withShutterPreviewSnapshot1W(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+-                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D);
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G);
+     }
+ 
+     public M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+@@ -37,14 +45,15 @@
+             long manualExposureNs, int manualIso, int postRawBoost) {
+         this(id, createdMs, sensorTimestampNs, cameraId, mode, observedIso, observedExposureNs,
+                 referenceIso, referenceExposureNs, iso, exposureNs, userEv, autoEv, autoReason,
+-                manualExposureNs, manualIso, postRawBoost, null, null);
++                manualExposureNs, manualIso, postRawBoost, null, null, null);
+     }
+ 
+     private M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+             String cameraId, String mode, int observedIso, long observedExposureNs,
+             int referenceIso, long referenceExposureNs, int iso, long exposureNs,
+             double userEv, double autoEv, String autoReason,
+-            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot) {
++            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot, String allocationSnapshot) {
++        this.allocationSnapshot2G = allocationSnapshot;
+         this.autoPlacementSnapshot2D = autoSnapshot;
+         this.shutterPreviewSnapshot1W = snapshot;
+         if (observedIso <= 0 || observedExposureNs <= 0 || referenceIso <= 0
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -37,6 +37,8 @@
+             o.put("autoReason", plan.autoReason);
+             if (plan.getAutoPlacementSnapshot2D() != null)
+                 o.put("renderedAutoPlacement2D",new JSONObject(plan.getAutoPlacementSnapshot2D()));
++            if (plan.getAllocationSnapshot2G() != null)
++                o.put("allocation2G", new JSONObject(plan.getAllocationSnapshot2G()));
+             o.put("manualIso", plan.manualIso);
+             o.put("manualExposureNs", plan.manualExposureNs);
+             o.put("previewExposureScale", plan.previewScale());
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+@@ -180,7 +180,8 @@
+                 PhotonCamera.getSettings().mCameraID, PhotonCamera.getSettings().selectedMode.name(),
+                 iso, exposure, reference.iso, reference.exposure, intended.iso, intended.exposure,
+                 ev, placement2D.appliedEv, placement2D.reason, manualExposure, manualIso,
+-                boost != null ? boost : 100).withAutoPlacement2D(placement2D.diagnostics);
++                boost != null ? boost : 100).withAutoPlacement2D(placement2D.diagnostics)
++                .withAllocationSnapshot2G(allocationSnapshot2G(reference, intended));
+     }
+ 
+     public static ExpoPair getM9LiveHudPair1A(CaptureController controller) {
+@@ -503,11 +504,102 @@
+         }
+         pair.denormalizeSystem();
+         if (planning) {
+-            pair.iso = Math.max(getISOLOW(), Math.min(getISOHIGH(), pair.iso));
+-            pair.exposure = Math.max(getEXPLOW(), Math.min(getEXPHIGH(), pair.exposure));
++            finishM9Allocation2G(pair, planInput, captureController);
+         }
+         if (!planning && M9Config.isCaptureTest()) M9ExposureDiagnostics.recordFinalSystem(pair.iso, pair.exposure);
+         return pair;
++    }
++
++    /**
++     * M9LIVEGL2G_EXPOSUREENERGY: mode/gyro caps choose a preferred shutter, not
++     * a different scene brightness. Restore the original intent in physical ISO
++     * units after the legacy allocator's ISO saturation/rounding and dial overrides.
++     * Automatic RAW ISO stays in the reported analog range: the 15U returned
++     * ISO 3200 for a 12800 request. This is a conservative automatic policy, not
++     * a claim that Camera2 forbids RAW digital gain on every sensor. Explicit ISO
++     * remains authoritative, including values above that automatic ceiling.
++     */
++    private static void finishM9Allocation2G(ExpoPair pair, PlanInput1A input,
++            CaptureController controller) {
++        final int isoLow = getISOLOW(), sensorIsoHigh = getISOHIGH();
++        final long timeLow = getEXPLOW(), sensorTimeHigh = getEXPHIGH();
++        Integer analog = CaptureController.mCameraCharacteristics.get(
++                CameraCharacteristics.SENSOR_MAX_ANALOG_SENSITIVITY);
++        final boolean validAnalog = analog != null && analog >= isoLow && analog <= sensorIsoHigh;
++        int autoIsoHigh = validAnalog ? analog : sensorIsoHigh;
++        long autoTimeHigh = sensorTimeHigh;
++        // Retain explicit exposure-balance limits and the existing tripod override.
++        // The legacy UI applies those limits in Photo (Motion uses its own policy).
++        if (PhotonCamera.getSettings().selectedMode == CameraMode.PHOTO && controller != null) {
++            int limit = controller.exposureBalanceIsoLimit;
++            int configuredMax = limit == -4 ? getISOAnalog() / 4
++                    : limit == -3 ? getISOAnalog() / 2
++                    : limit == -2 ? getISOAnalog()
++                    : limit > 0 ? limit : sensorIsoHigh;
++            autoIsoHigh = Math.max(isoLow, Math.min(autoIsoHigh, configuredMax));
++            if (!input.tripod) autoTimeHigh = Math.max(timeLow, Math.min(sensorTimeHigh,
++                    pair.resolveShutterLimit(controller.exposureBalanceShutterLimit, controller)));
++        }
++        final double target = M9ExposurePlan1A.energy(input.iso, input.exposureNs)
++                * Math.pow(2.0, input.ev + input.autoEv);
++        final int preferredIso = pair.iso;
++        final long preferredTime = pair.exposure;
++        final boolean manualIso = input.manualIso > 0, manualTime = input.manualExposureNs > 0;
++        String reason;
++        if (manualIso && manualTime) {
++            pair.iso = Math.max(isoLow, Math.min(sensorIsoHigh, input.manualIso));
++            pair.exposure = Math.max(timeLow, Math.min(sensorTimeHigh, input.manualExposureNs));
++            reason = "explicit_sensor_pair";
++        } else if (manualTime) {
++            pair.exposure = Math.max(timeLow, Math.min(sensorTimeHigh, input.manualExposureNs));
++            pair.iso = (int) Math.max(isoLow, Math.min(autoIsoHigh, Math.round(target / pair.exposure)));
++            reason = "explicit_shutter_auto_iso";
++        } else if (manualIso) {
++            pair.iso = Math.max(isoLow, Math.min(sensorIsoHigh, input.manualIso));
++            pair.exposure = Math.max(timeLow, Math.min(autoTimeHigh, Math.round(target / pair.iso)));
++            reason = "explicit_iso_auto_shutter";
++        } else if (target <= M9ExposurePlan1A.energy(isoLow, timeLow)) {
++            pair.iso = isoLow; pair.exposure = timeLow;
++            reason = "minimum_exposure_boundary";
++        } else if (target >= M9ExposurePlan1A.energy(autoIsoHigh, autoTimeHigh)) {
++            pair.iso = autoIsoHigh; pair.exposure = autoTimeHigh;
++            reason = "maximum_automatic_exposure_boundary";
++        } else {
++            // The target is feasible. Use the preferred shutter inside the interval
++            // that can actually retain its energy, then resolve integer sensor ISO.
++            double shortest = Math.max(timeLow, target / autoIsoHigh);
++            double longest = Math.min(autoTimeHigh, target / isoLow);
++            double shutter = Math.max(shortest, Math.min(longest, preferredTime));
++            pair.iso = (int) Math.max(isoLow, Math.min(autoIsoHigh, Math.ceil(target / shutter)));
++            pair.exposure = Math.max(timeLow, Math.min(autoTimeHigh, Math.round(target / pair.iso)));
++            reason = "intent_preserved_within_automatic_bounds";
++        }
++        double errorEv = Math.log(M9ExposurePlan1A.energy(pair.iso, pair.exposure) / target) / Math.log(2.0);
++        try {
++        pair.allocationSnapshot2G = new JSONObject()
++                .put("revision", "M9LIVEGL2G_EXPOSUREENERGY")
++                .put("reason", reason)
++                .put("automaticIsoPolicy", validAnalog ? "reported_analog_range" : "reported_sensor_range_analog_unavailable")
++                .put("sensorIsoMax", sensorIsoHigh).put("automaticIsoMax", autoIsoHigh)
++                .put("automaticExposureMaxNs", autoTimeHigh)
++                .put("preferredIso", preferredIso).put("preferredExposureNs", preferredTime)
++                .put("targetEnergyIsoNs", target)
++                .put("allocatedEnergyIsoNs", M9ExposurePlan1A.energy(pair.iso, pair.exposure))
++                .put("allocationErrorEv", errorEv)
++                .put("preferredShutterExtended", !manualTime && pair.exposure > preferredTime)
++                .put("explicitSensorControl", manualIso || manualTime).toString();
++        } catch (org.json.JSONException invalid) {
++            throw new IllegalStateException("M9 allocation diagnostics", invalid);
++        }
++    }
++
++    private static String allocationSnapshot2G(ExpoPair reference, ExpoPair intended) {
++        try {
++            return new JSONObject().put("reference", new JSONObject(reference.allocationSnapshot2G))
++                    .put("intended", new JSONObject(intended.allocationSnapshot2G)).toString();
++        } catch (org.json.JSONException invalid) {
++            throw new IllegalStateException("M9 allocation snapshot", invalid);
++        }
+     }
+ 
+     public static double getMPY() {
+@@ -678,6 +770,8 @@
+         public int iso;
+         long exposurehigh, exposurelow;
+         int isolow, isohigh,isoanalog;
++
++        private String allocationSnapshot2G;
+ 
+         public boolean isIsoLimited = false;
+         public boolean isShutterLimited = false;
