@@ -1,6 +1,14 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
-Latest continuation: [`WB_GAIN_AND_MAPPING.md`](WB_GAIN_AND_MAPPING.md).
+Latest continuation:
+[`CLIPPED_CONSTRAINTS_AND_INTERPOLATION.md`](CLIPPED_CONSTRAINTS_AND_INTERPOLATION.md).
+A local independent R/B interpolation control reduces the failing RAW's pink
+diagnostic by 61.8% with native green and Sharp exact, but still fails 16/1,536
+known-scene RGB and 245/1,536 fixed-green R/B comparisons. A constrained
+clipped-sample reconstruction also fails genuine-colour cases. Reproducible
+controls and all fixture results are retained; no new APK or accepted fix.
+
+Preceding WB continuation: [`WB_GAIN_AND_MAPPING.md`](WB_GAIN_AND_MAPPING.md).
 The BF547 gain normalization and exact-unity snap are recovered and checked on
 381,799 gain pairs/triples. A coherent WB/green/RB phone replay at physical RAW
 white reduces this photograph's pink diagnostic by 69%, but fails genuine-colour
