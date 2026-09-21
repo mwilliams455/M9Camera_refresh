@@ -1,10 +1,14 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
-Latest continuation: [`CENSORED_CHROMA_AND_WB.md`](CENSORED_CHROMA_AND_WB.md).
-Expanded coloured-highlight tests reject aggressive local cleanup; the safer
-version leaves most photographic fringes. Native WB's pre-interpolation Q14
-multiply/clamp and packet gain fields are now verified in the selected firmware
-path. The gain producer and phone signal-scale mapping remain open; no new APK.
+Latest continuation: [`WB_GAIN_AND_MAPPING.md`](WB_GAIN_AND_MAPPING.md).
+The BF547 gain normalization and exact-unity snap are recovered and checked on
+381,799 gain pairs/triples. A coherent WB/green/RB phone replay at physical RAW
+white reduces this photograph's pink diagnostic by 69%, but fails genuine-colour
+fixtures; the scaled-buffer control leaves most fringes. Neither is promoted.
+The original M9 sensor-to-WB calibration remains open; no new APK.
+
+[`CENSORED_CHROMA_AND_WB.md`](CENSORED_CHROMA_AND_WB.md) retains the rejected
+local-cleanup probes and the preceding WB multiply/clamp investigation.
 
 Latest phone finding: [`DETAIL1H_PHONE_FRINGE.md`](DETAIL1H_PHONE_FRINGE.md).
 Pink foliage/sky edges remain with DETAIL1H active. The matching DNG now replays

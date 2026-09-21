@@ -117,8 +117,11 @@ The gain provenance is now traced one step upstream:
   `Process_WB`, then returns to the dispatch preceding bit-4
   `GreenInterpolationWithCo`. The existing `Run_WB_before_green` evidence
   establishes that execution order.
-- The pedestal argument is loaded as a signed halfword from the frame at
-  `+0x7c`. Its photometric definition and phone mapping remain unverified.
+- The pedestal argument is loaded as a signed halfword from **context**
+  `+0x7c`. The subsequent producer investigation corrected the original
+  "frame" attribution: P5 is reloaded from FP-0x40 before this dispatch;
+  frame+0x7c is a different, geometric field. Its complete initialization and
+  later-writer contract remain unverified.
 
 `wb_boundary.cpp` is a scoped scalar arithmetic model. The independent Python
 oracle checks all 16,384 legal input levels in all four spatial phases, seven
@@ -142,6 +145,10 @@ Recover and validate that mapping, then replay the coherent WB/green/RB path
 against both this RAW and the coloured-highlight counterexamples. Keep the
 current output as the control; do not promote another local fringe mask from a
 single improved foliage crop. Auto exposure remains unresolved and deferred.
+
+Follow-up: `WB_GAIN_AND_MAPPING.md` recovers the controller's normalization and
+unity snap, and tests the WB/green/RB path together. The physical-white phone
+adaptation still fails genuine-colour tests; the evidence above is not promoted.
 
 ```bash
 python3 research/detail1a/censored_chroma_probe.py \
