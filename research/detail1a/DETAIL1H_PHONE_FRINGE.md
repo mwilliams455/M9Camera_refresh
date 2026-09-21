@@ -3,6 +3,10 @@
 21 September 2026. Capture `IMG_20260921_164710_1790005630040_00`.
 **Photographic acceptance remains open. Do not promote DETAIL1H as a fringe fix.**
 
+Further continuation: [`CENSORED_CHROMA_AND_WB.md`](CENSORED_CHROMA_AND_WB.md)
+records 1,536 coloured/severely clipped fixtures, rejected local cleanup, and
+new evidence for the native pre-interpolation WB arithmetic boundary.
+
 Malcolm reports pink edging in several photographs. The supplied foliage/sky
 JPEG visibly contains pink boundaries at many leaves and branches. Its matching
 PRIMARY records `M9DETAIL1H_NATIVEGUARD`, guard requested/applied, and reason

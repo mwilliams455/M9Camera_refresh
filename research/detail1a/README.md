@@ -1,5 +1,11 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
+Latest continuation: [`CENSORED_CHROMA_AND_WB.md`](CENSORED_CHROMA_AND_WB.md).
+Expanded coloured-highlight tests reject aggressive local cleanup; the safer
+version leaves most photographic fringes. Native WB's pre-interpolation Q14
+multiply/clamp and packet gain fields are now verified in the selected firmware
+path. The gain producer and phone signal-scale mapping remain open; no new APK.
+
 Latest phone finding: [`DETAIL1H_PHONE_FRINGE.md`](DETAIL1H_PHONE_FRINGE.md).
 Pink foliage/sky edges remain with DETAIL1H active. The matching DNG now replays
 with all eight checked phone guard statistics exact. The D reconstruction adds
