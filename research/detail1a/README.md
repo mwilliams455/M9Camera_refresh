@@ -138,3 +138,12 @@ by neutralizing R/B before difference construction and restoring camera-channel
 scaling afterward. All 36 known-neutral edge cases improve; five full-RAW JPEG
 comparisons confirm substantially cleaner edges with fixed green and Sharp.
 Noise2 and phone integration remain open.
+
+## DETAIL1E: Noise2 recovery and quality gate
+
+[DETAIL1E.md](DETAIL1E.md) implements the recovered luma-disabled Noise2
+modes1–3 and table-derived controls in the corrected domain. Five full RAWs,
+20 JPEGs and known-colour tests show less colour noise but loss of real colour
+detail. The stronger ISO-indexed probe also increases ISO573 edge colour
+activity. Neither setting is promoted. Native green and fixed ISO160 Sharp stay
+exact; complete Noise2, WB/noise calibration and device validation remain open.
