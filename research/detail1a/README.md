@@ -1,6 +1,15 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
 Latest continuation:
+[`MEASURED_GREEN_AND_GUIDED_CHROMA.md`](MEASURED_GREEN_AND_GUIDED_CHROMA.md).
+Green-guided R/B interpolation reduces this photograph's pink diagnostic by
+93.1%, with native green/Sharp exact, but still damages genuine coloured edges
+in the 384-case rejection screen. Excluding clipped anchors is more damaging.
+A separate bound at directly clipped green sites passes all 1,536 fixed-green
+cases with and without model noise, but has almost no visible photographic
+effect. Both references and all failures are retained; no accepted fix or APK.
+
+Preceding stage-trace continuation:
 [`STAGE_TRACE_AND_COHERENT_GREEN.md`](STAGE_TRACE_AND_COHERENT_GREEN.md).
 The exact SAT2/curve/pair trace places most flagged pixels' R/B excess before
 colour conversion; the final pair stage reduces the net pink diagnostic.
