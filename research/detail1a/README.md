@@ -1,5 +1,11 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
+Latest: [`DETAIL1G.md`](DETAIL1G.md) ports the accepted guarded Noise2 candidate
+to standalone C++, reproduces all five DETAIL1F JPEGs exactly, and audits the
+CFA-order gap in noise-profile provenance. It remains research-only pending
+calibration and device integration. Earlier experiments below retain their
+original findings and scope.
+
 GL2G's saved-image detail stage still uses the ISO160/Standard Sharp row. This
 offline candidate executes its actual native functions with the recovered
 13-row M9 Standard schedule. **No application source, APK, or production default

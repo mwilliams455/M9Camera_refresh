@@ -1,0 +1,92 @@
+{
+  "schema": "m9.detail1g.native.guard.parity.v1",
+  "captures": [
+    {
+      "name": "IMG_20260912_124558_1789213558532_00.dng",
+      "iso": 50,
+      "cfa": 0,
+      "raw_sha256": "08ac00c1ac84419d311844855bd4ffebcfeb161ad6f3f5e444cfbb1d48911b0f",
+      "exact_carrier_samples": 12582912,
+      "native_green_unchanged_samples": 12582912,
+      "fixed_iso160_sharp_equal_samples": 12439952,
+      "border10_rgb_unchanged": true,
+      "correction_bounds": true,
+      "meter_exact": true,
+      "jpeg_sha256": "49ae505e87b0c777e758d1d4912c4f034be0c45dacebd1f80e01ba510a4eb365",
+      "jpeg_matches_detail1f": true
+    },
+    {
+      "name": "IMG_20260920_162257_1789917777152_00.dng",
+      "iso": 104,
+      "cfa": 3,
+      "raw_sha256": "90d35b19e8a6daa3193991be1d6a70d40efd612251a27499c32f54de23372dbc",
+      "exact_carrier_samples": 12582912,
+      "native_green_unchanged_samples": 12582912,
+      "fixed_iso160_sharp_equal_samples": 12439952,
+      "border10_rgb_unchanged": true,
+      "correction_bounds": true,
+      "meter_exact": true,
+      "jpeg_sha256": "470579288dc0c974450f42c2672b1cd7d2c73da55e711e177a638fcbde1dbfb9",
+      "jpeg_matches_detail1f": true
+    },
+    {
+      "name": "IMG_20260917_073643_1789627003451_00.dng",
+      "iso": 521,
+      "cfa": 0,
+      "raw_sha256": "10cd0d0d6cf63b05b522b182977e5125fa88a9058bd1eac1a971b819781c28a1",
+      "exact_carrier_samples": 12582912,
+      "native_green_unchanged_samples": 12582912,
+      "fixed_iso160_sharp_equal_samples": 12439952,
+      "border10_rgb_unchanged": true,
+      "correction_bounds": true,
+      "meter_exact": true,
+      "jpeg_sha256": "31bbf6966af7c92625bcbbb72780a1aa0c105625df8421878858b6501a086eac",
+      "jpeg_matches_detail1f": true
+    },
+    {
+      "name": "IMG_20260908_201025_1788894625828_00.dng",
+      "iso": 573,
+      "cfa": 0,
+      "raw_sha256": "cde734262366f3d7456805ac8cfafe56053d79fbe8e36e22554b1ba8c996350f",
+      "exact_carrier_samples": 12582912,
+      "native_green_unchanged_samples": 12582912,
+      "fixed_iso160_sharp_equal_samples": 12439952,
+      "border10_rgb_unchanged": true,
+      "correction_bounds": true,
+      "meter_exact": true,
+      "jpeg_sha256": "e2e913a7029999cec52fd4379f326659d3b1af48d692bc7cbb2fdb3849d5de46",
+      "jpeg_matches_detail1f": true
+    },
+    {
+      "name": "IMG_20260908_201112_1788894672206_00.dng",
+      "iso": 1142,
+      "cfa": 0,
+      "raw_sha256": "f06d21a35e340d79acd8eb8aa8849a7cdf364a0c5023e571a9e01d5eac88e2d8",
+      "exact_carrier_samples": 12582912,
+      "native_green_unchanged_samples": 12582912,
+      "fixed_iso160_sharp_equal_samples": 12439952,
+      "border10_rgb_unchanged": true,
+      "correction_bounds": true,
+      "meter_exact": true,
+      "jpeg_sha256": "daab1959f0454473d5ce06c6cfca6b3b294683dcd7eb69e9c83a9486ea058df7",
+      "jpeg_matches_detail1f": true
+    }
+  ],
+  "source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "implementation_hashes": {
+    "noise2_guard_native.cpp": "9ab9a7017b479959ef6d3b279ea1dafd2a3103eb93abd4e5e8cb7c41e3f24ff3",
+    "noise2_guard_native.py": "8355ceeebcefaf3a7370e29d417a2b751f0c0dcab94c9fdf2fd673c6be7a5574",
+    "noise2_guard.py": "0c3ddb118e1cd2d380b5d3bde43d579094fef316530c7a81244019b5804db97d",
+    "inputs.py": "8fc8e17f265efd4d4f18c7deabadc088d16a9284f53a563cc387e2e49145bc66"
+  },
+  "scope": "Native host port, nominal profile factor1; frozen DNG metadata, green, fixed ISO160 Sharp and downstream colour.",
+  "limitations": [
+    "No measured sensor calibration or historical profile repair",
+    "No Android/JNI integration, ARM build, phone timing or APK parity claim"
+  ]
+}
