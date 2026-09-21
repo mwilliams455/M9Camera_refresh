@@ -6,6 +6,11 @@ offline candidate executes its actual native functions with the recovered
 has changed.** The purpose is to evaluate an integration gap before choosing a
 sensor ISO mapping.
 
+The downstream follow-up is now complete for five full RAWs. See
+[`DETAIL1B.md`](DETAIL1B.md) and `results/full_report.json` for the full-colour,
+TC20/tone and controlled JPEG comparison. The original DETAIL1A findings and
+scope below are retained as the record of the earlier spatial-stage experiment.
+
 ## What is verified
 
 - Native `m9color_jni.cpp` and `M9R35Renderer.java` match the exact frozen GL2G
@@ -106,8 +111,9 @@ metadata, tile coordinates, every row's metrics and the validation scope.
 
 ## Next work
 
-1. Extend the replay through the exact current source-colour/TC20/JPEG path;
-   retain fixed-slot baseline and explicit 1×/2× probes on the same RAW.
+1. Completed in DETAIL1B: replay current source-colour/TC20/tone and a shared host
+   JPEG encoder, retaining fixed-slot baseline and explicit 1×/2× probes. Android
+   capture and JPEG byte parity remain outside the offline claim.
 2. Evaluate in-focus faces, fur/fabric and shadow detail, not only foliage or a
    defocused window. Use the existing high-ISO originals recovered here first.
 3. Establish a per-sensor ISO/noise policy; do not generalize the historical main
