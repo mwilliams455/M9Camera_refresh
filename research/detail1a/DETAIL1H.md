@@ -1,5 +1,11 @@
 # M9DETAIL1H — controlled phone integration
 
+**Phone update, 21 September:** the stage is confirmed active in the supplied
+16:47 capture, but pink foliage/sky edges remain. See
+[`DETAIL1H_PHONE_FRINGE.md`](DETAIL1H_PHONE_FRINGE.md) for evidence and the new
+clipped-neutral failure probe. Build/integration checks below do not establish
+photographic acceptance. No new APK has been issued for this finding.
+
 The accepted corrected R/B reconstruction and bounded mode1 noise guard are now
 integrated after the existing native demosaic and before representation-scale
 restoration, metering and colour. This candidate builds on exact GL2G INSTALLFIX1.

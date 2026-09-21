@@ -1,8 +1,12 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
-Latest: [`DETAIL1H.md`](DETAIL1H.md) integrates the native guard into a controlled
-phone candidate with tiled processing, corrected-D fallback and noise-profile
-diagnostics. Android build and device validation are tracked there.
+Latest phone finding: [`DETAIL1H_PHONE_FRINGE.md`](DETAIL1H_PHONE_FRINGE.md).
+Pink foliage/sky edges remain with DETAIL1H active. A new clipped-neutral probe
+exposes a remaining weakness; exact same-RAW replay awaits the matching DNG.
+Photographic acceptance is open. Auto exposure is also open and user-deferred.
+
+[`DETAIL1H.md`](DETAIL1H.md) describes the native guard integration, tiled
+processing, corrected-D fallback, noise-profile diagnostics and Android build.
 
 [`DETAIL1G.md`](DETAIL1G.md) ports the accepted guarded Noise2 candidate
 to standalone C++, reproduces all five DETAIL1F JPEGs exactly, and audits the

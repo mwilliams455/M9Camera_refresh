@@ -1,0 +1,400 @@
+{
+  "schema": "m9.detail1h.clipped_neutral_probe.v1",
+  "purpose": "Synthetic neutral edges; not the supplied RAW or final JPEG; unity gain grid; no sensor noise added.",
+  "metric": "Fraction of interior pixels with both R/nr and B/nb exceeding G by >0.02 after representation restoration and neutral-white clipping.",
+  "source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "probe_sha256": "a22ad6a6a6ac592ae7ed34b318457f1f5bafd1e70bd22815c4d07234ad094d3a",
+  "fixture_sha256": "5353235bf640bc327f7c0c7d44e31e3db6475c3773dfb0e8ae928eef6be690aa",
+  "clipped_cases_with_more_pink_than_base": 8,
+  "clipped_neutral_pink_nonregression_passed": false,
+  "same_raw_cause_proven": false,
+  "cases": [
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 0.0,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.011731398853717412,
+          "max_abs": 0.1826196118880068,
+          "pink_fraction_excess_gt_0p02": 0.005126953125
+        },
+        "D": {
+          "neutral_error_rms": 0.0040918357529580755,
+          "max_abs": 0.04809205056455906,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.0040918357529580755,
+          "max_abs": 0.04809205056455906,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 0.0,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.2248046875,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.022977200685062142,
+          "max_abs": 0.47147945120434553,
+          "pink_fraction_excess_gt_0p02": 0.00517578125
+        },
+        "D": {
+          "neutral_error_rms": 0.01234150683717154,
+          "max_abs": 0.2126144467647636,
+          "pink_fraction_excess_gt_0p02": 0.005810546875
+        },
+        "H": {
+          "neutral_error_rms": 0.01234150683717154,
+          "max_abs": 0.2126144467647636,
+          "pink_fraction_excess_gt_0p02": 0.005810546875
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 0.5,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.00700582782581935,
+          "max_abs": 0.10091473408601803,
+          "pink_fraction_excess_gt_0p02": 0.004736328125
+        },
+        "D": {
+          "neutral_error_rms": 0.001923341802018451,
+          "max_abs": 0.020122546211154724,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.001923341802018451,
+          "max_abs": 0.020122546211154724,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 1.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 0.5,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.22360026041666667,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.013171916261863663,
+          "max_abs": 0.30475248766734336,
+          "pink_fraction_excess_gt_0p02": 0.004443359375
+        },
+        "D": {
+          "neutral_error_rms": 0.0069264809319201795,
+          "max_abs": 0.11946841432132926,
+          "pink_fraction_excess_gt_0p02": 0.00771484375
+        },
+        "H": {
+          "neutral_error_rms": 0.0069264809319201795,
+          "max_abs": 0.11946841432132926,
+          "pink_fraction_excess_gt_0p02": 0.00771484375
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 1.0,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.0029866805766472493,
+          "max_abs": 0.030959382437164465,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "D": {
+          "neutral_error_rms": 0.0009332055675317166,
+          "max_abs": 0.003938481038254078,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.0009148824366393705,
+          "max_abs": 0.003938481038254078,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 8.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 1.0,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.22213541666666667,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.0057320978127935514,
+          "max_abs": 0.07301026979031713,
+          "pink_fraction_excess_gt_0p02": 0.0064453125
+        },
+        "D": {
+          "neutral_error_rms": 0.004816043445422313,
+          "max_abs": 0.07512861531835624,
+          "pink_fraction_excess_gt_0p02": 0.008642578125
+        },
+        "H": {
+          "neutral_error_rms": 0.004816000838535548,
+          "max_abs": 0.07512861531835624,
+          "pink_fraction_excess_gt_0p02": 0.008642578125
+        }
+      },
+      "guard_max_carrier_correction": 1.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 2.0,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.0015958155265417863,
+          "max_abs": 0.01359244496879608,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "D": {
+          "neutral_error_rms": 0.0008315624708415445,
+          "max_abs": 0.001740713073765221,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.0008246596780887956,
+          "max_abs": 0.001740713073765221,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 5.0
+    },
+    {
+      "shape": "edge",
+      "blur_sigma_sensor_pixels": 2.0,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.21962890625,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.0035805049779467726,
+          "max_abs": 0.0640246207105738,
+          "pink_fraction_excess_gt_0p02": 0.003564453125
+        },
+        "D": {
+          "neutral_error_rms": 0.002831745623161734,
+          "max_abs": 0.0456545010393089,
+          "pink_fraction_excess_gt_0p02": 0.005322265625
+        },
+        "H": {
+          "neutral_error_rms": 0.0028314821203290694,
+          "max_abs": 0.0456545010393089,
+          "pink_fraction_excess_gt_0p02": 0.005322265625
+        }
+      },
+      "guard_max_carrier_correction": 2.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 0.0,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.05460911450192005,
+          "max_abs": 0.1826196118880068,
+          "pink_fraction_excess_gt_0p02": 0.1240234375
+        },
+        "D": {
+          "neutral_error_rms": 0.01802141147377406,
+          "max_abs": 0.04809205056455906,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.01802141147377406,
+          "max_abs": 0.04809205056455906,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 0.0,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.3668294270833333,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.1091022583140687,
+          "max_abs": 0.47147945120434553,
+          "pink_fraction_excess_gt_0p02": 0.11923828125
+        },
+        "D": {
+          "neutral_error_rms": 0.05839184272996725,
+          "max_abs": 0.2126144467647636,
+          "pink_fraction_excess_gt_0p02": 0.152099609375
+        },
+        "H": {
+          "neutral_error_rms": 0.05839184272996725,
+          "max_abs": 0.2126144467647636,
+          "pink_fraction_excess_gt_0p02": 0.152099609375
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 0.5,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.03177386080074799,
+          "max_abs": 0.10091473408601803,
+          "pink_fraction_excess_gt_0p02": 0.114599609375
+        },
+        "D": {
+          "neutral_error_rms": 0.00788596127929286,
+          "max_abs": 0.020122546211154724,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.00788596127929286,
+          "max_abs": 0.020122546211154724,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 0.5,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.3387369791666667,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.06095633937662181,
+          "max_abs": 0.30365739333620295,
+          "pink_fraction_excess_gt_0p02": 0.1001953125
+        },
+        "D": {
+          "neutral_error_rms": 0.03305033298006583,
+          "max_abs": 0.1201592714195443,
+          "pink_fraction_excess_gt_0p02": 0.16220703125
+        },
+        "H": {
+          "neutral_error_rms": 0.03305033298006583,
+          "max_abs": 0.1201592714195443,
+          "pink_fraction_excess_gt_0p02": 0.16220703125
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 1.0,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.014992417846676183,
+          "max_abs": 0.04779186426195829,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "D": {
+          "neutral_error_rms": 0.0017980799884292802,
+          "max_abs": 0.0045191015225499835,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.001631839761390721,
+          "max_abs": 0.0045191015225499835,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 8.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 1.0,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.3005859375,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.03038287589257466,
+          "max_abs": 0.11506115714346979,
+          "pink_fraction_excess_gt_0p02": 0.119384765625
+        },
+        "D": {
+          "neutral_error_rms": 0.02255572976740475,
+          "max_abs": 0.0781149453981046,
+          "pink_fraction_excess_gt_0p02": 0.191015625
+        },
+        "H": {
+          "neutral_error_rms": 0.02255572976740475,
+          "max_abs": 0.0781149453981046,
+          "pink_fraction_excess_gt_0p02": 0.191015625
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 2.0,
+      "neutral_bright_level": 0.5,
+      "raw_clipped_fraction": 0.0,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.007017089271818389,
+          "max_abs": 0.024608386538528954,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "D": {
+          "neutral_error_rms": 0.0006874419559565741,
+          "max_abs": 0.002119448508339672,
+          "pink_fraction_excess_gt_0p02": 0.0
+        },
+        "H": {
+          "neutral_error_rms": 0.000517459430211604,
+          "max_abs": 0.0016490724197961437,
+          "pink_fraction_excess_gt_0p02": 0.0
+        }
+      },
+      "guard_max_carrier_correction": 5.0
+    },
+    {
+      "shape": "fine_branches",
+      "blur_sigma_sensor_pixels": 2.0,
+      "neutral_bright_level": 1.2,
+      "raw_clipped_fraction": 0.2349609375,
+      "metrics": {
+        "base": {
+          "neutral_error_rms": 0.017800890535010567,
+          "max_abs": 0.06104209225227297,
+          "pink_fraction_excess_gt_0p02": 0.06708984375
+        },
+        "D": {
+          "neutral_error_rms": 0.013194673425544227,
+          "max_abs": 0.049279432778691845,
+          "pink_fraction_excess_gt_0p02": 0.124072265625
+        },
+        "H": {
+          "neutral_error_rms": 0.013194673425544227,
+          "max_abs": 0.049279432778691845,
+          "pink_fraction_excess_gt_0p02": 0.124072265625
+        }
+      },
+      "guard_max_carrier_correction": 0.0
+    }
+  ]
+}
