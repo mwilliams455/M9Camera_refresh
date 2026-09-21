@@ -1,6 +1,10 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
-Latest: [`DETAIL1G.md`](DETAIL1G.md) ports the accepted guarded Noise2 candidate
+Latest: [`DETAIL1H.md`](DETAIL1H.md) integrates the native guard into a controlled
+phone candidate with tiled processing, corrected-D fallback and noise-profile
+diagnostics. Android build and device validation are tracked there.
+
+[`DETAIL1G.md`](DETAIL1G.md) ports the accepted guarded Noise2 candidate
 to standalone C++, reproduces all five DETAIL1F JPEGs exactly, and audits the
 CFA-order gap in noise-profile provenance. It remains research-only pending
 calibration and device integration. Earlier experiments below retain their
