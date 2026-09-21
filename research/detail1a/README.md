@@ -1,9 +1,12 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
 Latest phone finding: [`DETAIL1H_PHONE_FRINGE.md`](DETAIL1H_PHONE_FRINGE.md).
-Pink foliage/sky edges remain with DETAIL1H active. A new clipped-neutral probe
-exposes a remaining weakness; exact same-RAW replay awaits the matching DNG.
-Photographic acceptance is open. Auto exposure is also open and user-deferred.
+Pink foliage/sky edges remain with DETAIL1H active. The matching DNG now replays
+with all eight checked phone guard statistics exact. The D reconstruction adds
+highlight fringes; switching off the guard does not remove them. Early-white-limit
+probes improve this shot but fail coloured-edge checks, so neither is promoted.
+See `fringe_replay.py` and the recorded same-RAW/384-case results. Photographic
+acceptance is open. Auto exposure is also open and user-deferred.
 
 [`DETAIL1H.md`](DETAIL1H.md) describes the native guard integration, tiled
 processing, corrected-D fallback, noise-profile diagnostics and Android build.

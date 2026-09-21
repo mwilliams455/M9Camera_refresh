@@ -1,0 +1,177 @@
+{
+  "schema": "m9.detail1h.fringe_same_raw_replay.v1",
+  "raw_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "fixture_sha256": "3fe113c57ae87ca1e853ac717e9016b1b418254351fa77d0c3472f75e1877cdb",
+  "script_sha256": "c73f6f208f5ee52bca2a9d0da3f6e8da8b0551c4294fa7606d75644a90afcf65",
+  "metadata": {
+    "name": "IMG_20260921_164710_1790005630040_00.dng",
+    "model": "25128PNA1C",
+    "iso": 50,
+    "exposure_seconds": 0.009616968221962452,
+    "cfa": 3,
+    "cfa_pattern": [
+      2,
+      1,
+      1,
+      0
+    ],
+    "neutral": [
+      0.41796875,
+      1.0,
+      0.6435546875
+    ],
+    "white": 1023,
+    "black": [
+      64.0,
+      64.0,
+      64.0,
+      64.0
+    ],
+    "shape": [
+      3072,
+      4096
+    ],
+    "focal_length_mm": 8.710000038146973,
+    "noise_profile": [
+      2.917632891202222e-05,
+      4.945284597326194e-07,
+      3.472056504539444e-05,
+      4.0775853931925274e-07,
+      2.9567403268055556e-05,
+      4.834904956268195e-07
+    ],
+    "gainmap_shape": [
+      13,
+      17,
+      4
+    ],
+    "gainmap_max": 5.2509765625,
+    "norm030_alpha": 0.2516146769823271,
+    "norm030_outside_ev": 1.19229928714004,
+    "representation_scale": 1.6105431518598052
+  },
+  "spatial_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "colour_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "actual_render_gain": 1.4142135623730951,
+  "profile_authority": "recorded live Camera2 RGB profile, NOT DNG NoiseProfile",
+  "rgb_profile": [
+    2.661066294125e-05,
+    4.351414460641375e-07,
+    3.1248508540855e-05,
+    3.669826853873275e-07,
+    2.625869602082e-05,
+    4.450756137593575e-07
+  ],
+  "phone_stat_checks_exact": [
+    "tiles",
+    "supported_rb_samples",
+    "changed_carrier_samples",
+    "max_abs_correction",
+    "censored_samples",
+    "mean_confidence",
+    "mean_residual_variance14",
+    "scratch_budget_bytes"
+  ],
+  "H_stats": {
+    "status": 1.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 1158767.0,
+    "max_abs_correction": 7.0,
+    "censored_samples": 325092.0,
+    "mean_confidence": 0.11420202918960681,
+    "mean_residual_variance14": 82.36768180924791,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 1758.003855
+  },
+  "D_stats": {
+    "status": 0.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 0.0,
+    "max_abs_correction": 0.0,
+    "censored_samples": 0.0,
+    "mean_confidence": 0.0,
+    "mean_residual_variance14": 0.0,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 347.603698
+  },
+  "variants": {
+    "base": {
+      "diagnostic_pink_pixels": 125225,
+      "diagnostic_pink_fraction": 0.00995198885599772,
+      "green_exact_native": true,
+      "guard": false
+    },
+    "D": {
+      "diagnostic_pink_pixels": 174776,
+      "diagnostic_pink_fraction": 0.013889948527018229,
+      "green_exact_native": true,
+      "guard": false
+    },
+    "H": {
+      "diagnostic_pink_pixels": 174776,
+      "diagnostic_pink_fraction": 0.013889948527018229,
+      "green_exact_native": true,
+      "guard": true
+    },
+    "prewhite": {
+      "diagnostic_pink_pixels": 54957,
+      "diagnostic_pink_fraction": 0.0043675899505615234,
+      "green_exact_native": true,
+      "guard": false
+    },
+    "green_clip_gated1": {
+      "diagnostic_pink_pixels": 56950,
+      "diagnostic_pink_fraction": 0.004525979359944661,
+      "green_exact_native": true,
+      "guard": false
+    }
+  },
+  "diagnostic_metric": "Pre-JPEG RGB8: min(R,B)-G >15 and (R+G+B)>300; foliage-specific, not a hue correction or universal accuracy measure.",
+  "H_pink_fraction_with_raw_clip_within_chebyshev_radius": {
+    "0": 0.004966356936879205,
+    "1": 0.436776216414153,
+    "2": 0.870800338719275,
+    "4": 0.9544044948963244,
+    "6": 0.9700817045818648,
+    "10": 0.9832986222364627
+  },
+  "portrait_crop_xy": [
+    [
+      1765,
+      1908
+    ],
+    [
+      257,
+      1345
+    ],
+    [
+      1447,
+      1140
+    ]
+  ],
+  "crop_size": 384,
+  "android_full_pixel_parity_proven": false,
+  "candidate_acceptance": {
+    "prewhite": {
+      "coloured_cases_worse_than_D": 106,
+      "coloured_edge_nonregression_passed": false
+    },
+    "green_clip_gated1": {
+      "coloured_cases_worse_than_D": 72,
+      "coloured_edge_nonregression_passed": false
+    }
+  },
+  "photographic_fringe_acceptance_passed": false,
+  "android_candidate_created": false,
+  "auto_exposure_changed": false
+}

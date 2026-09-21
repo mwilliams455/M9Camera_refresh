@@ -97,7 +97,11 @@
     "autoEv": 0.75
   },
   "render_elapsed_ms": 3999,
-  "matching_dng_available_for_replay": false,
+  "matching_dng_available_for_replay": true,
   "root_cause_confirmed": false,
-  "auto_exposure_status": "Deferred by user; not closed by this capture."
+  "auto_exposure_status": "Deferred by user; not closed by this capture.",
+  "dng_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "dng_size_bytes": 25171214,
+  "confirmed_contributor": "D-stage reconstruction adds clipped-highlight fringes in the same-RAW replay; switching off the H guard leaves the visible bright-edge failure.",
+  "root_cause_scope": "Complete cause of every residual fringe remains open; no accepted correction."
 }
