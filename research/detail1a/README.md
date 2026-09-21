@@ -123,3 +123,10 @@ metadata, tile coordinates, every row's metrics and the validation scope.
    the replacement has proved its quality.
 5. Build an isolated phone candidate after these photographic gates. Keep
    public sharpness-slider wiring separate from the fidelity comparison.
+
+## DETAIL1C: red/blue reconstruction
+
+[DETAIL1C.md](DETAIL1C.md) records the recovered difference shrink, opposite-CFA
+carrier and final consumer, with code and five full-RAW comparisons. Both partial
+candidates are rejected for increased edge colour artifacts. Noise2 and upstream
+signal-domain alignment remain open; production stays unchanged.
