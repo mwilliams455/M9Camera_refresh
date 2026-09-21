@@ -1,6 +1,14 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
 Latest continuation:
+[`STAGE_TRACE_AND_COHERENT_GREEN.md`](STAGE_TRACE_AND_COHERENT_GREEN.md).
+The exact SAT2/curve/pair trace places most flagged pixels' R/B excess before
+colour conversion; the final pair stage reduces the net pink diagnostic.
+Changing green along with R/B gives worse photographic results, and both
+native-sharpening transfers and prelimited DCB fail known-colour cases. Keep
+the original green/Sharp foundation; no accepted correction or new APK.
+
+Preceding support continuation:
 [`GREEN_SUPPORT_AND_LOCAL_FITS.md`](GREEN_SUPPORT_AND_LOCAL_FITS.md).
 Matching the R/B footprint to native green improves one synthetic score but
 brings back much of the photographed pink fringe (137,298 flagged pixels vs
