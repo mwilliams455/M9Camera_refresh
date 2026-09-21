@@ -147,3 +147,14 @@ modes1–3 and table-derived controls in the corrected domain. Five full RAWs,
 detail. The stronger ISO-indexed probe also increases ISO573 edge colour
 activity. Neither setting is promoted. Native green and fixed ISO160 Sharp stay
 exact; complete Noise2, WB/noise calibration and device validation remain open.
+
+## DETAIL1F: protect colour detail around Noise2
+
+[DETAIL1F.md](DETAIL1F.md) isolates the ISO573 regression mainly to the increased
+Noise2 threshold, then evaluates a bounded mobile confidence correction around
+the recovered mode1 filter. Propagated DNG noise estimates, colour-structure
+confidence and clipping protection give modest noise reduction without the
+previous colour-detail loss in the nominal controlled tests. Fifteen full JPEGs
+retain the corrected baseline and avoid the reviewed ISO573 edge regression.
+This remains an offline candidate; its confidence logic is not recovered Leica
+firmware, and empirical noise calibration and phone validation remain open.

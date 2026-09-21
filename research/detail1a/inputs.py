@@ -17,7 +17,7 @@ def rational(t):
         a=np.asarray(v,np.float64).reshape(-1,2);return a[:,0]/a[:,1]
     return np.atleast_1d(v).astype(float)
 
-def read(path):
+def read(path,with_noise=False):
     with tifffile.TiffFile(path) as tf:
         pg=tf.pages[0]; tags=pg.tags; raw=pg.asarray()
         h,w=raw.shape; pattern=tuple(tags['CFAPattern'].value); cfa=PATTERNS[pattern]
@@ -45,6 +45,11 @@ def read(path):
                   noise_profile=list(tags['NoiseProfile'].value) if 'NoiseProfile' in tags else None,
                   gainmap_shape=list(grid.shape),gainmap_max=float(grid.max()))
     assert np.all(np.isfinite(grid)) and np.all(grid>0)
+    if with_noise:
+        profile=np.asarray(meta['noise_profile'],dtype=float)
+        if profile.shape!=(6,) or not np.all(np.isfinite(profile)) or np.any(profile<0):
+            raise ValueError('A finite nonnegative three-plane DNG NoiseProfile is required')
+        profile=profile.reshape(3,2);variance=np.empty(raw.shape,np.float32);censored=np.empty(raw.shape,bool)
     # Same geometric-mean common gain and outside-center median as Java.
     common=np.exp(np.log(grid).sum(axis=2)*.25)
     mh,mw=common.shape;yy,xx=np.indices((mh,mw))
@@ -60,6 +65,10 @@ def read(path):
             k=y*2+x;bl=np.float32(black[k]);den=np.float32(max(1.0,np.float32(white)-bl))
             v=np.clip((raw[y::2,x::2].astype(np.float32)-bl)/den,np.float32(0),np.float32(1))
             norm[y::2,x::2]=np.floor(v*np.float32(65535)+np.float32(.5)).astype(np.uint16)
+            if with_noise:
+                slope,offset=profile[pattern[k]]
+                variance[y::2,x::2]=slope*v+offset
+                censored[y::2,x::2]=(raw[y::2,x::2]>=white)|(raw[y::2,x::2]<=bl)
     # Coordinates span the full image before any crop. Quantize only after shading.
     xg=np.arange(w)*(mw-1.0)/(w-1.0);xi=np.floor(xg).astype(int);xj=np.minimum(mw-1,xi+1);xf=xg-xi
     for y in range(h):
@@ -71,5 +80,6 @@ def read(path):
         v=(norm[y].astype(np.float64)/65535.0)*gain/scale
         assert v.min()>=-1e-12 and v.max()<=1+1e-12
         norm[y]=np.floor(np.clip(v,0,1)*65535+.5).astype(np.uint16)
+        if with_noise:variance[y]*=(gain/scale*16383.)**2
     meta.update(norm030_alpha=alpha,norm030_outside_ev=outside_ev,representation_scale=scale)
-    return norm,meta
+    return (norm,meta,dict(raw_variance14=variance,censored=censored)) if with_noise else (norm,meta)
