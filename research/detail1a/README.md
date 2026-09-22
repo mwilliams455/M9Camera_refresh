@@ -1,5 +1,13 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
+Active regression investigation:
+[`ISO_SHARP_REGRESSION.md`](ISO_SHARP_REGRESSION.md). The 12 September records
+already identify a new green/cyan halo introduced during CLOSURETEST1B. A new
+1,536-case replay against the actual pre-DETAIL GL2G native RGB also confirms
+later D R/B regressions at unchanged native green and Sharp. D with Sharp off
+is not a historical rollback. Trace both integration boundaries before further
+reconstruction candidates; no app change or accepted photographic fix.
+
 Latest app-line continuity fix:
 [`TUNGSTEN_CONTINUITY1A.md`](TUNGSTEN_CONTINUITY1A.md). The GL2A/GL2F fail-closed preview source can no longer drop TG1 during transient metadata gaps: same-camera valid colour is held for at most one second, and true OES fallback still receives the live BT.601 tungsten guard. The DETAIL1H apply step now chains this overlay, so later phone candidates inherit it. Saved-JPEG detail/tone/colour remain frozen.
 
