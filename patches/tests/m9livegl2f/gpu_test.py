@@ -34,10 +34,33 @@ def draw2f():
 old=draw2f();delta=np.abs(old.astype(int)-panel('displayRender').astype(int))
 assert delta.max()<=4 and delta.mean()<1,'actual device haze not reproduced within input quantization'
 oldmin=int(old.min());assert oldmin>=70 and int(pix[:,:,:3].min())<20
-ui(pfull,'uM9SourceReady2A',0);guarded=draw2f()
-guard_delta=np.abs(guarded.astype(int)-pix[:,:,:3].astype(int))
-assert guard_delta.max()<=1,'contract fallback introduced a floor or other colour processing'
-print(json.dumps({'revision':'M9LIVEGL2F_CURVECONTRACT','inherited':inherited_report_2f,
+ui(pfull,'uM9SourceReady2A',0)
+# M9TUNGSTENCONT1A: source rejection still has no hidden colour transform when
+# TG1 is neutral, but warm light intentionally keeps the encoded-domain TG1 guard.
+uf(pfull,'uM9Tungsten2A',0.0);neutral_fallback=draw2f()
+neutral_delta=np.abs(neutral_fallback.astype(int)-pix[:,:,:3].astype(int))
+assert neutral_delta.max()<=1,'neutral contract fallback introduced a floor or hidden colour processing'
+
+def tg1_ref(rgb8,w):
+    src=rgb8.astype(np.int32);out=np.empty_like(src)
+    flat=src.reshape(-1,3);dst=out.reshape(-1,3)
+    for i,(rr,gg,bb) in enumerate(flat):
+        y=(4899*int(rr)+9617*int(gg)+1868*int(bb))>>14
+        cb=(-2765*int(rr)-5427*int(gg)+8192*int(bb))>>14
+        cr=(8192*int(rr)-6860*int(gg)-1332*int(bb))>>14
+        cb=((cb+128)&255)-128;cr=((cr+128)&255)-128
+        cbb=float(cb)*(1.0-.25*w if cb<0 else 1.0)
+        crr=float(cr)*(1.0-.16*w if cr<0 else 1.0)
+        vals=(y+1.402*crr,y-.344136*cbb-.714136*crr,y+1.772*cbb)
+        dst[i]=np.floor(np.clip(vals,0,255)+.5).astype(np.int32)
+    return out
+
+uf(pfull,'uM9Tungsten2A',sc['tungstenWeight']);guarded=draw2f()
+expected_guard=tg1_ref(neutral_fallback,sc['tungstenWeight'])
+guard_delta=np.abs(guarded.astype(int)-expected_guard.astype(int))
+assert guard_delta.max()<=1,'TG1 fallback diverged from encoded-domain BT.601 reference'
+assert np.max(np.abs(guarded.astype(int)-neutral_fallback.astype(int)))>0,'warm fallback did not apply TG1'
+print(json.dumps({'revision':'M9LIVEGL2F_CURVECONTRACT+M9TUNGSTENCONT1A','inherited':inherited_report_2f,
  'recordedTelephotoReplay':{'uniqueColorPairs':64,'rgbChannelsWithRepetition':2304,'maxCodeDelta':int(delta.max()),'meanCodeDelta':float(delta.mean()),'renderMinimumRgb':oldmin},
- 'rejectedContractFallback':{'maxInputCodeDelta':int(guard_delta.max()),'renderMinimumRgb':int(guarded.min())},
+ 'rejectedContractFallback':{'neutralMaxInputCodeDelta':int(neutral_delta.max()),'tg1ReferenceMaxCodeDelta':int(guard_delta.max()),'renderMinimumRgb':int(guarded.min()),'tungstenWeight':float(sc['tungstenWeight'])},
  'newCurvePhoneResponseVerified':False,'stillPreviewParityVerified':False},indent=2))
