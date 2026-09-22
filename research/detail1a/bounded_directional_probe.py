@@ -43,7 +43,8 @@ def directional_fields(diff,green,cfa):
     _,_,gm=cfa_masks(diff.shape,cfa)
     inner=np.zeros_like(gm);inner[3:-3,3:-3]=True
     gate=(~gm)&inner&(confidence>CONF_MIN)&(confidence<=CONF_MAX)&(disagreement>=DIFF_MIN)
-    minabs=np.minimum(np.abs(p1),np.abs(p2))\n    return soft,gate,confidence,disagreement,minabs
+    minabs=np.minimum(np.abs(p1),np.abs(p2))
+    return soft,gate,confidence,disagreement,minabs
 
 def candidate_carrier(current,soft,gate,alpha):
     out=current.astype(np.int64).copy()
