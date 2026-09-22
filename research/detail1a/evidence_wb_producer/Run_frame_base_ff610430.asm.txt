@@ -1,0 +1,5 @@
+ff610430: IF !CC JUMP 0x0xff610434 (BP);
+ff610432: JUMP.S 0x0xff610a1c;
+ff610434: NOP;
+ff610436: R2 = R4 - R5 (NS) || P0 = [FP + 0xc] || NOP;
+ff61043e: CC = BITTST (R7, 0x3);

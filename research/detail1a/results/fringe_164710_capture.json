@@ -1,0 +1,107 @@
+{
+  "schema": "m9.detail1h.phone_fringe_observation.v1",
+  "capture_stem": "IMG_20260921_164710_1790005630040_00",
+  "primary_sha256": "f60675fd621f102d6e2aca02db8f005a1ade3440a07d6bc1779f7629720bb650",
+  "uploaded_jpeg_sha256": "e52745fa20634cefbfdbada4a3031e41abb6d7571a694440b6ad1c7defa058dd",
+  "uploaded_jpeg_size": [
+    1536,
+    2048
+  ],
+  "recorded_output_size": [
+    3072,
+    4096
+  ],
+  "reported_issue": "Pink edging at foliage and branches against bright sky; current DETAIL1H output unacceptable for this case.",
+  "detail1H": {
+    "id": "M9DETAIL1H_NATIVEGUARD",
+    "singleRaw": true,
+    "sourceCfa": 3,
+    "originX": 0,
+    "originY": 0,
+    "noiseAuthority": "Camera2_SENSOR_NOISE_PROFILE_unscaled_CFA_order",
+    "writerNoiseAdjustmentApplied": false,
+    "varianceFactor": 1,
+    "sensorCalibrationVerified": false,
+    "guardModel": "DETAIL1F_mode1_bounded_confidence",
+    "greenAndIso160SharpUnchanged": true,
+    "fallback": "DETAIL1D_corrected_RB",
+    "camera2CfaPairs": [
+      [
+        2.625869602082e-05,
+        4.450756137593575e-07
+      ],
+      [
+        3.122510322011e-05,
+        3.6851163628169496e-07
+      ],
+      [
+        3.12719138616e-05,
+        3.6545373449296e-07
+      ],
+      [
+        2.661066294125e-05,
+        4.351414460641375e-07
+      ]
+    ],
+    "rgbProfile": [
+      2.661066294125e-05,
+      4.351414460641375e-07,
+      3.1248508540855e-05,
+      3.669826853873275e-07,
+      2.625869602082e-05,
+      4.450756137593575e-07
+    ],
+    "blackLevel": [
+      64,
+      64,
+      64,
+      64
+    ],
+    "whiteLevel": 1023,
+    "neutral": [
+      0.41796875,
+      1,
+      0.6435547
+    ],
+    "representationScale": 1.6105431518598052,
+    "norm030Alpha": 0.2516146769823271,
+    "sensorIso": 50,
+    "exposureNs": 9616969,
+    "sensorTimestampNs": 8433535614370,
+    "guardRequested": true,
+    "guardApplied": true,
+    "reason": "nominal_unscaled_profile",
+    "tiles": 192,
+    "supportedRbSamples": 6219976,
+    "changedCarrierSamples": 1158767,
+    "maxAbsCorrection": 7,
+    "rawCensoredSamples": 325092,
+    "meanConfidence": 0.11420202918960681,
+    "meanResidualVariance14": 82.36768180924791,
+    "scratchBudgetBytes": 8565760,
+    "elapsedMs": 1120.739843,
+    "tileSize": 256,
+    "halo": 12,
+    "mapWidth": 17,
+    "mapHeight": 13
+  },
+  "rawHardClipFraction": 0.024489641189575195,
+  "finalClipAudit1A": {
+    "anyHighClipFraction": 0.05724342664082845,
+    "fullWhiteFraction": 0.03761808077494303,
+    "anyLowClipFraction": 0.2086054484049479
+  },
+  "actual_render_gain": 1.4142135623730951,
+  "exposure": {
+    "userEv": 1.7499999478459372,
+    "autoEv": 0.75
+  },
+  "render_elapsed_ms": 3999,
+  "matching_dng_available_for_replay": true,
+  "root_cause_confirmed": false,
+  "auto_exposure_status": "Deferred by user; not closed by this capture.",
+  "dng_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "dng_size_bytes": 25171214,
+  "confirmed_contributor": "D-stage reconstruction adds clipped-highlight fringes in the same-RAW replay; switching off the H guard leaves the visible bright-edge failure.",
+  "root_cause_scope": "Complete cause of every residual fringe remains open; no accepted correction."
+}

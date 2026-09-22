@@ -1,0 +1,51 @@
+{
+  "artifact_id": 10298570662,
+  "run_id": 34695003096,
+  "source_commit": "ac5315b775640a8cee7b31cc0155ead4ca37ff3f",
+  "zip_sha256": "2f5591eeaebb58e24e97adc37a1ae0aed78b0514b711f5a88dc1d539b91e3302",
+  "transformation": "Instruction address and GNU disassembly only; bytes/comments removed; small functions stop at first RTS; Run is a bounded call-site slice",
+  "files": [
+    {
+      "source": "GreenInterpolationWithCo_01_ff613558.gnu.dis.txt",
+      "source_disassembly_sha256": "63a4a54bcba761bba801b677cfbf8eb170ed1957b068495fb6b9eac9534e3d9d",
+      "normalized_file": "GreenInterpolationWithCo_01_ff613558.asm.txt",
+      "normalized_sha256": "fa80784d530c8f5007280805ff5ad43c240a462e4fe1e49a3c1caa7282d8d02f"
+    },
+    {
+      "source": "ASMRedBlueAndGreenDiffer_01_ffa00008.gnu.dis.txt",
+      "source_disassembly_sha256": "d5ba2ceddd5a8de0a472a0c1b0027350be00553ae2cac0d7eb1873c4628c0590",
+      "normalized_file": "ASMRedBlueAndGreenDiffer_01_ffa00008.asm.txt",
+      "normalized_sha256": "47d64dde03fd532d0b81ff29e84be6e1779c734c0005275c2648c51dfb0e1a96"
+    },
+    {
+      "source": "ASMFilter_101_040_101_An_01_ffa000be.gnu.dis.txt",
+      "source_disassembly_sha256": "481785f59115ddb7d7b93843fc566abba068ae176558f3d1b8844a181124086c",
+      "normalized_file": "ASMFilter_101_040_101_An_01_ffa000be.asm.txt",
+      "normalized_sha256": "0ebf71e7eb95a429ea8d8a4b5cd613f920faa4c4bbc8c2dbe604e7cbc9ae2ec3"
+    },
+    {
+      "source": "ASMFilter_101_000_101_2_01_ffa0024e.gnu.dis.txt",
+      "source_disassembly_sha256": "f4f9fc032606b0a26e5f6458550f2aabc4096799fb157b384275420a248fbace",
+      "normalized_file": "ASMFilter_101_000_101_2_01_ffa0024e.asm.txt",
+      "normalized_sha256": "8e2e43ecc356e403a6baf030364ae3d6f285597aea18a6461c7670d808ebbdbc"
+    },
+    {
+      "source": "ASMFilter_010_101_010_2_00_ff610e30.gnu.dis.txt",
+      "source_disassembly_sha256": "fe2597823a8d9068a0e1b10834d2d54b9c84cb88c5fe9edb117bd1e8c8b75469",
+      "normalized_file": "ASMFilter_010_101_010_2_00_ff610e30.asm.txt",
+      "normalized_sha256": "453e20049cc007a8f36b8e5374452d75a1cf1f6fa91e63d1a9fede1c3e1bb31e"
+    },
+    {
+      "source": "ASMRedBlueInterpolation1_01_ffa03410.gnu.dis.txt",
+      "source_disassembly_sha256": "6c78b40531cf66328bf1ce1c9545324c78f3982969e6e81b028ea87015433b76",
+      "normalized_file": "ASMRedBlueInterpolation1_01_ffa03410.asm.txt",
+      "normalized_sha256": "eb5c6f8a97d7976dbbd0cc2d3b01ac1c2d159e91998e6c278bf5272291d8dd62"
+    },
+    {
+      "source": "Run_01_ff610000.gnu.dis.txt",
+      "source_disassembly_sha256": "2e18cc514cc0aa3804e20ab3ad91feb909940760c5b0f685357ca80a17c1458f",
+      "normalized_file": "Run_ff61094a_ff610b70.asm.txt",
+      "normalized_sha256": "bdb932cefc97a0bf3dd88030948ff4aa9b903264830e269a1dfe7978bfee0322"
+    }
+  ]
+}

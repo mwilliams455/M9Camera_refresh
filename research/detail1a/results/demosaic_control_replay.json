@@ -1,0 +1,350 @@
+{
+  "schema": "m9.demosaic_control.replay.v1",
+  "script_sha256": "5547c0f34ef70e5a11155efa44d39c43652f76765de3fbd8a085acf90b32489b",
+  "raw_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "rawpy_version": "0.25.1",
+  "libraw_version": [
+    0,
+    21,
+    4
+  ],
+  "libraw_flags": {
+    "DNGLOSSYCODEC": true,
+    "DNGDEFLATECODEC": true,
+    "OPENMP": true,
+    "LCMS": true,
+    "REDCINECODEC": true,
+    "RAWSPEED": false,
+    "DEMOSAIC_PACK_GPL2": false,
+    "DEMOSAIC_PACK_GPL3": false,
+    "X3FTOOLS": true,
+    "6BY9RPI": true
+  },
+  "linear_flat_checks": {
+    "flat_linear_camera_rgb_cases": [
+      {
+        "cfa": 0,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 0,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 0,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 0,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 0,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 0,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 1,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 1,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 1,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 1,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 1,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 1,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 2,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 2,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 2,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 2,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 2,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 2,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 3,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 3,
+        "values": [
+          10000,
+          20000,
+          30000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 3,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 3,
+        "values": [
+          50000,
+          2000,
+          45000
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 3,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "AHD",
+        "max_channel_error": 0
+      },
+      {
+        "cfa": 3,
+        "values": [
+          0,
+          65535,
+          0
+        ],
+        "algorithm": "DCB",
+        "max_channel_error": 0
+      }
+    ],
+    "case_count": 24
+  },
+  "variants": {
+    "H": {
+      "pink_pixels": 174776,
+      "native_green_exact": true,
+      "border10_exact": true
+    },
+    "AHD": {
+      "pink_pixels": 125539,
+      "native_green_exact": true,
+      "border10_exact": true
+    },
+    "DCB": {
+      "pink_pixels": 70835,
+      "native_green_exact": true,
+      "border10_exact": true
+    },
+    "local_DCB": {
+      "pink_pixels": 66712,
+      "native_green_exact": true,
+      "border10_exact": true,
+      "H_exact_at_distance_8_or_more": true
+    }
+  },
+  "H_stats": {
+    "status": 1.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 1158767.0,
+    "max_abs_correction": 7.0,
+    "censored_samples": 325092.0,
+    "mean_confidence": 0.11420202918960681,
+    "mean_residual_variance14": 82.36768180924791,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 1817.065321
+  },
+  "actual_render_gain": 1.4142135623730951,
+  "synthetic_summary": {
+    "DCB": {
+      "scene_rgb_rms": {
+        "cases_worse_than_D": 50,
+        "max_rms_increase": 0.004304367235970399,
+        "mean_rms_change": -0.009499268559568187,
+        "worst_case_index": 1042
+      },
+      "fixed_green_rb_rms": {
+        "cases_worse_than_D": 285,
+        "max_rms_increase": 0.05954252421245497,
+        "mean_rms_change": -0.006798895570100885,
+        "worst_case_index": 192
+      }
+    },
+    "local_DCB": {
+      "scene_rgb_rms": {
+        "cases_worse_than_D": 16,
+        "max_rms_increase": 0.0022759107514323668,
+        "mean_rms_change": -0.009247675727563744,
+        "worst_case_index": 288
+      },
+      "fixed_green_rb_rms": {
+        "cases_worse_than_D": 245,
+        "max_rms_increase": 0.05954252421245497,
+        "mean_rms_change": -0.006727353144984537,
+        "worst_case_index": 192
+      }
+    }
+  },
+  "synthetic_cases": 1536,
+  "spatial_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "colour_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "local_support": "All sensor channels: full DCB within Chebyshev distance4 of raw>=white; linear taper to zero at8. H retained outside. This is a heuristic control, not a recovered M9 rule.",
+  "scope": "Independent offline interpolation control. No pre-WB white clipping, exposure change, hue mask or Android implementation. Existing H guard is retained only through the H base; no new DCB variance model.",
+  "photographic_acceptance_passed": false,
+  "android_implementation_changed": false,
+  "auto_exposure_changed": false
+}

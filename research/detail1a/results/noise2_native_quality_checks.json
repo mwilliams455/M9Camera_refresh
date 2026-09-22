@@ -1,0 +1,12 @@
+{
+  "detail1f_quality_checks_exact": true,
+  "neutral_edges": 36,
+  "known_colour": 24,
+  "worst_noisy_neutral_rms_ratio": 0.9240644191926553,
+  "worst_colour_rms_ratio": {
+    "guard_half": 1.0000364416058893,
+    "guard": 1.0,
+    "guard_double": 1.0268342487600026
+  },
+  "clipped_neighbourhood_rgb_exact_all_cfa": true
+}

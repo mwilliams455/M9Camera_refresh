@@ -1,0 +1,194 @@
+{
+  "schema": "m9.censored_constraint_probe.v1",
+  "cases": [
+    {
+      "background": "white",
+      "subject": "neutral",
+      "sigma": 0.5,
+      "D_scene_rgb_rms": 0.0915010080543021,
+      "green_fill": {
+        "0.5": 0.09086685797565523,
+        "1.0": 0.08421023529207558,
+        "2.0": 0.08419973316665962,
+        "4.0": 0.08419973316665962
+      },
+      "joint_rgb": {
+        "0.5": 0.050469164711131505,
+        "1.0": 0.06367837659408465,
+        "2.0": 0.06362085174342734
+      }
+    },
+    {
+      "background": "very_white",
+      "subject": "neutral",
+      "sigma": 0.5,
+      "D_scene_rgb_rms": 0.1329254650662114,
+      "green_fill": {
+        "0.5": 0.12821651705796835,
+        "1.0": 0.09809508470706628,
+        "2.0": 0.09978718929057756,
+        "4.0": 0.09945314443656521
+      },
+      "joint_rgb": {
+        "0.5": 0.10635397125963023,
+        "1.0": 0.09702548276973753,
+        "2.0": 0.07581837103596108
+      }
+    },
+    {
+      "background": "white",
+      "subject": "green",
+      "sigma": 0.5,
+      "D_scene_rgb_rms": 0.0945612158533065,
+      "green_fill": {
+        "0.5": 0.09231388821168514,
+        "1.0": 0.08251548202442553,
+        "2.0": 0.08246677474977311,
+        "4.0": 0.08246677474977311
+      },
+      "joint_rgb": {
+        "0.5": 0.06339519060381084,
+        "1.0": 0.06873195381059131,
+        "2.0": 0.06880753270837241
+      }
+    },
+    {
+      "background": "very_white",
+      "subject": "bright_magenta",
+      "sigma": 0.5,
+      "D_scene_rgb_rms": 0.026848219541900666,
+      "green_fill": {
+        "0.5": 0.02684821533560314,
+        "1.0": 0.026848059990687585,
+        "2.0": 0.026848100851701483,
+        "4.0": 0.026848100851701483
+      },
+      "joint_rgb": {
+        "0.5": 0.05422424343831975,
+        "1.0": 0.055109201699256156,
+        "2.0": 0.055116312577561666
+      }
+    },
+    {
+      "background": "bright_magenta",
+      "subject": "bright_magenta",
+      "sigma": 0.5,
+      "D_scene_rgb_rms": 0.05358320918451202,
+      "green_fill": {
+        "0.5": 0.053583223358479766,
+        "1.0": 0.05357913757523801,
+        "2.0": 0.05357911055548588,
+        "4.0": 0.05357911055548588
+      },
+      "joint_rgb": {
+        "0.5": 0.04088940208428047,
+        "1.0": 0.04088850237624504,
+        "2.0": 0.04089629534148586
+      }
+    },
+    {
+      "background": "very_white",
+      "subject": "magenta",
+      "sigma": 1.0,
+      "D_scene_rgb_rms": 0.04000669236111562,
+      "green_fill": {
+        "0.5": 0.03909213813083559,
+        "1.0": 0.0451387478651119,
+        "2.0": 0.04890826879337072,
+        "4.0": 0.048918931296023434
+      },
+      "joint_rgb": {
+        "0.5": 0.09071270378719788,
+        "1.0": 0.1330884609455392,
+        "2.0": 0.1311542673052833
+      }
+    },
+    {
+      "background": "blue_sky",
+      "subject": "green",
+      "sigma": 1.0,
+      "D_scene_rgb_rms": 0.03756499208801658,
+      "green_fill": {
+        "0.5": 0.03754368082430155,
+        "1.0": 0.03706507121485655,
+        "2.0": 0.03519501780447262,
+        "4.0": 0.03464315844132354
+      },
+      "joint_rgb": {
+        "0.5": 0.10322943285868336,
+        "1.0": 0.10771735522429873,
+        "2.0": 0.1102130849906264
+      }
+    },
+    {
+      "background": "bright_magenta",
+      "subject": "green",
+      "sigma": 1.0,
+      "D_scene_rgb_rms": 0.06849479955550414,
+      "green_fill": {
+        "0.5": 0.06848914598519235,
+        "1.0": 0.06450466115293815,
+        "2.0": 0.07245550668961914,
+        "4.0": 0.07245550668961914
+      },
+      "joint_rgb": {
+        "0.5": 0.11907964851382678,
+        "1.0": 0.1363681559413949,
+        "2.0": 0.12086031245494064
+      }
+    },
+    {
+      "background": "white",
+      "subject": "magenta",
+      "sigma": 2.0,
+      "D_scene_rgb_rms": 0.027222081075930243,
+      "green_fill": {
+        "0.5": 0.026985754854732823,
+        "1.0": 0.02694240526469472,
+        "2.0": 0.02694240526469472,
+        "4.0": 0.02694240526469472
+      },
+      "joint_rgb": {
+        "0.5": 0.042960470304965574,
+        "1.0": 0.04427252206019188,
+        "2.0": 0.044339048911566425
+      }
+    }
+  ],
+  "case_count": 9,
+  "solver_sha256": "66e28d7b1a3f4ab66e60f4ea6a59c6b715d78ae59aafc52cf8dd8356bcdba69f",
+  "script_sha256": "652ed6943c085a1613968d314b636579006c0609ef30ea3fa2c3544896f12e49",
+  "spatial_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "neutral": [
+    0.41796875,
+    1.0,
+    0.6435546875
+  ],
+  "representation_scale": 1.6105431518598052,
+  "configuration": {
+    "cfa": 0,
+    "shape": [
+      160,
+      192
+    ],
+    "scene": "four-pixel diagonal lines, period15, slope0.43",
+    "black": 64,
+    "white": 1023,
+    "noise": false,
+    "shading": "unity",
+    "primal_step": 0.16,
+    "dual_step": 0.16,
+    "extrapolation": 1,
+    "green_fill_iterations": 300,
+    "joint_rgb_iterations": 800,
+    "metric_border": 16
+  },
+  "observed_sample_constraints_passed": true,
+  "oracle": "Known optically blurred scene, clipped to0..1 per channel. Full scene RGB RMS; not a Leica or perceptual reference.",
+  "scope": "Selected-case rejection screen only. Both probes change native green values. No convergence certificate or unique highlight recovery claim.",
+  "accepted": false,
+  "android_implementation_changed": false
+}

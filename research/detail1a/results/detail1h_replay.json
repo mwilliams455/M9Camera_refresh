@@ -1,0 +1,125 @@
+{
+  "schema": "m9.detail1h.tiled.replay.v1",
+  "captures": [
+    {
+      "name": "IMG_20260912_124558_1789213558532_00.dng",
+      "raw_sha256": "08ac00c1ac84419d311844855bd4ffebcfeb161ad6f3f5e444cfbb1d48911b0f",
+      "iso": 50,
+      "cfa": 0,
+      "stats": {
+        "status": 1.0,
+        "tiles": 192.0,
+        "supported_rb_samples": 6219976.0,
+        "changed_carrier_samples": 664337.0,
+        "max_abs_correction": 14.0,
+        "censored_samples": 1798659.0,
+        "mean_confidence": 0.06302481852038465,
+        "mean_residual_variance14": 45.424845166592995,
+        "scratch_budget_bytes": 8565760.0,
+        "elapsed_ms": 1796.821626
+      },
+      "meter_exact": true,
+      "green_equal_samples": 12582912,
+      "jpeg_sha256": "49ae505e87b0c777e758d1d4912c4f034be0c45dacebd1f80e01ba510a4eb365",
+      "detail1f_jpeg_exact": true
+    },
+    {
+      "name": "IMG_20260920_162257_1789917777152_00.dng",
+      "raw_sha256": "90d35b19e8a6daa3193991be1d6a70d40efd612251a27499c32f54de23372dbc",
+      "iso": 104,
+      "cfa": 3,
+      "stats": {
+        "status": 1.0,
+        "tiles": 192.0,
+        "supported_rb_samples": 6219976.0,
+        "changed_carrier_samples": 4614539.0,
+        "max_abs_correction": 12.0,
+        "censored_samples": 77128.0,
+        "mean_confidence": 0.44227185346783915,
+        "mean_residual_variance14": 80.47232267414677,
+        "scratch_budget_bytes": 8565760.0,
+        "elapsed_ms": 1983.615671
+      },
+      "meter_exact": true,
+      "green_equal_samples": 12582912,
+      "jpeg_sha256": "470579288dc0c974450f42c2672b1cd7d2c73da55e711e177a638fcbde1dbfb9",
+      "detail1f_jpeg_exact": true
+    },
+    {
+      "name": "IMG_20260917_073643_1789627003451_00.dng",
+      "raw_sha256": "10cd0d0d6cf63b05b522b182977e5125fa88a9058bd1eac1a971b819781c28a1",
+      "iso": 521,
+      "cfa": 0,
+      "stats": {
+        "status": 1.0,
+        "tiles": 192.0,
+        "supported_rb_samples": 6219976.0,
+        "changed_carrier_samples": 3026638.0,
+        "max_abs_correction": 50.0,
+        "censored_samples": 1280565.0,
+        "mean_confidence": 0.34996200008780626,
+        "mean_residual_variance14": 538.4645027611672,
+        "scratch_budget_bytes": 8565760.0,
+        "elapsed_ms": 1942.214837
+      },
+      "meter_exact": true,
+      "green_equal_samples": 12582912,
+      "jpeg_sha256": "31bbf6966af7c92625bcbbb72780a1aa0c105625df8421878858b6501a086eac",
+      "detail1f_jpeg_exact": true
+    },
+    {
+      "name": "IMG_20260908_201025_1788894625828_00.dng",
+      "raw_sha256": "cde734262366f3d7456805ac8cfafe56053d79fbe8e36e22554b1ba8c996350f",
+      "iso": 573,
+      "cfa": 0,
+      "stats": {
+        "status": 1.0,
+        "tiles": 192.0,
+        "supported_rb_samples": 6219976.0,
+        "changed_carrier_samples": 3082874.0,
+        "max_abs_correction": 47.0,
+        "censored_samples": 125441.0,
+        "mean_confidence": 0.3490936261330138,
+        "mean_residual_variance14": 259.4801352915617,
+        "scratch_budget_bytes": 8565760.0,
+        "elapsed_ms": 1898.088165
+      },
+      "meter_exact": true,
+      "green_equal_samples": 12582912,
+      "jpeg_sha256": "e2e913a7029999cec52fd4379f326659d3b1af48d692bc7cbb2fdb3849d5de46",
+      "detail1f_jpeg_exact": true
+    },
+    {
+      "name": "IMG_20260908_201112_1788894672206_00.dng",
+      "raw_sha256": "f06d21a35e340d79acd8eb8aa8849a7cdf364a0c5023e571a9e01d5eac88e2d8",
+      "iso": 1142,
+      "cfa": 0,
+      "stats": {
+        "status": 1.0,
+        "tiles": 192.0,
+        "supported_rb_samples": 6219976.0,
+        "changed_carrier_samples": 1093184.0,
+        "max_abs_correction": 52.0,
+        "censored_samples": 527227.0,
+        "mean_confidence": 0.12354829137388221,
+        "mean_residual_variance14": 398.023577011724,
+        "scratch_budget_bytes": 8565760.0,
+        "elapsed_ms": 1867.360302
+      },
+      "meter_exact": true,
+      "green_equal_samples": 12582912,
+      "jpeg_sha256": "daab1959f0454473d5ce06c6cfca6b3b294683dcd7eb69e9c83a9486ea058df7",
+      "detail1f_jpeg_exact": true
+    }
+  ],
+  "source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "kernel_sha256": "dff421e09dcea2f79cca47f892df90480a8bea842cfe24765961a9e1cb39b01b",
+  "noise_authority": "Original F DNG RGB profiles for equivalence. Phone uses fresh unscaled Camera2 CFA profiles; those can differ.",
+  "post_replay_change": "Added host-only fault injection; production code unchanged",
+  "current_kernel_sha256": "f5794312e1418f5159271bf06a757a5af9ce8fd0c87611800797ac80821122db"
+}

@@ -1,0 +1,288 @@
+{
+  "schema": "m9.wb_boundary.v1",
+  "firmware_sha256": "4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20",
+  "ldr_sha256": "06abf2c4ef5e14beeadc033359d7fe4ae955c8a30b4ef26afa756afcf6d21870",
+  "disassembler": "GNU objdump (GNU Binutils) 2.44",
+  "evidence": [
+    {
+      "name": "Process_WB",
+      "address": "0xff6030d0",
+      "size": 510,
+      "code_sha256": "f8c920cd0bdd38797b3599bd070aa8f528ff9932426b66622061e1c3c48e5143",
+      "file": "Process_WB_ff6030d0.asm.txt",
+      "text_sha256": "0da57e2b8293d58a7bf618988b9bcb64dd0157b9a13b198e2595871916eae16a"
+    },
+    {
+      "name": "SetStructParameter",
+      "address": "0xfeb1d098",
+      "size": 292,
+      "code_sha256": "715b6a1ef4803faa88452937c0cba83bde871af109941b27e6a1303d79e04ed5",
+      "file": "SetStructParameter_feb1d098.asm.txt",
+      "text_sha256": "af6eef0d5c5c74fc5d4d50b08cbcad65a089900e4606c7d13a189412e19f70e6"
+    },
+    {
+      "name": "Run_gain_load",
+      "address": "0xff610000",
+      "size": 60,
+      "code_sha256": "6705f9a913aea6b03aa8ae9c92137e58430508eae1b5ecab962f1a9ab2a613fd",
+      "file": "Run_gain_load_ff610000.asm.txt",
+      "text_sha256": "69e3c856753e18b1eaf20075057794b4b8c21865664f1a51dda57a27ee230021"
+    },
+    {
+      "name": "Run_WB_call",
+      "address": "0xff6109de",
+      "size": 50,
+      "code_sha256": "5ef35bee9674144f3b72bbac89ad376650f18157a806588484346d1b372477e5",
+      "file": "Run_WB_call_ff6109de.asm.txt",
+      "text_sha256": "9f3668a1c80968685b4382fe466f27fd96065ee110d3b5442917958bdb51f594"
+    }
+  ],
+  "scalar_source_sha256": "abe4bbe9c4966fe2a568e08a2720d8c0cac40a12ffc798e6b000a1c2678edb01",
+  "probe_sha256": "720740f1b304a6aa9d1905e75a0bd37a693cfeb9fdd57ee480da6c0b5793c1db",
+  "samples_exact": 1376256,
+  "checks": [
+    {
+      "gains": [
+        16384,
+        16384,
+        16384
+      ],
+      "pedestal": 0,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        16384,
+        16384
+      ],
+      "pedestal": 64,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        16384,
+        16384
+      ],
+      "pedestal": 256,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        39200,
+        25500
+      ],
+      "pedestal": 0,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        39200,
+        25500
+      ],
+      "pedestal": 64,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        39200,
+        25500
+      ],
+      "pedestal": 256,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        39200,
+        16384,
+        25500
+      ],
+      "pedestal": 0,
+      "selected_identity_group": 1,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        39200,
+        16384,
+        25500
+      ],
+      "pedestal": 64,
+      "selected_identity_group": 1,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        39200,
+        16384,
+        25500
+      ],
+      "pedestal": 256,
+      "selected_identity_group": 1,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        32768,
+        24576,
+        16384
+      ],
+      "pedestal": 0,
+      "selected_identity_group": 2,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        32768,
+        24576,
+        16384
+      ],
+      "pedestal": 64,
+      "selected_identity_group": 2,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        32768,
+        24576,
+        16384
+      ],
+      "pedestal": 256,
+      "selected_identity_group": 2,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        8192,
+        16384,
+        12000
+      ],
+      "pedestal": 0,
+      "selected_identity_group": 1,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        8192,
+        16384,
+        12000
+      ],
+      "pedestal": 64,
+      "selected_identity_group": 1,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        8192,
+        16384,
+        12000
+      ],
+      "pedestal": 256,
+      "selected_identity_group": 1,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        65535,
+        32768
+      ],
+      "pedestal": 0,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        65535,
+        32768
+      ],
+      "pedestal": 64,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        16384,
+        65535,
+        32768
+      ],
+      "pedestal": 256,
+      "selected_identity_group": 0,
+      "samples_exact": 65536,
+      "maximum_output": 16383
+    },
+    {
+      "gains": [
+        8192,
+        12000,
+        10000
+      ],
+      "pedestal": 0,
+      "selected_identity_group": -1,
+      "samples_exact": 65536,
+      "maximum_output": 0
+    },
+    {
+      "gains": [
+        8192,
+        12000,
+        10000
+      ],
+      "pedestal": 64,
+      "selected_identity_group": -1,
+      "samples_exact": 65536,
+      "maximum_output": 0
+    },
+    {
+      "gains": [
+        8192,
+        12000,
+        10000
+      ],
+      "pedestal": 256,
+      "selected_identity_group": -1,
+      "samples_exact": 65536,
+      "maximum_output": 0
+    }
+  ],
+  "clamp_interval": [
+    0,
+    16383
+  ],
+  "unity_gain_q14": 16384,
+  "arithmetic": "pedestal + floor((sample - pedestal) * gain_q14 / 16384), then clamp; selected unity phase group is bypassed",
+  "gain_source": "packet little-endian uint16 at +0x0f,+0x11,+0x13 -> context +0x230,+0x232,+0x234 -> Run local gain array",
+  "gain_normalization_producer_recovered": false,
+  "phone_scale_mapping_validated": false,
+  "blackfin_emulation_proven": false,
+  "android_implementation_changed": false,
+  "note": "Instruction-derived scalar arithmetic checked independently; no hardware/emulator trace or full WB equivalence claim."
+}
