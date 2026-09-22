@@ -8,6 +8,12 @@ on:
       - 'research/detail1a/green_guide2_probe.py'
       - 'research/detail1a/rb_domain.cpp'
       - '.github/workflows/research-m9detail1i-green-guide.yml'
+  pull_request:
+    branches: [research/m9livegl2g-exposureenergy]
+    paths:
+      - 'research/detail1a/green_guide2_probe.py'
+      - 'research/detail1a/rb_domain.cpp'
+      - '.github/workflows/research-m9detail1i-green-guide.yml'
 
 jobs:
   research:
