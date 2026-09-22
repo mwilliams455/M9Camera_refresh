@@ -1,6 +1,9 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
-Latest continuation:
+Latest app-line continuity fix:
+[`TUNGSTEN_CONTINUITY1A.md`](TUNGSTEN_CONTINUITY1A.md). The GL2A/GL2F fail-closed preview source can no longer drop TG1 during transient metadata gaps: same-camera valid colour is held for at most one second, and true OES fallback still receives the live BT.601 tungsten guard. The DETAIL1H apply step now chains this overlay, so later phone candidates inherit it. Saved-JPEG detail/tone/colour remain frozen.
+
+Latest reconstruction research:
 [`MEASURED_GREEN_AND_GUIDED_CHROMA.md`](MEASURED_GREEN_AND_GUIDED_CHROMA.md).
 Green-guided R/B interpolation reduces this photograph's pink diagnostic by
 93.1%, with native green/Sharp exact, but still damages genuine coloured edges
