@@ -18,7 +18,7 @@ from scipy.ndimage import gaussian_filter
 from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 
-MODES=('bounded100','protected512','protected900','protected1280')
+MODES=('protected900_25','protected900_50','protected900_75','protected900_100')
 CONF_MIN=.02
 CONF_MAX=.28
 DIFF_MIN=2048
@@ -87,10 +87,11 @@ def synthetic(native,probe,cfas):
                         fixed=np.clip(truth-truth[...,[1]]+sg[...,None],0,1)
                         mm={'D':metric(dcam,truth,fixed,scale,n)}
                         changed={}
-                        specs=[('bounded100',gate,1.),
-                               ('protected512',gate&(minabs<=512),1.),
-                               ('protected900',gate&(minabs<=900),1.),
-                               ('protected1280',gate&(minabs<=1280),1.)]
+                        safe=gate&(minabs<=900)
+                        specs=[('protected900_25',safe,.25),
+                               ('protected900_50',safe,.50),
+                               ('protected900_75',safe,.75),
+                               ('protected900_100',safe,1.00)]
                         for name,active,alpha in specs:
                             carrier=candidate_carrier(current,soft,active,alpha)
                             cam=probe.consume(carrier,base,cfa,n[0],n[2])
@@ -114,9 +115,9 @@ def synthetic(native,probe,cfas):
                 worst_case_index=int(delta.argmax()),best_case_index=int(delta.argmin()))
         summary[mode]['changed_carrier_total']=int(sum(r['changed_carrier'][mode] for r in rows))
         summary[mode]['mean_gate_fraction']=float(np.mean([r['gate_fraction'] for r in rows]))
-    return dict(schema='m9.detail1l.bounded_directional.v2',case_count=len(rows),cfas=list(cfas),
+    return dict(schema='m9.detail1l.bounded_directional.v3',case_count=len(rows),cfas=list(cfas),
         neutral=n.tolist(),representation_scale=scale,backgrounds=BACKGROUNDS,subjects=SUBJECTS,
-        confidence_min=CONF_MIN,confidence_max=CONF_MAX,disagreement_min=DIFF_MIN,strong_chroma_limits=[512,900,1280],
+        confidence_min=CONF_MIN,confidence_max=CONF_MAX,disagreement_min=DIFF_MIN,strong_chroma_limit=900,strengths=[0.25,0.50,0.75,1.0],
         summary=summary,cases=rows,
         scope='Current D exact outside gate. Gate uses only green anisotropy and diagonal colour-difference disagreement. Native green/Sharp exact. No hue/subject classifier and no Android/Leica parity claim.')
 
