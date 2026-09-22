@@ -25,7 +25,6 @@ with tempfile.TemporaryDirectory(prefix='m9-gl1w-test-') as tmp:
  public class RendererProbe {
  M9GpuPreview2A.Frame bound;
  M9PreviewEvidence2E mM9Evidence2E;
- M9PreviewStatePairer1A mM9Pairer1A=new M9PreviewStatePairer1A();
  Meter mM9Meter2D;static class Meter {void sample(Object... args){}}
  void bindSource2A(M9GpuPreview2A.Frame f){bound=f;}
  volatile M9PreviewFrameState1W mM9FrameState1W=M9PreviewFrameState1W.defaults();
@@ -33,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='m9-gl1w-test-') as tmp:
  boolean mGLInit=true,mUpdateST=true,mMirrorPreview;int mM9CurveTex=1,mM9PreviewLutTex1F=2;
  float[] mTexRotateMatrix=new float[16];int[] hTex={3};Object pVertex,pTexCoord;
  Surface mSTexture=new Surface();View mView=new View();int getPeakEnabled(){return 0;}
- static class Surface {long timestamp=900;void updateTexImage(){}void getTransformMatrix(float[] x){}long getTimestamp(){return timestamp;}}
+ static class Surface {long timestamp=900;void updateTexImage(){}long getTimestamp(){return timestamp;}}
  static class View {void requestRender(){}}
  '''+'\n'.join('static final int '+n+'='+str(i+1)+';' for i,n in enumerate(locations))+constants+body+'\n}'
  (src/'RendererProbe.java').write_text(probe)
@@ -49,7 +48,6 @@ with tempfile.TemporaryDirectory(prefix='m9-gl1w-test-') as tmp:
  (src/'SystemClock.java').write_text('package android.os;public class SystemClock {public static long elapsedRealtimeNanos(){return 1000000000;}}')
  (src/'M9GpuPreview2A.java').write_text('package com.particlesdevs.photoncamera.m9.preview;\nimport org.json.*;\npublic class M9GpuPreview2A { public static class Frame {\n public final boolean ready=false;\n public final boolean continuityHeld=false;\n public final float tungstenWeight=0f;\n public static Frame fallback(String s){return new Frame();}\n public JSONObject diagnostics(){return new JSONObject();}\n}}')
  (src/'M9PreviewEvidence2E.java').write_text('package com.particlesdevs.photoncamera.m9.preview;public class M9PreviewEvidence2E {public void sample(Object...a){}public org.json.JSONObject snapshot(Object...a){return new org.json.JSONObject();}}')
- (src/'M9PreviewStatePairer1A.java').write_text('package com.particlesdevs.photoncamera.m9.preview;public class M9PreviewStatePairer1A {private M9PreviewFrameState1W s;public void offer(M9PreviewFrameState1W x){s=x;}public boolean hasStateAfter(long t){return s!=null;}public M9PreviewFrameState1W select(long t,long n){return s!=null?s:M9PreviewFrameState1W.defaults();}public void reset(){}public org.json.JSONObject snapshot(){return new org.json.JSONObject();}}')
  shutil.copyfile(here/'AtomicFrameTest.java',src/'AtomicFrameTest.java')
  jar=d/'json.jar'
  if len(sys.argv)>2:shutil.copyfile(sys.argv[2],jar)
