@@ -1,4 +1,4 @@
-name: Research M9DETAIL1J native clip fallback
+name: Research M9DETAIL1M wildlife pink with TG1 continuity
 
 on:
   workflow_dispatch:
@@ -54,6 +54,14 @@ jobs:
           python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
           python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera
 
+      - name: Apply DETAIL1H with inherited tungsten continuity
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9detail1h.py PhotonCamera | tee M9DETAIL1M_PARENT_VERIFY.txt
+          python3 patches/verify-m9cam-m9tungstencont1a.py PhotonCamera | tee M9DETAIL1M_TG1_VERIFY.txt
+          grep -q "M9TUNGSTENCONT1A" PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
+          grep -q "return tungsten2A(fallback1A);" PhotonCamera/app/src/main/assets/shaders/preview/main_fs.glsl
+
       - name: Run all-CFA clipped-highlight fallback screen
         run: |
           set -euo pipefail
@@ -68,8 +76,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: M9DETAIL1J-native-fallback-research
+          name: M9DETAIL1M-wildlife-pink-research
           path: |
             M9DETAIL1J_NATIVE_FALLBACK/report.json
             M9DETAIL1J_NATIVE_FALLBACK.txt
+            M9DETAIL1M_PARENT_VERIFY.txt
+            M9DETAIL1M_TG1_VERIFY.txt
           if-no-files-found: ignore
