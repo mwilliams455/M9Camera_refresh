@@ -73,10 +73,14 @@ def synthetic(native,probe,cfas):
                             z=restored(cam,scale,n)[16:-16,16:-16]
                             chroma=z[...,[0,2]]-z[...,[1]]
                             pink=(chroma[...,0]>.02)&(chroma[...,1]>.02)
+                            true_chroma=truth[...,[0,2]]-truth[...,[1]]
+                            false_magenta=(np.minimum(chroma[...,0],chroma[...,1])-
+                                           np.minimum(true_chroma[...,0],true_chroma[...,1])>.02)
                             row['metrics'][name]=dict(
                                 scene_rgb_rms=float(np.sqrt(np.mean((z-truth)**2))),
                                 fixed_green_rb_rms=float(np.sqrt(np.mean((z[...,[0,2]]-fixed[...,[0,2]])**2))),
-                                pink_fraction=float(pink.mean()))
+                                pink_fraction=float(pink.mean()),
+                                false_magenta_excess_fraction=float(false_magenta.mean()))
                         rows.append(row)
         print('CFA',cfa,'cases',len(rows),flush=True)
     summary={}
@@ -97,8 +101,16 @@ def synthetic(native,probe,cfas):
             cases_improved=int((c<d-1e-15).sum()),cases_worse=int((c>d+1e-15).sum()),
             mean_D=float(d.mean()),mean_candidate=float(c.mean()),
             max_D=float(d.max()),max_candidate=float(c.max()))
+        fd=np.array([r['metrics']['D']['false_magenta_excess_fraction'] for r in rows])
+        fc=np.array([r['metrics'][mode]['false_magenta_excess_fraction'] for r in rows])
+        delta=fc-fd
+        summary[mode]['false_magenta_excess']=dict(
+            cases_improved=int((delta<-1e-12).sum()),cases_worse=int((delta>1e-12).sum()),
+            mean_D=float(fd.mean()),mean_candidate=float(fc.mean()),
+            max_increase=float(delta.max()),max_reduction=float((-delta).max()),
+            worst_case_index=int(delta.argmax()),best_case_index=int(delta.argmin()))
         summary[mode]['mean_support_fraction']=float(np.mean([r['support_fraction'].get(mode,1.) for r in rows]))
-    return dict(schema='m9.detail1k.native_clip_fallback.v1',case_count=len(rows),cfas=cfas,
+    return dict(schema='m9.detail1j.native_clip_fallback.v2',case_count=len(rows),cfas=cfas,
         neutral=n.tolist(),representation_scale=scale,backgrounds=BACKGROUNDS,subjects=SUBJECTS,
         variants=list(VARIANTS),summary=summary,cases=rows,
         scope='Corrected D R/B remains baseline; native MHC R/B substituted only by raw-white proximity. Green/Sharp exact. Half variants blend R/B 50%. No exposure/colour/JPEG mutation or Leica-firmware claim.')
