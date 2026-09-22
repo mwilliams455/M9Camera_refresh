@@ -162,7 +162,7 @@ jobs:
                          b'M9TUNGSTENCONT1A',b'M9PreviewSourceContinuity1A',
                          b'held_last_valid_source',b'processed_OES_exposure_plus_TG1_fallback',
                          b'M9PREVIEWPAIR1B',b'M9PreviewStatePairer1A',
-                         b'exact_timestamp_match',b'defer_unmatched_texture']:
+                         b'exact_timestamp_match',b'hold_last_matched_unmatched_texture']:
               assert marker in dex,marker
           assert b'M9DETAIL1H_NATIVEGUARD' in dex
           assert b'M9TUNGSTENCONT1A' in dex
