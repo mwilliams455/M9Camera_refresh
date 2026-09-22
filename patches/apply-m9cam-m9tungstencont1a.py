@@ -201,9 +201,12 @@ public final class M9PreviewStatePairer1A {
 
     /** True when a result newer than the currently consumed OES frame is queued. */
     public synchronized boolean hasStateAfter(long textureTimestampNs) {
-        if (textureTimestampNs <= 0L) return latest != null && latest.resultTimestampNs > 0L;
+        long floor = textureTimestampNs;
+        if (lastMatched != null && lastMatched.resultTimestampNs > floor)
+            floor = lastMatched.resultTimestampNs;
+        if (floor <= 0L) return latest != null && latest.resultTimestampNs > 0L;
         for (M9PreviewFrameState1W s : states)
-            if (s.resultTimestampNs > textureTimestampNs) return true;
+            if (s.resultTimestampNs > floor) return true;
         return false;
     }
 
