@@ -2,26 +2,6 @@ name: Build M9Cam M9TG2STILL1A
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [research/m9livegl2g-exposureenergy]
-    paths:
-      - 'patches/*m9detail1h*'
-      - 'patches/m9detail1h/**'
-      - 'patches/tests/m9detail1h/**'
-      - 'patches/*m9tungstencont1a*'
-      - 'patches/tests/m9tungstencont1a/**'
-      - 'patches/tests/m9livegl2a/atomic.py'
-      - 'research/detail1a/TUNGSTEN_CONTINUITY1A.md'
-      - 'patches/*m9tg2neutral1a*'
-      - 'patches/tests/m9tg2neutral1a/**'
-      - 'patches/*m9tg2still1a*'
-      - 'patches/m9tg2neutral1a/m9tg2_chroma.h'
-      - '.github/workflows/build-m9cam-m9tg2neutral1a.yml'
-      - '.github/workflows/build-m9cam-m9tg2still1a.yml'
-      - 'research/detail1a/detail1h*'
-      - 'research/detail1a/rb_domain.cpp'
-      - 'research/detail1a/noise2_guard_native.cpp'
-      - '.github/workflows/build-m9cam-m9detail1h.yml'
 
 jobs:
   build:
