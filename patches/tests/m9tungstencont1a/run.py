@@ -11,9 +11,9 @@ shader=root/"app/src/main/assets/shaders/preview/main_fs.glsl"
 state=root/"app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java"
 
 assert "M9TUNGSTENCONT1A" in helper.read_text()
-assert "M9PREVIEWPAIR1A" in pairer.read_text()
+assert "M9PREVIEWPAIR1B" in pairer.read_text()
 assert "exact_timestamp_match" in pairer.read_text()
-assert "MAX_DEFER_NS = 120_000_000L" in pairer.read_text()
+assert "hasStateAfter" in pairer.read_text()
 assert "heldForContinuity" in gpu.read_text()
 assert "frame1W.source2A.continuityHeld || !frame1W.source2A.ready" in renderer.read_text()
 assert "glUniform1f(uTungsten2A, source.tungstenWeight)" not in renderer.read_text()
@@ -56,4 +56,4 @@ with tempfile.TemporaryDirectory() as td:
     subprocess.run(["java","-ea","-cp",str(out)+":"+str(jar),"ContinuityTest"],check=True)
     subprocess.run(["java","-ea","-cp",str(out)+":"+str(jar),"PairingTest"],check=True)
 
-print("M9TUNGSTENCONT1A + M9PREVIEWPAIR1A production wiring PASS")
+print("M9TUNGSTENCONT1A + M9PREVIEWPAIR1B production wiring PASS")
