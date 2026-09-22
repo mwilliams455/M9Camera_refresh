@@ -54,3 +54,15 @@ that the correct metadata is being applied to the correct OES pixels. If a
 timestamp-paired 2400–2800 K view remains too warm without flicker, TG1 strength
 or domain can then be evaluated independently rather than compensating for a
 transport race.
+
+## Production decision after TG2 device validation
+
+TG2NEUTRAL1A/TG2STILL1A are frozen as research-only and rejected for the active production lineage. Device captures around 3266–3301 K drove TG2 to ~0.98–0.99 weight and showed visible loss of genuine warm subject colour, including skin. The active compromise is therefore:
+
+- original TG1 chroma guard arithmetic;
+- M9TUNGSTENCONT1A continuity behavior retained;
+- Photon SurfaceTexture transport unchanged;
+- no TG2 preview or saved-JPEG neutralisation;
+- DETAIL1H, exposure, SAT2, curve02 and Sharp/Noise2 unchanged.
+
+The clean production package is the TG1ROLLBACK1A lineage. Later successor branches must inherit this state unless tungsten work is explicitly reopened.
