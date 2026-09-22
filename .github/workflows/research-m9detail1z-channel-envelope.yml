@@ -1,0 +1,74 @@
+name: Research M9DETAIL1Z channel-envelope consensus
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [research/m9detail1y-uncensored-consensus]
+    paths:
+      - 'research/detail1a/nosharp_channel_envelope_probe.py'
+      - '.github/workflows/research-m9detail1z-channel-envelope.yml'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No parent source blocks found')
+          for idx,body in enumerate(blocks):
+              p=Path('/tmp/detail1z-parent-'+str(idx)+'.sh');p.write_text(body+'\n')
+              subprocess.run(['bash',str(p)],check=True)
+          PYREPLAY
+
+      - name: Apply GL2A through GL2G frozen source
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2c.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2d.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2e.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera
+
+      - name: Run all-CFA channel-envelope consensus
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/m9detail1z-python
+          /tmp/m9detail1z-python/bin/pip install -q numpy scipy
+          OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+          /tmp/m9detail1z-python/bin/python research/detail1a/nosharp_channel_envelope_probe.py \
+            --assembled PhotonCamera --out M9DETAIL1Z_CHANNEL_ENVELOPE --cfas 0 1 2 3 \
+            | tee M9DETAIL1Z_CHANNEL_ENVELOPE.txt
+
+      - name: Upload research result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9DETAIL1Z-channel-envelope
+          path: |
+            M9DETAIL1Z_CHANNEL_ENVELOPE/report.json
+            M9DETAIL1Z_CHANNEL_ENVELOPE.txt
+          if-no-files-found: ignore
