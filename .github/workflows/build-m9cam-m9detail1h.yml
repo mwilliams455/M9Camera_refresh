@@ -160,10 +160,13 @@ jobs:
                          b'unity_pending_live_linear_TC20_meter',b'exportPreviewContext2A',
                          b'planned_single_RAW_request',b'live_pair_spool_fallback',
                          b'M9TUNGSTENCONT1A',b'M9PreviewSourceContinuity1A',
-                         b'held_last_valid_source',b'processed_OES_exposure_plus_TG1_fallback']:
+                         b'held_last_valid_source',b'processed_OES_exposure_plus_TG1_fallback',
+                         b'M9PREVIEWPAIR1A',b'M9PreviewStatePairer1A',
+                         b'exact_timestamp_match',b'defer_unmatched_texture']:
               assert marker in dex,marker
           assert b'M9DETAIL1H_NATIVEGUARD' in dex
           assert b'M9TUNGSTENCONT1A' in dex
+          assert b'M9PREVIEWPAIR1A' in dex
           assert b'return tungsten2A(fallback1A);' in (root/shader).read_bytes()
           assert b'camera2CfaPairs' in dex and b'noiseAuthority' in dex and b'detail1H' in dex
           library=root/'lib/arm64-v8a/libm9color.so'
@@ -179,23 +182,23 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p /tmp/m9livegl2g-installcheck
           javac -cp "$BUILD_TOOLS/lib/apksigner.jar" -d /tmp/m9livegl2g-installcheck patches/tests/m9livegl2g/ApkInstallCheck.java
-          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.61-m9detail1h-tg1cont1a | tee M9LIVEGL2G_INSTALL_CHECK.txt
+          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.61-m9detail1h-tg1pair1a | tee M9LIVEGL2G_INSTALL_CHECK.txt
           "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK" | tee -a M9LIVEGL2G_INSTALL_CHECK.txt
 
       - name: Record APK SHA256
         if: success()
         run: |
           APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
-          cp "$APK" M9Cam-M9DETAIL1H-TG1CONT1A.apk
-          sha256sum M9Cam-M9DETAIL1H-TG1CONT1A.apk | tee M9LIVEGL2G_APK_SHA256.txt
+          cp "$APK" M9Cam-M9DETAIL1H-TG1PAIR1A.apk
+          sha256sum M9Cam-M9DETAIL1H-TG1PAIR1A.apk | tee M9LIVEGL2G_APK_SHA256.txt
 
       - name: Upload validation APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-M9DETAIL1H-TG1CONT1A
+          name: M9Cam-M9DETAIL1H-TG1PAIR1A
           path: |
-            M9Cam-M9DETAIL1H-TG1CONT1A.apk
+            M9Cam-M9DETAIL1H-TG1PAIR1A.apk
             M9LIVEGL2G_APK_SHA256.txt
             M9LIVEGL2G_INSTALL_CHECK.txt
             M9DETAIL1H_VERIFY.txt
