@@ -215,6 +215,8 @@ s = one(s,
         // TG1 guard is independent and remains safe on the exposure-adjusted OES RGB.
         vec3 fallback1A=clamp(linearToSrgbM9(
                 srgbToLinearM9(clamp(oes,0.0,1.0))*uM9ExposureScale1B),0.0,1.0);
+        // Avoid the integer BT.601 round-trip when the guard is inactive.
+        if (uM9Tungsten2A <= 0.000001) return fallback1A;
         return tungsten2A(fallback1A);
     }
 """, "TG1 fallback shader")
