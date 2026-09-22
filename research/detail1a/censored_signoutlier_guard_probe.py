@@ -1,7 +1,7 @@
 """M9DETAIL1O research: WB-headroom guard for censored sign-outlier repair.
 
 The clipped-anchor repair is only eligible for a target R/B channel whose
-AsShotNeutral ratio is <= 0.8, i.e. whose WB reconstruction gain is >= 1.25x.
+AsShotNeutral ratio is <= 0.78, i.e. whose WB reconstruction gain is >= 1.282051x.
 When the channel has less WB headroom the current DETAIL1D carrier is retained
 exactly. This is an engineering safety envelope, not recovered Leica firmware.
 
