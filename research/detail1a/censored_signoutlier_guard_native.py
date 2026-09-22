@@ -72,7 +72,6 @@ def run(native):
             sensor=rng.integers(64,1024,(fh,fw),dtype=np.uint16)
             # Force a mixture of 0/1/2+ censored diagonals and positive carriers.
             sensor[rng.random((fh,fw))<.07]=1023
-            carrier[rng.random((h,w))<.35]=rng.integers(1,12001,size=int((rng.random((h,w))<.35).sum()),dtype=np.int32) if False else carrier[rng.random((h,w))<.35]
             # deterministic positive-carrier injection without shape mismatch
             pos=rng.random((h,w))<.35
             carrier[pos]=rng.integers(1,12001,size=int(pos.sum()),dtype=np.int32)
