@@ -8,6 +8,10 @@ on:
       - 'patches/*m9detail1h*'
       - 'patches/m9detail1h/**'
       - 'patches/tests/m9detail1h/**'
+      - 'patches/*m9tungstencont1a*'
+      - 'patches/tests/m9tungstencont1a/**'
+      - 'patches/tests/m9livegl2a/atomic.py'
+      - 'research/detail1a/TUNGSTEN_CONTINUITY1A.md'
       - 'research/detail1a/detail1h*'
       - 'research/detail1a/rb_domain.cpp'
       - 'research/detail1a/noise2_guard_native.cpp'
@@ -63,6 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 patches/apply-m9cam-m9detail1h.py PhotonCamera | tee M9DETAIL1H_VERIFY.txt
+          python3 patches/verify-m9cam-m9tungstencont1a.py PhotonCamera | tee M9TUNGSTENCONT1A_VERIFY.txt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -118,6 +123,7 @@ jobs:
           python3 patches/tests/m9exposureplan1c/run.py PhotonCamera | tee M9LIVEGL2G_EV_FLOOR_TESTS.txt
           python3 patches/tests/m9livegl2a/run.py PhotonCamera | tee M9LIVEGL2G_HOST_TESTS.txt
           python3 patches/tests/m9livegl2a/atomic.py PhotonCamera | tee M9LIVEGL2G_ATOMIC_TESTS.txt
+          python3 patches/tests/m9tungstencont1a/run.py PhotonCamera | tee M9TUNGSTENCONT1A_TESTS.txt
 
       - name: Execute GPU shader against frozen native kernel
         run: |
@@ -152,9 +158,16 @@ jobs:
           for marker in [b'M9LIVEGL2A_CONTROLLEDOES',b'M9LIVEGL2B_FOCUSCONTINUITY',b'M9LIVEGL2C_INVERSEPRECISION',b'M9LIVEGL2D_AUTOPLACEMENT',b'M9LIVEGL2E_PAIREDPIXELS',b'M9LIVEGL2F_CURVECONTRACT',b'M9LIVEGL2G_EXPOSUREENERGY',b'allocation2G',b'allocationErrorEv',b'reported_curve_disagrees_with_request',b'toneCurveMaxOutputError2F',b'pairedPixels2E',b'reportedToneCurveRgb2E',b'M9EXPOSUREPLAN2G',b'shutterPreview1W',
                          b'incomplete_source_contract',b'controlled_curve_not_reported',
                          b'unity_pending_live_linear_TC20_meter',b'exportPreviewContext2A',
-                         b'planned_single_RAW_request',b'live_pair_spool_fallback']:
+                         b'planned_single_RAW_request',b'live_pair_spool_fallback',
+                         b'M9TUNGSTENCONT1A',b'M9PreviewSourceContinuity1A',
+                         b'held_last_valid_source',b'processed_OES_exposure_plus_TG1_fallback',
+                         b'M9PREVIEWPAIR1A',b'M9PreviewStatePairer1A',
+                         b'exact_timestamp_match',b'defer_unmatched_texture']:
               assert marker in dex,marker
           assert b'M9DETAIL1H_NATIVEGUARD' in dex
+          assert b'M9TUNGSTENCONT1A' in dex
+          assert b'M9PREVIEWPAIR1A' in dex
+          assert b'return tungsten2A(fallback1A);' in (root/shader).read_bytes()
           assert b'camera2CfaPairs' in dex and b'noiseAuthority' in dex and b'detail1H' in dex
           library=root/'lib/arm64-v8a/libm9color.so'
           assert b'Java_com_particlesdevs_photoncamera_m9_render_M9Detail1H_applyNative' in library.read_bytes()
@@ -169,26 +182,28 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p /tmp/m9livegl2g-installcheck
           javac -cp "$BUILD_TOOLS/lib/apksigner.jar" -d /tmp/m9livegl2g-installcheck patches/tests/m9livegl2g/ApkInstallCheck.java
-          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.61-m9detail1h-nativeguard | tee M9LIVEGL2G_INSTALL_CHECK.txt
+          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.61-m9detail1h-tg1pair1a | tee M9LIVEGL2G_INSTALL_CHECK.txt
           "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK" | tee -a M9LIVEGL2G_INSTALL_CHECK.txt
 
       - name: Record APK SHA256
         if: success()
         run: |
           APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
-          cp "$APK" M9Cam-M9DETAIL1H-nativeguard.apk
-          sha256sum M9Cam-M9DETAIL1H-nativeguard.apk | tee M9LIVEGL2G_APK_SHA256.txt
+          cp "$APK" M9Cam-M9DETAIL1H-TG1PAIR1A.apk
+          sha256sum M9Cam-M9DETAIL1H-TG1PAIR1A.apk | tee M9LIVEGL2G_APK_SHA256.txt
 
       - name: Upload validation APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-M9DETAIL1H
+          name: M9Cam-M9DETAIL1H-TG1PAIR1A
           path: |
-            M9Cam-M9DETAIL1H-nativeguard.apk
+            M9Cam-M9DETAIL1H-TG1PAIR1A.apk
             M9LIVEGL2G_APK_SHA256.txt
             M9LIVEGL2G_INSTALL_CHECK.txt
             M9DETAIL1H_VERIFY.txt
+            M9TUNGSTENCONT1A_VERIFY.txt
+            M9TUNGSTENCONT1A_TESTS.txt
             M9DETAIL1H_SANITIZE.txt
             M9DETAIL1H_TESTS/tile_checks.json
             M9DETAIL1H_TESTS/jni/jni_checks.json
