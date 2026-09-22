@@ -10,6 +10,7 @@ on:
       - 'research/detail1a/native_clip_fallback_probe.py'
       - 'research/detail1a/censored_diagonal_mean_probe.py'
       - 'research/detail1a/censored_diagonal_stress_probe.py'
+      - 'research/detail1a/censored_signoutlier_stress_probe.py'
       - 'research/detail1a/rb_domain.py'
       - 'research/detail1a/rb_domain.cpp'
       - '.github/workflows/test-m9detail1i-guide.yml'
@@ -92,6 +93,12 @@ jobs:
           /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_stress_probe.py \
             --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1M_STRESS_ALLCFA | tee M9DETAIL1M_STRESS_ALLCFA.log
 
+      - name: Stress sign-consensus censored-anchor candidate
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/censored_signoutlier_stress_probe.py \
+            --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1N_SIGNOUTLIER_ALLCFA | tee M9DETAIL1N_SIGNOUTLIER_ALLCFA.log
+
       - name: Upload research evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -108,4 +115,6 @@ jobs:
             M9DETAIL1L_CENSOREDMEAN_ALLCFA.log
             M9DETAIL1M_STRESS_ALLCFA/report.json
             M9DETAIL1M_STRESS_ALLCFA.log
+            M9DETAIL1N_SIGNOUTLIER_ALLCFA/report.json
+            M9DETAIL1N_SIGNOUTLIER_ALLCFA.log
           if-no-files-found: warn
