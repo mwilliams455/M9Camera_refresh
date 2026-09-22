@@ -11,6 +11,7 @@ sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 
 gpu = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java"
 continuity = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewSourceContinuity1A.java"
+pairer = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewStatePairer1A.java"
 camera = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java"
 state = root / "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java"
 renderer = root / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
@@ -32,6 +33,8 @@ for path, want in expected.items():
         raise SystemExit("M9TUNGSTENCONT1A baseline mismatch: " + str(path))
 if continuity.exists():
     raise SystemExit("M9TUNGSTENCONT1A unexpected existing continuity helper")
+if pairer.exists():
+    raise SystemExit("M9PREVIEWPAIR1A unexpected existing pairer helper")
 
 def one(text, old, new, label):
     count = text.count(old)
@@ -163,6 +166,117 @@ public final class M9PreviewSourceContinuity1A {
 }
 """)
 
+pairer.write_text("""package com.particlesdevs.photoncamera.m9.preview;
+
+import java.util.ArrayDeque;
+import org.json.JSONObject;
+
+/**
+ * M9PREVIEWPAIR1A.
+ *
+ * Camera callbacks and SurfaceTexture delivery are asynchronous. Rendering the
+ * current OES texture with the newest CaptureResult state can therefore apply
+ * the next frame's exposure/WB/source inverse to the previous pixels. Pair by
+ * sensor/texture timestamp and briefly defer drawing rather than display a
+ * knowingly mismatched transform.
+ */
+public final class M9PreviewStatePairer1A {
+    public static final String REVISION = "M9PREVIEWPAIR1A";
+    public static final long MATCH_TOLERANCE_NS = 5_000_000L;
+    public static final long MAX_DEFER_NS = 120_000_000L;
+    private static final int MAX_STATES = 24;
+
+    private final ArrayDeque<M9PreviewFrameState1W> states = new ArrayDeque<>();
+    private M9PreviewFrameState1W latest;
+    private long mismatchSinceNs = -1L;
+    private long lastTextureNs = -1L, lastStateNs = -1L, lastDeltaNs = Long.MIN_VALUE;
+    private long deferredDraws, timeoutFallbacks, matchedDraws;
+    private String lastDecision = "reset";
+
+    public synchronized void offer(M9PreviewFrameState1W state) {
+        if (state == null) return;
+        latest = state;
+        if (state.resultTimestampNs > 0L) {
+            states.addLast(state);
+            while (states.size() > MAX_STATES) states.removeFirst();
+        }
+    }
+
+    public synchronized M9PreviewFrameState1W select(long textureNs, long nowNs) {
+        lastTextureNs = textureNs;
+        if (textureNs <= 0L) {
+            lastDecision = "texture_timestamp_unavailable_latest";
+            mismatchSinceNs = -1L;
+            M9PreviewFrameState1W out = latest != null ? latest : M9PreviewFrameState1W.defaults();
+            lastStateNs = out.resultTimestampNs;
+            lastDeltaNs = Long.MIN_VALUE;
+            return out;
+        }
+
+        M9PreviewFrameState1W best = null;
+        long bestDelta = Long.MAX_VALUE;
+        for (M9PreviewFrameState1W state : states) {
+            long ts = state.resultTimestampNs;
+            if (ts <= 0L) continue;
+            long d = ts >= textureNs ? ts - textureNs : textureNs - ts;
+            if (d < bestDelta) { bestDelta = d; best = state; }
+        }
+
+        if (best != null && bestDelta <= MATCH_TOLERANCE_NS) {
+            matchedDraws++;
+            mismatchSinceNs = -1L;
+            lastDecision = bestDelta == 0L ? "exact_timestamp_match" : "nearest_timestamp_match";
+            lastStateNs = best.resultTimestampNs;
+            lastDeltaNs = best.resultTimestampNs - textureNs;
+            long pruneBefore = textureNs - 250_000_000L;
+            while (!states.isEmpty() && states.peekFirst().resultTimestampNs < pruneBefore)
+                states.removeFirst();
+            return best;
+        }
+
+        if (mismatchSinceNs < 0L || nowNs < mismatchSinceNs) mismatchSinceNs = nowNs;
+        if (nowNs - mismatchSinceNs < MAX_DEFER_NS) {
+            deferredDraws++;
+            lastDecision = "defer_unmatched_texture";
+            lastStateNs = best != null ? best.resultTimestampNs : -1L;
+            lastDeltaNs = best != null ? best.resultTimestampNs - textureNs : Long.MIN_VALUE;
+            return null;
+        }
+
+        timeoutFallbacks++;
+        mismatchSinceNs = nowNs;
+        lastDecision = "pair_timeout_latest";
+        M9PreviewFrameState1W out = latest != null ? latest : M9PreviewFrameState1W.defaults();
+        lastStateNs = out.resultTimestampNs;
+        lastDeltaNs = out.resultTimestampNs > 0L ? out.resultTimestampNs - textureNs : Long.MIN_VALUE;
+        return out;
+    }
+
+    public synchronized void reset() {
+        states.clear(); latest = null; mismatchSinceNs = -1L;
+        lastTextureNs = lastStateNs = -1L; lastDeltaNs = Long.MIN_VALUE;
+        deferredDraws = timeoutFallbacks = matchedDraws = 0L; lastDecision = "reset";
+    }
+
+    public synchronized JSONObject snapshot() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("revision", REVISION).put("decision", lastDecision)
+                    .put("textureTimestampNs", lastTextureNs)
+                    .put("stateTimestampNs", lastStateNs)
+                    .put("deltaNs", lastDeltaNs == Long.MIN_VALUE ? JSONObject.NULL : lastDeltaNs)
+                    .put("queueDepth", states.size())
+                    .put("matchedDraws", matchedDraws)
+                    .put("deferredDraws", deferredDraws)
+                    .put("timeoutFallbacks", timeoutFallbacks)
+                    .put("matchToleranceNs", MATCH_TOLERANCE_NS)
+                    .put("maxDeferNs", MAX_DEFER_NS);
+        } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
+        return o;
+    }
+}
+""")
+
 c = camera.read_text()
 c = one(c,
 """                        com.particlesdevs.photoncamera.m9.preview.M9GpuPreview2A.from(
@@ -179,6 +293,63 @@ c = one(c,
 camera.write_text(c)
 
 m = renderer.read_text()
+m = one(m,
+"""    private volatile M9PreviewFrameState1W mM9FrameState1W = M9PreviewFrameState1W.defaults();
+    private volatile M9PreviewFrameState1W.Draw mM9LastDraw1W;
+    private long mM9DrawSequence1W;
+""",
+"""    private volatile M9PreviewFrameState1W mM9FrameState1W = M9PreviewFrameState1W.defaults();
+    private volatile M9PreviewFrameState1W.Draw mM9LastDraw1W;
+    private long mM9DrawSequence1W;
+    private final com.particlesdevs.photoncamera.m9.preview.M9PreviewStatePairer1A
+            mM9Pairer1A = new com.particlesdevs.photoncamera.m9.preview.M9PreviewStatePairer1A();
+""", "pairer field")
+m = one(m,
+"""    public void setM9FrameState1W(M9PreviewFrameState1W state) {
+        if (state == null) return;
+        mM9FrameState1W = state;
+        mView.requestRender();
+    }
+""",
+"""    public void setM9FrameState1W(M9PreviewFrameState1W state) {
+        if (state == null) return;
+        mM9FrameState1W = state;
+        mM9Pairer1A.offer(state);
+        mView.requestRender();
+    }
+""", "pairer offer")
+m = one(m,
+"""        // Read once: the camera callback may publish another state during this draw.
+        final M9PreviewFrameState1W frame1W = mM9FrameState1W;
+        final long textureTimestamp1W = mSTexture.getTimestamp();
+""",
+"""        // M9PREVIEWPAIR1A: bind metadata/exposure/colour to the OES frame that
+        // actually carries the same sensor timestamp. If the CaptureResult has not
+        // arrived yet, retain the previously presented frame instead of flashing a
+        // knowingly mismatched transform. A bounded timeout preserves portability.
+        final long textureTimestamp1W = mSTexture.getTimestamp();
+        final M9PreviewFrameState1W frame1W = mM9Pairer1A.select(
+                textureTimestamp1W, android.os.SystemClock.elapsedRealtimeNanos());
+        if (frame1W == null) return;
+""", "timestamp paired draw")
+m = one(m,
+"""        mM9LastDraw1W = null;
+        mM9FrameState1W = M9PreviewFrameState1W.defaults();
+        mM9DrawSequence1W = 0;
+""",
+"""        mM9LastDraw1W = null;
+        mM9FrameState1W = M9PreviewFrameState1W.defaults();
+        mM9DrawSequence1W = 0;
+        mM9Pairer1A.reset();
+""", "pairer reset")
+m = one(m,
+"""            if (evidence != null) out.put("pairedPixels2E", evidence.snapshot(shutterNs, plan));
+            return out.toString();
+""",
+"""            if (evidence != null) out.put("pairedPixels2E", evidence.snapshot(shutterNs, plan));
+            out.put("stateTexturePair1A", mM9Pairer1A.snapshot());
+            return out.toString();
+""", "pairer snapshot")
 m = one(m,
 """        bindSource2A(frame1W.source2A);
         GLES20.glUniform1i(uM9Curve, 1);
@@ -250,7 +421,7 @@ b = gradle.read_text()
 b = one(b,
 """        versionName '1.61-m9detail1h-nativeguard'
 """,
-"""        versionName '1.61-m9detail1h-tg1cont1a'
+"""        versionName '1.61-m9detail1h-tg1pair1a'
 """, "version")
 gradle.write_text(b)
 
@@ -262,4 +433,6 @@ print(" - raw GL2F source contract remains fail-closed")
 print(" - same-camera last-valid source held for <= 1000 ms")
 print(" - TG1 upload decoupled from source readiness")
 print(" - true OES fallback now receives TG1 after exposure adjustment")
+print(" - OES texture is paired to CaptureResult state by sensor timestamp")
+print(" - unmatched draws defer up to 120 ms before portability fallback")
 print(" - DETAIL1H still renderer/native detail path unchanged")
