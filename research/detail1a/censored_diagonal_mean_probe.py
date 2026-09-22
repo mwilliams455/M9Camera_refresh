@@ -17,7 +17,7 @@ from scipy.ndimage import gaussian_filter
 from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 
-VARIANTS=('valid1','valid2','valid3','valid2_half','valid3_half')
+VARIANTS=('valid1','valid2','valid3','valid2_half','valid3_half','valid3_unsupported_pos','valid3_unsupported_pos_half','valid2_unsupported_pos_half')
 
 def sh(a,dy,dx):
     return np.roll(np.roll(a,dy,axis=0),dx,axis=1)
@@ -44,6 +44,20 @@ def censored_carriers(probe,norm,sensor,cfa,nr,nb,white):
         half=((current.astype(np.int64)+mean)//2).astype(np.int32)
         cand=np.where(active,half,current).astype(np.int32)
         yield f'valid{minvalid}_half',cand,active
+
+    # Positive-chroma support guard: only reduce a positive carrier when the
+    # surviving unclipped anchors say the channel difference is non-positive.
+    # This is channel evidence, not a magenta/hue classifier.
+    exactly3=rb&any_censored&(count==3)
+    unsupported3=exactly3&(current>0)&(mean<=0)&(mean<current)
+    half3=((current.astype(np.int64)+mean)//2).astype(np.int32)
+    yield 'valid3_unsupported_pos',np.where(unsupported3,mean,current).astype(np.int32),unsupported3
+    yield 'valid3_unsupported_pos_half',np.where(unsupported3,half3,current).astype(np.int32),unsupported3
+
+    at_least2=rb&any_censored&(count>=2)
+    unsupported2=at_least2&(current>0)&(mean<=0)&(mean<current)
+    half2=((current.astype(np.int64)+mean)//2).astype(np.int32)
+    yield 'valid2_unsupported_pos_half',np.where(unsupported2,half2,current).astype(np.int32),unsupported2
 
 def synthetic(native,probe,cfas):
     yy,xx=np.indices((160,192)); n=np.array([.41796875,1.,.6435546875]); scale=1.6105431518598052
