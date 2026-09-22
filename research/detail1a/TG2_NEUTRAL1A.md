@@ -36,3 +36,11 @@ frozen. The purpose is to establish whether the proposed two-axis warm residual
 math fixes the visible 2400–3000 K viewfinder cast without damaging real subject
 colour. If accepted visually, the same BT.601 equations can be ported to the
 native 4:2:2 still stage and replayed against the existing photographic corpus.
+
+## Production status — rejected / frozen
+
+Device validation at ~3266–3301 K exposed a failure of the TG2 classification assumption. With the CCT ramp near full strength (~0.98–0.99), low/moderate-chroma genuine warm subject colour—most importantly skin—was treated too much like illuminant contamination and visibly lost colour. This is a conceptual limitation of post-curve BT.601 chroma neutralisation, not a transport or SOURCECAL2A failure.
+
+TG2NEUTRAL1A and TG2STILL1A are therefore **not production candidates** and must not be inherited by successor branches. Keep these files only as research evidence. The production lineage reverts to the original mild TG1 arithmetic plus M9TUNGSTENCONT1A preview continuity. Exposure, SAT2, curve02, DETAIL1H, sharpness/noise and Photon preview transport remain unchanged.
+
+Future tungsten work should start from a scene/illuminant adaptation stage that can distinguish illuminant correction from genuine warm object colour; do not resume by simply increasing or reweighting TG2.
