@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep the M9 TG1 tungsten guard alive across transient GL2A source-contract gaps."""
 from pathlib import Path
-import hashlib, sys
+import hashlib, re, sys
 
 if len(sys.argv) != 2:
     raise SystemExit("usage: apply-m9cam-m9tungstencont1a.py <PhotonCamera-root>")
@@ -172,25 +172,22 @@ import java.util.ArrayDeque;
 import org.json.JSONObject;
 
 /**
- * M9PREVIEWPAIR1A.
+ * M9PREVIEWPAIR1B.
  *
- * Camera callbacks and SurfaceTexture delivery are asynchronous. Rendering the
- * current OES texture with the newest CaptureResult state can therefore apply
- * the next frame's exposure/WB/source inverse to the previous pixels. Pair by
- * sensor/texture timestamp and briefly defer drawing rather than display a
- * knowingly mismatched transform.
+ * Do not consume/display a new OES frame until at least one newer Camera2
+ * result exists. Once consumed, bind the closest timestamped state. If an
+ * unexpected mismatch still occurs, keep the last matched state rather than
+ * emitting a blank frame.
  */
 public final class M9PreviewStatePairer1A {
-    public static final String REVISION = "M9PREVIEWPAIR1A";
+    public static final String REVISION = "M9PREVIEWPAIR1B";
     public static final long MATCH_TOLERANCE_NS = 5_000_000L;
-    public static final long MAX_DEFER_NS = 120_000_000L;
     private static final int MAX_STATES = 24;
 
     private final ArrayDeque<M9PreviewFrameState1W> states = new ArrayDeque<>();
-    private M9PreviewFrameState1W latest;
-    private long mismatchSinceNs = -1L;
+    private M9PreviewFrameState1W latest, lastMatched;
     private long lastTextureNs = -1L, lastStateNs = -1L, lastDeltaNs = Long.MIN_VALUE;
-    private long deferredDraws, timeoutFallbacks, matchedDraws;
+    private long heldDraws, matchedDraws;
     private String lastDecision = "reset";
 
     public synchronized void offer(M9PreviewFrameState1W state) {
@@ -202,12 +199,21 @@ public final class M9PreviewStatePairer1A {
         }
     }
 
+    /** True when a result newer than the currently consumed OES frame is queued. */
+    public synchronized boolean hasStateAfter(long textureTimestampNs) {
+        if (textureTimestampNs <= 0L) return latest != null && latest.resultTimestampNs > 0L;
+        for (M9PreviewFrameState1W s : states)
+            if (s.resultTimestampNs > textureTimestampNs) return true;
+        return false;
+    }
+
     public synchronized M9PreviewFrameState1W select(long textureNs, long nowNs) {
         lastTextureNs = textureNs;
         if (textureNs <= 0L) {
-            lastDecision = "texture_timestamp_unavailable_latest";
-            mismatchSinceNs = -1L;
-            M9PreviewFrameState1W out = latest != null ? latest : M9PreviewFrameState1W.defaults();
+            M9PreviewFrameState1W out = lastMatched != null ? lastMatched
+                    : (latest != null ? latest : M9PreviewFrameState1W.defaults());
+            lastDecision = "texture_timestamp_unavailable_hold";
+            heldDraws++;
             lastStateNs = out.resultTimestampNs;
             lastDeltaNs = Long.MIN_VALUE;
             return out;
@@ -223,8 +229,8 @@ public final class M9PreviewStatePairer1A {
         }
 
         if (best != null && bestDelta <= MATCH_TOLERANCE_NS) {
+            lastMatched = best;
             matchedDraws++;
-            mismatchSinceNs = -1L;
             lastDecision = bestDelta == 0L ? "exact_timestamp_match" : "nearest_timestamp_match";
             lastStateNs = best.resultTimestampNs;
             lastDeltaNs = best.resultTimestampNs - textureNs;
@@ -234,28 +240,19 @@ public final class M9PreviewStatePairer1A {
             return best;
         }
 
-        if (mismatchSinceNs < 0L || nowNs < mismatchSinceNs) mismatchSinceNs = nowNs;
-        if (nowNs - mismatchSinceNs < MAX_DEFER_NS) {
-            deferredDraws++;
-            lastDecision = "defer_unmatched_texture";
-            lastStateNs = best != null ? best.resultTimestampNs : -1L;
-            lastDeltaNs = best != null ? best.resultTimestampNs - textureNs : Long.MIN_VALUE;
-            return null;
-        }
-
-        timeoutFallbacks++;
-        mismatchSinceNs = nowNs;
-        lastDecision = "pair_timeout_latest";
-        M9PreviewFrameState1W out = latest != null ? latest : M9PreviewFrameState1W.defaults();
+        M9PreviewFrameState1W out = lastMatched != null ? lastMatched
+                : (latest != null ? latest : M9PreviewFrameState1W.defaults());
+        heldDraws++;
+        lastDecision = "hold_last_matched_unmatched_texture";
         lastStateNs = out.resultTimestampNs;
         lastDeltaNs = out.resultTimestampNs > 0L ? out.resultTimestampNs - textureNs : Long.MIN_VALUE;
         return out;
     }
 
     public synchronized void reset() {
-        states.clear(); latest = null; mismatchSinceNs = -1L;
+        states.clear(); latest = lastMatched = null;
         lastTextureNs = lastStateNs = -1L; lastDeltaNs = Long.MIN_VALUE;
-        deferredDraws = timeoutFallbacks = matchedDraws = 0L; lastDecision = "reset";
+        heldDraws = matchedDraws = 0L; lastDecision = "reset";
     }
 
     public synchronized JSONObject snapshot() {
@@ -267,10 +264,9 @@ public final class M9PreviewStatePairer1A {
                     .put("deltaNs", lastDeltaNs == Long.MIN_VALUE ? JSONObject.NULL : lastDeltaNs)
                     .put("queueDepth", states.size())
                     .put("matchedDraws", matchedDraws)
-                    .put("deferredDraws", deferredDraws)
-                    .put("timeoutFallbacks", timeoutFallbacks)
+                    .put("heldDraws", heldDraws)
                     .put("matchToleranceNs", MATCH_TOLERANCE_NS)
-                    .put("maxDeferNs", MAX_DEFER_NS);
+                    .put("consumePolicy", "wait_for_newer_result_before_updateTexImage");
         } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
         return o;
     }
@@ -330,7 +326,6 @@ m = one(m,
         final long textureTimestamp1W = mSTexture.getTimestamp();
         final M9PreviewFrameState1W frame1W = mM9Pairer1A.select(
                 textureTimestamp1W, android.os.SystemClock.elapsedRealtimeNanos());
-        if (frame1W == null) return;
 """, "timestamp paired draw")
 m = one(m,
 """        mM9LastDraw1W = null;
@@ -372,6 +367,27 @@ m = one(m,
 """        GLES20.glUniform3fv(uClipWhite2A, 1, source.white(), 0);
         boundSource2A = source;
 """, "remove source-ready-only TG1 upload")
+
+# M9PREVIEWPAIR1B: SurfaceTexture's queued image must not be consumed before
+# Camera2 has published metadata newer than the currently consumed image.
+pattern1B = re.compile(r"""        synchronized \(this\) \{
+            if \(mUpdateST\) \{
+                mSTexture\.updateTexImage\(\);
+                mSTexture\.getTransformMatrix\(mTexRotateMatrix\);
+                mUpdateST = false;
+            \}
+        \}""")
+replacement1B = """        synchronized (this) {
+            if (mUpdateST && mM9Pairer1A.hasStateAfter(mSTexture.getTimestamp())) {
+                mSTexture.updateTexImage();
+                mSTexture.getTransformMatrix(mTexRotateMatrix);
+                mUpdateST = false;
+            }
+        }"""
+m, pairCount1B = pattern1B.subn(replacement1B, m, count=1)
+if pairCount1B != 1:
+    raise SystemExit("M9PREVIEWPAIR1B updateTexImage gate anchor mismatch: " + str(pairCount1B))
+
 renderer.write_text(m)
 
 s = shader.read_text()
@@ -421,7 +437,7 @@ b = gradle.read_text()
 b = one(b,
 """        versionName '1.61-m9detail1h-nativeguard'
 """,
-"""        versionName '1.61-m9detail1h-tg1pair1a'
+"""        versionName '1.61-m9detail1h-tg1pair1b'
 """, "version")
 gradle.write_text(b)
 
@@ -433,6 +449,6 @@ print(" - raw GL2F source contract remains fail-closed")
 print(" - same-camera last-valid source held for <= 1000 ms")
 print(" - TG1 upload decoupled from source readiness")
 print(" - true OES fallback now receives TG1 after exposure adjustment")
-print(" - OES texture is paired to CaptureResult state by sensor timestamp")
-print(" - unmatched draws defer up to 120 ms before portability fallback")
+print(" - OES texture consumption waits for newer Camera2 metadata")
+print(" - unmatched texture states hold the last matched state; no blank draw")
 print(" - DETAIL1H still renderer/native detail path unchanged")
