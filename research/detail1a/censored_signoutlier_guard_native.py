@@ -85,7 +85,8 @@ def run(native):
     # Direct boundary construction: .78 can change, .781 cannot.
     h=w=21;fh=fw=25;diff=np.zeros((h,w),np.int32);sensor=np.full((fh,fw),500,np.uint16);carrier=np.zeros((h,w),np.int32)
     cfa=0;red,blue,_=cfa_masks((h,w),cfa)
-    y,x=np.argwhere(blue& (np.indices((h,w))[0]>4)&(np.indices((h,w))[0]<h-5))[0]
+    gy,gx=np.indices((h,w))
+    y,x=np.argwhere(blue&(gy>4)&(gy<h-5)&(gx>4)&(gx<w-5))[0]
     carrier[y,x]=101
     # one red diagonal censored; other surviving red differences non-positive
     sensor[y+1,x+1]=1023
