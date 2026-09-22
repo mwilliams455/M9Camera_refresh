@@ -8,6 +8,7 @@ on:
       - 'research/detail1a/green_guide2_probe.py'
       - 'research/detail1a/edge_directed_carrier_probe.py'
       - 'research/detail1a/native_clip_fallback_probe.py'
+      - 'research/detail1a/censored_diagonal_mean_probe.py'
       - 'research/detail1a/rb_domain.py'
       - 'research/detail1a/rb_domain.cpp'
       - '.github/workflows/test-m9detail1i-guide.yml'
@@ -78,6 +79,12 @@ jobs:
           /tmp/m9detail1i-python/bin/python research/detail1a/native_clip_fallback_probe.py \
             --assembled PhotonCamera --cfas 0 --out M9DETAIL1K_NATIVEFALLBACK_RGGB | tee M9DETAIL1K_NATIVEFALLBACK_RGGB.log
 
+      - name: Run censored-diagonal carrier falsification
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_mean_probe.py \
+            --assembled PhotonCamera --cfas 0 --out M9DETAIL1L_CENSOREDMEAN_RGGB | tee M9DETAIL1L_CENSOREDMEAN_RGGB.log
+
       - name: Upload research evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -90,4 +97,6 @@ jobs:
             M9DETAIL1J_CARRIER_RGGB.log
             M9DETAIL1K_NATIVEFALLBACK_RGGB/report.json
             M9DETAIL1K_NATIVEFALLBACK_RGGB.log
+            M9DETAIL1L_CENSOREDMEAN_RGGB/report.json
+            M9DETAIL1L_CENSOREDMEAN_RGGB.log
           if-no-files-found: warn
