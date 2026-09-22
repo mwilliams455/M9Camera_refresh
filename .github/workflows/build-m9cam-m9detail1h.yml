@@ -10,6 +10,7 @@ on:
       - 'patches/tests/m9detail1h/**'
       - 'patches/*m9tungstencont1a*'
       - 'patches/tests/m9tungstencont1a/**'
+      - 'patches/tests/m9livegl2a/atomic.py'
       - 'research/detail1a/TUNGSTEN_CONTINUITY1A.md'
       - 'research/detail1a/detail1h*'
       - 'research/detail1a/rb_domain.cpp'
