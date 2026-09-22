@@ -58,7 +58,7 @@ static void d1o_max_square(const std::vector<T>& src,int w,int h,int radius,std:
     std::deque<int> q;
     for(int y=0;y<h;++y){
         const int len=w+2*radius;
-        std::fill(line.begin(),line.begin()+len,T(0));
+        std::fill(line.begin(),line.end(),T(0));
         std::copy(src.begin()+size_t(y)*w,src.begin()+size_t(y+1)*w,line.begin()+radius);
         q.clear();
         for(int i=0;i<len;++i){
