@@ -70,19 +70,6 @@ def variants(probe,norm,sensor,cfa,nr,nb,white):
         carrier=np.where(support,candidate,current).astype(np.int32)
         yield name,carrier,support
 
-def variants(probe,norm,sensor,cfa,nr,nb,white):
-    green,diff,current,_=probe.stages(norm,cfa,nr,nb,shrink=True)
-    pair=pair_carrier(green,diff,current,cfa)
-    clipped=sensor>=white
-    supports={
-        'pair_global':np.ones(norm.shape,bool),
-        'pair_clip2':maximum_filter(clipped,size=5,mode='constant'),
-        'pair_clip4':maximum_filter(clipped,size=9,mode='constant'),
-    }
-    for name in VARIANTS:
-        carrier=np.where(supports[name],pair,current).astype(np.int32)
-        yield name,carrier,supports[name]
-
 def synthetic(native,probe,cfas):
     yy,xx=np.indices((160,192)); n=np.array([.41796875,1.,.6435546875]); scale=1.6105431518598052
     rows=[]
