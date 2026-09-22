@@ -20,15 +20,16 @@ from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 from censored_diagonal_stress_probe import RGB_PROFILE
 
-MAX_TARGET_NEUTRAL=0.8
+MAX_TARGET_NEUTRAL=0.78
 VARIANTS=('guarded_zero','guarded_halfzero')
 NEUTRALS=(
     ('capture',[0.41796875,1.,0.6435546875]),
     ('warm',[0.28,1.,0.48]),
     ('cool',[0.62,1.,0.78]),
-    ('edge_sym',[0.8,1.,0.8]),
-    ('edge_red',[0.8,1.,0.95]),
-    ('edge_blue',[0.95,1.,0.8]),
+    ('boundary_sym',[0.78,1.,0.78]),
+    ('boundary_red',[0.78,1.,0.95]),
+    ('boundary_blue',[0.95,1.,0.78]),
+    ('outside_sym',[0.781,1.,0.781]),
     ('unity',[1.,1.,1.]),
 )
 
@@ -143,7 +144,7 @@ def main():
         representation_scale=1.6105431518598052,max_target_neutral=MAX_TARGET_NEUTRAL,
         minimum_target_wb_gain=1/MAX_TARGET_NEUTRAL,variants=list(VARIANTS),
         summary=summarize(all_rows),by_condition=by_condition,
-        scope='Safety-gated sign consensus. Correction disabled for target neutral >0.8. No hue/scene/device-name classifier; native green/Sharp/downstream fixed.')
+        scope='Safety-gated sign consensus. Correction disabled for target neutral >0.78. No hue/scene/device-name classifier; native green/Sharp/downstream fixed.')
     result['script_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     result['native_source_sha256']=native.source_sha256
     cases=all_rows
