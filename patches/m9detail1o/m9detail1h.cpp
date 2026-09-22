@@ -74,7 +74,7 @@ static void d1o_max_square(const std::vector<T>& src,int w,int h,int radius,std:
     dst.assign(size_t(w)*h,T(0));
     for(int x=0;x<w;++x){
         const int len=h+2*radius;
-        std::fill(line.begin(),line.begin()+len,T(0));
+        std::fill(line.begin(),line.end(),T(0));
         for(int y=0;y<h;++y)line[y+radius]=temp[size_t(y)*w+x];
         q.clear();
         for(int i=0;i<len;++i){
