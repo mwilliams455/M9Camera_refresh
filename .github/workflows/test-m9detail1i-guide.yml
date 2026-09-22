@@ -83,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_mean_probe.py \
-            --assembled PhotonCamera --cfas 0 --out M9DETAIL1L_CENSOREDMEAN_RGGB | tee M9DETAIL1L_CENSOREDMEAN_RGGB.log
+            --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1L_CENSOREDMEAN_ALLCFA | tee M9DETAIL1L_CENSOREDMEAN_ALLCFA.log
 
       - name: Upload research evidence
         if: always()
@@ -97,6 +97,6 @@ jobs:
             M9DETAIL1J_CARRIER_RGGB.log
             M9DETAIL1K_NATIVEFALLBACK_RGGB/report.json
             M9DETAIL1K_NATIVEFALLBACK_RGGB.log
-            M9DETAIL1L_CENSOREDMEAN_RGGB/report.json
-            M9DETAIL1L_CENSOREDMEAN_RGGB.log
+            M9DETAIL1L_CENSOREDMEAN_ALLCFA/report.json
+            M9DETAIL1L_CENSOREDMEAN_ALLCFA.log
           if-no-files-found: warn
