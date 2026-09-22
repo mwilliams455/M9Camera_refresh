@@ -16,7 +16,7 @@ from scipy.ndimage import gaussian_filter, maximum_filter
 from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 
-VARIANTS=('pair_global','pair_clip2','pair_clip4','pair_conf2_clip4','pair_conf4_clip4','pair_valid_clip4','pair_valid_conf2_clip4')
+VARIANTS=('pair_global','pair_clip2','pair_clip4','pair_conf2_clip4','pair_conf4_clip4','pair_valid_clip4','pair_valid_conf2_clip4','pair_censor_only','pair_censor_half')
 
 def shifted(a,dy,dx):
     return np.roll(np.roll(a,dy,axis=0),dx,axis=1)
@@ -48,7 +48,7 @@ def carrier_controls(green,diff,current,sensor,cfa,white):
     return dict(pair=np.where(rb,pair,current).astype(np.int32),
         conf2=rb&conf2,conf4=rb&conf4,
         valid_pair=np.where(rb,valid_pair,current).astype(np.int32),
-        valid_available=rb&valid_available,valid_conf=rb&valid_conf)
+        valid_available=rb&valid_available,valid_conf=rb&valid_conf,one_valid_pair=rb&(one_main|one_anti))
 
 def variants(probe,norm,sensor,cfa,nr,nb,white):
     green,diff,current,_=probe.stages(norm,cfa,nr,nb,shrink=True)
@@ -56,6 +56,7 @@ def variants(probe,norm,sensor,cfa,nr,nb,white):
     clipped=sensor>=white
     support2=maximum_filter(clipped,size=5,mode='constant')
     support4=maximum_filter(clipped,size=9,mode='constant')
+    half=((ctl['valid_pair'].astype(np.int64)+current.astype(np.int64))//2).astype(np.int32)
     specs={
         'pair_global':(np.ones(norm.shape,bool),ctl['pair']),
         'pair_clip2':(support2,ctl['pair']),
@@ -64,6 +65,8 @@ def variants(probe,norm,sensor,cfa,nr,nb,white):
         'pair_conf4_clip4':(support4&ctl['conf4'],ctl['pair']),
         'pair_valid_clip4':(support4&ctl['valid_available'],ctl['valid_pair']),
         'pair_valid_conf2_clip4':(support4&ctl['valid_conf'],ctl['valid_pair']),
+        'pair_censor_only':(ctl['one_valid_pair'],ctl['valid_pair']),
+        'pair_censor_half':(ctl['one_valid_pair'],half),
     }
     for name in VARIANTS:
         support,candidate=specs[name]
