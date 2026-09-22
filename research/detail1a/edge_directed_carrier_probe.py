@@ -16,7 +16,7 @@ from scipy.ndimage import gaussian_filter, maximum_filter
 from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 
-VARIANTS=('pair_global','pair_clip2','pair_clip4','pair_conf2_clip4','pair_conf4_clip4','pair_valid_clip4','pair_valid_conf2_clip4','pair_censor_only','pair_censor_half')
+VARIANTS=('pair_global','pair_clip2','pair_clip4','pair_conf2_clip4','pair_conf4_clip4','pair_valid_clip4','pair_valid_conf2_clip4','pair_censor_only','pair_censor_half','pair_censor_green','pair_censor_green2','pair_censor_green_half')
 
 def shifted(a,dy,dx):
     return np.roll(np.roll(a,dy,axis=0),dx,axis=1)
@@ -42,13 +42,15 @@ def carrier_controls(green,diff,current,sensor,cfa,white):
         np.where(both&choose_main,main,np.where(both&choose_anti,anti,current.astype(np.int64)))))
     valid_available=valid_main|valid_anti
     valid_conf=(one_main|one_anti)|(both&conf2)
+    one_valid_green=(one_main&(cost_main<cost_anti))|(one_anti&(cost_anti<cost_main))
+    one_valid_green2=(one_main&(2*cost_main<cost_anti))|(one_anti&(2*cost_anti<cost_main))
     _,_,green_sites=cfa_masks(g.shape,cfa)
     inner=np.zeros(g.shape,bool); inner[3:-3,3:-3]=True
     rb=(~green_sites)&inner
     return dict(pair=np.where(rb,pair,current).astype(np.int32),
         conf2=rb&conf2,conf4=rb&conf4,
         valid_pair=np.where(rb,valid_pair,current).astype(np.int32),
-        valid_available=rb&valid_available,valid_conf=rb&valid_conf,one_valid_pair=rb&(one_main|one_anti))
+        valid_available=rb&valid_available,valid_conf=rb&valid_conf,one_valid_pair=rb&(one_main|one_anti),\n        one_valid_green=rb&one_valid_green,one_valid_green2=rb&one_valid_green2)
 
 def variants(probe,norm,sensor,cfa,nr,nb,white):
     green,diff,current,_=probe.stages(norm,cfa,nr,nb,shrink=True)
@@ -67,6 +69,9 @@ def variants(probe,norm,sensor,cfa,nr,nb,white):
         'pair_valid_conf2_clip4':(support4&ctl['valid_conf'],ctl['valid_pair']),
         'pair_censor_only':(ctl['one_valid_pair'],ctl['valid_pair']),
         'pair_censor_half':(ctl['one_valid_pair'],half),
+        'pair_censor_green':(ctl['one_valid_green'],ctl['valid_pair']),
+        'pair_censor_green2':(ctl['one_valid_green2'],ctl['valid_pair']),
+        'pair_censor_green_half':(ctl['one_valid_green'],half),
     }
     for name in VARIANTS:
         support,candidate=specs[name]
