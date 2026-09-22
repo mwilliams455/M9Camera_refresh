@@ -43,7 +43,7 @@ class Native:
                         str(src),'-o',str(so)],check=True)
         self.lib=C.CDLL(str(so.resolve()))
         self.fn=self.lib.m9_fringe_half_guard
-        self.fn.argtypes=[C.c_void_p,C.c_void_p]+[C.c_int]*9+[C.c_double]*2+[C.c_void_p]*3
+        self.fn.argtypes=[C.c_void_p,C.c_void_p]+[C.c_int]*8+[C.c_double]*2+[C.c_void_p]*3
         self.fn.restype=C.c_int
     def apply(self,diff,sensor,sx,sy,cfa,white,nr,nb,carrier):
         diff=np.ascontiguousarray(diff,np.int32);sensor=np.ascontiguousarray(sensor,np.uint16)
