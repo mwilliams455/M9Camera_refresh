@@ -32,17 +32,23 @@ transport_new="""            final double tgWeight = tungstenGuardWeight(ctx.cct
 if j.count(transport_old)!=2:
     raise SystemExit("TG2STILL1A Java TG2 weight transport: expected 2 anchors, found "+str(j.count(transport_old)))
 j=j.replace(transport_old,transport_new)
-j=one(j,'d.put("tungstenGuard", "TG1");','d.put("tungstenGuard", "TG2NEUTRAL1A_STILL");',"diagnostic revision")
-j=one(j,
-'''            d.put("tungstenGuardNegativeCbCompression", TG_NEG_CB_COMPRESSION);
+diag_old='d.put("tungstenGuard", "TG1");'
+diag_new='d.put("tungstenGuard", "TG2NEUTRAL1A_STILL");'
+if j.count(diag_old)!=2:
+    raise SystemExit("TG2STILL1A diagnostic revision: expected 2 anchors, found "+str(j.count(diag_old)))
+j=j.replace(diag_old,diag_new)
+policy_old='''            d.put("tungstenGuardNegativeCbCompression", TG_NEG_CB_COMPRESSION);
             d.put("tungstenGuardNegativeCrCompression", TG_NEG_CR_COMPRESSION);
-''',
-'''            d.put("tungstenGuardChromaPolicy", "bounded_warm_quadrant_neutralisation");
+'''
+policy_new='''            d.put("tungstenGuardChromaPolicy", "bounded_warm_quadrant_neutralisation");
             d.put("tungstenGuardYellowCompressionRange", "0.18..0.58");
             d.put("tungstenGuardPositiveCrOrangeMax", 0.42);
             d.put("tungstenGuardNegativeCrGreenRange", "0.10..0.22");
             d.put("tungstenGuardNeutralGateChromaCodes", "38..78");
-''',"diagnostic policy")
+'''
+if j.count(policy_old)!=2:
+    raise SystemExit("TG2STILL1A diagnostic policy: expected 2 anchors, found "+str(j.count(policy_old)))
+j=j.replace(policy_old,policy_new)
 java.write_text(j)
 
 c=cpp.read_text()
