@@ -15,3 +15,6 @@ subprocess.run(['git','-C',str(root),'apply',str(here/'m9cam-m9detail1h.patch')]
 for p,v in m['added'].items():
     target=root/p;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(repo/v['source'],target)
 subprocess.run([sys.executable,str(here/'verify-m9cam-m9detail1h.py'),str(root)],check=True)
+# Successor contract: every DETAIL1H phone candidate also carries preview TG1 continuity.
+subprocess.run([sys.executable,str(here/'apply-m9cam-m9tungstencont1a.py'),str(root)],check=True)
+subprocess.run([sys.executable,str(here/'verify-m9cam-m9tungstencont1a.py'),str(root)],check=True)
