@@ -376,8 +376,7 @@ m = one(m,
 pattern1B = re.compile(r"""        synchronized \(this\) \{
             if \(mUpdateST\) \{
                 mSTexture\.updateTexImage\(\);
-                mSTexture\.getTransformMatrix\(mTexRotateMatrix\);
-                mUpdateST = false;
+(?:                mSTexture\.getTransformMatrix\(mTexRotateMatrix\);\n)?                mUpdateST = false;
             \}
         \}""")
 replacement1B = """        synchronized (this) {
