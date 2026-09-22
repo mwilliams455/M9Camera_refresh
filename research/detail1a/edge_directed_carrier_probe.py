@@ -50,7 +50,8 @@ def carrier_controls(green,diff,current,sensor,cfa,white):
     return dict(pair=np.where(rb,pair,current).astype(np.int32),
         conf2=rb&conf2,conf4=rb&conf4,
         valid_pair=np.where(rb,valid_pair,current).astype(np.int32),
-        valid_available=rb&valid_available,valid_conf=rb&valid_conf,one_valid_pair=rb&(one_main|one_anti),\n        one_valid_green=rb&one_valid_green,one_valid_green2=rb&one_valid_green2)
+        valid_available=rb&valid_available,valid_conf=rb&valid_conf,one_valid_pair=rb&(one_main|one_anti),
+        one_valid_green=rb&one_valid_green,one_valid_green2=rb&one_valid_green2)
 
 def variants(probe,norm,sensor,cfa,nr,nb,white):
     green,diff,current,_=probe.stages(norm,cfa,nr,nb,shrink=True)
