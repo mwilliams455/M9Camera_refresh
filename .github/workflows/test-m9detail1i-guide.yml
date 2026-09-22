@@ -6,6 +6,7 @@ on:
     branches: [research/m9livegl2g-exposureenergy]
     paths:
       - 'research/detail1a/green_guide2_probe.py'
+      - 'research/detail1a/edge_directed_carrier_probe.py'
       - 'research/detail1a/rb_domain.py'
       - 'research/detail1a/rb_domain.cpp'
       - '.github/workflows/test-m9detail1i-guide.yml'
@@ -64,6 +65,12 @@ jobs:
           /tmp/m9detail1i-python/bin/python research/detail1a/green_guide2_probe.py \
             --assembled PhotonCamera --cfas 0 --out M9DETAIL1I_GUIDE_RGGB | tee M9DETAIL1I_GUIDE_RGGB.log
 
+      - name: Run clipping-gated edge-directed carrier falsification
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/edge_directed_carrier_probe.py \
+            --assembled PhotonCamera --cfas 0 --out M9DETAIL1J_CARRIER_RGGB | tee M9DETAIL1J_CARRIER_RGGB.log
+
       - name: Upload research evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,4 +79,6 @@ jobs:
           path: |
             M9DETAIL1I_GUIDE_RGGB/report.json
             M9DETAIL1I_GUIDE_RGGB.log
+            M9DETAIL1J_CARRIER_RGGB/report.json
+            M9DETAIL1J_CARRIER_RGGB.log
           if-no-files-found: warn
