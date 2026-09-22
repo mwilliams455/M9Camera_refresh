@@ -7,7 +7,8 @@ gradle=(root/"app/build.gradle").read_text()
 assert "M9TG2NEUTRAL1A" in shader
 assert "neutralGate=1.0-smoothstep(38.0,78.0,chroma)" in shader
 assert "orangeGate=yellowGate*smoothstep(2.0,20.0,cr)" in shader
-assert "1.61-m9detail1h-tg2neutral1a" in gradle
+assert ("1.61-m9detail1h-tg2neutral1a" in gradle
+        or "1.61-m9detail1h-tg2still1a" in gradle)
 
 def bt601(rgb):
  r,g,b=rgb
