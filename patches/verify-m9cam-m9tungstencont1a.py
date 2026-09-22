@@ -9,7 +9,6 @@ root=Path(sys.argv[1]).resolve()
 files={
 "gpu":root/"app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java",
 "continuity":root/"app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewSourceContinuity1A.java",
-"pairer":root/"app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewStatePairer1A.java",
 "camera":root/"app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
 "state":root/"app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java",
 "renderer":root/"app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java",
@@ -31,14 +30,7 @@ checks={
 "ready-only TG1 removed":"glUniform1f(uTungsten2A, source.tungstenWeight)" not in files["renderer"].read_text(),
 "fallback TG1 shader":"return tungsten2A(fallback1A);" in files["shader"].read_text(),
 "fallback diagnostic":"processed_OES_exposure_plus_TG1_fallback" in files["state"].read_text(),
-"pairer revision":"M9PREVIEWPAIR1B" in files["pairer"].read_text(),
-"pairer exact match":"exact_timestamp_match" in files["pairer"].read_text(),
-"pairer consume gate":"hasStateAfter" in files["pairer"].read_text(),
-"renderer pairer offer":"mM9Pairer1A.offer(state)" in files["renderer"].read_text(),
-"renderer paired draw":"mM9Pairer1A.select(" in files["renderer"].read_text(),
-"renderer consume gate":"mM9Pairer1A.hasStateAfter(mSTexture.getTimestamp())" in files["renderer"].read_text(),
-"pair diagnostics":"stateTexturePair1A" in files["renderer"].read_text(),
-"version":"1.61-m9detail1h-tg1pair1b" in files["gradle"].read_text(),
+"version":"1.61-m9detail1h-tg1rollback1a" in files["gradle"].read_text(),
 }
 for name,ok in checks.items():
     print(name,ok)
