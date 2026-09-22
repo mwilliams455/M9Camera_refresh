@@ -1,10 +1,10 @@
 name: Build M9Cam NATIVEPROSPECTIVE1A-SOURCEADAPTER
 
+# Legacy NATIVEPROSPECTIVE scaffold. Kept for reproducibility only.
+# Modern M9 candidates have dedicated workflows; do not run this known-stale
+# scaffold on every research push, because it fails before successor overlays.
 on:
   workflow_dispatch:
-  push:
-    branches-ignore:
-      - m9nohdr1a-sourcecal2a-cmfix-fixedgain1a
 
 jobs:
   build:
