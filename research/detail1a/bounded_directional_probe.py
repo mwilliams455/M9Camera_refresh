@@ -18,7 +18,7 @@ from scipy.ndimage import gaussian_filter
 from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 
-MODES=('bounded25','bounded50','bounded100')
+MODES=('bounded100','protected512','protected900','protected1280')
 CONF_MIN=.02
 CONF_MAX=.28
 DIFF_MIN=2048
@@ -43,7 +43,7 @@ def directional_fields(diff,green,cfa):
     _,_,gm=cfa_masks(diff.shape,cfa)
     inner=np.zeros_like(gm);inner[3:-3,3:-3]=True
     gate=(~gm)&inner&(confidence>CONF_MIN)&(confidence<=CONF_MAX)&(disagreement>=DIFF_MIN)
-    return soft,gate,confidence,disagreement
+    minabs=np.minimum(np.abs(p1),np.abs(p2))\n    return soft,gate,confidence,disagreement,minabs
 
 def candidate_carrier(current,soft,gate,alpha):
     out=current.astype(np.int64).copy()
@@ -80,14 +80,18 @@ def synthetic(native,probe,cfas):
                         base=native.render(norm,n[0],n[2],cfa)
                         green,diff,current,_=probe.stages(norm,cfa,n[0],n[2],shrink=True)
                         dcam=probe.consume(current,base,cfa,n[0],n[2])
-                        soft,gate,confidence,disagreement=directional_fields(diff,green,cfa)
+                        soft,gate,confidence,disagreement,minabs=directional_fields(diff,green,cfa)
                         truth=np.clip(scene,0,1)
                         sg=base[...,1].astype(np.float64)/65535*scale
                         fixed=np.clip(truth-truth[...,[1]]+sg[...,None],0,1)
                         mm={'D':metric(dcam,truth,fixed,scale,n)}
                         changed={}
-                        for name,alpha in [('bounded25',.25),('bounded50',.5),('bounded100',1.)]:
-                            carrier=candidate_carrier(current,soft,gate,alpha)
+                        specs=[('bounded100',gate,1.),
+                               ('protected512',gate&(minabs<=512),1.),
+                               ('protected900',gate&(minabs<=900),1.),
+                               ('protected1280',gate&(minabs<=1280),1.)]
+                        for name,active,alpha in specs:
+                            carrier=candidate_carrier(current,soft,active,alpha)
                             cam=probe.consume(carrier,base,cfa,n[0],n[2])
                             assert np.array_equal(cam[...,1],base[...,1])
                             mm[name]=metric(cam,truth,fixed,scale,n)
@@ -109,9 +113,9 @@ def synthetic(native,probe,cfas):
                 worst_case_index=int(delta.argmax()),best_case_index=int(delta.argmin()))
         summary[mode]['changed_carrier_total']=int(sum(r['changed_carrier'][mode] for r in rows))
         summary[mode]['mean_gate_fraction']=float(np.mean([r['gate_fraction'] for r in rows]))
-    return dict(schema='m9.detail1l.bounded_directional.v1',case_count=len(rows),cfas=list(cfas),
+    return dict(schema='m9.detail1l.bounded_directional.v2',case_count=len(rows),cfas=list(cfas),
         neutral=n.tolist(),representation_scale=scale,backgrounds=BACKGROUNDS,subjects=SUBJECTS,
-        confidence_min=CONF_MIN,confidence_max=CONF_MAX,disagreement_min=DIFF_MIN,
+        confidence_min=CONF_MIN,confidence_max=CONF_MAX,disagreement_min=DIFF_MIN,strong_chroma_limits=[512,900,1280],
         summary=summary,cases=rows,
         scope='Current D exact outside gate. Gate uses only green anisotropy and diagonal colour-difference disagreement. Native green/Sharp exact. No hue/subject classifier and no Android/Leica parity claim.')
 
