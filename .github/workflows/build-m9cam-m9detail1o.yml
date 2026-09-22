@@ -1,0 +1,231 @@
+name: Build M9Cam M9DETAIL1O COMMON50
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [research/m9detail1o-common-mode]
+    paths:
+      - 'patches/apply-m9cam-m9detail1o.py'
+      - 'patches/m9detail1o/**'
+      - 'patches/tests/m9detail1o/**'
+      - 'research/detail1a/common_mode_censor_probe.py'
+      - '.github/workflows/build-m9cam-m9detail1o.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No exposure-plan parent source blocks found')
+          for idx,body in enumerate(blocks):
+              p=Path('/tmp/m9detail1o-parent-'+str(idx)+'.sh');p.write_text(body+'\n')
+              subprocess.run(['bash',str(p)],check=True)
+          PYREPLAY
+
+      - name: Apply GL2A through GL2G frozen source
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2c.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2d.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2e.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera | tee M9DETAIL1O_GL2G_VERIFY.txt
+
+      - name: Apply exact DETAIL1H parent
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9detail1h.py PhotonCamera | tee M9DETAIL1O_DETAIL1H_VERIFY.txt
+
+      - name: Apply DETAIL1O COMMON50 overlay
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9detail1o.py PhotonCamera | tee M9DETAIL1O_VERIFY.txt
+          grep -q 'M9DETAIL1O_COMMON50' PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9Detail1H.java
+          grep -q 'commonModeCorrectedPixels' PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9Detail1H.java
+          grep -q 'd1o_common50' PhotonCamera/app/src/main/cpp/m9detail1h.cpp
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.."; pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Run integrated native COMMON50 oracle
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/m9detail1o-python
+          /tmp/m9detail1o-python/bin/pip install -q numpy scipy
+          OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+          /tmp/m9detail1o-python/bin/python patches/tests/m9detail1o/native.py PhotonCamera M9DETAIL1O_NATIVE \
+            | tee M9DETAIL1O_NATIVE.txt
+
+      - name: Run all-CFA colour-preservation gate
+        run: |
+          set -euo pipefail
+          OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+          /tmp/m9detail1o-python/bin/python research/detail1a/common_mode_censor_probe.py \
+            --assembled PhotonCamera --out M9DETAIL1O_COLOR --cfas 0 1 2 3 \
+            | tee M9DETAIL1O_COLOR.txt
+          /tmp/m9detail1o-python/bin/python - <<'PY'
+          import json
+          r=json.load(open('M9DETAIL1O_COLOR/report.json'))
+          s=r['summary']['common50']
+          assert r['case_count']==1536
+          assert s['fixed_green_rb_rms']['cases_worse']==0
+          assert s['false_magenta_excess_fraction']['cases_worse']==0
+          assert s['false_green_excess_fraction']['cases_worse']==0
+          assert s['false_magenta_magenta']['cases_worse']==0
+          assert s['false_magenta_bright_magenta']['cases_worse']==0
+          assert s['false_magenta_neutral']['cases_improved']>0
+          assert s['false_magenta_green']['cases_improved']>0
+          print('M9DETAIL1O COLOR GATE PASS:',json.dumps({
+            'cases':r['case_count'],
+            'false_magenta_improved':s['false_magenta_excess_fraction']['cases_improved'],
+            'false_magenta_worse':s['false_magenta_excess_fraction']['cases_worse'],
+            'false_green_worse':s['false_green_excess_fraction']['cases_worse'],
+            'fixed_green_rb_worse':s['fixed_green_rb_rms']['cases_worse']}))
+          PY
+
+      - name: Run sanitizer
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O1 -g -ffp-contract=off -fno-fast-math \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            patches/tests/m9detail1o/sanitize.cpp research/detail1a/rb_domain.cpp research/detail1a/noise2_guard_native.cpp \
+            -o /tmp/m9detail1o-sanitize
+          ASAN_OPTIONS=detect_leaks=1 /tmp/m9detail1o-sanitize | tee M9DETAIL1O_SANITIZE.txt
+
+      - name: Retain inherited exposure, focus, preview and colour contracts
+        run: |
+          set -euo pipefail
+          python3 patches/tests/m9livegl2g/run.py PhotonCamera > M9DETAIL1O_GL2G_TESTS.txt
+          python3 patches/tests/m9livegl2f/run.py PhotonCamera > M9DETAIL1O_CURVE_TESTS.txt
+          python3 patches/tests/m9livegl2b/run.py PhotonCamera > M9DETAIL1O_FOCUS_TESTS.txt
+          python3 patches/tests/m9exposureplan1c/run.py PhotonCamera > M9DETAIL1O_EXPOSURE_TESTS.txt
+
+      - name: Build M9DETAIL1O APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9DETAIL1O_GRADLE.log"
+
+      - name: Verify packaged candidate contracts
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9detail1o-apk && mkdir -p /tmp/m9detail1o-apk
+          unzip -q "$APK" -d /tmp/m9detail1o-apk
+          python3 - <<'PY' | tee M9DETAIL1O_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/m9detail1o-apk')
+          shader='assets/shaders/preview/main_fs.glsl'
+          assert (root/shader).read_bytes()==(Path('PhotonCamera/app/src/main')/shader).read_bytes()
+          assert (root/'assets/m9/m9_curve02_firmware.bin').read_bytes()==Path('PhotonCamera/app/src/main/assets/m9/m9_curve02_firmware.bin').read_bytes()
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in [b'M9DETAIL1O_COMMON50',b'commonModePolicy',b'commonModeCorrectedPixels',
+                         b'commonModeOpponentDifferencePreserved',b'commonModeGenuineColorAbstainedPixels',
+                         b'detail1O',b'M9LIVEGL2G_EXPOSUREENERGY']:
+              assert marker in dex,marker
+          lib=root/'lib/arm64-v8a/libm9color.so'
+          data=lib.read_bytes()
+          assert b'Java_com_particlesdevs_photoncamera_m9_render_M9Detail1H_applyNative' in data
+          print('M9DETAIL1O APK PROOF PASS: common50 diagnostics + native entry; preview/curve assets exact')
+          PY
+
+      - name: Verify install metadata, signing and alignment
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p /tmp/m9detail1o-installcheck
+          javac -cp "$BUILD_TOOLS/lib/apksigner.jar" -d /tmp/m9detail1o-installcheck patches/tests/m9livegl2g/ApkInstallCheck.java
+          java -cp "/tmp/m9detail1o-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.61-m9detail1o-common50 \
+            | tee M9DETAIL1O_INSTALL_CHECK.txt
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK" | tee -a M9DETAIL1O_INSTALL_CHECK.txt
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          cp "$APK" M9Cam-M9DETAIL1O-COMMON50.apk
+          sha256sum M9Cam-M9DETAIL1O-COMMON50.apk | tee M9DETAIL1O_APK_SHA256.txt
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9DETAIL1O-COMMON50
+          path: |
+            M9Cam-M9DETAIL1O-COMMON50.apk
+            M9DETAIL1O_APK_SHA256.txt
+            M9DETAIL1O_INSTALL_CHECK.txt
+            M9DETAIL1O_VERIFY.txt
+            M9DETAIL1O_NATIVE/native_checks.json
+            M9DETAIL1O_NATIVE.txt
+            M9DETAIL1O_COLOR/report.json
+            M9DETAIL1O_COLOR.txt
+            M9DETAIL1O_SANITIZE.txt
+            M9DETAIL1O_APK_PROOF.txt
+            M9DETAIL1O_GL2G_VERIFY.txt
+            M9DETAIL1O_DETAIL1H_VERIFY.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9DETAIL1O-BUILDLOG
+          path: M9DETAIL1O_GRADLE.log
+          if-no-files-found: ignore
