@@ -18,18 +18,20 @@ def one(s,o,n,label):
     return s.replace(o,n,1)
 
 j=java.read_text()
-j=one(j,
-"""            final double tgWeight = tungstenGuardWeight(ctx.cct);
+transport_old="""            final double tgWeight = tungstenGuardWeight(ctx.cct);
             final double tgCbGain = 1.0 - TG_NEG_CB_COMPRESSION * tgWeight;
             final double tgCrGain = 1.0 - TG_NEG_CR_COMPRESSION * tgWeight;
-""",
-"""            final double tgWeight = tungstenGuardWeight(ctx.cct);
+"""
+transport_new="""            final double tgWeight = tungstenGuardWeight(ctx.cct);
             // M9TG2STILL1A keeps the stable JNI signature. Both legacy gain
             // slots now carry the same 0..1 tungsten weight; native colour
             // computes bounded yellow/orange/green chroma correction directly.
             final double tgCbGain = tgWeight;
             final double tgCrGain = tgWeight;
-""","Java TG2 weight transport")
+"""
+if j.count(transport_old)!=2:
+    raise SystemExit("TG2STILL1A Java TG2 weight transport: expected 2 anchors, found "+str(j.count(transport_old)))
+j=j.replace(transport_old,transport_new)
 j=one(j,'d.put("tungstenGuard", "TG1");','d.put("tungstenGuard", "TG2NEUTRAL1A_STILL");',"diagnostic revision")
 j=one(j,
 '''            d.put("tungstenGuardNegativeCbCompression", TG_NEG_CB_COMPRESSION);
