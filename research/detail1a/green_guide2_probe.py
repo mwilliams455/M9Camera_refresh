@@ -87,43 +87,44 @@ def current_uncertainty(probe, raw, cfa, nr, nb):
 def ha_difference(raw,cfa,nr,nb,uncertainty,clamp_guide=True,shrink=True):
     z=q14(raw).astype(np.int64); h,w=z.shape
     red,blue,green=cfa_masks(z.shape,cfa)
-    diff=np.zeros((h,w),np.int64)
-    guide=np.zeros((h,w),np.int64)
-    guide[green]=z[green]
-    for y in range(2,h-2):
-        for x in range(2,w-2):
-            if green[y,x]: continue
-            nc=nr if red[y,x] else nb
-            c0=z[y,x]/nc
-            l2=z[y,x-2]/nc; r2=z[y,x+2]/nc
-            u2=z[y-2,x]/nc; d2=z[y+2,x]/nc
-            gl=float(z[y,x-1]); gr=float(z[y,x+1])
-            gu=float(z[y-1,x]); gd=float(z[y+1,x])
-            gh=.5*(gl+gr)+.25*(2*c0-l2-r2)
-            gv=.5*(gu+gd)+.25*(2*c0-u2-d2)
-            dh=abs(gl-gr)+abs(2*c0-l2-r2)
-            dv=abs(gu-gd)+abs(2*c0-u2-d2)
-            if dh<dv: g=gh
-            elif dv<dh: g=gv
-            else: g=.5*(gh+gv)
-            if clamp_guide:
-                g=min(max(g,min(gl,gr,gu,gd)),max(gl,gr,gu,gd))
-            gi=int(np.floor(g+.5)); guide[y,x]=gi
-            d=int(np.floor(c0+.5))-gi
-            a=int(uncertainty[y,x])
-            if shrink and abs(d)<a:
-                v=max(abs(d)-(a>>2),0); d=-v if d<0 else v
-            diff[y,x]=d
+    nmap=np.where(red,nr,np.where(blue,nb,1.))
+    c=z/nmap
+    gl=np.roll(z,1,axis=1).astype(float); gr=np.roll(z,-1,axis=1).astype(float)
+    gu=np.roll(z,1,axis=0).astype(float); gd=np.roll(z,-1,axis=0).astype(float)
+    l2=np.roll(c,2,axis=1); r2=np.roll(c,-2,axis=1)
+    u2=np.roll(c,2,axis=0); d2=np.roll(c,-2,axis=0)
+    gh=.5*(gl+gr)+.25*(2*c-l2-r2)
+    gv=.5*(gu+gd)+.25*(2*c-u2-d2)
+    dh=np.abs(gl-gr)+np.abs(2*c-l2-r2)
+    dv=np.abs(gu-gd)+np.abs(2*c-u2-d2)
+    g=np.where(dh<dv,gh,np.where(dv<dh,gv,.5*(gh+gv)))
+    if clamp_guide:
+        lo=np.minimum.reduce([gl,gr,gu,gd]); hi=np.maximum.reduce([gl,gr,gu,gd])
+        g=np.clip(g,lo,hi)
+    gi=np.floor(g+.5).astype(np.int64)
+    guide=np.where(green,z,gi)
+    target=~green
+    inner=np.zeros_like(target); inner[2:-2,2:-2]=True; target &= inner
+    d=np.floor(c+.5).astype(np.int64)-gi
+    if shrink:
+        a=uncertainty.astype(np.int64)
+        m=target&(np.abs(d)<a)
+        v=np.maximum(np.abs(d)-(a>>2),0)
+        d=np.where(m,np.where(d<0,-v,v),d)
+    diff=np.where(target,d,0).astype(np.int64)
+    guide=np.where(inner,guide,0).astype(np.int64)
     return diff,guide
 
 def diagonal_carrier(diff,cfa):
-    h,w=diff.shape; out=np.zeros((h,w),np.int64)
-    red,blue,green=cfa_masks(diff.shape,cfa)
-    for y in range(3,h-3):
-        for x in range(3,w-3):
-            if green[y,x]: continue
-            out[y,x]=(int(diff[y-1,x-1])+int(diff[y-1,x+1])+int(diff[y+1,x-1])+int(diff[y+1,x+1]))//4
-    return out.astype(np.int32)
+    h,w=diff.shape; _,_,green=cfa_masks(diff.shape,cfa)
+    d=diff.astype(np.int64)
+    total=(np.roll(np.roll(d,1,axis=0),1,axis=1)+
+           np.roll(np.roll(d,1,axis=0),-1,axis=1)+
+           np.roll(np.roll(d,-1,axis=0),1,axis=1)+
+           np.roll(np.roll(d,-1,axis=0),-1,axis=1))
+    out=total//4
+    inner=np.zeros_like(green); inner[3:-3,3:-3]=True
+    return np.where((~green)&inner,out,0).astype(np.int32)
 
 VARIANTS=(
     'ha_clamp_shrink_diag','ha_clamp_noshrink_diag',
