@@ -1,5 +1,11 @@
 # ISO/sharpness regression history — 22 September 2026
 
+Follow-up clarification: the user's specific "pink edging is back" report was
+on 21 September following DETAIL1H. The active boundary is therefore GL2G -> H.
+[`DETAIL_BOUNDARY_CAUSE.md`](DETAIL_BOUNDARY_CAUSE.md) now separates the two D
+changes with exact endpoints. The older 12 September history below remains
+background, rather than the starting point for the recent recurrence.
+
 The active question is which recent integration introduced false colour. Treat
 the ISO/sharpness sequence as a regression history before proposing another
 interpolation or colour-suppression algorithm. DETAIL1D with Sharp disabled is

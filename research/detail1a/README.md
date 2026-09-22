@@ -1,5 +1,12 @@
 # M9DETAIL1A — ISO sharpening replay, 21 September 2026
 
+Latest recent-regression isolation:
+[`DETAIL_BOUNDARY_CAUSE.md`](DETAIL_BOUNDARY_CAUSE.md). The reported return of
+pink edging follows GL2G -> DETAIL1H. Exact endpoint counterfactuals isolate
+the new R/B carrier as the main harmful change; offset scaling improves the
+average, while Co can add error. H guard-off is byte-exact to D. Simple neutral
+controls improve, explaining the earlier validation gap. No new app candidate.
+
 Active regression investigation:
 [`ISO_SHARP_REGRESSION.md`](ISO_SHARP_REGRESSION.md). The 12 September records
 already identify a new green/cyan halo introduced during CLOSURETEST1B. A new
