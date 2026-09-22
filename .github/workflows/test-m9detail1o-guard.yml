@@ -6,6 +6,8 @@ on:
     branches: [research/m9livegl2g-exposureenergy]
     paths:
       - 'research/detail1a/censored_signoutlier_guard_probe.py'
+      - 'research/detail1a/censored_signoutlier_guard_native.cpp'
+      - 'research/detail1a/censored_signoutlier_guard_native.py'
       - 'research/detail1a/censored_diagonal_stress_probe.py'
       - 'research/detail1a/censored_diagonal_mean_probe.py'
       - 'research/detail1a/green_guide2_probe.py'
@@ -21,6 +23,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Verify native guard primitive
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/m9detail1o-native
+          /tmp/m9detail1o-native/bin/pip install --disable-pip-version-check numpy
+          /tmp/m9detail1o-native/bin/python research/detail1a/censored_signoutlier_guard_native.py \
+            --out M9DETAIL1O_NATIVE | tee M9DETAIL1O_NATIVE.log
 
       - name: Replay exact M9EXPOSUREPLAN1C source baseline
         shell: bash
@@ -75,4 +85,6 @@ jobs:
           path: |
             M9DETAIL1O_WBGUARD_ALLCFA/report.json
             M9DETAIL1O_WBGUARD_ALLCFA.log
+            M9DETAIL1O_NATIVE/report.json
+            M9DETAIL1O_NATIVE.log
           if-no-files-found: warn
