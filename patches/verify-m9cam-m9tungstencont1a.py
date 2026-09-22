@@ -30,7 +30,7 @@ checks={
 "ready-only TG1 removed":"glUniform1f(uTungsten2A, source.tungstenWeight)" not in files["renderer"].read_text(),
 "fallback TG1 shader":"return tungsten2A(fallback1A);" in files["shader"].read_text(),
 "fallback diagnostic":"processed_OES_exposure_plus_TG1_fallback" in files["state"].read_text(),
-"version":"1.61-m9detail1h-tg1cont1a" in files["gradle"].read_text(),
+"version":"1.61-m9detail1h-tg1rollback1a" in files["gradle"].read_text(),
 }
 for name,ok in checks.items():
     print(name,ok)
