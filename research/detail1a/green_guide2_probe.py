@@ -14,8 +14,20 @@ from scipy.ndimage import gaussian_filter
 
 from rb_domain import DomainProbe
 from rb_probe import q14, q16
-from fringe_replay import cfa_masks
-from censored_chroma_probe import BACKGROUNDS, SUBJECTS
+def cfa_masks(shape,cfa):
+    y,x=np.ogrid[:shape[0],:shape[1]]
+    rx,ry=cfa in (1,3),cfa in (2,3)
+    red=(x%2==rx)&(y%2==ry)
+    blue=(x%2!=rx)&(y%2!=ry)
+    return red,blue,~(red|blue)
+
+BACKGROUNDS=dict(white=[1.2]*3,very_white=[3.]*3,
+    bright_warm=[3.,1.2,.8],bright_cool=[.8,1.2,3.],
+    bright_magenta=[3.,1.2,3.],blue_sky=[.8,1.2,1.5],
+    warm=[1.5,1.2,.8],green=[.8,1.2,.8],magenta=[1.5,.8,1.5],
+    cyan=[.2,1.4,2.],red=[3.,.5,.3],blue=[.3,.5,2.])
+SUBJECTS=dict(neutral=[.03]*3,green=[.01,.1,.02],
+    magenta=[.3,.03,.25],bright_magenta=[1.4,.03,1.2])
 
 PREAMBLE=r"""
 #include <algorithm>
