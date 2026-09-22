@@ -16,22 +16,59 @@ from scipy.ndimage import gaussian_filter, maximum_filter
 from rb_domain import DomainProbe
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
 
-VARIANTS=('pair_global','pair_clip2','pair_clip4')
+VARIANTS=('pair_global','pair_clip2','pair_clip4','pair_conf2_clip4','pair_conf4_clip4','pair_valid_clip4','pair_valid_conf2_clip4')
 
 def shifted(a,dy,dx):
     return np.roll(np.roll(a,dy,axis=0),dx,axis=1)
 
-def pair_carrier(green,diff,current,cfa):
+def carrier_controls(green,diff,current,sensor,cfa,white):
     g=green.astype(np.int64); d=diff.astype(np.int64)
     gnw,gne,gsw,gse=[shifted(g,dy,dx) for dy,dx in ((1,1),(1,-1),(-1,1),(-1,-1))]
     dnw,dne,dsw,dse=[shifted(d,dy,dx) for dy,dx in ((1,1),(1,-1),(-1,1),(-1,-1))]
+    snw,sne,ssw,sse=[shifted(sensor,dy,dx) for dy,dx in ((1,1),(1,-1),(-1,1),(-1,-1))]
     cost_main=np.abs(gnw-gse)+np.abs(gnw-g)+np.abs(gse-g)
     cost_anti=np.abs(gne-gsw)+np.abs(gne-g)+np.abs(gsw-g)
     main=(dnw+dse)//2; anti=(dne+dsw)//2
-    chosen=np.where(cost_main<cost_anti,main,np.where(cost_anti<cost_main,anti,current.astype(np.int64)))
+    choose_main=cost_main<cost_anti; choose_anti=cost_anti<cost_main
+    pair=np.where(choose_main,main,np.where(choose_anti,anti,current.astype(np.int64)))
+    best=np.minimum(cost_main,cost_anti); other=np.maximum(cost_main,cost_anti)
+    conf2=(2*best<other)&(best<other)
+    conf4=(4*best<other)&(best<other)
+    valid_main=(snw<white)&(sse<white)
+    valid_anti=(sne<white)&(ssw<white)
+    one_main=valid_main&~valid_anti; one_anti=valid_anti&~valid_main
+    both=valid_main&valid_anti
+    valid_pair=np.where(one_main,main,np.where(one_anti,anti,
+        np.where(both&choose_main,main,np.where(both&choose_anti,anti,current.astype(np.int64)))))
+    valid_available=valid_main|valid_anti
+    valid_conf=(one_main|one_anti)|(both&conf2)
     _,_,green_sites=cfa_masks(g.shape,cfa)
     inner=np.zeros(g.shape,bool); inner[3:-3,3:-3]=True
-    return np.where((~green_sites)&inner,chosen,current).astype(np.int32)
+    rb=(~green_sites)&inner
+    return dict(pair=np.where(rb,pair,current).astype(np.int32),
+        conf2=rb&conf2,conf4=rb&conf4,
+        valid_pair=np.where(rb,valid_pair,current).astype(np.int32),
+        valid_available=rb&valid_available,valid_conf=rb&valid_conf)
+
+def variants(probe,norm,sensor,cfa,nr,nb,white):
+    green,diff,current,_=probe.stages(norm,cfa,nr,nb,shrink=True)
+    ctl=carrier_controls(green,diff,current,sensor,cfa,white)
+    clipped=sensor>=white
+    support2=maximum_filter(clipped,size=5,mode='constant')
+    support4=maximum_filter(clipped,size=9,mode='constant')
+    specs={
+        'pair_global':(np.ones(norm.shape,bool),ctl['pair']),
+        'pair_clip2':(support2,ctl['pair']),
+        'pair_clip4':(support4,ctl['pair']),
+        'pair_conf2_clip4':(support4&ctl['conf2'],ctl['pair']),
+        'pair_conf4_clip4':(support4&ctl['conf4'],ctl['pair']),
+        'pair_valid_clip4':(support4&ctl['valid_available'],ctl['valid_pair']),
+        'pair_valid_conf2_clip4':(support4&ctl['valid_conf'],ctl['valid_pair']),
+    }
+    for name in VARIANTS:
+        support,candidate=specs[name]
+        carrier=np.where(support,candidate,current).astype(np.int32)
+        yield name,carrier,support
 
 def variants(probe,norm,sensor,cfa,nr,nb,white):
     green,diff,current,_=probe.stages(norm,cfa,nr,nb,shrink=True)
