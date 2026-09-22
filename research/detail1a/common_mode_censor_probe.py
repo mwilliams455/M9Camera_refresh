@@ -24,14 +24,37 @@ Sharp remain byte-exact. Synthetic research only; no Android production/APK.
 from pathlib import Path
 import argparse,hashlib,json
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter,maximum_filter,minimum_filter
 
 from rb_domain import DomainProbe
 from rb_probe import q14,q16
 from green_guide2_probe import NativeBaseline,cfa_masks,BACKGROUNDS,SUBJECTS,restored
-from censored_chroma_probe import constraints
 
 MODES=('certificate8','common50','common75','common100')
+
+def certificate_constraints(probe,norm,sensor,cfa,nr,nb,black,white):
+    red,blue,green=cfa_masks(norm.shape,cfa)
+    g,difference,_,_=probe.stages(norm,cfa,nr,nb,shrink=False)
+    carrier=probe.stages(norm,cfa,nr,nb,shrink=True)[2]
+    yy,xx=np.ogrid[:norm.shape[0],:norm.shape[1]]
+    clipped=sensor>=white
+    low=sensor<=np.asarray(black)[(yy%2)*2+xx%2]
+    bad_green=green&(clipped|low)
+    invalid=sum(np.roll(bad_green,shift,axis) for axis in (0,1) for shift in (-1,1))>0
+    bounds=[];colour_evidence=[]
+    radius=2
+    for mask in (red,blue):
+        possible=mask&~invalid&~low
+        valid=possible&~clipped
+        high=maximum_filter(np.where(valid,difference,0),size=2*radius+1)
+        low_bound=minimum_filter(np.where(valid,difference,0),size=2*radius+1)
+        available=maximum_filter(valid,size=2*radius+1)
+        bounds.append((low_bound,high,available))
+        colour_evidence.append(maximum_filter(np.where(possible,difference,0),size=3))
+    support=maximum_filter(clipped&green,size=9)
+    paired_positive=(colour_evidence[0]>0)&(colour_evidence[1]>0)
+    support&=~maximum_filter(paired_positive,size=17)
+    return carrier,bounds,support
 
 def floor_half(a,b):
     # NumPy integer // is floor division, matching rb_domain.cpp floor_div.
@@ -66,7 +89,7 @@ def reconstruct(base,diffs,nr,nb):
     return out
 
 def candidate_variants(probe,norm,sensor,base,cfa,nr,nb,black,white):
-    carrier,bounds,support=constraints(probe,norm,sensor,cfa,nr,nb,'certificate8',black,white)
+    carrier,bounds,support=certificate_constraints(probe,norm,sensor,cfa,nr,nb,black,white)
     d=interpolated_fields(carrier,cfa)
     lo0,hi0,av0=bounds[0]; lo1,hi1,av1=bounds[1]
     joint=(support&av0&av1&(d[0]>hi0)&(d[1]>hi1))
