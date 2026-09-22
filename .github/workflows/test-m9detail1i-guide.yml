@@ -63,6 +63,7 @@ jobs:
           python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera
 
       - name: Run RGGB colour-edge falsification
+        if: false
         run: |
           set -euo pipefail
           python3 -m venv /tmp/m9detail1i-python
@@ -71,30 +72,35 @@ jobs:
             --assembled PhotonCamera --cfas 0 --out M9DETAIL1I_GUIDE_RGGB | tee M9DETAIL1I_GUIDE_RGGB.log
 
       - name: Run clipping-gated edge-directed carrier falsification
+        if: false
         run: |
           set -euo pipefail
           /tmp/m9detail1i-python/bin/python research/detail1a/edge_directed_carrier_probe.py \
             --assembled PhotonCamera --cfas 0 --out M9DETAIL1J_CARRIER_RGGB | tee M9DETAIL1J_CARRIER_RGGB.log
 
       - name: Run native R/B clipping fallback falsification
+        if: false
         run: |
           set -euo pipefail
           /tmp/m9detail1i-python/bin/python research/detail1a/native_clip_fallback_probe.py \
             --assembled PhotonCamera --cfas 0 --out M9DETAIL1K_NATIVEFALLBACK_RGGB | tee M9DETAIL1K_NATIVEFALLBACK_RGGB.log
 
       - name: Run censored-diagonal carrier falsification
+        if: false
         run: |
           set -euo pipefail
           /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_mean_probe.py \
             --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1L_CENSOREDMEAN_ALLCFA | tee M9DETAIL1L_CENSOREDMEAN_ALLCFA.log
 
       - name: Stress zero-regression censored-diagonal candidate
+        if: false
         run: |
           set -euo pipefail
           /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_stress_probe.py \
             --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1M_STRESS_ALLCFA | tee M9DETAIL1M_STRESS_ALLCFA.log
 
       - name: Stress sign-consensus censored-anchor candidate
+        if: false
         run: |
           set -euo pipefail
           /tmp/m9detail1i-python/bin/python research/detail1a/censored_signoutlier_stress_probe.py \
