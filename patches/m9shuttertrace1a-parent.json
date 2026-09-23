@@ -1,0 +1,12 @@
+{
+  "app/build.gradle": "685fc8dfe3ce49023541ae19dace5719a32ff7c94624914ca3c50a2282349a6c",
+  "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+  "app/src/main/assets/shaders/preview/main_fs.glsl": "9fe306415cbad0cba4659eb375e698a62da3a5a3f08af0007ecb20bc8333fa27",
+  "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "930ac8af715dcf120f011bcd8dc380e7bea2bfa66a5b146c1f512e4159b96eff",
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "bac0470aa8a342f7b5404704b8eeb159404a1d30dbbac2cc67451983610298e3",
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "a7dfa41df5eaa92c69ef4236e6d697f10e6681cadfbfc46d66869628d405ab56",
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java": "fd3bca46174acb0f8d87ed0450efa07387a6d89765f3f240c76786963d145f85",
+  "app/src/main/java/com/particlesdevs/photoncamera/gallery/adapters/ImageAdapter.java": "0ce50a3a726901afe4c4c5416c8169a07446965e6d48ff64a8cd8d5c29bbd29b",
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/CameraFragmentViewModel.java": "96ecc1700ba64928bfdb246c7f963fe274eec3c05a121f2d3108f49f603e65c5",
+  "app/src/main/java/com/particlesdevs/photoncamera/api/ParseExif.java": "583daed2d8b5a7371959339fd024651ecfb669c672aed07162deb1d7735b8009"
+}
