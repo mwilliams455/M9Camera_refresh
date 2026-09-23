@@ -10,6 +10,22 @@ clipped-sample repair alone, and noise handling followed by clipped repair.
 All four retain the same downstream processing and correction strength.
 No automatic ISO-based demosaicer selection is introduced.
 
+## Working configuration
+
+| Responsibility | Selected direction |
+|---|---|
+| Auto exposure / highlight protection | Apply the existing preview clipping and brightening budget to total positive Auto bias, including the inherited baseline. See the [Auto exposure policy](../../patches/colourtrial1a/README.md). |
+| Complete colour reconstruction | AMaZE, with the old green replacement and final Sharp absent. |
+| Residual chroma correction | Fixed 25% directional correction from COLOURTRIAL1A. |
+| RAW noise correction | Apply one quarter of the same-phase noise-filter proposal. |
+
+This is a working balance for implementation and device validation. Faint
+residual fringe and some attenuation of tiny colour details remain possible.
+The full noise-filter strength and `clipped_ratio` are retained as diagnostic
+experiments; neither is selected for this configuration. Highlight protection
+is documented under Auto exposure, with its preview-based measurement limits
+kept explicit. No new runtime or APK integration is introduced by this choice.
+
 ## Noise hypothesis
 
 `phase_noise` works before demosaicing. It compares 3×3 patches within each
@@ -38,7 +54,7 @@ to 25% of the full proposal, within half a code of rounding. It is distinct
 from the fixed downstream 25% chroma correction. This RAW bound does not
 guarantee a corresponding bound after nonlinear demosaicing and colour.
 
-## Highlight hypothesis
+## Diagnostic highlight-reconstruction hypothesis
 
 `clipped_ratio` modifies only measurements flagged as physically sensor-white
 clipped. Shading-amplified or white-balanced values exceeding one are not such

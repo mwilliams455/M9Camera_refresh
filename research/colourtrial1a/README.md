@@ -8,8 +8,10 @@ ISO switch, sharpening or scene lookup. Tested strengths are 0.25 and 0.50.
 
 Zero strength, flat colours, achromatic texture and connected straight colour
 lines remain exact. Isolated genuine colour points can lose colour contrast;
-partial strength limits but does not eliminate that tradeoff. This is not an
-accepted colour fix and is not integrated in the application renderer.
+partial strength limits but does not eliminate that tradeoff. The working
+configuration retains strength 0.25 alongside the bounded RAW noise correction
+in [`colourtrial1b`](../colourtrial1b/README.md). Application integration and
+device validation remain pending; this is not a complete fringe-removal claim.
 
 The photographic harness and evidence are kept separately from this source branch.
 The test reconstruction is pinned AMaZE without the old green graft or Sharp;
