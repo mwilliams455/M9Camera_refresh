@@ -9,7 +9,6 @@ import android.os.Environment;
 import android.os.Process;
 import android.util.AtomicFile;
 import android.util.Base64;
-import com.particlesdevs.photoncamera.BuildConfig;
 import com.particlesdevs.photoncamera.m9.M9DiagnosticBurstSpool;
 import com.particlesdevs.photoncamera.util.Log;
 import org.json.JSONArray;
@@ -24,6 +23,7 @@ public final class M9RenderCrash1D {
     private static final String ID="M9RENDERCRASH1D";
     private static final int LIMIT=512*1024;
     private static volatile Context app;
+    private static volatile String version="unknown";
     private static volatile JSONObject previous, previousJava, report;
     private static volatile boolean storageReady;
     private static final AtomicBoolean exported=new AtomicBoolean();
@@ -35,6 +35,7 @@ public final class M9RenderCrash1D {
     public static synchronized void install(Context context) {
         if(app!=null)return;
         app=context.getApplicationContext();
+        try {version=app.getPackageManager().getPackageInfo(app.getPackageName(),0).versionName;}catch(Exception ignored){}
         previous=read("m9-render-stage.json");previousJava=read("m9-render-java.json");
         Thread.UncaughtExceptionHandler parent=Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread,error)->{
@@ -48,7 +49,7 @@ public final class M9RenderCrash1D {
     }
     private static JSONObject base() throws Exception {
         JSONObject j=new JSONObject();j.put("schema","m9cam.rendercrash.v1d");j.put("revision",ID);
-        j.put("version",BuildConfig.VERSION_NAME);j.put("pid",Process.myPid());j.put("epochMs",System.currentTimeMillis());return j;
+        j.put("version",version);j.put("pid",Process.myPid());j.put("epochMs",System.currentTimeMillis());return j;
     }
     public static void begin(Path path) {
         try {JSONObject j=base();j.put("capture",path==null?JSONObject.NULL:path.getFileName().toString());

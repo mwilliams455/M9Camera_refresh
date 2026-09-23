@@ -253,6 +253,7 @@ jobs:
             M9COLOURTRIAL1D_APPLY.json
             M9COLOURTRIAL1D_VERIFY.json
             PhotonCamera/M9COLOURTRIAL1D_SOURCE_PROOF.json
+            PhotonCamera/app/build/intermediates/cxx/Debug/**/obj/*/libm9color.so
             COLOURTRIAL1D_TESTS/*.json
             COLOURTRIAL1D_TESTS/*.txt
             M9COLOURTRIAL1C_APPLY.json
