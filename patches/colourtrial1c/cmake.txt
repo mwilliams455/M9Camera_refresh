@@ -1,0 +1,23 @@
+# COLOURTRIAL1C: pinned AMaZE and selected quarter-strength kernels.
+target_sources(m9color PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/colourtrial1c/reconstruct.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/colourtrial1c/phase_noise.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/colourtrial1c/chroma.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/colourtrial1c/upstream/amaze.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/colourtrial1c/upstream/border.cc)
+target_include_directories(m9color PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/colourtrial1c/upstream/include)
+target_compile_options(m9color PRIVATE -fopenmp)
+execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -print-resource-dir
+    OUTPUT_VARIABLE M9_TRIAL_CLANG_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(ANDROID_ABI STREQUAL "arm64-v8a")
+    set(M9_TRIAL_OMP_ARCH aarch64)
+elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+    set(M9_TRIAL_OMP_ARCH arm)
+else()
+    message(FATAL_ERROR "Unvalidated COLOURTRIAL1C ABI: ${ANDROID_ABI}")
+endif()
+set(M9_TRIAL_OMP_LIB "${M9_TRIAL_CLANG_DIR}/lib/linux/${M9_TRIAL_OMP_ARCH}/libomp.a")
+if(NOT EXISTS "${M9_TRIAL_OMP_LIB}")
+    message(FATAL_ERROR "COLOURTRIAL1C requires static OpenMP: ${M9_TRIAL_OMP_LIB}")
+endif()
+target_link_libraries(m9color PRIVATE "${M9_TRIAL_OMP_LIB}")

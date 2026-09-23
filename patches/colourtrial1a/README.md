@@ -38,5 +38,7 @@ only M9AutoExposure2D.java. It refuses an unexpected parent and is idempotent.
 synthetic state/selection scenarios. The tiny JSON stubs only discard diagnostic
 serialization. Run via a Java runtime containing the compiler module.
 
-No workflow or APK incorporates this patch automatically. No default reconstruction,
-SAT bank, tone curve, HSM, TG, JPEG encoding, or existing branch is changed.
+The isolated COLOURTRIAL1C APK workflow now incorporates this policy alongside the
+selected rendering balance. See [`../colourtrial1c`](../colourtrial1c/README.md).
+This source patch by itself changes no reconstruction, SAT bank, tone curve, HSM,
+TG or JPEG encoding.
