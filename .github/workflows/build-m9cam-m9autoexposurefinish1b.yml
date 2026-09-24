@@ -2,10 +2,6 @@ name: Build M9Cam M9AUTOEXPOSUREFINISH1B
 
 on:
   workflow_dispatch:
-
-concurrency:
-  group: m9-autoexposure-finish1b
-  cancel-in-progress: true
   push:
     branches: [research/m9-autoexposure-finish1b]
     paths:
@@ -19,6 +15,10 @@ concurrency:
       - 'patches/tests/colourtrial1e/**'
       - 'patches/colourtrial1d/**'
       - 'patches/tests/colourtrial1d/**'
+
+concurrency:
+  group: m9-autoexposure-finish1b
+  cancel-in-progress: true
 
 jobs:
   build:
