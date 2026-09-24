@@ -157,20 +157,20 @@ public class PolicyTest {
 
   Stats[] back=backlight();
   Stats[] moderateBack=moderateBacklight();
-  yes(M9AutoExposure2D.backlightPlacementSeverity(back)
-          > M9AutoExposure2D.backlightPlacementSeverity(moderateBack),
+  yes(M9AutoExposure2D.backlightPlacementSeverity(back[0])
+          > M9AutoExposure2D.backlightPlacementSeverity(moderateBack[0]),
       "severe backlight has greater placement severity than moderate backlight");
-  yes(M9AutoExposure2D.backlightCenterTarget(back)
-          > M9AutoExposure2D.backlightCenterTarget(moderateBack),
+  yes(M9AutoExposure2D.backlightCenterTarget(back[0])
+          > M9AutoExposure2D.backlightCenterTarget(moderateBack[0]),
       "severe backlight receives a higher centre target");
-  yes(M9AutoExposure2D.backlightCenterQ25Target(back)
-          > M9AutoExposure2D.backlightCenterQ25Target(moderateBack),
+  yes(M9AutoExposure2D.backlightCenterQ25Target(back[0])
+          > M9AutoExposure2D.backlightCenterQ25Target(moderateBack[0]),
       "severe backlight receives a higher lower-quartile target");
-  yes(M9AutoExposure2D.backlightCenterTarget(back)<=72
-          && M9AutoExposure2D.backlightCenterQ25Target(back)<=32,
+  yes(M9AutoExposure2D.backlightCenterTarget(back[0])<=72
+          && M9AutoExposure2D.backlightCenterQ25Target(back[0])<=32,
       "adaptive backlight target remains inside M9-like dense-body ceiling");
-  yes(M9AutoExposure2D.backlightCenterTarget(moderateBack)>=58
-          && M9AutoExposure2D.backlightCenterQ25Target(moderateBack)>=22,
+  yes(M9AutoExposure2D.backlightCenterTarget(moderateBack[0])>=58
+          && M9AutoExposure2D.backlightCenterQ25Target(moderateBack[0])>=22,
       "moderate backlight target never falls below the low-key floor");
   yes(M9AutoExposure2D.positiveHeadroomLimit(back)==0,
       "ordinary strict guard rejects first severe-backlight step");
