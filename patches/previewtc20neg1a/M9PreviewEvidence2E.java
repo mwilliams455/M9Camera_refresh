@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
  * Never feeds Auto, capture allocation or the still renderer.
  */
 public final class M9PreviewEvidence2E {
+    public static final String LEGACY_EVIDENCE_REVISION="M9LIVEGL2E_PAIREDPIXELS";
     private static final long INTERVAL_NS=250000000L;
     private static final long FRESH_NS=1000000000L;
     private static final long RESULT_MATCH_NS=500000000L;
@@ -207,7 +208,7 @@ public final class M9PreviewEvidence2E {
     public org.json.JSONObject snapshot(long shutterNs,M9ExposurePlan1A capture){
         org.json.JSONObject o=new org.json.JSONObject();
         try{
-            o.put("revision","M9PREVIEWTC20NEG1A").put("available",false);
+            o.put("revision","M9PREVIEWTC20NEG1A").put("pairedEvidenceRevision",LEGACY_EVIDENCE_REVISION).put("available",false);
             Evidence e=latest;
             if(e==null)return o.put("reason",unavailableReason);
             if(capture==null||!e.state.plan.cameraId.equals(capture.cameraId)
