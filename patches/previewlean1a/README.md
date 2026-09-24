@@ -9,12 +9,9 @@ is not required for normal M9 Modern operation.
 Normal M9 Modern now disables:
 - the 30-second per-frame root-cause Camera2 metadata recorder;
 - the 64x64 x 9 shutter-trace preview pixel history;
-- retention of complete reported Camera2 tone-curve arrays inside each live
-  M9GpuPreview2A.Frame. Point counts and the existing diagnostic key remain.
 
-These are diagnostic-only removals. The actual controlled Camera2 tone curve is
-still read and inverted to build the live inverse texture; only its later retained
-copy for diagnostics is removed.
+These are diagnostic-only removals. The controlled Camera2 preview transform and
+its inverse texture remain untouched.
 
 Frozen:
 - AUTOEXPOSUREFINISH1B policy and all thresholds;
