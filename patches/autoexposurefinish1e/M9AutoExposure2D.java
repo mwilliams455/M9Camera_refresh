@@ -869,7 +869,7 @@ public final class M9AutoExposure2D {
     private static JSONArray json(int[] a) {
         JSONArray out=new JSONArray();for(int v:a)out.put(v);return out;
     }
-    private static JSONArray json(double[] a) {
+    private static JSONArray json(double[] a) throws org.json.JSONException {
         JSONArray out=new JSONArray();for(double v:a)out.put(v);return out;
     }
     private static boolean code(int x){return x>=0&&x<=255;}
