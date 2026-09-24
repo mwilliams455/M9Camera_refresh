@@ -10,14 +10,12 @@ from m9rbrollback1a import inventory
 GRADLE='app/build.gradle'
 CONTROLLER='app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java'
 MAIN='app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java'
-GPU='app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java'
 ID='M9PREVIEWLEAN1A'
 
 BASELINE={
  GRADLE:'010f2b4ddfc73c78af7285aa37a612b4a5a2104b416958cb7a3d0294c81b6d47',
  CONTROLLER:'b35adf80a63667bc9ac2318af1b542755336d840fd0b1c80378dae3dfe3f7e67',
  MAIN:'8a3bf1a9ed1abbc535e1efec5aebf40c6c46d3a427fe1ded76dbe98ac81d27a9',
- GPU:'5baa7c511d098fa23e99cf54fb76e8a9f69dab83264e3a3f0f5395d89682bf8a',
 }
 CHANGED=set(BASELINE)
 
@@ -53,28 +51,6 @@ def transform_main(s):
         com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.registerPixels(null);''',
       'root-cause pixel collector disable')
 
-def transform_gpu(s):
-    s=one(s,
-      '        private final float[][] reportedCurves;',
-      '        private final int[] reportedCurvePointCounts;',
-      'GPU reported curve field')
-    s=one(s,
-      '            undo=source=target=new float[]{1,0,0,0,1,0,0,0,1}; white=new float[]{1,1,1}; inverse=new byte[0]; reportedCurves=new float[0][];',
-      '            undo=source=target=new float[]{1,0,0,0,1,0,0,0,1}; white=new float[]{1,1,1}; inverse=new byte[0]; reportedCurvePointCounts=new int[0];',
-      'GPU fallback curve field')
-    s=one(s,
-      '            reportedCurves=new float[][]{curves[0].clone(),curves[1].clone(),curves[2].clone()};',
-      '            reportedCurvePointCounts=new int[]{curves[0].length/2,curves[1].length/2,curves[2].length/2};',
-      'GPU curve retention')
-    s=one(s,
-      '''                JSONArray curves=new JSONArray();
-                for(float[] c:reportedCurves)curves.put(new JSONArray(c));
-                o.put("reportedToneCurveRgb2E",curves);''',
-      '''                o.put("reportedToneCurveRgb2E","omitted_production_heap_guard");
-                o.put("reportedToneCurvePointCounts2E",new JSONArray(reportedCurvePointCounts));''',
-      'GPU diagnostics curve payload')
-    return s
-
 def verify(root):
     proof=json.loads((root/(ID+'_SOURCE_PROOF.json')).read_text())
     now=inventory(root); before=proof['before']
@@ -84,14 +60,11 @@ def verify(root):
     if changed!=CHANGED or added or removed:
         raise SystemExit('unexpected delta changed=%r added=%r removed=%r'%
                          (sorted(changed),sorted(added),sorted(removed)))
-    c=(root/CONTROLLER).read_text(); m=(root/MAIN).read_text(); g=(root/GPU).read_text()
+    c=(root/CONTROLLER).read_text(); m=(root/MAIN).read_text()
     checks={
       'modern root trace off':'!M9Config.isM9Modern() && M9Config.isCaptureTest()' in c,
       'shutter pixel collector null':'mM9ShutterPixels = null;' in m,
       'shutter pixel register null':'M9ShutterTrace1A.registerPixels(null);' in m,
-      'no retained preview curve clones':'reportedCurves' not in g,
-      'curve point counts only':'reportedCurvePointCounts' in g,
-      'diagnostic key preserved':'reportedToneCurveRgb2E","omitted_production_heap_guard' in g,
     }
     for name,ok in checks.items():
         if not ok: raise SystemExit('PREVIEWLEAN verify failed: '+name)
@@ -117,7 +90,6 @@ def verify(root):
       'changed':sorted(CHANGED),
       'normalM9ModernRootCauseTrace':False,
       'normalM9ModernRootCausePixels':False,
-      'retainedReportedToneCurveArrays':False,
       'auto_JPEG_DNG_previewTC20_shader_shutterDrawLock_frozen':True,
       'deviceValidationPending':True,
     }
@@ -136,7 +108,6 @@ def main(root):
     before=inventory(root)
     (root/CONTROLLER).write_text(transform_controller((root/CONTROLLER).read_text()))
     (root/MAIN).write_text(transform_main((root/MAIN).read_text()))
-    (root/GPU).write_text(transform_gpu((root/GPU).read_text()))
     gradle=one(gradle,'versionCode 26694','versionCode 26695','version code')
     gradle=one(gradle,"versionName '1.74-m9previewheap1a-tg1'",
                "versionName '1.75-m9previewlean1a-tg1'",'version name')
