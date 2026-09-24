@@ -130,11 +130,11 @@ public final class M9AutoExposure2D {
                     .put("fieldMapValid",fieldMapValid);
             if(fieldMapValid) {
                 o.put("fieldGrid",FIELD_ROWS+"x"+FIELD_COLS)
-                        .put("fieldMedianCode",json(fieldMedian))
-                        .put("fieldQ25Code",json(fieldQ25))
-                        .put("fieldQ90Code",json(fieldQ90))
-                        .put("fieldBrightFraction",json(fieldBright))
-                        .put("fieldClipFraction",json(fieldClipped));
+                        .put("fieldMedianCode",M9AutoExposure2D.json(fieldMedian))
+                        .put("fieldQ25Code",M9AutoExposure2D.json(fieldQ25))
+                        .put("fieldQ90Code",M9AutoExposure2D.json(fieldQ90))
+                        .put("fieldBrightFraction",M9AutoExposure2D.json(fieldBright))
+                        .put("fieldClipFraction",M9AutoExposure2D.json(fieldClipped));
             }
             return o;
         }
