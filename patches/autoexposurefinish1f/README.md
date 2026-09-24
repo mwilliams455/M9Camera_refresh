@@ -51,6 +51,22 @@ a genuine scene change.
 - shutter draw-lock;
 - 1.75 streaming-spool stability repair.
 
-The goal is purely temporal: a static scene should stop re-deciding what the
-subject is every meter sample, while a real pan/new scene can still reacquire in
-roughly two fresh samples.
+## Protected open-anchor guard
+
+Phone portraits from 1.78 exposed a different generalization problem: a coherent
+dark clothing/upholstery region can win the body search even when a separate,
+textured midtone region is already well exposed.
+
+1F therefore also protects a coherent already-open anchor. This is semantic-free:
+no face/skin/AI recognition. It requires at least two connected fields with
+inner-frame support, median roughly 90..215, Q25 >=55, useful tonal spread, and
+low near-white/clipping fractions. The q90/bright/clip limits deliberately reject
+windows and specular backgrounds.
+
+When such an anchor exists, unrelated dark material is not promoted into an
+exposure-deficient subject. The truck/window case remains eligible because the
+window is too near-white/clipped to qualify as an open anchor.
+
+The goal is both temporal and photographic: a static scene should stop
+re-deciding what the subject is every meter sample, and Auto should not brighten
+an already-good portrait merely because dark clothing occupies much of the frame.
