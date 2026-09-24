@@ -7,7 +7,7 @@ assembled=Path(sys.argv[2]).resolve() if len(sys.argv)>2 else None
 
 stubs={
  'org/json/JSONException.java':'package org.json; public class JSONException extends Exception {}',
- 'org/json/JSONObject.java':'package org.json; public class JSONObject { public JSONObject put(String k,Object v) throws JSONException{return this;} public String toString(){return "{}";} }',
+ 'org/json/JSONObject.java':'package org.json; public class JSONObject { public static final Object NULL=new Object(); public JSONObject put(String k,Object v) throws JSONException{return this;} public String toString(){return "{}";} }',
  'org/json/JSONArray.java':'package org.json; public class JSONArray { public JSONArray put(Object v){return this;} }',
 }
 for name,s in stubs.items():
