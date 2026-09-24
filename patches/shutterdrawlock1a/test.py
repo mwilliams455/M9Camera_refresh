@@ -18,7 +18,7 @@ checks={
  'latest_camera_plan_diagnostic_only':'latestCameraPlan1A' in c,
  'old_latest_base_selection_absent':'final M9ExposurePlan1A basePlan1W = plannedCapture1A ? getM9ExposurePlan1A() : null;' not in c,
  'snapshot_attached_to_display_plan':'snapshotM9DrawState1W(shutterDrawLockNs1A, basePlan1W)' in c,
- 'GL_wrapper':g.count('snapshotM9DrawPlan1A(')==1,
+ 'GL_wrapper':g.count('snapshotM9DrawPlan1A(')==2,
  'renderer_export':r.count('snapshotM9DrawPlan1A(')==1,
  'renderer_returns_draw_plan':'return draw.state.plan;' in r,
  'renderer_draw_freshness':'ageNs > 1_500_000_000L' in r,
