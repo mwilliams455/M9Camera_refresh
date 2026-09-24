@@ -156,7 +156,10 @@ def verify(root):
       'displayed accessor':'getM9DisplayedExposurePlan1A(shutterDrawLockNs1A)' in c,
       'waits for GL draw':'getM9DisplayedExposurePlan1A(SystemClock.elapsedRealtimeNanos())' in c,
       'latest plan diagnostic only':'latestCameraPlan1A' in c,
-      'capture base not latest':('final M9ExposurePlan1A basePlan1W = plannedCapture1A' in c\n            and '? getM9DisplayedExposurePlan1A(shutterDrawLockNs1A) : null;' in c\n            and 'final M9ExposurePlan1A basePlan1W = plannedCapture1A ? getM9ExposurePlan1A() : null;' not in c),
+      'capture base not latest':(
+            'final M9ExposurePlan1A basePlan1W = plannedCapture1A' in c
+            and '? getM9DisplayedExposurePlan1A(shutterDrawLockNs1A) : null;' in c
+            and 'final M9ExposurePlan1A basePlan1W = plannedCapture1A ? getM9ExposurePlan1A() : null;' not in c),
       'GL wrapper':'snapshotM9DrawPlan1A' in g,
       'renderer freshness':'ageNs > 1_500_000_000L' in r,
     }
