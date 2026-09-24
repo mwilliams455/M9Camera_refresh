@@ -159,7 +159,7 @@ public final class M9AutoExposure2D {
         Stats base=s[0];int chosen=0;
         for(int i=1;i<STEPS;i++) {
             Stats v=s[i];
-            if(unsafeOrdinary(base,v))break;
+            if(unsafeDarkScene(base,v))break;
             if(sceneImproved(base,v))chosen=i;
             if(sceneTargetReached(v))break;
         }
@@ -188,6 +188,17 @@ public final class M9AutoExposure2D {
         Stats base=s[0];int safe=0;
         for(int i=1;i<STEPS;i++) {
             if(unsafeOrdinary(base,s[i]))break;
+            safe=i;
+        }
+        return ev(safe);
+    }
+
+    /** Bounded isolated-highlight loss for a genuinely starved whole scene. */
+    public static double sceneKeyHeadroomLimit(Stats[] s) {
+        if(!validStats(s)||!sceneKeyStarved(s[0]))return 0;
+        Stats base=s[0];int safe=0;
+        for(int i=1;i<STEPS;i++) {
+            if(unsafeDarkScene(base,s[i]))break;
             safe=i;
         }
         return ev(safe);
@@ -226,6 +237,7 @@ public final class M9AutoExposure2D {
         int sceneChosen=0,backlightChosen=0;
         double sceneRequest=0,backlightRequest=0;
         double strictLimit=valid?positiveHeadroomLimit(sample.stats):0;
+        double sceneLimit=valid?sceneKeyHeadroomLimit(sample.stats):0;
         double backlightLimit=valid?backlightHeadroomLimit(sample.stats):0;
         double backlightConf=valid?backlightConfidence(sample.stats[0]):0;
         boolean lowKeyAdequate=valid&&lowKeyAdequate(sample.stats[0]);
@@ -247,7 +259,7 @@ public final class M9AutoExposure2D {
 
             boolean useBacklight=backlightChosen>0&&backlightRequest>=sceneRequest;
             boolean useScene=!useBacklight&&sceneChosen>0;
-            double positiveLimit=useBacklight?backlightLimit:strictLimit;
+            double positiveLimit=useBacklight?backlightLimit:(useScene?sceneLimit:strictLimit);
             double boundedLegacy=legacy>0?Math.min(legacy,positiveLimit):legacy;
             double request=useBacklight?backlightRequest:(useScene?sceneRequest:0);
 
@@ -285,6 +297,7 @@ public final class M9AutoExposure2D {
                     .put("autoPlacementEligible",autoEligible)
                     .put("legacySceneEv",legacy)
                     .put("strictPositiveHeadroomLimitEv",strictLimit)
+                    .put("sceneKeyPositiveHeadroomLimitEv",sceneLimit)
                     .put("backlightPositiveHeadroomLimitEv",backlightLimit)
                     .put("sceneKeyRequestedEv",sceneRequest)
                     .put("backlightRequestedEv",backlightRequest)
@@ -352,11 +365,22 @@ public final class M9AutoExposure2D {
         return v.clipped>base.clipped+.015||v.bright>base.bright+.04;
     }
 
+    private static boolean unsafeDarkScene(Stats base,Stats v) {
+        // A genuinely starved scene may contain a lamp/specular. Permit bounded
+        // isolated highlight loss rather than letting one point prevent useful exposure.
+        double clipCap=Math.min(.25,Math.max(.12,base.clipped+.08));
+        double brightCap=Math.min(.35,Math.max(.20,base.bright+.12));
+        double centerClipCap=Math.min(.20,Math.max(.10,base.centerClipped+.06));
+        return v.clipped>clipCap||v.bright>brightCap||v.centerClipped>centerClipCap;
+    }
+
     private static boolean unsafeBacklight(Stats base,Stats v) {
-        // Subject highlights remain protected. The bright surround may lose much
-        // more headroom, reproducing a global-exposure M9 compromise instead of HDR.
-        if(v.centerClipped>base.centerClipped+.015)return true;
-        if(v.centerBright>base.centerBright+.06)return true;
+        // The centre rectangle can itself contain bright background behind the body,
+        // so protect it from catastrophic rather than any clipping increase.
+        double centerClipCap=Math.min(.30,Math.max(.15,base.centerClipped+.10));
+        double centerBrightCap=Math.min(.45,Math.max(.30,base.centerBright+.18));
+        if(v.centerClipped>centerClipCap)return true;
+        if(v.centerBright>centerBrightCap)return true;
         double outerClipCap=Math.min(.60,Math.max(.35,base.outerClipped+.20));
         double outerBrightCap=Math.min(.75,Math.max(.55,base.outerBright+.25));
         if(v.outerClipped>outerClipCap||v.outerBright>outerBrightCap)return true;
