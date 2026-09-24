@@ -675,13 +675,14 @@ public final class M9AutoExposure2D {
             if(scene.median>=100&&scene.bright>.24+1e-9)return true;
         }
 
-        // Background may blow, but even that sacrifice remains finite.
-        double bgClipCap=Math.min(.70,
-                Math.max(.38,base.backgroundClipped+.20+.10*body.severity));
-        double bgBrightCap=Math.min(.84,
-                Math.max(.58,base.backgroundBright+.24+.12*body.severity));
-        return v.backgroundClipped>bgClipCap+1e-9
-                ||v.backgroundBright>bgBrightCap+1e-9;
+        // Background may already be very bright at neutral reference. Do not
+        // reject it for being bright; bound only additional loss from that baseline.
+        double bgClipCap=Math.min(1.0,
+                base.backgroundClipped+.18+.10*body.severity);
+        double bgBrightCap=Math.min(1.0,
+                base.backgroundBright+.16+.08*body.severity);
+        return (v.backgroundClipped>.38&&v.backgroundClipped>bgClipCap+1e-9)
+                ||(v.backgroundBright>.84&&v.backgroundBright>bgBrightCap+1e-9);
     }
 
     private static BodyMetrics bodyMetrics(Stats s,int mask) {
