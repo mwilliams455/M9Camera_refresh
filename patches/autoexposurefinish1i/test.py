@@ -271,8 +271,8 @@ public class PolicyTest {
   M9AutoExposure2D.reset();publish(dark());check(decide(0,0,0,0,true),.75,
       "very severe fresh dark-scene deficit may acquire by guarded three-quarter stop");
   check(decide(0,0,0,0,true),.75,"reusing sample cannot ratchet exposure");
-  publish(dark());check(decide(0,0,0,0,true),1.50,
-      "fresh severe deficit permits the second guarded three-quarter-stop acquisition step");
+  publish(dark());check(decide(0,0,0,0,true),1.25,
+      "after the guarded 0.75-EV jump, remaining gap falls back to the safer half-stop tier");
   now+=1300000000L;check(decide(.5,0,0,0,true),0,"stale meter releases positive assist");
   fresh(ordinary(100,11),.5);publish(ordinary(100,1));
   check(decide(.75,.25,0,0,false),.5,"explicit user EV retains displayed Auto baseline");
@@ -352,8 +352,8 @@ public class PolicyTest {
   check(decide(0,0,0,0,true),.75,
       "woodland dead-zone closes with guarded three-quarter-stop acquisition");
   publish(woods);
-  check(decide(0,0,0,0,true),1.50,
-      "woodland severe deficit advances a second guarded three-quarter stop");
+  check(decide(0,0,0,0,true),1.25,
+      "woodland second sample falls back to half-stop once the remaining gap is below 1.25 EV");
   publish(woods);
   check(decide(0,0,0,0,true),1.75,
       "woodland final approach returns to the exact rendered target without overshoot");
