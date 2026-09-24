@@ -43,11 +43,16 @@ samples.
 
 A genuinely severe +1.75 EV request can now converge approximately:
 
-    0 -> +0.75 -> +1.50 -> +1.75
+    0 -> +0.75 -> +1.25 -> +1.75
 
 instead of:
 
     0 -> +0.50 -> +1.00 -> +1.50 -> +1.75
+
+The second step deliberately falls back to +0.50 EV once less than 1.25 EV
+remains. This is slower than two consecutive +0.75 EV jumps, but preserves a
+larger safety margin against a scene change while still removing one acquisition
+cycle.
 
 Less severe scenes continue to use +0.50 or +0.25 EV steps.
 
