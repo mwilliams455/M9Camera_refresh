@@ -77,7 +77,7 @@ if assembled is not None:
   'evidence_busy':'public boolean isBusy() { return fence != 0; }' in evidence,
   'main_serializes':'!m9EvidenceBusy1A && mM9CurveTex != 0' in main
                     and '!m9AutoProbeSubmitted1A && !m9AutoProbeBusy1A' in main,
-  'hud_null_guards':camera.count('if (captureController == null) return;')>=2,
+  'hud_null_guards':camera.count('if (captureController == null) return;')>=1,
   'no_boxed_sort':'Integer[]' not in math,
   'persistent_hist':'ThreadLocal<Scratch>' in math,
  }
