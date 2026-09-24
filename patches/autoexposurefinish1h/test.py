@@ -470,8 +470,10 @@ public class PolicyTest {
   // One low sample must not toggle the preview down; the second confirms a 0.25-EV release.
   M9AutoExposure2D.reset();
   double before=0;
-  for(int i=0;i<6;i++){publish(back);before=decide(0,0,0,0,true);}
-  yes(before>1.0,"severe backlight establishes a positive displayed baseline");
+  // FASTACQUIRE1A reaches the same ~1.5-EV partial baseline in three fresh
+  // severe samples that previously required six quarter-stop samples.
+  for(int i=0;i<3;i++){publish(back);before=decide(0,0,0,0,true);}
+  yes(before>1.0&&before<=1.5,"severe backlight establishes a partial positive displayed baseline");
   publish(moderateBack);double firstLower=decide(0,0,0,0,true);
   check(firstLower,before,"single lower target sample is held to prevent EV ping-pong");
   publish(moderateBack);double secondLower=decide(0,0,0,0,true);
