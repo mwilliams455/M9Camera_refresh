@@ -50,7 +50,7 @@ public class PolicyTest {
  static Stats[] veryDark(){
   Stats[] s=new Stats[11];
   for(int i=0;i<11;i++)s[i]=stat(5+3*i,10+4*i,3+2*i,20+4*i,
-      Math.max(.40,.90-.04*i),.002+.003*i,.001+.002*i,
+      Math.max(.40,.90-.04*i),.002+.002*i,.001,
       Math.max(.35,.88-.04*i),.003+.002*i,.001+.001*i,.001,.001+.002*i);
   return s;
  }
@@ -89,7 +89,7 @@ public class PolicyTest {
  }
  static Stats[] noBacklight(){
   Stats[] s=new Stats[11];
-  for(int i=0;i<11;i++)s[i]=stat(55+3*i,38+4*i,20+3*i,70+3*i,
+  for(int i=0;i<11;i++)s[i]=stat(55+3*i,38+4*i,20+3*i,45+3*i,
       .30,.01,.002,.30,.005,.003,.001,.002);
   return s;
  }
