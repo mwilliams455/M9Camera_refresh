@@ -545,6 +545,12 @@ public final class M9AutoExposure2D {
                     .put("bodyLockPendingMask",pendingBodyMask)
                     .put("bodyLockPendingConfirmations",pendingBodyConfirmations)
                     .put("bodyLockMissConfirmations",bodyMissConfirmations)
+                    .put("protectedOpenAnchorMask",
+                            valid&&sample.stats[0].fieldMapValid
+                                    ?protectedOpenAnchorMask(sample.stats[0]):0)
+                    .put("protectedOpenAnchorFieldCount",
+                            valid&&sample.stats[0].fieldMapValid
+                                    ?protectedOpenAnchorFieldCount(sample.stats[0]):0)
                     .put("m9CharacterHighlightGuard",true)
                     .put("lowerTargetConfirmations",lowerTargetConfirmations)
                     .put("pendingLowerTargetEv",
@@ -572,6 +578,13 @@ public final class M9AutoExposure2D {
         if(base==null||!base.fieldMapValid) {
             resetBodyLock();
             return BodyCandidate.invalid("body_lock_no_field_map");
+        }
+
+        int openAnchorMask=protectedOpenAnchorMask(base);
+        if(openAnchorMask!=0) {
+            resetBodyLock();
+            bodyLockReason="protected_open_anchor";
+            return BodyCandidate.invalid("protected_open_anchor_present");
         }
 
         if(latchedBodyMask==0) {
@@ -706,6 +719,46 @@ public final class M9AutoExposure2D {
         return smaller>0?shared/(double)smaller:0;
     }
 
+    /**
+     * A coherent, textured, already-open region protects the scene from having
+     * unrelated dark material promoted into an exposure-deficient "subject".
+     *
+     * Windows/specular backgrounds are excluded by the q90/bright/clip limits.
+     * This is deliberately semantic-free: no face/skin recognition.
+     */
+    public static int protectedOpenAnchorMask(Stats s) {
+        if(s==null||!s.valid()||!s.fieldMapValid)return 0;
+        boolean[] q=new boolean[FIELD_COUNT],seen=new boolean[FIELD_COUNT];
+        for(int f=0;f<FIELD_COUNT;f++) {
+            int med=s.fieldMedian[f],low=s.fieldQ25[f],hi=s.fieldQ90[f];
+            q[f]=med>=90&&med<=215&&low>=55&&hi<=235
+                    &&hi-low>=18&&s.fieldBright[f]<=.12&&s.fieldClipped[f]<=.04;
+        }
+        int[] stack=new int[FIELD_COUNT];
+        int bestMask=0,bestCount=0;
+        for(int start=0;start<FIELD_COUNT;start++) {
+            if(!q[start]||seen[start])continue;
+            int top=0;stack[top++]=start;seen[start]=true;
+            int mask=0,count=0;boolean hasInner=false;
+            while(top>0) {
+                int f=stack[--top];mask|=1<<f;count++;
+                int row=f/FIELD_COLS,col=f%FIELD_COLS;
+                if(row>=1&&row<=2&&col>=1&&col<=4)hasInner=true;
+                int up=f-FIELD_COLS,down=f+FIELD_COLS,left=f-1,right=f+1;
+                if(row>0&&q[up]&&!seen[up]){seen[up]=true;stack[top++]=up;}
+                if(row<FIELD_ROWS-1&&q[down]&&!seen[down]){seen[down]=true;stack[top++]=down;}
+                if(col>0&&q[left]&&!seen[left]){seen[left]=true;stack[top++]=left;}
+                if(col<FIELD_COLS-1&&q[right]&&!seen[right]){seen[right]=true;stack[top++]=right;}
+            }
+            if(hasInner&&count>=2&&count>bestCount){bestMask=mask;bestCount=count;}
+        }
+        return bestMask;
+    }
+
+    public static int protectedOpenAnchorFieldCount(Stats s) {
+        return Integer.bitCount(protectedOpenAnchorMask(s));
+    }
+
     public static BodyCandidate multifieldBodyCandidate(Stats s) {
         if(s==null||!s.valid()||!s.fieldMapValid)
             return BodyCandidate.invalid("field_map_unavailable");
@@ -713,6 +766,9 @@ public final class M9AutoExposure2D {
             return BodyCandidate.invalid("accepted_low_key_body_adequate");
         if(s.median>=110&&s.bright>=.20)
             return BodyCandidate.invalid("scene_already_high_key");
+        int openAnchorMask=protectedOpenAnchorMask(s);
+        if(openAnchorMask!=0)
+            return BodyCandidate.invalid("protected_open_anchor_present");
 
         int sceneHigh=fieldQuantile(s.fieldQ90,-1,.75);
         int allBrightFields=0;
