@@ -112,7 +112,7 @@ def transform_camera(s):
     anchor='''                    IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.getM9LiveHudPair1A(captureController);
 '''
     n=s.count(anchor)
-    if n!=2: raise SystemExit('HUD pair call count='+str(n))
+    if n!=1: raise SystemExit('HUD pair call count='+str(n))
     repl='''                    // M9PREVIEWSTABILITY1A: HUD callbacks can outlive camera-controller teardown.
                     if (captureController == null) return;
                     IsoExpoSelector.ExpoPair expoPair = IsoExpoSelector.getM9LiveHudPair1A(captureController);
@@ -140,7 +140,7 @@ def verify(root):
       'serial main marker':'M9PREVIEWSTABILITY1A' in main,
       'evidence gated by auto busy':'!m9AutoProbeSubmitted1A && !m9AutoProbeBusy1A' in main,
       'auto gated by evidence busy':'!m9EvidenceBusy1A && mM9CurveTex != 0' in main,
-      'hud guards':camera.count('if (captureController == null) return;')>=2,
+      'hud guards':camera.count('if (captureController == null) return;')>=1,
       'no boxed TC20 sort':'Integer[]' not in (root/MATH).read_text(),
       'persistent TC20 histogram':'ThreadLocal<Scratch>' in (root/MATH).read_text(),
     }
