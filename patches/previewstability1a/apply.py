@@ -68,9 +68,9 @@ def transform_meter(s):
     if 'return;' in m:
         raise SystemExit('unconverted bare return in meter sample')
     m=m.replace('            GLES30.glFlush(); // Submit only; readback is mapped after a later zero-timeout fence poll.',
-                '            GLES30.glFlush(); // Submit only; readback is mapped after a later zero-timeout fence poll.\\n            return true;',1)
+                '            GLES30.glFlush(); // Submit only; readback is mapped after a later zero-timeout fence poll.\n            return true;',1)
     # Error path reaches here after catch/finally.
-    m=m[:-1]+'        return false;\\n    }'
+    m=m[:-1]+'        return false;\n    }'
     return s[:a]+m+s[b:]
 
 def transform_evidence(s):
