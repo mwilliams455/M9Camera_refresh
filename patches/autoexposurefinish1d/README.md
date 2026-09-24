@@ -17,13 +17,18 @@ character ceiling before them.
 It primarily watches the central region because the subject often occupies it,
 while the bright window/sky is deliberately allowed to clip in the surround.
 
-The soft ceiling is severity-aware but bounded approximately to:
-- central channel clipping: 7.5%–12%;
-- central near-white luma: 20%–28%;
-- full-frame channel clipping: 30% absolute ceiling.
+The soft guard is now background-aware. Central highlight pressure has no
+authority while the body is still deeply starved. It only starts participating
+once the rendered centre reaches at least median 58 and Q25 28.
 
-A severe backlit scene can still reach around +2 EV if its central highlights
-remain dense. The guard therefore does not recreate the old +0.5 EV problem.
+After that point it limits *additional* central clipping/near-white growth rather
+than assuming an already-clipped central window belongs to the subject. An
+independent "too open" condition (centre median >=100 and Q25 >=42 plus meaningful
+highlight pressure) prevents scene normalization. Full-frame clipping still has a
+30% absolute ceiling.
+
+A severe backlit scene can therefore still gain exposure behind a blown window,
+while an already-open subject is stopped before the M9 contrast character washes out.
 
 ## Viewfinder target stability
 
