@@ -72,6 +72,17 @@ public class PolicyTest {
        .14,.17,.08,.04,.08,fm,fq,fh,fb,fc);
   }return s;
  }
+ static Stats[] openAnchorWithDarkMaterial(){
+  Stats[] s=new Stats[11];int[] dark={6,12,18,19,20};int[] anchor={2,3,8,9,14,15};
+  for(int i=0;i<11;i++){
+   int[] fm=ints(125+2*i),fq=ints(78+2*i),fh=ints(185+2*i);
+   double[] fb=doubles(.02),fc=doubles(.002);
+   fields(fm,fq,fh,fb,fc,dark,24+4*i,10+3*i,58+5*i,.001,.001);
+   fields(fm,fq,fh,fb,fc,anchor,155+2*i,92+2*i,220+Math.min(i,3),.07,.002);
+   s[i]=gridStat(92+2*i,160+2*i,80+2*i,220+Math.min(i,4),.27,.035,.004,
+       .10,.04,.03,.002,.004,fm,fq,fh,fb,fc);
+  }return s;
+ }
  static Stats[] centralWindowGrid(){
   Stats[] s=new Stats[11];int[] body={12,13,14,15,16};
   for(int i=0;i<11;i++){
@@ -286,6 +297,14 @@ public class PolicyTest {
   yes(M9AutoExposure2D.selectBacklight(lowKeyGrid())==0,
       "multi-field path preserves low-key night-style neutrality");
 
+  Stats[] anchorScene=openAnchorWithDarkMaterial();
+  yes(M9AutoExposure2D.protectedOpenAnchorFieldCount(anchorScene[0])>=2,
+      "coherent already-open textured region is detected");
+  yes(!M9AutoExposure2D.multifieldBodyCandidate(anchorScene[0]).valid,
+      "already-open anchor prevents dark clothing/material from becoming the Auto subject");
+  yes(M9AutoExposure2D.selectBacklight(anchorScene)==0,
+      "well-exposed anchor scene receives no unrelated dark-material lift");
+
   // BODYLOCK1A: hold the same spatial body and original readability target
   // across meter noise / a one-field boundary shift.
   M9AutoExposure2D.reset();
@@ -437,6 +456,8 @@ receipt={
  'body_lock_overlap_fraction':0.50,
  'body_switch_fresh_confirmations':2,
  'body_target_locked_with_mask':True,
+ 'protected_open_anchor_guard':True,
+ 'open_anchor_requires_coherent_textured_fields':True,
  'body_target_relative_to_baseline':True,
  'coherent_body_component_required':True,
  'high_key_dark_patch_suppression':True,
