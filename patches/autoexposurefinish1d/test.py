@@ -101,6 +101,19 @@ public class PolicyTest {
       Math.max(.15,.72-.045*i),.15+.025*i,.08+.015*i,.015+.012*i,.05+.025*i);
   return s;
  }
+ static Stats[] centralWindowStarvedBody(){
+  Stats[] s=new Stats[11];
+  for(int i=0;i<11;i++)s[i]=stat(22+4*i,26+5*i,8+3*i,246,
+      Math.max(.35,.61-.03*i),.15+.015*i,.11+.012*i,
+      Math.max(.25,.75-.04*i),.16+.015*i,.17+.012*i,.15+.010*i,.095+.014*i);
+  return s;
+ }
+ static Stats[] openPortraitPressure(){
+  Stats[] s=new Stats[11];
+  for(int i=0;i<11;i++)s[i]=stat(78+6*i,88+4*i,36+3*i,230+2*i,
+      .20,.12+.025*i,.06+.02*i,.16,.18+.02*i,.15+.018*i,.06+.018*i,.06+.02*i);
+  return s;
+ }
  static Stats[] noBacklight(){
   Stats[] s=new Stats[11];
   for(int i=0;i<11;i++)s[i]=stat(55+3*i,38+4*i,20+3*i,45+3*i,
@@ -187,6 +200,16 @@ public class PolicyTest {
       "severe backlight may still reach two stops when central highlights remain dense");
   yes(M9AutoExposure2D.m9CharacterHighlightUnsafe(back[0],back[9]),
       "M9-character guard stops the next step once full-frame highlight loss becomes excessive");
+
+  Stats[] windowBody=centralWindowStarvedBody();
+  yes(!M9AutoExposure2D.m9CharacterHighlightUnsafe(windowBody[0],windowBody[2]),
+      "central clipped window does not veto lift while body remains deeply starved");
+  yes(M9AutoExposure2D.selectBacklight(windowBody)>=2,
+      "dark body can still gain exposure despite central background clipping");
+
+  Stats[] openPortrait=openPortraitPressure();
+  yes(M9AutoExposure2D.m9CharacterHighlightUnsafe(openPortrait[0],openPortrait[4]),
+      "open body plus highlight pressure trips M9-character ceiling");
   yes(M9AutoExposure2D.backlightHeadroomLimit(m9CharacterLoss())>=1.0
           && M9AutoExposure2D.backlightHeadroomLimit(m9CharacterLoss())<=1.5,
       "modest central highlight growth limits backlight before catastrophic clipping");
