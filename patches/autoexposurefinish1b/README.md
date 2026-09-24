@@ -76,12 +76,14 @@ cannot ratchet exposure. Reduction is immediate.
 
 Ordinary scenes retain the strict 1A processed-preview budget.
 
-Backlight uses a separate rule:
+Genuinely starved whole scenes use a bounded low-key highlight allowance, so one
+lamp or specular cannot prevent useful exposure of the entire scene.
 
-- central clipping may rise only minimally;
-- central >=224 bright population may rise only minimally;
-- outer/background clipping can rise substantially more;
-- absolute outer and full-frame clipping are still bounded.
+Backlight uses a separate, wider background-loss rule. The central rectangle can
+itself contain bright background behind the subject, so the policy protects it
+from catastrophic clipping rather than treating every new bright central pixel as
+subject clipping. Outer/background clipping can rise substantially more, while
+absolute central, outer and full-frame limits remain bounded.
 
 This intentionally permits some sky/window loss when the alternative is an
 unreadably dark subject. It is still one global capture exposure. No HDR, local
