@@ -29,6 +29,9 @@ static double noisecancel1a_quiet_confidence(double base) {
     const double gate=t*t*(3.-2.*t);
     return unit(c + .50*gate*(1.-c));
 }
+extern "C" const char* m9_noisecancel1a_revision() {
+    return "NOISECANCEL1A_QUIETCHROMA";
+}
 #ifdef M9NOISECANCEL1A_HOST
 extern "C" double noisecancel1a_test_confidence(double c) {
     return noisecancel1a_quiet_confidence(c);
