@@ -53,6 +53,14 @@ public final class M9AutoExposure2D {
 
     public static double ev(int index) { return index*STEP_EV; }
 
+    /** Read-only diagnostics for host tests and sidecar interpretation. */
+    public static synchronized int bodyLockMaskForDiagnostics() { return latchedBodyMask; }
+    public static synchronized int bodyLockTargetMedianForDiagnostics() { return latchedBodyTargetMedian; }
+    public static synchronized int bodyLockTargetQ25ForDiagnostics() { return latchedBodyTargetQ25; }
+    public static synchronized int bodyLockPendingConfirmationsForDiagnostics() {
+        return pendingBodyConfirmations;
+    }
+
     public static synchronized void reset() {
         latest=null;owner="";heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
         backlightLatched=false;pendingLowerTargetEv=Double.NaN;lowerTargetConfirmations=0;
