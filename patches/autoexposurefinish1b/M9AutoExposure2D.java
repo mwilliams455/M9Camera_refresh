@@ -368,10 +368,11 @@ public final class M9AutoExposure2D {
     private static boolean unsafeDarkScene(Stats base,Stats v) {
         // A genuinely starved scene may contain a lamp/specular. Permit bounded
         // isolated highlight loss rather than letting one point prevent useful exposure.
-        double clipCap=Math.min(.25,Math.max(.12,base.clipped+.08));
-        double brightCap=Math.min(.35,Math.max(.20,base.bright+.12));
-        double centerClipCap=Math.min(.20,Math.max(.10,base.centerClipped+.06));
-        return v.clipped>clipCap||v.bright>brightCap||v.centerClipped>centerClipCap;
+        double clipCap=Math.min(.25,Math.max(.14,base.clipped+.10));
+        double brightCap=Math.min(.35,Math.max(.22,base.bright+.14));
+        double centerClipCap=Math.min(.20,Math.max(.12,base.centerClipped+.08));
+        return v.clipped>clipCap+1e-9||v.bright>brightCap+1e-9
+                ||v.centerClipped>centerClipCap+1e-9;
     }
 
     private static boolean unsafeBacklight(Stats base,Stats v) {
@@ -379,12 +380,12 @@ public final class M9AutoExposure2D {
         // so protect it from catastrophic rather than any clipping increase.
         double centerClipCap=Math.min(.30,Math.max(.15,base.centerClipped+.10));
         double centerBrightCap=Math.min(.45,Math.max(.30,base.centerBright+.18));
-        if(v.centerClipped>centerClipCap)return true;
-        if(v.centerBright>centerBrightCap)return true;
+        if(v.centerClipped>centerClipCap+1e-9)return true;
+        if(v.centerBright>centerBrightCap+1e-9)return true;
         double outerClipCap=Math.min(.60,Math.max(.35,base.outerClipped+.20));
         double outerBrightCap=Math.min(.75,Math.max(.55,base.outerBright+.25));
-        if(v.outerClipped>outerClipCap||v.outerBright>outerBrightCap)return true;
-        return v.clipped>.40;
+        if(v.outerClipped>outerClipCap+1e-9||v.outerBright>outerBrightCap+1e-9)return true;
+        return v.clipped>.40+1e-9;
     }
 
     private static boolean validStats(Stats[] s) {
