@@ -1,4 +1,4 @@
-# AUTOEXPOSUREFINISH1B — target-based M9-like scene placement
+# AUTOEXPOSUREFINISH1B — target-based scene key and backlight placement
 
 This child applies only after the released AUTOEXPOSUREFINISH1A assembly. It changes
 only the rendered Auto policy and build identity. Reconstruction, colour transforms,
@@ -7,77 +7,102 @@ shader and the 1E stability work remain unchanged.
 
 ## Why 1B exists
 
-A fixed +0.5 EV backlight assist is not sufficient. The photographic question is
-not "is this a backlit scene?" alone, but "how far below a deliberately low-key
-M9-like placement is the subject or scene?"
+A fixed +0.5 EV backlight assist is not sufficient. The useful question is:
 
-1A also retained the ordinary processed-preview highlight veto for every positive
-step. In severe backlight this can identify a dark subject correctly and then
-forbid any useful correction because the bright window/sky is already near clipping.
+> How far below a deliberately low-key M9-like placement is the scene or subject?
 
-## Target-based amount
+The answer can be +0.5 EV in one composition and substantially more in another.
+The rendered bracket therefore chooses the amount; the policy no longer treats
+backlight as one fixed additive boost.
 
-The GPU meter now simulates nine neutral-reference gains from 0 through +2.0 EV in
-0.25-EV steps. The search ceiling is a safety/diagnostic bound, not a prescribed
-boost.
+The second problem is that bright-window/sky scenes can need subject exposure even
+when the ordinary highlight guard predicts additional clipping. A global-exposure
+M9 compromise may legitimately sacrifice some background highlight detail. 1B
+allows that only after strong backlight qualification and while protecting the
+central subject from clipping.
 
-Whole-scene darkness keeps the existing qualifying shape (base median below 40 and
-dark fraction at least 55%) and chooses the first safe simulated step reaching a
-weighted rendered median of 60. Code 60 is intentionally low-key and is not
-middle-grey normalization.
+## Low-key scene preservation
 
-Backlit-subject placement measures both centre median and centre lower quartile.
-The lower quartile prevents bright grass/sky inside the central rectangle from
-hiding a dark foreground body. The first safe step is chosen that reaches centre
-median 60 and centre Q25 30. A hard centre-median ceiling of 72 stops the search
-from chasing an intrinsically black object indefinitely.
+Dark is not automatically underexposed.
 
-Older diagnostic research independently treated centre values around 54–62 as the
-range where subject-body adequacy becomes strong. 1B therefore uses 60 as a
-conservative rendered visibility target rather than inventing a bright smartphone
-mid-grey target.
+An intentionally low-key scene, including night photography, is left alone when
+the central/body tones are already adequately placed even if the global histogram
+remains dark. Whole-scene assistance therefore requires the global scene *and* its
+central body to be starved.
 
-## Highlight trade-off
+This avoids the smartphone failure mode of converting night into a bright daytime-
+looking exposure.
 
-Ordinary scenes retain the exact 1A strict budget: no more than +1.5 percentage
-points new processed clipping or +4 percentage points new >=224 bright pixels.
+The low-key targets are visibility floors, not middle-grey normalization:
 
-High-confidence backlight or severe whole-frame darkness uses a separate bounded
-loss budget. The allowance grows only with evidence that the centre/scene is
-collapsed. It is still capped by both incremental and absolute processed clipping
-and bright-population limits. This deliberately allows some background window/sky
-loss where necessary to expose the subject; it does not reconstruct those
-highlights, use HDR, or apply a local lift.
+- whole-scene weighted median target: code 46;
+- central-body target: code 54;
+- central lower-quartile target: code 22.
 
-Backlight geometry now also records the fraction of the surround at luma >=160.
-This catches blue sky and other materially bright backgrounds before they become
-near-white.
+These values deliberately preserve dense M9-like shadows.
 
-## Temporal and ownership behavior
+## Backlit subject placement
 
-Positive exposure still rises by no more than +0.25 EV per fresh meter sample and
-cannot ratchet on a reused sample. Reduction remains immediate. User EV holds the
-displayed Auto baseline; manual ISO/shutter disable automatic scene placement;
-tripod/other ineligible states remain excluded by the 1A eligibility join.
+The centre is described by both its median and lower quartile. The lower quartile
+prevents bright sky, grass or a window inside the centre rectangle from hiding a
+dark foreground body.
 
-Diagnostics explicitly report when the scene or subject target is still unmet at
-the +2.0 EV search boundary. That evidence determines whether a later build needs a
-wider search instead of assuming +2 EV is universally sufficient.
+Backlight confidence also uses the 90th percentile of the surrounding region, so a
+materially bright blue sky can qualify even when it is not near-white.
 
-## Host evidence
+The backlit-body visibility target is:
 
-The candidate test compiles the exact production policy and currently exercises 41
-assertions. Synthetic cases include:
+- centre median: code 56;
+- centre lower quartile: code 22.
 
-- ordinary-scene strict highlight behavior;
-- missing/stale/foreign samples and manual/EV ownership;
-- dark scenes selecting +1.25 EV and using the full +2.0 EV search when necessary;
-- severe darkness allowing bounded lamp/specular loss;
-- backlight selecting +1.25 EV despite the ordinary strict guard rejecting step 1;
-- severe backlight requesting at least +1.5 EV;
-- lower-quartile subject protection, 160-code bright-surround detection and hard
-  centre ceiling;
-- catastrophic background loss still stopping the search;
-- exact centre median/Q25 and surround meter geometry.
+The first safe simulated step reaching that target is selected. If the target is
+not reached, the final safe simulated step is retained and the diagnostic records
+that the search/headroom boundary was reached.
 
-Phone validation remains the photographic acceptance gate.
+## Exposure search range
+
+The neutral-reference rendered meter now searches 11 gains:
+
+0, +0.25, +0.50, ... +2.50 EV
+
++2.5 EV is a search ceiling, not a default or preferred exposure. Ordinary scenes
+will generally stop much earlier. The wider range exists so severe foreground
+starvation can be measured instead of silently capped at +0.5 EV.
+
+Positive rise remains limited to +0.25 EV per fresh meter sample and a reused sample
+cannot ratchet exposure. Reduction is immediate.
+
+## Highlight policy
+
+Ordinary scenes retain the strict 1A processed-preview budget.
+
+Backlight uses a separate rule:
+
+- central clipping may rise only minimally;
+- central >=224 bright population may rise only minimally;
+- outer/background clipping can rise substantially more;
+- absolute outer and full-frame clipping are still bounded.
+
+This intentionally permits some sky/window loss when the alternative is an
+unreadably dark subject. It is still one global capture exposure. No HDR, local
+relighting, highlight reconstruction or tone-map compensation is introduced.
+
+## Ownership
+
+User EV continues to hold the displayed Auto baseline. Manual ISO/shutter disable
+automatic scene placement. Tripod and other ineligible states remain excluded via
+the AUTOEXPOSUREFINISH1A eligibility join. Missing, stale or foreign rendered
+evidence cannot justify new positive automatic exposure.
+
+## Validation
+
+The synthetic tests cover ordinary highlight behavior, missing/stale/foreign
+samples, manual ownership, genuinely dark scenes requiring more than +0.5 EV,
+extremely dark scenes reaching the +2.5 EV search boundary, low-key/night-like
+scenes remaining neutral when the body is already adequately placed, moderate and
+severe backlight selecting different amounts, substantial background sacrifice
+with subject protection, destructive background loss, central clipping veto, and
+the new centre-Q25 / outer-Q90 meter geometry.
+
+Synthetic tests establish policy behavior only. Phone validation remains the
+photographic acceptance gate.
