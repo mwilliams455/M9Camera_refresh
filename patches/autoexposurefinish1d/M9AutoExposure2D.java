@@ -477,12 +477,28 @@ public final class M9AutoExposure2D {
     public static boolean m9CharacterHighlightUnsafe(Stats base,Stats v) {
         if(base==null||v==null||!base.valid()||!v.valid())return true;
         double severity=backlightPlacementSeverity(base);
-        double centerClipCap=Math.min(.12,
-                Math.max(.075,base.centerClipped+.055+.025*severity));
-        double centerBrightCap=Math.min(.28,
-                Math.max(.20,base.centerBright+.12+.05*severity));
-        if(v.centerClipped>centerClipCap+1e-9)return true;
-        if(v.centerBright>centerBrightCap+1e-9)return true;
+
+        // A central window can already be clipped while the body is almost black.
+        // Do not mistake that background for a bright subject. Central-highlight
+        // pressure only gains authority once the lower body has actually opened.
+        boolean bodyReadable=v.centerMedian>=58&&v.centerQ25>=28;
+        if(bodyReadable) {
+            double centerClipCap=Math.min(.22,
+                    base.centerClipped+.06+.02*severity);
+            double centerBrightCap=Math.min(.32,
+                    base.centerBright+.10+.04*severity);
+            if(v.centerClipped>centerClipCap+1e-9)return true;
+            if(v.centerBright>centerBrightCap+1e-9)return true;
+        }
+
+        // Independent M9-character ceiling: once the body itself is this open,
+        // substantial highlight pressure means the scene is being normalized
+        // rather than merely giving the subject useful exposure.
+        boolean bodyTooOpen=v.centerMedian>=100&&v.centerQ25>=42;
+        if(bodyTooOpen&&(v.centerBright>=.18||v.centerClipped>=.10||v.clipped>=.12))
+            return true;
+
+        // Background sacrifice is still bounded globally.
         return v.clipped>.30+1e-9;
     }
 
