@@ -43,8 +43,15 @@ public class PolicyTest {
  static Stats[] dark(){
   Stats[] s=new Stats[11];
   for(int i=0;i<11;i++)s[i]=stat(12+5*i,18+6*i,6+4*i,26+5*i,
-      Math.max(.25,.82-.055*i),.003+.006*i,.001+.003*i,
+      Math.max(.25,.82-.055*i),.003+.004*i,.001+.001*i,
       Math.max(.20,.78-.05*i),.004+.004*i,.002+.002*i,.001+.001*i,.001+.004*i);
+  return s;
+ }
+ static Stats[] darkLamp(){
+  Stats[] s=new Stats[11];
+  for(int i=0;i<11;i++)s[i]=stat(10+5*i,16+6*i,5+4*i,35+6*i,
+      Math.max(.25,.84-.05*i),.015+.018*i,.02+.025*i,
+      Math.max(.20,.80-.05*i),.02+.015*i,.01+.012*i,.01+.012*i,.03+.025*i);
   return s;
  }
  static Stats[] veryDark(){
@@ -84,7 +91,7 @@ public class PolicyTest {
  static Stats[] destructiveCenter(){
   Stats[] s=backlight();
   for(int i=1;i<11;i++)s[i]=stat(38+4*i,22+6*i,10+4*i,225,
-      .55,.15,.12,.50,.18,.03+.03*i,.025+.02*i,.10);
+      .55,.15,.12,.50,.18,.35,.20+.02*i,.10);
   return s;
  }
  static Stats[] noBacklight(){
@@ -135,6 +142,12 @@ public class PolicyTest {
   yes(darkStep<11,"dark scene selection remains within rendered search");
   yes(M9AutoExposure2D.selectSceneKey(veryDark())==10,
       "extremely dark scene uses full 2.5-EV search when target remains unmet");
+  yes(M9AutoExposure2D.positiveHeadroomLimit(darkLamp())==0,
+      "ordinary strict guard rejects first isolated-lamp growth");
+  yes(M9AutoExposure2D.sceneKeyHeadroomLimit(darkLamp())>=1.0,
+      "starved whole-scene path permits bounded isolated-lamp loss");
+  yes(M9AutoExposure2D.selectSceneKey(darkLamp())>=4,
+      "starved scene with a lamp can brighten beyond old half-stop behavior");
 
   yes(M9AutoExposure2D.selectSceneKey(night())==0,
       "low-key night-like scene with adequate central body is not globally lifted");
