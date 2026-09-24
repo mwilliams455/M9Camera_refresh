@@ -164,10 +164,10 @@ public class PolicyTest {
   yes(backStep>=6,"severe backlight can request at least 1.5 EV");
   M9AutoExposure2D.reset();publish(back);
   check(decide(0,0,0,0,true),.25,"backlight target starts with quarter-stop slew");
-  double v=.25;
-  for(int i=0;i<8;i++){publish(back);v=decide(0,0,0,0,true);}
-  yes(v>.5,"backlight converges beyond old half-stop ceiling");
-  yes(v<=M9AutoExposure2D.ev(backStep),"backlight never exceeds rendered target");
+  double applied=.25;
+  for(int i=0;i<8;i++){publish(back);applied=decide(0,0,0,0,true);}
+  yes(applied>.5,"backlight converges beyond old half-stop ceiling");
+  yes(applied<=M9AutoExposure2D.ev(backStep),"backlight never exceeds rendered target");
 
   int moderate=M9AutoExposure2D.selectBacklight(moderateBacklight());
   yes(moderate>0&&moderate<backStep,"moderate backlight chooses less exposure than severe backlight");
