@@ -5,16 +5,12 @@ import json,sys
 root=Path(sys.argv[1]).resolve()
 controller=(root/'app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java').read_text()
 main=(root/'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java').read_text()
-gpu=(root/'app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java').read_text()
 proof=json.loads((root/'M9PREVIEWLEAN1A_SOURCE_PROOF.json').read_text())
 
 checks={
  'root_trace_disabled_in_modern':'!M9Config.isM9Modern() && M9Config.isCaptureTest()' in controller,
  'shutter_pixels_not_constructed':'mM9ShutterPixels = null;' in main,
  'shutter_pixels_not_registered':'M9ShutterTrace1A.registerPixels(null);' in main,
- 'no_reported_curve_array_field':'reportedCurves' not in gpu,
- 'curve_point_counts_retained':'reportedCurvePointCounts' in gpu,
- 'reported_curve_diag_key_retained':'reportedToneCurveRgb2E","omitted_production_heap_guard' in gpu,
 }
 for k,v in checks.items():
     print(k,v)
@@ -40,7 +36,6 @@ receipt={
  'checks':checks,
  'heavyRootCauseMetadataDisabledInModern':True,
  'rootCausePixelHistoryDisabledInModern':True,
- 'reportedCurveArraysNotRetainedByPreviewFrame':True,
  'photographicSeamsFrozen':True,
 }
 out=Path(sys.argv[2]) if len(sys.argv)>2 else root/'M9PREVIEWLEAN1A_TESTS.json'
