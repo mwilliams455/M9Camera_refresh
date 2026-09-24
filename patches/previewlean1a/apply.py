@@ -48,7 +48,8 @@ def transform_main(s):
       '''        // M9PREVIEWLEAN1A: the 64x64 x 9 shutter-trace preview history is
         // diagnostic-only and must not run continuously in M9 Modern.
         mM9ShutterPixels = null;
-        com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.registerPixels(null);''',
+        com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.registerPixels(null);
+        Log.d("M9PreviewLean1A", "M9PREVIEWLEAN1A heavy live root-cause diagnostics disabled");''',
       'root-cause pixel collector disable')
 
 def verify(root):
@@ -65,6 +66,7 @@ def verify(root):
       'modern root trace off':'!M9Config.isM9Modern() && M9Config.isCaptureTest()' in c,
       'shutter pixel collector null':'mM9ShutterPixels = null;' in m,
       'shutter pixel register null':'M9ShutterTrace1A.registerPixels(null);' in m,
+      'packaged revision marker':'M9PREVIEWLEAN1A heavy live root-cause diagnostics disabled' in m,
     }
     for name,ok in checks.items():
         if not ok: raise SystemExit('PREVIEWLEAN verify failed: '+name)
