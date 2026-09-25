@@ -35,7 +35,7 @@ extern "C" int trial_variance(const uint16_t* sensor,int w,int h,int cfa,int ori
 
 extern "C" int trial_reconstruct(const uint16_t* raw,const float* variance,const uint8_t* censored,
  int w,int h,int cfa,double nr,double nb,double scale,uint16_t* out,int workers,double* stats) {
- if(!raw||!out||!stats||w<32||h<32||w>8192||h>8192||cfa<0||cfa>3||workers<1||workers>8||
+ if(!raw||!out||!stats||w<64||h<64||w>8192||h>8192||cfa<0||cfa>3||workers<1||workers>8||
     !std::isfinite(nr)||!std::isfinite(nb)||nr<.0625||nb<.0625||nr>16||nb>16||
     !std::isfinite(scale)||scale<=0||scale>64||(bool(variance)!=bool(censored)))return -1;
  std::fill(stats,stats+4,0.);
@@ -56,31 +56,42 @@ extern "C" int trial_reconstruct(const uint16_t* raw,const float* variance,const
   const double n[3]={nr,1.,nb},headroom=std::max({1.,1./nr,1./nb});
   const unsigned patterns[4][2][2]={{{0,1},{1,2}},{{1,0},{2,1}},{{1,2},{0,1}},{{2,1},{1,0}}};
   const auto& pattern=patterns[cfa];
-  std::vector<float> input(count),red(count),green(count),blue(count);
+  // AMaZE's 160px tiles advance by 128. Keep that exact global tile grid,
+  // including source halos; only the destination storage is banded.
+  constexpr int bandRows=256;
+  std::vector<float> input(count),red(size_t(w)*std::min(h,bandRows)),green(red.size()),blue(red.size());
   std::vector<float*> ir(h),r(h),g(h),b(h);
   for(int y=0;y<h;y++){
-   ir[y]=input.data()+size_t(y)*w;r[y]=red.data()+size_t(y)*w;g[y]=green.data()+size_t(y)*w;b[y]=blue.data()+size_t(y)*w;
+   ir[y]=input.data()+size_t(y)*w;
    for(int x=0;x<w;x++)ir[y][x]=float(double(inputRaw[y*w+x])/n[pattern[y&1][x&1]]/headroom);
   }
+  std::vector<uint16_t>().swap(corrected);
   struct Threads {int old;Threads(int n):old(omp_get_max_threads()){omp_set_num_threads(n);}~Threads(){omp_set_num_threads(old);}} threads(workers);
   const auto progress=[](double){return false;};
-  rpError rc=amaze_demosaic(w,h,0,0,w,h,ir.data(),r.data(),g.data(),b.data(),pattern,progress,scale*headroom,0,65535.f,65535.f,2,false);
+  for(int top=0;top<h;top+=bandRows) {
+  const int bottom=std::min(h,top+bandRows);
+  for(int y=top;y<bottom;y++) {
+   r[y]=red.data()+size_t(y-top)*w;g[y]=green.data()+size_t(y-top)*w;b[y]=blue.data()+size_t(y-top)*w;
+  }
+  // The final 16px MHC border is supplied by trialBorder from original RAW.
+  // Suppress upstream's 3px full-frame border pass on each partial window.
+  rpError rc=amaze_demosaic(w,h,0,top,w,bottom-top,ir.data(),r.data(),g.data(),b.data(),pattern,progress,scale*headroom,16,65535.f,65535.f,2,false);
   if(rc!=RP_NO_ERROR)return -10-int(rc);
-  for(int y=0;y<h;y++)for(int x=0;x<w;x++){
+  for(int y=top;y<bottom;y++)for(int x=0;x<w;x++){
    const double v[3]={r[y][x],g[y][x],b[y][x]};
    for(int ch=0;ch<3;ch++){
     double value=v[ch]*headroom*n[ch];if(!std::isfinite(value))return -20;
     out[3*(size_t(y)*w+x)+ch]=uint16_t(std::llround(std::clamp(value,0.,65535.)));
    }
   }
+  }
  }catch(...){return -30;}
  return 0;
 }
 
 
-// AMAZEPERF1A: performance-only parallel wrappers. The original trial_variance
-// and trial_reconstruct functions above remain untouched and are retained as the
-// exact scalar/peripheral parity oracle used by host tests.
+// AMAZEPERF1A: performance-only parallel wrappers. The exact COLOURTRIAL1D
+// scalar/peripheral entry points above remain untouched as parity oracles.
 
 extern "C" int trial_variance_parallel(const uint16_t* sensor,int w,int h,int cfa,int originY,
  const float* black,int white,const double* profile,const double* gains,int mw,int mh,
@@ -111,12 +122,12 @@ extern "C" int trial_variance_parallel(const uint16_t* sensor,int w,int h,int cf
 
 extern "C" int trial_reconstruct_perf(const uint16_t* raw,const float* variance,const uint8_t* censored,
  int w,int h,int cfa,double nr,double nb,double scale,uint16_t* out,int workers,double* stats,double* perf) {
- if(!raw||!out||!stats||!perf||w<32||h<32||w>8192||h>8192||cfa<0||cfa>3||workers<1||workers>8||
+ if(!raw||!out||!stats||!perf||w<64||h<64||w>8192||h>8192||cfa<0||cfa>3||workers<1||workers>8||
     !std::isfinite(nr)||!std::isfinite(nb)||nr<.0625||nb<.0625||nr>16||nb>16||
     !std::isfinite(scale)||scale<=0||scale>64||(bool(variance)!=bool(censored)))return -1;
  std::fill(stats,stats+4,0.);std::fill(perf,perf+5,0.);
  using Clock=std::chrono::steady_clock;
- auto ms=[](Clock::time_point a,Clock::time_point b){return std::chrono::duration<double,std::milli>(b-a).count();};
+ auto elapsed=[](Clock::time_point a,Clock::time_point b){return std::chrono::duration<double,std::milli>(b-a).count();};
  try {
   const size_t count=size_t(w)*h;
   std::vector<uint16_t> corrected;
@@ -125,7 +136,7 @@ extern "C" int trial_reconstruct_perf(const uint16_t* raw,const float* variance,
    corrected.resize(count);
    auto t0=Clock::now();
    int rc=phase_noise(raw,variance,censored,w,h,corrected.data(),workers);if(rc)return rc;
-   perf[0]=ms(t0,Clock::now());
+   perf[0]=elapsed(t0,Clock::now());
    uint64_t changed=0,censoredCount=0;int maxCorrection=0;
    t0=Clock::now();
    #pragma omp parallel for num_threads(workers) schedule(static) reduction(+:changed,censoredCount) reduction(max:maxCorrection)
@@ -136,41 +147,56 @@ extern "C" int trial_reconstruct_perf(const uint16_t* raw,const float* variance,
     maxCorrection=std::max(maxCorrection,std::abs(int(corrected[i])-int(raw[i])));
     censoredCount+=censored[i]!=0;
    }
-   perf[1]=ms(t0,Clock::now());
+   perf[1]=elapsed(t0,Clock::now());
    stats[1]=double(changed);stats[2]=double(maxCorrection);stats[3]=double(censoredCount);
    inputRaw=corrected.data();stats[0]=1.;
   }
+
   const double n[3]={nr,1.,nb},headroom=std::max({1.,1./nr,1./nb});
   const unsigned patterns[4][2][2]={{{0,1},{1,2}},{{1,0},{2,1}},{{1,2},{0,1}},{{2,1},{1,0}}};
   const auto& pattern=patterns[cfa];
-  std::vector<float> input(count),red(count),green(count),blue(count);
+  constexpr int bandRows=256;
+  std::vector<float> input(count),red(size_t(w)*std::min(h,bandRows)),green(red.size()),blue(red.size());
   std::vector<float*> ir(h),r(h),g(h),b(h);
+
   auto t0=Clock::now();
   #pragma omp parallel for num_threads(workers) schedule(static)
   for(int y=0;y<h;y++){
-   ir[y]=input.data()+size_t(y)*w;r[y]=red.data()+size_t(y)*w;g[y]=green.data()+size_t(y)*w;b[y]=blue.data()+size_t(y)*w;
+   ir[y]=input.data()+size_t(y)*w;
    for(int x=0;x<w;x++)ir[y][x]=float(double(inputRaw[size_t(y)*w+x])/n[pattern[y&1][x&1]]/headroom);
   }
-  perf[2]=ms(t0,Clock::now());
+  perf[2]=elapsed(t0,Clock::now());
+  std::vector<uint16_t>().swap(corrected);
+
   struct Threads {int old;Threads(int n):old(omp_get_max_threads()){omp_set_num_threads(n);}~Threads(){omp_set_num_threads(old);}} threads(workers);
   const auto progress=[](double){return false;};
-  t0=Clock::now();
-  rpError rc=amaze_demosaic(w,h,0,0,w,h,ir.data(),r.data(),g.data(),b.data(),pattern,progress,scale*headroom,0,65535.f,65535.f,2,false);
-  perf[3]=ms(t0,Clock::now());
-  if(rc!=RP_NO_ERROR)return -10-int(rc);
-  int invalid=0;
-  t0=Clock::now();
-  #pragma omp parallel for num_threads(workers) schedule(static) reduction(|:invalid)
-  for(int y=0;y<h;y++)for(int x=0;x<w;x++){
-   const double v[3]={r[y][x],g[y][x],b[y][x]};
-   for(int ch=0;ch<3;ch++){
-    double value=v[ch]*headroom*n[ch];
-    if(!std::isfinite(value)){invalid=1;value=0.;}
-    out[3*(size_t(y)*w+x)+ch]=uint16_t(std::llround(std::clamp(value,0.,65535.)));
+  double amazeMs=0.,quantizeMs=0.;
+  for(int top=0;top<h;top+=bandRows) {
+   const int bottom=std::min(h,top+bandRows);
+   for(int y=top;y<bottom;y++) {
+    r[y]=red.data()+size_t(y-top)*w;g[y]=green.data()+size_t(y-top)*w;b[y]=blue.data()+size_t(y-top)*w;
    }
+   t0=Clock::now();
+   rpError rc=amaze_demosaic(w,h,0,top,w,bottom-top,ir.data(),r.data(),g.data(),b.data(),pattern,progress,
+           scale*headroom,16,65535.f,65535.f,2,false);
+   amazeMs+=elapsed(t0,Clock::now());
+   if(rc!=RP_NO_ERROR)return -10-int(rc);
+
+   int invalid=0;
+   t0=Clock::now();
+   #pragma omp parallel for num_threads(workers) schedule(static) reduction(|:invalid)
+   for(int y=top;y<bottom;y++)for(int x=0;x<w;x++){
+    const double v[3]={r[y][x],g[y][x],b[y][x]};
+    for(int ch=0;ch<3;ch++){
+     double value=v[ch]*headroom*n[ch];
+     if(!std::isfinite(value)){invalid=1;value=0.;}
+     out[3*(size_t(y)*w+x)+ch]=uint16_t(std::llround(std::clamp(value,0.,65535.)));
+    }
+   }
+   quantizeMs+=elapsed(t0,Clock::now());
+   if(invalid)return -20;
   }
-  perf[4]=ms(t0,Clock::now());
-  if(invalid)return -20;
+  perf[3]=amazeMs;perf[4]=quantizeMs;
  }catch(...){return -30;}
  return 0;
 }
