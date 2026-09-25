@@ -78,7 +78,15 @@ def apply_sources(root):
             d.put("nativeColorPersistentWorkerTeam", nativeColorPersistentFrameActive);
             d.put("nativeColorWorkerTeamLaunches", nativeColorPersistentFrameActive ? 1 : nativeColorCalls);
             d.put("nativeColorBitmapLockCount", nativeColorPersistentFrameActive ? 1 : nativeColorBitmapDirectBlocks);'''
-    render=one(render,diag,diag_new,'renderer diagnostics')
+    # The fully assembled renderer carries another legacy/full-colour diagnostic
+    # block with the same two PERF3I lines. Bind this insertion to the exact
+    # render method whose block loop was replaced above instead of demanding
+    # global uniqueness across the whole class.
+    diag_pos=render.find(diag,a)
+    method_return=render.find('            return new RenderCore(oriented, d);',a)
+    if diag_pos<0 or method_return<0 or diag_pos>method_return:
+        raise SystemExit('COLORPERF1A renderer diagnostics anchor missing from selected render method')
+    render=render[:diag_pos]+diag_new+render[diag_pos+len(diag):]
     (root/RENDER).write_text(render)
 
 def verify(root):
