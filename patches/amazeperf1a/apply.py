@@ -92,8 +92,8 @@ def main(root):
     gradle=(root/GRADLE).read_text()
     if "versionName '1.88-m9prepperf1a-parallel8-noiseperf1a-tg1'" not in gradle or 'versionCode 26708' not in gradle:
         raise SystemExit('AMAZEPERF1A requires exact 1.88 parent identity')
-    if (root/RECON).read_bytes()!=(REPO/'patches/colourtrial1c/reconstruct.cpp').read_bytes():
-        raise SystemExit('AMAZEPERF1A requires frozen COLOURTRIAL1C reconstruct parent')
+    if (root/RECON).read_bytes()!=(REPO/'patches/colourtrial1d/reconstruct.cpp').read_bytes():
+        raise SystemExit('AMAZEPERF1A requires frozen banded COLOURTRIAL1D reconstruct parent')
     if (root/NATIVE).read_bytes()!=(REPO/'patches/prepperf1a/native.inc').read_bytes():
         raise SystemExit('AMAZEPERF1A requires exact PREPPERF1A native parent')
     if (root/JAVA).read_bytes()!=(REPO/'patches/colourtrial1d/M9ColourTrial1C.java').read_bytes():
