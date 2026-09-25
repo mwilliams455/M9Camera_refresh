@@ -66,6 +66,24 @@ assert fast(raw.ctypes.data,var.ctypes.data,clip.ctypes.data,w,h,oneb.ctypes.dat
 assert np.array_equal(scalar,onea)
 assert np.array_equal(scalar,oneb),('seams',int(np.count_nonzero(scalar!=oneb)))
 
+# Production-size 12 MP hard gate. This is deliberately only one 8-worker
+# case: output identity matters here, while the smaller matrix above covers worker
+# counts, clipping/variance edge cases and seam geometry.
+w,h=4096,3072
+raw=rng.integers(900,61000,(h,w),np.uint16)
+var=(12000.0+0.8*raw.astype(np.float32)).astype(np.float32)
+clip=np.zeros((h,w),np.uint8);clip[::211,::223]=1
+scalar12=np.empty_like(raw);onea12=np.empty_like(raw);oneb12=np.empty_like(raw)
+t=time.perf_counter();assert lib.phase_noise(raw.ctypes.data,var.ctypes.data,clip.ctypes.data,w,h,scalar12.ctypes.data,8)==0
+scalar12Ms=(time.perf_counter()-t)*1000
+t=time.perf_counter();assert banded(raw.ctypes.data,var.ctypes.data,clip.ctypes.data,w,h,onea12.ctypes.data,8)==0
+onea12Ms=(time.perf_counter()-t)*1000
+t=time.perf_counter();assert fast(raw.ctypes.data,var.ctypes.data,clip.ctypes.data,w,h,oneb12.ctypes.data,8)==0
+oneb12Ms=(time.perf_counter()-t)*1000
+assert np.array_equal(scalar12,onea12),('12mp-1a',int(np.count_nonzero(scalar12!=onea12)))
+assert np.array_equal(scalar12,oneb12),('12mp-1b',int(np.count_nonzero(scalar12!=oneb12)))
+twelve_mp_timing={'w':w,'h':h,'workers':8,'scalarMs':scalar12Ms,'banded1aMs':onea12Ms,'symtile1bMs':oneb12Ms}
+
 # End-to-end reconstruction parity across all CFA patterns. Production
 # trial_reconstruct_perf now routes through 1B while trial_reconstruct remains scalar.
 recon_cases=[]
@@ -113,6 +131,8 @@ receipt={
   'reconstructRgbByteExact':True,
   'reconstructStatsExact':True,
   'allFourCfaReconstruction':True,
+  'twelveMpByteExact':True,
+  'twelveMpTiming':twelve_mp_timing,
   'candidateAccumulationOrderChanged':False,
   'patchAccumulationOrderChanged':False,
   'rawNoiseStrengthChanged':False,
