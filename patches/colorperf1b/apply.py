@@ -96,153 +96,193 @@ def brace_block_end(text,start):
         i+=1
     raise SystemExit('COLORPERF1B unterminated block')
 
+def rendercore_spans(text):
+    import re
+    spans=[]
+    for m in re.finditer(r'(?m)^\s*private\s+static\s+RenderCore\s+([A-Za-z0-9_]+)\s*\(',text):
+        method_name=m.group(1)
+        method_start=m.start()
+        brace=text.find('{',m.end())
+        if brace<0:
+            continue
+        depth=0;i=brace;state='code';quote='';esc=False
+        while i<len(text):
+            ch=text[i];nxt=text[i+1] if i+1<len(text) else ''
+            if state=='line':
+                if ch=='\n': state='code'
+            elif state=='block':
+                if ch=='*' and nxt=='/': state='code';i+=1
+            elif state=='string':
+                if esc: esc=False
+                elif ch=='\\': esc=True
+                elif ch==quote: state='code'
+            else:
+                if ch=='/' and nxt=='/': state='line';i+=1
+                elif ch=='/' and nxt=='*': state='block';i+=1
+                elif ch in ('"',"'"): state='string';quote=ch;esc=False
+                elif ch=='{': depth+=1
+                elif ch=='}':
+                    depth-=1
+                    if depth==0:
+                        spans.append((method_name,method_start,i+1))
+                        break
+            i+=1
+    return spans
+
+def find_active_color_owner(render):
+    # COLORPERF1A surgically replaced one historical PERF3I loop but deliberately
+    # left every later assembled method intact. Find every RenderCore method that
+    # still owns the frozen 384-row colour loop, then identify the production
+    # TARGETINPUT owner from its target-input state/telemetry rather than a method name.
+    loop_marker='for (int y0 = 0; y0 < height; y0 += NATIVE_COLOR_BLOCK_ROWS)'
+    owners=[]
+    for name,a,b in rendercore_spans(render):
+        method=render[a:b]
+        if loop_marker not in method:
+            continue
+        owners.append({
+            'name':name,'start':a,'end':b,
+            'targetState':('targetInputAdapter1AApplied' in method
+                           or 'targetInputAdapter1AProduction' in method
+                           or 'TARGETINPUTADAPTER1A' in method),
+            'already1A':('M9COLORPERF1A_PERSISTENTBLOCKS_EXACT' in method
+                         or 'renderFramePersistentDirectBitmap(' in method),
+            'effectiveGain':('effectiveRenderGain' in method),
+            'bitmapDirect':('nativeColorBitmapDirectEligible' in method),
+            'cvDirect':('nativeColorCvDirectEligible' in method),
+        })
+
+    target=[o for o in owners if o['targetState'] and not o['already1A']]
+    if len(target)!=1:
+        # Some later source patches move TARGETINPUT telemetry to the wrapper but
+        # leave the inner pixel core anonymous. In that case the still-unpatched
+        # colour owner is uniquely the method with the complete direct-Bitmap
+        # transport and without COLORPERF1A's persistent call.
+        target=[o for o in owners if (not o['already1A']
+                                      and o['bitmapDirect'] and o['cvDirect']
+                                      and o['effectiveGain'])]
+    if len(target)!=1:
+        raise SystemExit('COLORPERF1B could not uniquely identify active colour owner: '
+                         +json.dumps(owners,sort_keys=True))
+    return target[0],owners
+
 def patch_target_method(render):
     if 'M9COLORPERF1B_TARGETACTIVE_EXACT' in render:
         raise SystemExit('COLORPERF1B already applied without proof')
 
-    ms,me=method_bounds(render,TARGET_MARKER)
+    owner,owners=find_active_color_owner(render)
+    ms,me=owner['start'],owner['end']
     method=render[ms:me]
+    loop_marker='for (int y0 = 0; y0 < height; y0 += NATIVE_COLOR_BLOCK_ROWS)'
+    rel=method.find(loop_marker)
+    if rel<0 or method.find(loop_marker,rel+1)>=0:
+        raise SystemExit('COLORPERF1B active colour loop missing/ambiguous in '+owner['name'])
 
-    # The active TARGETINPUT core can inherit a different colour transport
-    # generation from the frozen prospective copy. Detect the actual transport
-    # before changing anything.
-    persistent_marker='M9NativeColorCore.renderFramePersistentDirectBitmap('
-    existing_persistent=(persistent_marker in method)
+    # Include leading indentation when replacing the exact for block.
+    line_start=method.rfind('\n',0,rel)+1
+    loop_start=ms+line_start
+    loop_end=brace_block_end(render,ms+rel)
+    old_loop=render[loop_start:loop_end]
 
-    if existing_persistent:
-        # COLORPERF1A already reached this copied target method. Do not nest a
-        # second persistent scheduler; add active-route diagnostics only.
-        gain='already_bound_in_existing_COLORPERF1A_target_call'
+    if 'renderBlockParallelDirectBitmap(' not in old_loop:
+        raise SystemExit('COLORPERF1B selected loop is not PERF3I direct-Bitmap path')
+    if 'effectiveRenderGain' in old_loop:
+        gain='effectiveRenderGain'
+    elif 'meter.gain' in old_loop:
+        gain='meter.gain'
     else:
-        # Otherwise find the target method's real block colour call rather than
-        # assuming the legacy M9NativeColorCore spelling.
-        call_markers=[
-            'M9NativeColorCore.renderBlockParallelDirectBitmap(',
-            'M9ColourTrial1C.renderBitmap(',
-            'M9ColourTrial1C.renderBlockParallelDirectBitmap(',
-            'M9ColourTrial1C.renderDirect(',
-        ]
-        call_marker=None;call_rel=-1
-        for candidate in call_markers:
-            p=method.find(candidate)
-            if p>=0:
-                if method.find(candidate,p+1)>=0:
-                    raise SystemExit('COLORPERF1B target colour call ambiguous for '+candidate)
-                call_marker=candidate;call_rel=p;break
+        raise SystemExit('COLORPERF1B cannot identify frozen target render-gain expression')
 
-        if call_rel<0:
-            interesting=[]
-            for line in method.splitlines():
-                if ('nativeColor' in line or 'renderBlock' in line or
-                    'renderBitmap' in line or 'renderDirect' in line or
-                    'M9Colour' in line or
-                    ('for (' in line and ('height' in line or 'BLOCK' in line))):
-                    interesting.append(line.strip())
-            raise SystemExit('COLORPERF1B target colour call missing; active method map='
-                             +repr(interesting[-160:]))
+    indent=method[line_start:rel]
+    prefix=f'''{indent}final int nativeColorPersistentBlockCount =
+{indent}        (height + NATIVE_COLOR_BLOCK_ROWS - 1) / NATIVE_COLOR_BLOCK_ROWS;
+{indent}boolean nativeColorPersistentFrameAttempted = false;
+{indent}boolean nativeColorPersistentFrameActive = false;
+{indent}long nativeColorPersistentAttemptElapsedNs = 0L;
 
-        import re
-        enclosing=[]
-        for m in re.finditer(r'\\bfor\\s*\\(',method[:call_rel]):
-            abs_start=ms+m.start()
-            brace=render.find('{',abs_start,ms+call_rel)
-            if brace<0: continue
-            try:
-                e=brace_block_end(render,abs_start)
-            except SystemExit:
-                continue
-            if brace < ms+call_rel < e:
-                enclosing.append((abs_start,e,render[abs_start:brace]))
-        if not enclosing:
-            context=method[max(0,call_rel-1600):min(len(method),call_rel+1000)]
-            raise SystemExit('COLORPERF1B could not find enclosing target colour loop; context='+repr(context))
+{indent}// COLORPERF1B TARGETACTIVE1A: same byte-exact COLORPERF1A native core,
+{indent}// now bound to the unpatched production colour owner discovered from
+{indent}// assembled TARGETINPUT/direct-Bitmap state. Pixel math and partitions frozen.
+{indent}if (nativeColorCvDirectEligible && nativeColorBitmapDirectEligible) {{
+{indent}    nativeColorPersistentFrameAttempted = true;
+{indent}    final long persistentStartedNs = System.nanoTime();
+{indent}    nativeColorPersistentFrameActive =
+{indent}            M9NativeColorCore.renderFramePersistentDirectBitmap(
+{indent}                    nativeContextForFrame,
+{indent}                    nativeColorCvBaseAddress,
+{indent}                    width,
+{indent}                    height,
+{indent}                    oriented,
+{indent}                    NATIVE_COLOR_BLOCK_ROWS,
+{indent}                    {gain},
+{indent}                    tgCbGain,
+{indent}                    tgCrGain,
+{indent}                    rotation,
+{indent}                    NATIVE_COLOR_WORKERS,
+{indent}                    nativeStats);
+{indent}    nativeColorPersistentAttemptElapsedNs =
+{indent}            System.nanoTime() - persistentStartedNs;
+{indent}    nativeColorJniElapsedNsSum += nativeColorPersistentAttemptElapsedNs;
+{indent}    if (nativeColorPersistentFrameActive) {{
+{indent}        nativeColorCalls = 1;
+{indent}        even = nativeStats[0];
+{indent}        edge = nativeStats[1];
+{indent}        nearWhite = nativeStats[2];
+{indent}        nativeColorTaskElapsedNsSum = nativeStats[3];
+{indent}        nativeColorWorkersUsed = nativeStats[4];
+{indent}        nativeColorScratchPrepElapsedNs = nativeStats[5];
+{indent}        nativeColorInputCopyElapsedNs = nativeStats[6];
+{indent}        nativeColorWorkerWallElapsedNs = nativeStats[7];
+{indent}        nativeColorWorkerMaxElapsedNsSum = nativeStats[8];
+{indent}        nativeColorOrientationElapsedNs = nativeStats[9];
+{indent}        nativeColorOutputCopyElapsedNs = nativeStats[10];
+{indent}        nativeColorNativeTotalElapsedNs = nativeStats[11];
+{indent}        nativeColorCvDirectBlocks = nativeColorPersistentBlockCount;
+{indent}        nativeColorBitmapDirectBlocks = nativeColorPersistentBlockCount;
+{indent}    }}
+{indent}}}
 
-        loop_start,loop_end,loop_header=max(enclosing,key=lambda x:x[0])
-        old_loop=render[loop_start:loop_end]
-        if 'NATIVE_COLOR_BLOCK_ROWS' not in old_loop[:min(len(old_loop),1500)]:
-            candidates=' | '.join(h.strip().replace('\\n',' ') for _,_,h in enclosing[-4:])
-            raise SystemExit('COLORPERF1B enclosing target loop lacks frozen block geometry: '+candidates)
-
-        if 'effectiveRenderGain' in old_loop:
-            gain='effectiveRenderGain'
-        elif 'meter.gain' in old_loop:
-            gain='meter.gain'
-        else:
-            raise SystemExit('COLORPERF1B cannot identify frozen target render-gain expression')
-
-        prefix=f'''            final int nativeColorPersistentBlockCount =
-                    (height + NATIVE_COLOR_BLOCK_ROWS - 1) / NATIVE_COLOR_BLOCK_ROWS;
-            boolean nativeColorPersistentFrameAttempted = false;
-            boolean nativeColorPersistentFrameActive = false;
-            long nativeColorPersistentAttemptElapsedNs = 0L;
-
-            // COLORPERF1B TARGETACTIVE1A: same proven native colour core, now on
-            // the production TARGETINPUT renderer. Pixel math and partitions frozen.
-            if (nativeColorCvDirectEligible && nativeColorBitmapDirectEligible) {{
-                nativeColorPersistentFrameAttempted = true;
-                final long persistentStartedNs = System.nanoTime();
-                nativeColorPersistentFrameActive =
-                        M9NativeColorCore.renderFramePersistentDirectBitmap(
-                                nativeContextForFrame,
-                                nativeColorCvBaseAddress,
-                                width,
-                                height,
-                                oriented,
-                                NATIVE_COLOR_BLOCK_ROWS,
-                                {gain},
-                                tgCbGain,
-                                tgCrGain,
-                                rotation,
-                                NATIVE_COLOR_WORKERS,
-                                nativeStats);
-                nativeColorPersistentAttemptElapsedNs =
-                        System.nanoTime() - persistentStartedNs;
-                nativeColorJniElapsedNsSum += nativeColorPersistentAttemptElapsedNs;
-                if (nativeColorPersistentFrameActive) {{
-                    nativeColorCalls = 1;
-                    even = nativeStats[0];
-                    edge = nativeStats[1];
-                    nearWhite = nativeStats[2];
-                    nativeColorTaskElapsedNsSum = nativeStats[3];
-                    nativeColorWorkersUsed = nativeStats[4];
-                    nativeColorScratchPrepElapsedNs = nativeStats[5];
-                    nativeColorInputCopyElapsedNs = nativeStats[6];
-                    nativeColorWorkerWallElapsedNs = nativeStats[7];
-                    nativeColorWorkerMaxElapsedNsSum = nativeStats[8];
-                    nativeColorOrientationElapsedNs = nativeStats[9];
-                    nativeColorOutputCopyElapsedNs = nativeStats[10];
-                    nativeColorNativeTotalElapsedNs = nativeStats[11];
-                    nativeColorCvDirectBlocks = nativeColorPersistentBlockCount;
-                    nativeColorBitmapDirectBlocks = nativeColorPersistentBlockCount;
-                }}
-            }}
-
-            if (!nativeColorPersistentFrameActive) {{
+{indent}if (!nativeColorPersistentFrameActive) {{
 '''
-        wrapped=prefix+old_loop+'\n            }'
-        render=render[:loop_start]+wrapped+render[loop_end:]
+    wrapped=prefix+old_loop+'\n'+indent+'}'
+    render=render[:loop_start]+wrapped+render[loop_end:]
 
-    # Scope diagnostics to the same active target method, not the legacy renderCore.
-    ms,me=method_bounds(render,TARGET_MARKER)
+    # Re-discover the owner after insertion so offsets are current.
+    spans=rendercore_spans(render)
+    matches=[]
+    for name,a,b in spans:
+        method2=render[a:b]
+        if ('M9NativeColorCore.renderFramePersistentDirectBitmap(' in method2
+                and 'renderBlockParallelDirectBitmap(' in method2
+                and (name==owner['name'] or 'targetInputAdapter1AApplied' in method2
+                     or 'effectiveRenderGain' in method2)):
+            matches.append((name,a,b))
+    # Legacy COLORPERF1A also has the persistent call, so select the method that
+    # now contains our unique attempt variable.
+    matches=[m for m in matches if 'nativeColorPersistentAttemptElapsedNs' in render[m[1]:m[2]]]
+    if len(matches)!=1:
+        raise SystemExit('COLORPERF1B post-insert active owner ambiguous: '+repr([m[0] for m in matches]))
+    owner_name,ms,me=matches[0]
     method=render[ms:me]
-    diag='            d.put("nativeColorBitmapRowBytes", oriented.getRowBytes());'
+
+    diag='d.put("nativeColorBitmapRowBytes", oriented.getRowBytes());'
     rel=method.find(diag)
-    if rel<0: raise SystemExit('COLORPERF1B target diagnostic anchor missing')
-    if method.find(diag,rel+1)>=0: raise SystemExit('COLORPERF1B target diagnostic anchor ambiguous')
+    if rel<0 or method.find(diag,rel+1)>=0:
+        raise SystemExit('COLORPERF1B active diagnostic anchor missing/ambiguous in '+owner_name)
     pos=ms+rel+len(diag)
-    extra='''
-            d.put("colorPerfRevision", "M9COLORPERF1B_TARGETACTIVE_EXACT");
-            d.put("colorPerfParentRevision", "M9COLORPERF1A_PERSISTENTBLOCKS_EXACT");
-            d.put("nativeColorPersistentTargetRoute", "renderNativeProspectiveCore_TARGETINPUTADAPTER1A");
-            d.put("nativeColorPersistentFrameAttempted",
-                    nativeColorCvDirectEligible && nativeColorBitmapDirectEligible);
-            d.put("nativeColorPersistentFrameActive", nativeColorPersistentFrameActive);
-            d.put("nativeColorWorkerTeamLaunches", nativeColorPersistentFrameActive ? 1 : nativeColorCalls);
-            d.put("nativeColorBitmapLockCount", nativeColorPersistentFrameActive ? 1 : nativeColorBitmapDirectBlocks);
-            d.put("nativeColorPersistentExpectedBlocks",
-                    (height + NATIVE_COLOR_BLOCK_ROWS - 1) / NATIVE_COLOR_BLOCK_ROWS);'''
+    diag_indent=method[method.rfind('\n',0,rel)+1:rel]
+    extra=f'''
+{diag_indent}d.put("colorPerfRevision", "M9COLORPERF1B_TARGETACTIVE_EXACT");
+{diag_indent}d.put("colorPerfParentRevision", "M9COLORPERF1A_PERSISTENTBLOCKS_EXACT");
+{diag_indent}d.put("nativeColorPersistentTargetRoute", "{owner_name}");
+{diag_indent}d.put("nativeColorPersistentFrameAttempted", nativeColorPersistentFrameAttempted);
+{diag_indent}d.put("nativeColorPersistentFrameActive", nativeColorPersistentFrameActive);
+{diag_indent}d.put("nativeColorPersistentAttemptElapsedMs", nativeColorPersistentAttemptElapsedNs / 1_000_000.0);
+{diag_indent}d.put("nativeColorWorkerTeamLaunches", nativeColorPersistentFrameActive ? 1 : nativeColorCalls);
+{diag_indent}d.put("nativeColorBitmapLockCount", nativeColorPersistentFrameActive ? 1 : nativeColorBitmapDirectBlocks);
+{diag_indent}d.put("nativeColorPersistentExpectedBlocks", nativeColorPersistentBlockCount);'''
     render=render[:pos]+extra+render[pos:]
-    return render,gain
+    return render,gain,owner_name,owners
 
 def verify(root):
     proof=json.loads((root/(ID+'_SOURCE_PROOF.json')).read_text())
@@ -253,22 +293,27 @@ def verify(root):
 
     r=(root/RENDER).read_text();g=(root/GRADLE).read_text()
     c=(root/CPP).read_text();j=(root/CORE).read_text()
-    ms,me=method_bounds(r,TARGET_MARKER)
-    target=r[ms:me]
+    active=[]
+    for name,a,b in rendercore_spans(r):
+        method=r[a:b]
+        if 'M9COLORPERF1B_TARGETACTIVE_EXACT' in method:
+            active.append((name,method))
+    if len(active)!=1:
+        raise SystemExit('COLORPERF1B verify active-owner count='+str(len(active)))
+    owner_name,target=active[0]
     checks={
       'target revision':'M9COLORPERF1B_TARGETACTIVE_EXACT' in target,
       'target call':'M9NativeColorCore.renderFramePersistentDirectBitmap' in target,
       'target attempted diag':'nativeColorPersistentFrameAttempted' in target,
       'target active diag':'nativeColorPersistentFrameActive' in target,
-      'fallback retained':('renderBlockParallelDirectBitmap' in target
-                           or 'M9ColourTrial1C.renderBitmap' in target
-                           or 'M9ColourTrial1C.renderDirect' in target
-                           or 'renderFramePersistentDirectBitmap' in target),
-      'target adapter retained':'targetInputAdapter1AApplied' in target,
+      'fallback retained':'renderBlockParallelDirectBitmap' in target,
+      'direct transport':'nativeColorBitmapDirectEligible' in target and 'nativeColorCvDirectEligible' in target,
       'native 1a core retained':'M9COLORPERF1A_PERSISTENTBLOCKS_EXACT' in c,
       'jni retained':'renderFramePersistentDirectBitmap' in j,
       'phase 1c retained':'M9PHASENOISEPERF1C_ADAPTIVE128_EXACT' in r,
       'prep 1b retained':'M9PREPPERF1B_PERSISTENT8_EXACT' in r,
+      'target input provenance':('targetInputAdapter1AApplied' in r
+                                 and 'm9cam.renderer.targetinputadapter' in r),
     }
     for name,ok in checks.items():
         if not ok: raise SystemExit('COLORPERF1B verify failed: '+name)
@@ -279,7 +324,7 @@ def verify(root):
       'version':VERSION,'versionCode':CODE,
       'parent':'1.94_M9COLORPERF1A_PERSISTENTBLOCKS_EXACT',
       'changed':sorted(CHANGED),
-      'activeProductionMethod':'renderNativeProspectiveCore',
+      'activeProductionMethod':owner_name,
       'persistentNativeCoreChanged':False,
       'scalarColourMathChanged':False,
       'workerRowPartitionChanged':False,
@@ -308,7 +353,7 @@ def main(root):
 
     before=inventory(root)
     render=(root/RENDER).read_text()
-    render,gain=patch_target_method(render)
+    render,gain,owner_name,owners=patch_target_method(render)
     (root/RENDER).write_text(render)
 
     gradle=one(gradle,'versionCode 26714',f'versionCode {CODE}','version code')
@@ -321,7 +366,7 @@ def main(root):
     changed={k for k,v in before.items() if after.get(k)!=v}
     if changed!=CHANGED: raise SystemExit('Unexpected mutation set: '+repr(sorted(changed)))
     receipt.write_text(json.dumps({
-      'revision':ID,'gainExpressionRetained':gain,'before':before,'after':after
+      'revision':ID,'gainExpressionRetained':gain,'activeColorOwner':owner_name,'discoveredColorOwners':owners,'before':before,'after':after
     },indent=2)+'\n')
     print(json.dumps(verify(root),indent=2))
 
