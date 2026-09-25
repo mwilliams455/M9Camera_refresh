@@ -193,69 +193,129 @@ extern "C" int phase_noise_symtile_exact(const uint16_t* raw,const float* varian
    const int th=termY1-termY0,tw=termX1-termX0;
    const size_t termPlane=size_t(th)*tw;
 
+   // PHASENOISEPERF1B clean-tile exact fast path.
+   //
+   // When every source/candidate/patch sample used by all 12 canonical
+   // directions is uncensored and has positive variance, every 3x3 patch has
+   // exactly nine valid terms. We can therefore remove only the censor/valid
+   // branches and count bookkeeping. The normalized pair arithmetic, nine-term
+   // accumulation order, exp(), 24-candidate output order and llround() remain
+   // identical to the scalar oracle. Border/highlight/invalid tiles use the
+   // original exact fallback below.
+   const int scanY0=termY0-4,scanY1=termY1;
+   const int scanX0=termX0-4,scanX1=termX1+4;
+   bool clean=(scanY0>=0 && scanX0>=0 && scanY1<=h && scanX1<=w);
+   if(clean){
+    for(int sy=scanY0;sy<scanY1 && clean;sy++)for(int sx=scanX0;sx<scanX1;sx++){
+     const int si=sy*w+sx;
+     if(clipped[si]||variance[si]<=0){clean=false;break;}
+    }
+   }
+
    int ck=0;
    for(int cdy=-4;cdy<=0;cdy+=2){
     const int dxStart=-4,dxEnd=(cdy==0?-2:4);
     for(int cdx=dxStart;cdx<=dxEnd;cdx+=2){
      if(cdy==0 && cdx==0)continue;
      double* wk=weights.data()+size_t(ck)*maxPlane;
-     std::fill(wk,wk+plane,0.0);
-     std::fill(valid.begin(),valid.begin()+termPlane,uint8_t(0));
 
-     // Exact 1A normalized pair terms, but only for this bounded tile+halo.
-     for(int y=termY0;y<termY1;y++)for(int x=termX0;x<termX1;x++){
-      const int yb=y+cdy,xb=x+cdx;
-      if(yb<0||yb>=h||xb<0||xb>=w)continue;
-      const int a=y*w+x,b=yb*w+xb;
-      if(clipped[a]||clipped[b])continue;
-      const double v=double(variance[a])+variance[b];if(v<=0)continue;
-      const double d=double(raw[a])-raw[b];
-      const size_t q=size_t(y-termY0)*tw+(x-termX0);
-      term[q]=d*d/v;valid[q]=1;
-     }
-
-     // Convert the canonical direction's term field into the exact patch weight.
-     // Do not require variance at the target center here: the scalar oracle only
-     // requires it for the actual output target. This cache must also serve the
-     // symmetric reverse candidate whose target is the neighbour.
-     for(int y=ey0;y<ey1;y++)for(int x=ex0;x<ex1;x++){
-      const int yj=y+cdy,xj=x+cdx;
-      if(yj<2||yj>=h-2||xj<2||xj>=w-2)continue;
-      const int i=y*w+x,j=yj*w+xj;
-      if(clipped[i]||clipped[j])continue;
-      double distance=0.;int count=0;
-      for(int py=-2;py<=2;py+=2)for(int px=-2;px<=2;px+=2){
-       const size_t q=size_t(y+py-termY0)*tw+(x+px-termX0);
-       if(!valid[q])continue;
-       distance+=term[q];count++;
+     if(clean){
+      // Exact 1A normalized pair terms without branches that are already known
+      // false for this tile.
+      for(int y=termY0;y<termY1;y++)for(int x=termX0;x<termX1;x++){
+       const int a=y*w+x,b=(y+cdy)*w+(x+cdx);
+       const double v=double(variance[a])+variance[b];
+       const double d=double(raw[a])-raw[b];
+       term[size_t(y-termY0)*tw+(x-termX0)]=d*d/v;
       }
-      if(count<7)continue;
-      wk[size_t(y-ey0)*ew+(x-ex0)]=
-          std::exp(-2.*std::max(0.,distance/count-1.));
+
+      // All nine terms are valid. Keep the scalar py/px traversal order exactly.
+      for(int y=ey0;y<ey1;y++)for(int x=ex0;x<ex1;x++){
+       double distance=0.;
+       for(int py=-2;py<=2;py+=2)for(int px=-2;px<=2;px+=2){
+        distance+=term[size_t(y+py-termY0)*tw+(x+px-termX0)];
+       }
+       wk[size_t(y-ey0)*ew+(x-ex0)]=
+           std::exp(-2.*std::max(0.,distance/9.-1.));
+      }
+     }else{
+      std::fill(wk,wk+plane,0.0);
+      std::fill(valid.begin(),valid.begin()+termPlane,uint8_t(0));
+
+      // Exact 1A normalized pair terms for this bounded tile+halo.
+      for(int y=termY0;y<termY1;y++)for(int x=termX0;x<termX1;x++){
+       const int yb=y+cdy,xb=x+cdx;
+       if(yb<0||yb>=h||xb<0||xb>=w)continue;
+       const int a=y*w+x,b=yb*w+xb;
+       if(clipped[a]||clipped[b])continue;
+       const double v=double(variance[a])+variance[b];if(v<=0)continue;
+       const double d=double(raw[a])-raw[b];
+       const size_t q=size_t(y-termY0)*tw+(x-termX0);
+       term[q]=d*d/v;valid[q]=1;
+      }
+
+      // Convert the canonical direction's term field into the exact patch weight.
+      for(int y=ey0;y<ey1;y++)for(int x=ex0;x<ex1;x++){
+       const int yj=y+cdy,xj=x+cdx;
+       if(yj<2||yj>=h-2||xj<2||xj>=w-2)continue;
+       const int i=y*w+x,j=yj*w+xj;
+       if(clipped[i]||clipped[j])continue;
+       double distance=0.;int count=0;
+       for(int py=-2;py<=2;py+=2)for(int px=-2;px<=2;px+=2){
+        const size_t q=size_t(y+py-termY0)*tw+(x+px-termX0);
+        if(!valid[q])continue;
+        distance+=term[q];count++;
+       }
+       if(count<7)continue;
+       wk[size_t(y-ey0)*ew+(x-ex0)]=
+           std::exp(-2.*std::max(0.,distance/count-1.));
+      }
      }
      ck++;
     }
    }
 
-   // Apply cached weights in the original scalar candidate order.
-   for(int y=y0;y<y1;y++)for(int x=x0;x<x1;x++){
-    const int i=y*w+x;if(clipped[i]||variance[i]<=0)continue;
-    double sum=raw[i],ws=1.;
-    for(int dy=-4;dy<=4;dy+=2)for(int dx=-4;dx<=4;dx+=2){
-     if(!dx&&!dy)continue;
-     const int j=(y+dy)*w+(x+dx);if(clipped[j])continue;
-     int k=phase_noise_canonical_index(dy,dx);
-     int qx=x,qy=y;
-     if(k<0){
-      k=phase_noise_canonical_index(-dy,-dx);
-      qx=x+dx;qy=y+dy;
+   // Apply cached weights in the original scalar candidate order. Clean tiles
+   // omit only gates proven false by the bounding scan above.
+   if(clean){
+    for(int y=y0;y<y1;y++)for(int x=x0;x<x1;x++){
+     const int i=y*w+x;
+     double sum=raw[i],ws=1.;
+     for(int dy=-4;dy<=4;dy+=2)for(int dx=-4;dx<=4;dx+=2){
+      if(!dx&&!dy)continue;
+      const int j=(y+dy)*w+(x+dx);
+      int k=phase_noise_canonical_index(dy,dx);
+      int qx=x,qy=y;
+      if(k<0){
+       k=phase_noise_canonical_index(-dy,-dx);
+       qx=x+dx;qy=y+dy;
+      }
+      const double weight=weights[size_t(k)*maxPlane+
+          size_t(qy-ey0)*ew+(qx-ex0)];
+      sum+=weight*raw[j];ws+=weight;
      }
-     const double weight=weights[size_t(k)*maxPlane+
-         size_t(qy-ey0)*ew+(qx-ex0)];
-     if(weight==0.)continue;
-     sum+=weight*raw[j];ws+=weight;
+     out[i]=uint16_t(std::llround(sum/ws));
     }
-    out[i]=uint16_t(std::llround(sum/ws));
+   }else{
+    for(int y=y0;y<y1;y++)for(int x=x0;x<x1;x++){
+     const int i=y*w+x;if(clipped[i]||variance[i]<=0)continue;
+     double sum=raw[i],ws=1.;
+     for(int dy=-4;dy<=4;dy+=2)for(int dx=-4;dx<=4;dx+=2){
+      if(!dx&&!dy)continue;
+      const int j=(y+dy)*w+(x+dx);if(clipped[j])continue;
+      int k=phase_noise_canonical_index(dy,dx);
+      int qx=x,qy=y;
+      if(k<0){
+       k=phase_noise_canonical_index(-dy,-dx);
+       qx=x+dx;qy=y+dy;
+      }
+      const double weight=weights[size_t(k)*maxPlane+
+          size_t(qy-ey0)*ew+(qx-ex0)];
+      if(weight==0.)continue;
+      sum+=weight*raw[j];ws+=weight;
+     }
+     out[i]=uint16_t(std::llround(sum/ws));
+    }
    }
   }
  }
