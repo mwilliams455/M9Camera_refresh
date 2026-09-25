@@ -1,0 +1,33 @@
+name: Test M9 COLORPERF1A persistent blocks
+
+on:
+  push:
+    branches: [research/m9-colorperf1a-persistentblocks]
+    paths:
+      - 'patches/colorperf1a/**'
+      - '.github/workflows/test-m9-colorperf1a-persistentblocks.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: m9-colorperf1a-persistentblocks
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host test dependency
+        run: python3 -m pip install --user numpy
+      - name: Run exact persistent color worker parity
+        run: |
+          set -euo pipefail
+          python3 patches/colorperf1a/test.py COLORPERF1A_TESTS | tee M9COLORPERF1A_TESTS.txt
+      - name: Upload COLORPERF1A receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-COLORPERF1A-HOST
+          path: |
+            M9COLORPERF1A_TESTS.txt
+            COLORPERF1A_TESTS/colorperf1a_tests.json
