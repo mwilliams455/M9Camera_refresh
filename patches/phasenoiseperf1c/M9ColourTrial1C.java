@@ -54,7 +54,8 @@ final class M9ColourTrial1C {
         d.put("amazePhaseNoiseMs",stats[7]);
         d.put("phaseNoisePerfRevision","M9PHASENOISEPERF1C_ADAPTIVE128_EXACT");
         d.put("phaseNoisePerfBandRows",64);
-        d.put("phaseNoisePerfTileCols",512);\n        d.put("phaseNoisePerfDirtySubtileCols",128);
+        d.put("phaseNoisePerfTileCols",512);
+        d.put("phaseNoisePerfDirtySubtileCols",128);
         d.put("phaseNoisePerfPolicy","adaptive_dirty_tile_subdivision_512_to_128_symmetric_pair_exact");
         d.put("phaseNoisePerfParentRevision","M9PHASENOISEPERF1B_SYMTILE_EXACT");
         d.put("amazeQuarterBlendMs",stats[8]);
