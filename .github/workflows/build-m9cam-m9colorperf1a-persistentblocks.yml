@@ -1,4 +1,5 @@
 name: Build M9Cam M9COLORPERF1A PERSISTENTBLOCKS EXACT
+# 1.94 surgical assembled-parent validation
 
 on:
   workflow_dispatch:
