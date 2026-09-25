@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <vector>
 #include <omp.h>
 
 // Variance is in the same squared code units as raw, propagated from the
