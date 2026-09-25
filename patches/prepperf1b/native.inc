@@ -1,0 +1,246 @@
+#include <cstring>
+#include <thread>
+#include <vector>
+// Included after the original kernel definitions to reuse the frozen transforms,
+// no-Sharp MHC border, SAT, curve, TG1, 4:2:2 pairing and orientation code.
+extern "C" int trial_variance(const uint16_t*,int,int,int,int,const float*,int,const double*,const double*,int,int,double,float*,uint8_t*);
+extern "C" int trial_variance_parallel(const uint16_t*,int,int,int,int,const float*,int,const double*,const double*,int,int,double,float*,uint8_t*,int);
+extern "C" int trial_reconstruct(const uint16_t*,const float*,const uint8_t*,int,int,int,double,double,double,uint16_t*,int,double*);
+extern "C" int trial_reconstruct_perf(const uint16_t*,const float*,const uint8_t*,int,int,int,double,double,double,uint16_t*,int,double*,double*);
+extern "C" int partial_chroma(const uint16_t*,int,int,double,uint16_t*);
+extern "C" int partial_chroma_parallel(const uint16_t*,int,int,double,uint16_t*,int);
+
+static int trialPrepare(const ColorContext& ctx,const jshort* cam,int w,int h,double gain,uint16_t* out,int bandRows=128) {
+    if(!cam||!out||w<1||h<1||w>8192||h>8192||!std::isfinite(gain)||gain<=0||bandRows<1)return -1;
+    try {
+        for(int top=0;top<h;top+=bandRows) {
+            const int bottom=std::min(h,top+bandRows),start=std::max(0,top-2),end=std::min(h,bottom+2),bh=end-start;
+            std::vector<uint16_t> q(size_t(w)*bh*3),corrected(q.size());
+            for(int y=start;y<end;y++)for(int x=0;x<w;x++) {
+                double hsm[3],m[3];cameraToM9(cam,3*(y*w+x),ctx,hsm,m);
+                for(int c=0;c<3;c++)q[3*(size_t(y-start)*w+x)+c]=uint16_t(clipl(static_cast<int64_t>(std::rint(m[c]*gain*RAW_MAX)),0,RAW_MAX));
+            }
+            int rc=partial_chroma(q.data(),w,bh,.25,corrected.data());if(rc)return rc;
+            std::memcpy(out+size_t(top)*w*3,corrected.data()+size_t(top-start)*w*3,size_t(bottom-top)*w*6);
+        }
+    }catch(...){return -30;}
+    return 0;
+}
+
+template<class F>
+static void prepParallelRows(int first,int last,int workers,const F& fn) {
+    const int rows=std::max(0,last-first),used=std::min(workers,rows);
+    if(used<=1){for(int y=first;y<last;y++)fn(y);return;}
+    std::vector<std::thread> threads;threads.reserve(used);
+    for(int t=0;t<used;t++){
+        const int y0=first+(rows*t)/used,y1=first+(rows*(t+1))/used;
+        threads.emplace_back([&,y0,y1]{for(int y=y0;y<y1;y++)fn(y);});
+    }
+    for(auto& t:threads)t.join();
+}
+
+static inline int prepPerf1bMedian3(int a,int b,int c){
+    return a+b+c-std::min({a,b,c})-std::max({a,b,c});
+}
+
+// PREPPERF1B: keep the exact 128-row in-place memory model and exact pixel math,
+// but create the OpenMP worker team once for the whole frame. PREPPERF1A created
+// one std::thread team for camera->M9 and another for chroma in every band.
+// Here, implicit OpenMP barriers separate the same stages. No stage overlaps and
+// no output row is committed until every chroma worker has finished that band.
+static int trialPrepareInPlace(const ColorContext& ctx,jshort* cam,int w,int h,double gain,int bandRows=128) {
+    if(!cam||w<1||h<1||w>8192||h>8192||!std::isfinite(gain)||gain<=0||bandRows<2)return -1;
+    constexpr int prepWorkers=8;
+    auto* out=reinterpret_cast<uint16_t*>(cam);
+    try {
+        // Reuse bounded scratch across all bands. The +4 covers the two-row
+        // source halo on each side; production remains bandRows=128.
+        const size_t maxBandSamples=size_t(w)*(size_t(bandRows)+4u)*3u;
+        std::vector<uint16_t> previous(size_t(w)*2u*3u);
+        std::vector<uint16_t> q(maxBandSamples),corrected(maxBandSamples);
+
+        #pragma omp parallel num_threads(prepWorkers) shared(q,corrected,previous,out)
+        {
+            for(int top=0;top<h;top+=bandRows) {
+                const int bottom=std::min(h,top+bandRows);
+                const int start=std::max(0,top-2);
+                const int end=std::min(h,bottom+2);
+                const int bh=end-start;
+                const size_t bandSamples=size_t(w)*size_t(bh)*3u;
+
+                if(top>0) {
+                    #pragma omp single
+                    std::memcpy(q.data(),previous.data(),size_t(w)*2u*3u*sizeof(uint16_t));
+                }
+
+                // Exact PREPPERF1A camera->M9 per-pixel arithmetic.
+                #pragma omp for schedule(static)
+                for(int y=top;y<end;y++) {
+                    for(int x=0;x<w;x++) {
+                        double hsm[3],m[3];
+                        cameraToM9(cam,3*(y*w+x),ctx,hsm,m);
+                        for(int c=0;c<3;c++)
+                            q[3*(size_t(y-start)*w+x)+c]=uint16_t(clipl(
+                                static_cast<int64_t>(std::rint(m[c]*gain*RAW_MAX)),0,RAW_MAX));
+                    }
+                }
+
+                // Preserve the next band's untouched transform halo, then seed
+                // corrected with the same memcpy performed by partial_chroma_parallel.
+                #pragma omp single
+                {
+                    if(bottom<h)std::memcpy(previous.data(),
+                        q.data()+size_t(bottom-start-2)*w*3u,size_t(w)*12u);
+                    std::memcpy(corrected.data(),q.data(),bandSamples*sizeof(uint16_t));
+                }
+
+                // Exact frozen partial_chroma(.25) arithmetic. Source q is immutable
+                // and every worker owns disjoint destination rows.
+                #pragma omp for schedule(static)
+                for(int y=1;y<bh-1;y++) {
+                    const int delta[4]={1,w,w+1,w-1};
+                    for(int x=1;x<w-1;x++) {
+                        int i=y*w+x;
+                        int r=int(q[3*i])-q[3*i+1];
+                        int b=int(q[3*i+2])-q[3*i+1];
+                        int rr=r,bb=b;
+                        int64_t distance=INT64_MAX;
+                        for(int d:delta) {
+                            int j=i-d,k=i+d;
+                            int mr=prepPerf1bMedian3(int(q[3*j])-q[3*j+1],r,
+                                                     int(q[3*k])-q[3*k+1]);
+                            int mb=prepPerf1bMedian3(int(q[3*j+2])-q[3*j+1],b,
+                                                     int(q[3*k+2])-q[3*k+1]);
+                            int64_t dr=mr-r,db=mb-b,dd=dr*dr+db*db;
+                            if(dd<distance){distance=dd;rr=mr;bb=mb;}
+                        }
+                        if(distance==0)continue;
+                        double nr=r+.25*(rr-r),nb=b+.25*(bb-b);
+                        double lum=.2126*q[3*i]+.7152*q[3*i+1]+.0722*q[3*i+2];
+                        double g=lum-.2126*nr-.0722*nb;
+                        double v[3]={g+nr,g,g+nb};
+                        for(int c=0;c<3;c++)
+                            corrected[3*i+c]=uint16_t(std::clamp<long>(
+                                std::lround(v[c]),0,16383));
+                    }
+                }
+
+                // Commit only after the exact chroma stage for the whole band.
+                #pragma omp single
+                std::memcpy(out+size_t(top)*w*3u,
+                    corrected.data()+size_t(top-start)*w*3u,
+                    size_t(bottom-top)*w*6u);
+            }
+        }
+    }catch(...){return -30;}
+    return 0;
+}
+extern "C" const char* m9_prepperf1a_revision(){return "M9PREPPERF1A_PARALLEL8_EXACT";}
+extern "C" int m9_prepperf1a_workers(){return 8;}
+extern "C" const char* m9_prepperf1b_revision(){return "M9PREPPERF1B_PERSISTENT8_EXACT";}
+extern "C" int m9_prepperf1b_workers(){return 8;}
+extern "C" int m9_prepperf1b_band_rows(){return 128;}
+
+
+static void trialBorder(const jshort* raw,int w,int h,int cfa,double nr,double nb,uint16_t* out) {
+    for(int y=0;y<h;y++)for(int x=0;x<w;x++) {
+        if(x>=16&&x<w-16&&y>=16&&y<h-16)continue;
+        uint16_t* pixel=out+3*(size_t(y)*w+x);
+        if(cfa==0){
+            uint16_t g=mhcNeutralGreenRggb(raw,w,h,y,x,1./nr,1./nb);
+            mhcPixelNeutralRbCompleteRggb(raw,w,h,y,x,g,pixel,nr,nb,1./nr,1./nb);
+        }else{
+            uint16_t g=mhcNeutralGreenBayerPhase(raw,w,h,y,x,1./nr,1./nb,cfa&1,cfa>>1);
+            mhcPixelNeutralRbCompleteBayerPhase(raw,w,h,y,x,g,pixel,nr,nb,1./nr,1./nb,cfa&1,cfa>>1);
+        }
+    }
+}
+extern "C" JNIEXPORT jint JNICALL
+Java_com_particlesdevs_photoncamera_m9_render_M9ColourTrial1C_reconstruct(JNIEnv* env,jclass,
+ jshortArray norm,jobject sensorBuffer,jobject rgbBuffer,jint w,jint h,jint cfa,jint originY,
+ jfloatArray blackArray,jint white,jdoubleArray profileArray,jdoubleArray gainsArray,jint mw,jint mh,
+ jdouble scale,jdouble nr,jdouble nb,jint workers,jdoubleArray statsArray) {
+    if(!norm||!rgbBuffer||!statsArray||w<64||h<64||w>8192||h>8192||cfa<0||cfa>3||
+       env->GetArrayLength(norm)!=w*h||env->GetArrayLength(statsArray)<14)return -1;
+    auto* out=static_cast<uint16_t*>(env->GetDirectBufferAddress(rgbBuffer));
+    if(!out||env->GetDirectBufferCapacity(rgbBuffer)<int64_t(w)*h*6)return -2;
+    try {
+        const auto start=std::chrono::steady_clock::now();const size_t count=size_t(w)*h;
+        const auto rawCopyStart=std::chrono::steady_clock::now();
+        std::vector<uint16_t> raw(count);env->GetShortArrayRegion(norm,0,w*h,reinterpret_cast<jshort*>(raw.data()));
+        if(env->ExceptionCheck())return -3;
+        const double rawCopyMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-rawCopyStart).count();
+        double varianceMs=0.;
+        std::vector<float> variance;std::vector<uint8_t> censored;bool noise=false;
+        if(profileArray&&gainsArray&&blackArray&&sensorBuffer&&mw>0&&mh>0&&mw<=256&&mh<=256&&
+           env->GetArrayLength(profileArray)==6&&env->GetArrayLength(blackArray)==4&&env->GetArrayLength(gainsArray)==mw*mh*4) {
+            const auto* sensor=static_cast<const uint16_t*>(env->GetDirectBufferAddress(sensorBuffer));
+            if(sensor&&env->GetDirectBufferCapacity(sensorBuffer)>=int64_t(count)*2) {
+                float black[4];double profile[6];std::vector<double> gains(mw*mh*4);
+                env->GetFloatArrayRegion(blackArray,0,4,black);env->GetDoubleArrayRegion(profileArray,0,6,profile);
+                env->GetDoubleArrayRegion(gainsArray,0,mw*mh*4,gains.data());if(env->ExceptionCheck())return -3;
+                variance.resize(count);censored.resize(count);
+                const auto varianceStart=std::chrono::steady_clock::now();
+                noise=trial_variance_parallel(sensor,w,h,cfa,originY,black,white,profile,gains.data(),mw,mh,scale,
+                        variance.data(),censored.data(),workers)==0;
+                varianceMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-varianceStart).count();
+            }
+        }
+        double stats[14]={},perf[5]={};
+        int rc=trial_reconstruct_perf(raw.data(),noise?variance.data():nullptr,noise?censored.data():nullptr,
+                w,h,cfa,nr,nb,scale,out,workers,stats,perf);if(rc)return rc;
+        const auto borderStart=std::chrono::steady_clock::now();
+        trialBorder(reinterpret_cast<const jshort*>(raw.data()),w,h,cfa,nr,nb,out);
+        const double borderMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-borderStart).count();
+        stats[4]=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+        stats[5]=rawCopyMs;stats[6]=varianceMs;stats[7]=perf[0];stats[8]=perf[1];stats[9]=perf[2];
+        stats[10]=perf[3];stats[11]=perf[4];stats[12]=borderMs;stats[13]=workers;
+        env->SetDoubleArrayRegion(statsArray,0,14,stats);return env->ExceptionCheck()?-3:0;
+    }catch(...){return -30;}
+}
+extern "C" JNIEXPORT jint JNICALL
+Java_com_particlesdevs_photoncamera_m9_render_M9ColourTrial1C_prepare(JNIEnv* env,jclass,
+ jlong context,jlong camera,jint w,jint h,jdouble gain,jobject buffer) {
+    if(!context||!camera||!buffer||w<1||h<1||w>8192||h>8192)return -1;
+    auto* out=static_cast<uint16_t*>(env->GetDirectBufferAddress(buffer));
+    if(!out||env->GetDirectBufferCapacity(buffer)<int64_t(w)*h*6)return -2;
+    return trialPrepare(*reinterpret_cast<ColorContext*>(context),reinterpret_cast<const jshort*>(camera),w,h,gain,out);
+}
+extern "C" JNIEXPORT jobject JNICALL
+Java_com_particlesdevs_photoncamera_m9_render_M9ColourTrial1C_prepareInPlace(JNIEnv* env,jclass,
+ jlong context,jlong camera,jint w,jint h,jdouble gain) {
+    if(!context||!camera||w<1||h<1||w>8192||h>8192)return nullptr;
+    int rc=trialPrepareInPlace(*reinterpret_cast<ColorContext*>(context),reinterpret_cast<jshort*>(camera),w,h,gain);
+    if(rc)return nullptr;
+    // Borrowed view. Java retains the owning OpenCV Mat until all renders finish.
+    return env->NewDirectByteBuffer(reinterpret_cast<void*>(camera),int64_t(w)*h*6);
+}
+static const jshort* trialBlock(JNIEnv* env,jobject buffer,int w,int h,int y0,int pixels) {
+    if(!buffer||w<1||h<1||w>8192||h>8192||y0<0||y0>=h||pixels<1||pixels%w||pixels/w>h-y0)return nullptr;
+    auto* src=static_cast<const jshort*>(env->GetDirectBufferAddress(buffer));
+    if(!src||env->GetDirectBufferCapacity(buffer)<int64_t(w)*h*6)return nullptr;
+    return src+size_t(y0)*w*3;
+}
+extern "C" JNIEXPORT void JNICALL
+Java_com_particlesdevs_photoncamera_m9_render_M9ColourTrial1C_renderDirect(JNIEnv* env,jclass cls,
+ jlong context,jobject buffer,jint w,jint h,jint y0,jint pixels,jintArray argb,
+ jdouble cb,jdouble cr,jint rotation,jint workers,jlongArray stats) {
+    const auto* src=trialBlock(env,buffer,w,h,y0,pixels);
+    if(!src||!context){env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"),"Invalid COLOURTRIAL1C colour buffer");return;}
+    try {
+        ColorContext copy=*reinterpret_cast<ColorContext*>(context);copy.colourTrialPrepared=true;
+        Java_com_particlesdevs_photoncamera_m9_render_M9NativeColorCore_renderBlockParallelDirect(env,cls,
+            reinterpret_cast<jlong>(&copy),reinterpret_cast<jlong>(src),pixels,w,argb,1.,cb,cr,rotation,workers,stats);
+    }catch(...){env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),"COLOURTRIAL1C colour rendering failed");}
+}
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_particlesdevs_photoncamera_m9_render_M9ColourTrial1C_renderBitmap(JNIEnv* env,jclass cls,
+ jlong context,jobject buffer,jint w,jint h,jint y0,jint pixels,jobject bitmap,
+ jdouble cb,jdouble cr,jint rotation,jint workers,jlongArray stats) {
+    const auto* src=trialBlock(env,buffer,w,h,y0,pixels);if(!src||!context)return JNI_FALSE;
+    try {
+        ColorContext copy=*reinterpret_cast<ColorContext*>(context);copy.colourTrialPrepared=true;
+        return Java_com_particlesdevs_photoncamera_m9_render_M9NativeColorCore_renderBlockParallelDirectBitmap(env,cls,
+            reinterpret_cast<jlong>(&copy),reinterpret_cast<jlong>(src),pixels,w,bitmap,y0,h,1.,cb,cr,rotation,workers,stats);
+    }catch(...){env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),"COLOURTRIAL1C bitmap rendering failed");return JNI_FALSE;}
+}
