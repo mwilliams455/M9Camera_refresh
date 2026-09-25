@@ -310,8 +310,10 @@ def verify(root):
       'direct transport':'nativeColorBitmapDirectEligible' in target and 'nativeColorCvDirectEligible' in target,
       'native 1a core retained':'M9COLORPERF1A_PERSISTENTBLOCKS_EXACT' in c,
       'jni retained':'renderFramePersistentDirectBitmap' in j,
-      'phase 1c retained':'M9PHASENOISEPERF1C_ADAPTIVE128_EXACT' in r,
-      'prep 1b retained':'M9PREPPERF1B_PERSISTENT8_EXACT' in r,
+      'phase 1c retained':'M9PHASENOISEPERF1C_ADAPTIVE128_EXACT' in
+              (root/'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java').read_text(),
+      'prep 1b retained':'M9PREPPERF1B_PERSISTENT8_EXACT' in
+              (root/'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java').read_text(),
       'target input provenance':('targetInputAdapter1AApplied' in r
                                  and 'm9cam.renderer.targetinputadapter' in r),
     }
