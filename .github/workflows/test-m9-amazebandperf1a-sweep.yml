@@ -1,0 +1,36 @@
+name: Test M9 AMAZEBANDPERF1A exact sweep
+
+on:
+  push:
+    branches: [research/m9-amazebandperf1a-sweep]
+    paths:
+      - 'patches/amazebandperf1a/**'
+      - '.github/workflows/test-m9-amazebandperf1a-sweep.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: m9-amazebandperf1a-sweep
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host test dependency
+        run: python3 -m pip install --user numpy
+
+      - name: Run exact AMaZE band-size sweep
+        run: |
+          set -euo pipefail
+          OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=8 python3 patches/amazebandperf1a/test.py . AMAZEBANDPERF1A_TESTS | tee M9AMAZEBANDPERF1A_TESTS.txt
+
+      - name: Upload sweep receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-AMAZEBANDPERF1A-SWEEP
+          path: |
+            M9AMAZEBANDPERF1A_TESTS.txt
+            AMAZEBANDPERF1A_TESTS/amazebandperf1a_tests.json
