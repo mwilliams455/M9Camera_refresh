@@ -1,0 +1,84 @@
+name: Debug M9 PRIMARY writer source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-primaryrecovery1a]
+    paths:
+      - '.github/workflows/debug-m9-primarywriter.yml'
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected indentation: '+following)
+              blocks.append('\n'.join(body))
+          for idx,body in enumerate(blocks):
+              p=Path('/tmp/replay-'+str(idx)+'.sh');p.write_text(body+'\n')
+              subprocess.run(['bash',str(p)],check=True)
+          PYREPLAY
+
+      - name: Replay current source-only overlays
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2c.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2d.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2e.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera
+          python3 patches/apply-m9cam-m9detail1h.py PhotonCamera
+          python3 patches/apply-m9cam-m9shuttertrace1a.py PhotonCamera
+          python3 patches/apply-m9cam-m9shuttertrace1b.py PhotonCamera
+          python3 patches/colourtrial1c/apply.py PhotonCamera
+          python3 patches/colourtrial1d/apply.py PhotonCamera
+          python3 patches/colourtrial1e/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1a/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1b/apply.py PhotonCamera
+          python3 patches/previewtc20neg1a/apply.py PhotonCamera
+          python3 patches/shutterdrawlock1a/apply.py PhotonCamera
+          python3 patches/previewtc20neutral1a/apply.py PhotonCamera
+          python3 patches/previewstability1a/apply.py PhotonCamera
+          python3 patches/previewheap1a/apply.py PhotonCamera
+          python3 patches/spoolstream1a/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1c/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1d/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1e/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1f/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1g/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1h/apply.py PhotonCamera
+          python3 patches/autoexposurefinish1i/apply.py PhotonCamera
+          python3 patches/noisecancel1a/apply.py PhotonCamera
+
+      - name: Capture assembled PRIMARY writer
+        run: |
+          cp PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java M9PrimaryTimingWriter_ASSEMBLED.java
+          grep -n -E 'TIMING_WRITER|persistFrozen|M9Diagnostic|primary_timing|freezeAndWriteAsync' M9PrimaryTimingWriter_ASSEMBLED.java || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9PrimaryTimingWriter-ASSEMBLED
+          path: M9PrimaryTimingWriter_ASSEMBLED.java
