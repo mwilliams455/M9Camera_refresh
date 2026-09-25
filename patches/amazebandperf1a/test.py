@@ -33,6 +33,8 @@ candidates=[128,384,512,768,1024]
 
 # Hard parity across CFA patterns, seam positions, odd dimensions and clipped/noise cases.
 cases=[]
+mismatchSummary={str(br):{"cases":0,"mismatchCases":0,"mismatchSamples":0,"maxAbs":0} for br in candidates}
+exactCandidates=set(candidates)
 dims=[(641,385),(769,513),(1025,769),(1153,1025)]
 for cfa in range(4):
   for w,h in dims:
@@ -56,32 +58,43 @@ for cfa in range(4):
       got=np.empty_like(base);gs=np.zeros(4,np.float64);gp=np.zeros(5,np.float64)
       assert band(raw.ctypes.data,var.ctypes.data,censor.ctypes.data,w,h,cfa,.41,.59,1.7,
                   got.ctypes.data,8,gs.ctypes.data,gp.ctypes.data,br)==0
-      assert np.array_equal(base,got),("rgb",br,cfa,w,h,int(np.count_nonzero(base!=got)))
-      assert np.array_equal(bs,gs),("stats",br,cfa,w,h,bs,gs)
-      cases.append({"bandRows":br,"cfa":cfa,"w":w,"h":h})
+      diff=(base!=got)
+      mismatch=int(np.count_nonzero(diff))
+      maxAbs=int(np.max(np.abs(base.astype(np.int32)-got.astype(np.int32)))) if mismatch else 0
+      rec=mismatchSummary[str(br)]
+      rec["cases"]+=1;rec["mismatchSamples"]+=mismatch;rec["maxAbs"]=max(rec["maxAbs"],maxAbs)
+      if mismatch or not np.array_equal(bs,gs):
+        rec["mismatchCases"]+=1
+        exactCandidates.discard(br)
+      cases.append({"bandRows":br,"cfa":cfa,"w":w,"h":h,
+                    "mismatchSamples":mismatch,"maxAbs":maxAbs,
+                    "statsExact":bool(np.array_equal(bs,gs))})
 
-# Isolated AMaZE timings on 12 MP: no phase-noise input, so perf[3] is the
-# stage we are actually choosing. One baseline output is retained as the parity oracle.
+# Isolated AMaZE timings on 12 MP: only candidates that passed every smaller
+# exactness case advance. No phase-noise input, so perf[3] is the stage we are choosing.
 w,h=4096,3072
 raw=rng.integers(900,61000,(h,w),np.uint16)
 base=np.empty((h,w,3),np.uint16);bs=np.zeros(4,np.float64);bp=np.zeros(5,np.float64)
 assert band(raw.ctypes.data,None,None,w,h,0,.41,.59,1.7,
             base.ctypes.data,8,bs.ctypes.data,bp.ctypes.data,256)==0
 timings={}
-for br in [128,256,384,512,768,1024]:
+for br in [256]+sorted(exactCandidates):
   runs=[]
+  twelveMpExact=True
   for rep in range(2):
     got=np.empty_like(base);gs=np.zeros(4,np.float64);gp=np.zeros(5,np.float64)
     t=time.perf_counter()
     assert band(raw.ctypes.data,None,None,w,h,0,.41,.59,1.7,
                 got.ctypes.data,8,gs.ctypes.data,gp.ctypes.data,br)==0
     wall=(time.perf_counter()-t)*1000
-    assert np.array_equal(base,got),("12mp-rgb",br,rep,int(np.count_nonzero(base!=got)))
-    assert np.array_equal(bs,gs),("12mp-stats",br,rep,bs,gs)
+    exact=np.array_equal(base,got) and np.array_equal(bs,gs)
+    twelveMpExact=twelveMpExact and exact
     runs.append({"rep":rep,"wallMs":wall,"floatInputMs":float(gp[2]),
-                 "amazeCoreMs":float(gp[3]),"outputQuantizeMs":float(gp[4])})
+                 "amazeCoreMs":float(gp[3]),"outputQuantizeMs":float(gp[4]),
+                 "byteExact":bool(exact)})
   timings[str(br)]={
     "runs":runs,
+    "twelveMpByteExact":bool(twelveMpExact),
     "medianWallMs":float(np.median([x["wallMs"] for x in runs])),
     "medianAmazeCoreMs":float(np.median([x["amazeCoreMs"] for x in runs])),
     "medianQuantizeMs":float(np.median([x["outputQuantizeMs"] for x in runs]))
@@ -90,8 +103,9 @@ for br in [128,256,384,512,768,1024]:
 base256=timings["256"]["medianAmazeCoreMs"]
 for v in timings.values():
   v["amazeSpeedupVs256"]=base256/v["medianAmazeCoreMs"]
+finalExact=[br for br in sorted(exactCandidates) if timings.get(str(br),{}).get("twelveMpByteExact",False)]
+best=min([256]+finalExact,key=lambda br:timings[str(br)]["medianAmazeCoreMs"])
 
-best=min((int(k) for k in timings),key=lambda br:timings[str(br)]["medianAmazeCoreMs"])
 receipt={
  "revision":"M9AMAZEBANDPERF1A_SWEEP_ONLY",
  "productionParent":"1.93_M9PHASENOISEPERF1C_ADAPTIVE128_EXACT",
@@ -99,8 +113,11 @@ receipt={
  "testedBandRows":[128,256,384,512,768,1024],
  "allBandsMultiplesOfAmazeTileStep128":True,
  "productionVsParameterized256ByteExact":True,
- "allCandidateRgbByteExact":True,
- "allCandidateStatsExact":True,
+ "smallCaseMismatchSummary":mismatchSummary,
+ "smallCaseExactCandidates":sorted(exactCandidates),
+ "twelveMpExactCandidates":finalExact,
+ "allCandidateRgbByteExact":len(exactCandidates)==len(candidates),
+ "allCandidateStatsExact":all(x["statsExact"] for x in cases),
  "allFourCfa":True,
  "parityCases":len(cases),
  "includes12MpParity":True,
