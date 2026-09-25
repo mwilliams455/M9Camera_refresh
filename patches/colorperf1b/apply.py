@@ -40,9 +40,40 @@ def one(text,old,new,label):
 def method_bounds(text,marker):
     start=text.find(marker)
     if start<0: raise SystemExit('COLORPERF1B target method missing: '+marker.strip())
-    nxt=text.find('\n    private static ',start+len(marker))
-    if nxt<0: raise SystemExit('COLORPERF1B next top-level method boundary missing')
-    return start,nxt
+    brace=text.find('{',start)
+    if brace<0: raise SystemExit('COLORPERF1B target method opening brace missing')
+    depth=0
+    i=brace
+    state='code'
+    quote=''
+    esc=False
+    while i<len(text):
+        ch=text[i]
+        nxt=text[i+1] if i+1<len(text) else ''
+        if state=='line':
+            if ch=='\n': state='code'
+        elif state=='block':
+            if ch=='*' and nxt=='/':
+                state='code'; i+=1
+        elif state=='string':
+            if esc: esc=False
+            elif ch=='\\': esc=True
+            elif ch==quote: state='code'
+        else:
+            if ch=='/' and nxt=='/':
+                state='line'; i+=1
+            elif ch=='/' and nxt=='*':
+                state='block'; i+=1
+            elif ch in ('"',"'"):
+                state='string'; quote=ch; esc=False
+            elif ch=='{':
+                depth+=1
+            elif ch=='}':
+                depth-=1
+                if depth==0:
+                    return start,i+1
+        i+=1
+    raise SystemExit('COLORPERF1B target method unterminated')
 
 def brace_block_end(text,start):
     brace=text.find('{',start)
