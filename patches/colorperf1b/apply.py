@@ -72,65 +72,81 @@ def patch_target_method(render):
     ms,me=method_bounds(render,TARGET_MARKER)
     method=render[ms:me]
 
-    # The promoted TARGETINPUT method was generated from a later renderer and its
-    # whitespace/header spelling is not guaranteed to match the legacy renderCore.
-    # Bind to the actual PERF3I call, then select the nearest enclosing for-loop.
-    call_marker='M9NativeColorCore.renderBlockParallelDirectBitmap('
-    call_rel=method.find(call_marker)
-    if call_rel<0:
-        raise SystemExit('COLORPERF1B target PERF3I call missing')
-    if method.find(call_marker,call_rel+1)>=0:
-        raise SystemExit('COLORPERF1B target PERF3I call ambiguous')
+    # The active TARGETINPUT core can inherit a different colour transport
+    # generation from the frozen prospective copy. Detect the actual transport
+    # before changing anything.
+    persistent_marker='M9NativeColorCore.renderFramePersistentDirectBitmap('
+    existing_persistent=(persistent_marker in method)
 
-    import re
-    enclosing=[]
-    for m in re.finditer(r'\\bfor\\s*\\(',method[:call_rel]):
-        rel_start=m.start()
-        abs_start=ms+rel_start
-        brace=render.find('{',abs_start,ms+call_rel)
-        if brace<0:
-            continue
-        try:
-            end=brace_block_end(render,abs_start)
-        except SystemExit:
-            continue
-        if brace < ms+call_rel < end:
-            header=render[abs_start:brace]
-            enclosing.append((abs_start,end,header))
-    if not enclosing:
-        context=method[max(0,call_rel-1600):min(len(method),call_rel+800)]
-        raise SystemExit('COLORPERF1B could not find enclosing PERF3I for-loop; context='+repr(context))
-
-    # The innermost enclosing for-loop is the exact block loop containing the
-    # PERF3I call. Require its header to reference the frozen color block size;
-    # if a generated wrapper adds an inner loop later, fail closed.
-    loop_start,loop_end,loop_header=max(enclosing,key=lambda x:x[0])
-    if 'NATIVE_COLOR_BLOCK_ROWS' not in loop_header:
-        candidates=' | '.join(h.strip().replace('\\n',' ') for _,_,h in enclosing[-4:])
-        raise SystemExit('COLORPERF1B enclosing PERF3I loop is not the frozen color-block loop: '+candidates)
-    old_loop=render[loop_start:loop_end]
-
-    # TARGETINPUT/FIXEDGAIN routes restore shading representation scale at the same
-    # pre-existing render-gain boundary. Retain whichever exact expression the
-    # assembled parent already uses in its eight-call fallback.
-    if 'effectiveRenderGain' in old_loop:
-        gain='effectiveRenderGain'
-    elif 'meter.gain' in old_loop:
-        gain='meter.gain'
+    if existing_persistent:
+        # COLORPERF1A already reached this copied target method. Do not nest a
+        # second persistent scheduler; add active-route diagnostics only.
+        gain='already_bound_in_existing_COLORPERF1A_target_call'
     else:
-        raise SystemExit('COLORPERF1B cannot identify frozen target render-gain expression')
+        # Otherwise find the target method's real block colour call rather than
+        # assuming the legacy M9NativeColorCore spelling.
+        call_markers=[
+            'M9NativeColorCore.renderBlockParallelDirectBitmap(',
+            'M9ColourTrial1C.renderBitmap(',
+            'M9ColourTrial1C.renderBlockParallelDirectBitmap(',
+            'M9ColourTrial1C.renderDirect(',
+        ]
+        call_marker=None;call_rel=-1
+        for candidate in call_markers:
+            p=method.find(candidate)
+            if p>=0:
+                if method.find(candidate,p+1)>=0:
+                    raise SystemExit('COLORPERF1B target colour call ambiguous for '+candidate)
+                call_marker=candidate;call_rel=p;break
 
-    prefix=f'''            final int nativeColorPersistentBlockCount =
+        if call_rel<0:
+            interesting=[]
+            for line in method.splitlines():
+                if ('nativeColor' in line or 'renderBlock' in line or
+                    'renderBitmap' in line or 'renderDirect' in line or
+                    'M9Colour' in line or
+                    ('for (' in line and ('height' in line or 'BLOCK' in line))):
+                    interesting.append(line.strip())
+            raise SystemExit('COLORPERF1B target colour call missing; active method map='
+                             +repr(interesting[-160:]))
+
+        import re
+        enclosing=[]
+        for m in re.finditer(r'\\bfor\\s*\\(',method[:call_rel]):
+            abs_start=ms+m.start()
+            brace=render.find('{',abs_start,ms+call_rel)
+            if brace<0: continue
+            try:
+                e=brace_block_end(render,abs_start)
+            except SystemExit:
+                continue
+            if brace < ms+call_rel < e:
+                enclosing.append((abs_start,e,render[abs_start:brace]))
+        if not enclosing:
+            context=method[max(0,call_rel-1600):min(len(method),call_rel+1000)]
+            raise SystemExit('COLORPERF1B could not find enclosing target colour loop; context='+repr(context))
+
+        loop_start,loop_end,loop_header=max(enclosing,key=lambda x:x[0])
+        old_loop=render[loop_start:loop_end]
+        if 'NATIVE_COLOR_BLOCK_ROWS' not in old_loop[:min(len(old_loop),1500)]:
+            candidates=' | '.join(h.strip().replace('\\n',' ') for _,_,h in enclosing[-4:])
+            raise SystemExit('COLORPERF1B enclosing target loop lacks frozen block geometry: '+candidates)
+
+        if 'effectiveRenderGain' in old_loop:
+            gain='effectiveRenderGain'
+        elif 'meter.gain' in old_loop:
+            gain='meter.gain'
+        else:
+            raise SystemExit('COLORPERF1B cannot identify frozen target render-gain expression')
+
+        prefix=f'''            final int nativeColorPersistentBlockCount =
                     (height + NATIVE_COLOR_BLOCK_ROWS - 1) / NATIVE_COLOR_BLOCK_ROWS;
             boolean nativeColorPersistentFrameAttempted = false;
             boolean nativeColorPersistentFrameActive = false;
             long nativeColorPersistentAttemptElapsedNs = 0L;
 
-            // COLORPERF1B TARGETACTIVE1A: apply the already byte-exact COLORPERF1A
-            // native scheduler to the actual promoted TARGETINPUT renderer.
-            // The 384-row geometry, 8-way worker row partitions and scalar colour
-            // kernel are unchanged. False returns before mutation and uses the
-            // original PERF3I eight-block loop below.
+            // COLORPERF1B TARGETACTIVE1A: same proven native colour core, now on
+            // the production TARGETINPUT renderer. Pixel math and partitions frozen.
             if (nativeColorCvDirectEligible && nativeColorBitmapDirectEligible) {{
                 nativeColorPersistentFrameAttempted = true;
                 final long persistentStartedNs = System.nanoTime();
@@ -172,8 +188,8 @@ def patch_target_method(render):
 
             if (!nativeColorPersistentFrameActive) {{
 '''
-    wrapped=prefix+old_loop+'\n            }'
-    render=render[:loop_start]+wrapped+render[loop_end:]
+        wrapped=prefix+old_loop+'\n            }'
+        render=render[:loop_start]+wrapped+render[loop_end:]
 
     # Scope diagnostics to the same active target method, not the legacy renderCore.
     ms,me=method_bounds(render,TARGET_MARKER)
@@ -187,12 +203,13 @@ def patch_target_method(render):
             d.put("colorPerfRevision", "M9COLORPERF1B_TARGETACTIVE_EXACT");
             d.put("colorPerfParentRevision", "M9COLORPERF1A_PERSISTENTBLOCKS_EXACT");
             d.put("nativeColorPersistentTargetRoute", "renderNativeProspectiveCore_TARGETINPUTADAPTER1A");
-            d.put("nativeColorPersistentFrameAttempted", nativeColorPersistentFrameAttempted);
+            d.put("nativeColorPersistentFrameAttempted",
+                    nativeColorCvDirectEligible && nativeColorBitmapDirectEligible);
             d.put("nativeColorPersistentFrameActive", nativeColorPersistentFrameActive);
-            d.put("nativeColorPersistentAttemptElapsedMs", nativeColorPersistentAttemptElapsedNs / 1_000_000.0);
             d.put("nativeColorWorkerTeamLaunches", nativeColorPersistentFrameActive ? 1 : nativeColorCalls);
             d.put("nativeColorBitmapLockCount", nativeColorPersistentFrameActive ? 1 : nativeColorBitmapDirectBlocks);
-            d.put("nativeColorPersistentExpectedBlocks", nativeColorPersistentBlockCount);'''
+            d.put("nativeColorPersistentExpectedBlocks",
+                    (height + NATIVE_COLOR_BLOCK_ROWS - 1) / NATIVE_COLOR_BLOCK_ROWS);'''
     render=render[:pos]+extra+render[pos:]
     return render,gain
 
@@ -212,7 +229,10 @@ def verify(root):
       'target call':'M9NativeColorCore.renderFramePersistentDirectBitmap' in target,
       'target attempted diag':'nativeColorPersistentFrameAttempted' in target,
       'target active diag':'nativeColorPersistentFrameActive' in target,
-      'fallback retained':'M9NativeColorCore.renderBlockParallelDirectBitmap' in target,
+      'fallback retained':('renderBlockParallelDirectBitmap' in target
+                           or 'M9ColourTrial1C.renderBitmap' in target
+                           or 'M9ColourTrial1C.renderDirect' in target
+                           or 'renderFramePersistentDirectBitmap' in target),
       'target adapter retained':'targetInputAdapter1AApplied' in target,
       'native 1a core retained':'M9COLORPERF1A_PERSISTENTBLOCKS_EXACT' in c,
       'jni retained':'renderFramePersistentDirectBitmap' in j,
