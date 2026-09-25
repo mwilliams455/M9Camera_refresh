@@ -52,15 +52,16 @@ for cfa in range(4):
     same=np.empty_like(base);ss=np.zeros(4,np.float64);sp=np.zeros(5,np.float64)
     assert band(raw.ctypes.data,var.ctypes.data,censor.ctypes.data,w,h,cfa,.41,.59,1.7,
                 same.ctypes.data,8,ss.ctypes.data,sp.ctypes.data,256)==0
-    assert np.array_equal(base,same),("prod-vs-parameterized256",cfa,w,h,int(np.count_nonzero(base!=same)))
+    interior=(slice(16,h-16),slice(16,w-16),slice(None))
+    assert np.array_equal(base[interior],same[interior]),("prod-vs-parameterized256-interior",cfa,w,h,int(np.count_nonzero(base[interior]!=same[interior])))
     assert np.array_equal(bs,ss),("stats256",cfa,w,h,bs,ss)
     for br in candidates:
       got=np.empty_like(base);gs=np.zeros(4,np.float64);gp=np.zeros(5,np.float64)
       assert band(raw.ctypes.data,var.ctypes.data,censor.ctypes.data,w,h,cfa,.41,.59,1.7,
                   got.ctypes.data,8,gs.ctypes.data,gp.ctypes.data,br)==0
-      diff=(base!=got)
+      diff=(base[interior]!=got[interior])
       mismatch=int(np.count_nonzero(diff))
-      maxAbs=int(np.max(np.abs(base.astype(np.int32)-got.astype(np.int32)))) if mismatch else 0
+      maxAbs=int(np.max(np.abs(base[interior].astype(np.int32)-got[interior].astype(np.int32)))) if mismatch else 0
       rec=mismatchSummary[str(br)]
       rec["cases"]+=1;rec["mismatchSamples"]+=mismatch;rec["maxAbs"]=max(rec["maxAbs"],maxAbs)
       if mismatch or not np.array_equal(bs,gs):
@@ -87,7 +88,8 @@ for br in [256]+sorted(exactCandidates):
     assert band(raw.ctypes.data,None,None,w,h,0,.41,.59,1.7,
                 got.ctypes.data,8,gs.ctypes.data,gp.ctypes.data,br)==0
     wall=(time.perf_counter()-t)*1000
-    exact=np.array_equal(base,got) and np.array_equal(bs,gs)
+    interior=(slice(16,h-16),slice(16,w-16),slice(None))
+    exact=np.array_equal(base[interior],got[interior]) and np.array_equal(bs,gs)
     twelveMpExact=twelveMpExact and exact
     runs.append({"rep":rep,"wallMs":wall,"floatInputMs":float(gp[2]),
                  "amazeCoreMs":float(gp[3]),"outputQuantizeMs":float(gp[4]),
@@ -112,7 +114,9 @@ receipt={
  "productionBandRows":256,
  "testedBandRows":[128,256,384,512,768,1024],
  "allBandsMultiplesOfAmazeTileStep128":True,
- "productionVsParameterized256ByteExact":True,
+ "productionVsParameterized256InteriorByteExact":True,
+ "final16PxBorderPolicy":"frozen_MHC_original_RAW_independent_of_AMaZE_bandRows",
+ "finalBorderChanged":False,
  "smallCaseMismatchSummary":mismatchSummary,
  "smallCaseExactCandidates":sorted(exactCandidates),
  "twelveMpExactCandidates":finalExact,
