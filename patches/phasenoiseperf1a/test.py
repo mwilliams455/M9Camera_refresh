@@ -18,6 +18,8 @@ lib=m.configure(C.CDLL(str(so)))
 P=C.c_void_p;I=C.c_int;D=C.c_double
 fast=lib.phase_noise_banded_exact
 fast.argtypes=[P,P,P,I,I,P,I];fast.restype=I
+reconp=lib.trial_reconstruct_perf
+reconp.argtypes=[P,P,P,I,I,I,D,D,D,P,I,P,P];reconp.restype=I
 lib.m9_phasenoiseperf1a_band_rows.argtypes=[]
 lib.m9_phasenoiseperf1a_band_rows.restype=I
 assert lib.m9_phasenoiseperf1a_band_rows()==64
@@ -66,7 +68,7 @@ for cfa in range(4):
   ss=np.zeros(4,np.float64);ps=np.zeros(4,np.float64);perf=np.zeros(5,np.float64)
   assert lib.trial_reconstruct(raw.ctypes.data,var.ctypes.data,censor.ctypes.data,w,h,cfa,.42,.61,1.7,
       scalar.ctypes.data,8,ss.ctypes.data)==0
-  assert lib.trial_reconstruct_perf(raw.ctypes.data,var.ctypes.data,censor.ctypes.data,w,h,cfa,.42,.61,1.7,
+  assert reconp(raw.ctypes.data,var.ctypes.data,censor.ctypes.data,w,h,cfa,.42,.61,1.7,
       prod.ctypes.data,8,ps.ctypes.data,perf.ctypes.data)==0
   assert np.array_equal(scalar,prod),('reconstruct',cfa,int(np.count_nonzero(scalar!=prod)))
   assert np.array_equal(ss,ps),('stats',cfa,ss,ps)
