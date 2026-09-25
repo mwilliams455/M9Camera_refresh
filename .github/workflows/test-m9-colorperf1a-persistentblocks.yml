@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: m9-colorperf1a-persistentblocks
+  group: m9-colorperf1a-persistentblocks-host
   cancel-in-progress: true
 
 jobs:
