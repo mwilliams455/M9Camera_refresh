@@ -72,13 +72,42 @@ def patch_target_method(render):
     ms,me=method_bounds(render,TARGET_MARKER)
     method=render[ms:me]
 
-    loop_marker='            for (int y0 = 0; y0 < height; y0 += NATIVE_COLOR_BLOCK_ROWS) {'
-    rel=method.find(loop_marker)
-    if rel<0: raise SystemExit('COLORPERF1B target PERF3I loop missing')
-    if method.find(loop_marker,rel+1)>=0:
-        raise SystemExit('COLORPERF1B target PERF3I loop ambiguous')
-    loop_start=ms+rel
-    loop_end=brace_block_end(render,loop_start)
+    # The promoted TARGETINPUT method was generated from a later renderer and its
+    # whitespace/header spelling is not guaranteed to match the legacy renderCore.
+    # Bind to the actual PERF3I call, then select the nearest enclosing for-loop.
+    call_marker='M9NativeColorCore.renderBlockParallelDirectBitmap('
+    call_rel=method.find(call_marker)
+    if call_rel<0:
+        raise SystemExit('COLORPERF1B target PERF3I call missing')
+    if method.find(call_marker,call_rel+1)>=0:
+        raise SystemExit('COLORPERF1B target PERF3I call ambiguous')
+
+    import re
+    enclosing=[]
+    for m in re.finditer(r'\\bfor\\s*\\(',method[:call_rel]):
+        rel_start=m.start()
+        abs_start=ms+rel_start
+        brace=render.find('{',abs_start,ms+call_rel)
+        if brace<0:
+            continue
+        try:
+            end=brace_block_end(render,abs_start)
+        except SystemExit:
+            continue
+        if brace < ms+call_rel < end:
+            header=render[abs_start:brace]
+            enclosing.append((abs_start,end,header))
+    if not enclosing:
+        context=method[max(0,call_rel-1600):min(len(method),call_rel+800)]
+        raise SystemExit('COLORPERF1B could not find enclosing PERF3I for-loop; context='+repr(context))
+
+    # The innermost enclosing for-loop is the exact block loop containing the
+    # PERF3I call. Require its header to reference the frozen color block size;
+    # if a generated wrapper adds an inner loop later, fail closed.
+    loop_start,loop_end,loop_header=max(enclosing,key=lambda x:x[0])
+    if 'NATIVE_COLOR_BLOCK_ROWS' not in loop_header:
+        candidates=' | '.join(h.strip().replace('\\n',' ') for _,_,h in enclosing[-4:])
+        raise SystemExit('COLORPERF1B enclosing PERF3I loop is not the frozen color-block loop: '+candidates)
     old_loop=render[loop_start:loop_end]
 
     # TARGETINPUT/FIXEDGAIN routes restore shading representation scale at the same
