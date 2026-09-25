@@ -10,15 +10,14 @@ ROOT=Path(sys.argv[1]).resolve()
 OUT=Path(sys.argv[2]).resolve() if len(sys.argv)>2 else Path("AMAZEBANDPERF1A_TESTS")
 OUT.mkdir(parents=True,exist_ok=True)
 
-cpp=ROOT/"app/src/main/cpp"
-p=cpp/"colourtrial1c"
+upstream=REPO/"patches/colourtrial1c/upstream"
 lib=OUT/"libamazebandperf1a.so"
 cmd=[
  "g++","-std=c++17","-O2","-fPIC","-shared","-fopenmp","-ffp-contract=off","-fno-fast-math",
- "-I"+str(cpp),"-I"+str(p/"upstream/include"),
+ "-I"+str(upstream/"include"),
  str(HERE/"reconstruct.cpp"),
  str(REPO/"patches/phasenoiseperf1c/phase_noise.cpp"),
- str(p/"upstream/amaze.cc"),str(p/"upstream/border.cc"),
+ str(upstream/"amaze.cc"),str(upstream/"border.cc"),
  "-o",str(lib)
 ]
 subprocess.run(cmd,check=True)
