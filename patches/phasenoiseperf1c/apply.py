@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Apply PHASENOISEPERF1C adaptive exact dirty-tile subdivision after accepted 1.92."""
 from pathlib import Path
-import json,shutil,sys
+import json,shutil,sys,importlib.util
 HERE=Path(__file__).resolve().parent
 REPO=HERE.parents[1]
-sys.path.insert(0,str(REPO/'patches/prepperf1b'))
-from apply import verify as parent_verify
+_parent_spec=importlib.util.spec_from_file_location('m9_prepperf1b_apply',REPO/'patches/prepperf1b/apply.py')
+_parent_mod=importlib.util.module_from_spec(_parent_spec);_parent_spec.loader.exec_module(_parent_mod)
+parent_verify=_parent_mod.verify
 sys.path.insert(0,str(REPO/'patches'))
 from m9rbrollback1a import inventory
 
