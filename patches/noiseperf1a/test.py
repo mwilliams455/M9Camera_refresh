@@ -25,7 +25,8 @@ base,base_cmd=build(BASE,'scalar','M9NOISECANCEL1B_HOST')
 cand,cand_cmd=build(CAND,'parallel','M9NOISEPERF1A_HOST')
 
 def call(fn,rgb,profile,gains,mw,mh,scale):
-    a=np.ascontiguousarray(rgb,np.uint16);p=np.ascontiguousarray(profile,np.float64)
+    # Always isolate each implementation from the other's in-place output.
+    a=np.array(rgb,dtype=np.uint16,copy=True,order='C');p=np.ascontiguousarray(profile,np.float64)
     g=np.ascontiguousarray(gains,np.float64);stats=np.zeros(14,np.float64)
     t=time.perf_counter()
     rc=fn(a.ctypes.data,a.shape[1],a.shape[0],p.ctypes.data,g.ctypes.data,mw,mh,scale,stats.ctypes.data)
