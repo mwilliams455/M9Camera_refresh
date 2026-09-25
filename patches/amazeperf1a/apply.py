@@ -37,7 +37,7 @@ def verify(root):
       'perf reconstruct':'extern "C" int trial_reconstruct_perf(' in r,
       'chunk2 frozen':'65535.f,65535.f,2,false)' in r,
       'parallel blend':'reduction(+:changed,censoredCount) reduction(max:maxCorrection)' in r,
-      'parallel input':'perf[2]=ms(t0,Clock::now())' in r,
+      'parallel input':'perf[2]=elapsed(t0,Clock::now())' in r,
       'parallel quantize':'reduction(|:invalid)' in r,
       'native perf call':'trial_reconstruct_perf(raw.data()' in n,
       'native parallel variance':'trial_variance_parallel(sensor' in n,
