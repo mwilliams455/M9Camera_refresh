@@ -64,7 +64,8 @@ final class M9ColourTrial1C {
         d.put("amazeBorderMs",stats[12]);
         d.put("amazePeripheralPolicy","parallel_exact_independent_rows_AMaZE_chunk2_frozen");
         d.put("border","16px_true_noSharp_MHC_original_RAW");
-        d.put("chromaStrength",.25);d.put("chromaDomain","target_Q14_before_SAT");\n        d.put("prepPerfRevision","M9PREPPERF1B_PERSISTENT8_EXACT");d.put("prepPerfWorkers",8);d.put("prepPerfBandRows",128);
+        d.put("chromaStrength",.25);d.put("chromaDomain","target_Q14_before_SAT");
+        d.put("prepPerfRevision","M9PREPPERF1B_PERSISTENT8_EXACT");d.put("prepPerfWorkers",8);d.put("prepPerfBandRows",128);
         return d;
     }
     private static native ByteBuffer prepareInPlace(long context,long camera,int w,int h,double gain);
