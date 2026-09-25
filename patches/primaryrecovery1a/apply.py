@@ -105,23 +105,20 @@ def main(root):
 ''',
       'freeze variable')
     w=one(w,
-      '''            TIMING_WRITER.execute(() -> persistFrozen(frozen));
-            return true;
-        } catch (Throwable t) {
-            Log.e(TAG, "Unable to freeze/schedule PRIMARY2.4 DNGASYNC1A timing sidecar", t);
-            return false;
-        }
-''',
+      '            TIMING_WRITER.execute(() -> persistFrozen(frozen));\n',
       '''            final FrozenTiming scheduled = frozen;
             TIMING_WRITER.execute(() -> persistFrozen(scheduled));
-            return true;
+''',
+      'schedule handoff')
+    w=one(w,
+      '''            return true;
+        } catch (Throwable t) {
+''',
+      '''            return true;
         } catch (Throwable t) {
             if (frozen != null && stageRecovery(frozen, "schedule_failure", t)) {
                 return true;
             }
-            Log.e(TAG, "Unable to freeze/schedule PRIMARY2.4 DNGASYNC1A timing sidecar", t);
-            return false;
-        }
 ''',
       'schedule fallback')
     w=one(w,
