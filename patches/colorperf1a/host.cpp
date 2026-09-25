@@ -13,7 +13,6 @@ extern "C" void* trial_colorperf_context(const double* a,const uint8_t* curve) {
         for(double& x:*v)x=a[p++];
     q->hsm={0,1,1,0,1,1,0,1,1,0,1,1};
     q->hueDivisions=2;q->satDivisions=2;
-    q->skyChromaMode1A=9;
     std::copy(curve,curve+2048,q->curve.begin());
     return q;
 }
@@ -29,7 +28,7 @@ extern "C" int trial_colorperf_old(
     for(int blockY0=0;blockY0<h;blockY0+=blockRows){
         const int rows=std::min(blockRows,h-blockY0);
         const int workerCount=std::max(1,std::min(workers,rows));
-        std::vector<std::array<int64_t,3>> ws(size_t(workerCount));
+        std::vector<std::array<int64_t,3>> ws(static_cast<size_t>(workerCount));
         std::vector<int64_t> renderNs(size_t(workerCount),0),orientNs(size_t(workerCount),0),combined(size_t(workerCount),0);
         std::vector<std::thread> ts;ts.reserve(size_t(workerCount));
         for(int worker=0;worker<workerCount;worker++){
