@@ -22,6 +22,10 @@ banded=lib.phase_noise_banded_exact
 banded.argtypes=[P,P,P,I,I,P,I];banded.restype=I
 lib.m9_phasenoiseperf1b_tile_rows.argtypes=[];lib.m9_phasenoiseperf1b_tile_rows.restype=I
 lib.m9_phasenoiseperf1b_tile_cols.argtypes=[];lib.m9_phasenoiseperf1b_tile_cols.restype=I
+lib.trial_reconstruct.argtypes=[P,P,P,I,I,I,C.c_double,C.c_double,C.c_double,P,I,P]
+lib.trial_reconstruct.restype=I
+lib.trial_reconstruct_perf.argtypes=[P,P,P,I,I,I,C.c_double,C.c_double,C.c_double,P,I,P,P]
+lib.trial_reconstruct_perf.restype=I
 assert lib.m9_phasenoiseperf1b_tile_rows()==64
 assert lib.m9_phasenoiseperf1b_tile_cols()==512
 
