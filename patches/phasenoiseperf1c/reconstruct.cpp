@@ -8,7 +8,8 @@
 #include "librtprocess.h"
 extern "C" int phase_noise(const uint16_t*,const float*,const uint8_t*,int,int,uint16_t*,int);
 extern "C" int phase_noise_banded_exact(const uint16_t*,const float*,const uint8_t*,int,int,uint16_t*,int);
-extern "C" int phase_noise_symtile_exact(const uint16_t*,const float*,const uint8_t*,int,int,uint16_t*,int);\nextern "C" int phase_noise_symtile_adaptive_exact(const uint16_t*,const float*,const uint8_t*,int,int,uint16_t*,int);
+extern "C" int phase_noise_symtile_exact(const uint16_t*,const float*,const uint8_t*,int,int,uint16_t*,int);
+extern "C" int phase_noise_symtile_adaptive_exact(const uint16_t*,const float*,const uint8_t*,int,int,uint16_t*,int);
 
 extern "C" int trial_variance(const uint16_t* sensor,int w,int h,int cfa,int originY,
  const float* black,int white,const double* profile,const double* gains,int mw,int mh,
