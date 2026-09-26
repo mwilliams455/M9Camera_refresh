@@ -949,19 +949,22 @@ public final class M9AutoExposure2D {
 
         double clipGrowth=v.clipped-base.clipped;
         double brightGrowth=v.bright-base.bright;
-        if(v.clipped>=.08&&clipGrowth>=.035)return true;
-        if(v.bright>=.22&&brightGrowth>=.14)return true;
+        // A highlight region that was already strong at neutral reference is not
+        // a reason to deny subject exposure. These global gates only protect a
+        // frame that starts with useful highlight detail and is losing it.
+        if(base.clipped<.04&&v.clipped>=.08&&clipGrowth>=.035)return true;
+        if(base.bright<.12&&v.bright>=.22&&brightGrowth>=.14)return true;
 
-        if(base.fieldMapValid&&v.fieldMapValid) {
-            int newNearWhiteFields=0,newClippedFields=0;
-            for(int f=0;f<FIELD_COUNT;f++) {
-                double fieldBrightGrowth=v.fieldBright[f]-base.fieldBright[f];
-                double fieldClipGrowth=v.fieldClipped[f]-base.fieldClipped[f];
-                if(v.fieldBright[f]>=.55&&fieldBrightGrowth>=.30)newNearWhiteFields++;
-                if(v.fieldClipped[f]>=.08&&fieldClipGrowth>=.04)newClippedFields++;
-            }
-            if(newNearWhiteFields>=2||newClippedFields>=2)return true;
+        int newNearWhiteFields=0,newClippedFields=0;
+        for(int f=0;f<FIELD_COUNT;f++) {
+            double fieldBrightGrowth=v.fieldBright[f]-base.fieldBright[f];
+            double fieldClipGrowth=v.fieldClipped[f]-base.fieldClipped[f];
+            if(base.fieldBright[f]<.20&&v.fieldBright[f]>=.55
+                    &&fieldBrightGrowth>=.30)newNearWhiteFields++;
+            if(base.fieldClipped[f]<.04&&v.fieldClipped[f]>=.08
+                    &&fieldClipGrowth>=.04)newClippedFields++;
         }
+        if(newNearWhiteFields>=2||newClippedFields>=2)return true;
         return false;
     }
 
