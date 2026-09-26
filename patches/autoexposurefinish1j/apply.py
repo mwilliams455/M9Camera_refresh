@@ -28,7 +28,7 @@ AUTO=BASE+'m9/preview/M9AutoExposure2D.java'
 GRADLE='app/build.gradle'
 ID='M9AUTOEXPOSUREFINISH1J'
 CHANGED={AUTO,GRADLE}
-VERSION='1.97-m9autoexposurefinish1j-bodylockrelease1a-colorperfrollback1a-tg1'
+VERSION='1.97-m9ae1j-bodylockrel1a-perf3i-tg1'
 CODE=26717
 
 def one(text,old,new,label):
