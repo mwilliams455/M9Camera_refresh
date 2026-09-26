@@ -99,6 +99,11 @@ def verify(root):
     c=(root/CPP).read_text();j=(root/CORE).read_text();r=(root/RENDER).read_text();g=(root/GRADLE).read_text()
     checks={
       'revision':'M9COLORPERF1A_PERSISTENTBLOCKS_EXACT' in c,
+      'actual SAT2 native QE':'13659, -4457, -1004' in c and '-2244, 13469, -3033' in c and '-199, -6014, 14398' in c,
+      'actual SAT2 native QO':'14811, -5604, -1004' in c and '-2455, 13688, -3033' in c and '393, -6588, 14398' in c,
+      'stale SAT3 native removed':'16754, -7632, -922' not in c and '18160, -9034, -922' not in c,
+      'actual SAT2 Java bank':'public static final int SATURATION_BANK = 2;' in r,
+      'SAT2 native provenance marker':'M9COLORPERF_SAT2_M04_M05_FIXED' in c,
       'persistent core':'renderFramePersistentCoreExact' in c,
       'barriers':'blockDone.wait();' in c and 'blockStatsConsumed.wait();' in c,
       'scalar colour retained':'renderStripScalar(ctx,' in c,
