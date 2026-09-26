@@ -551,7 +551,7 @@ subprocess.run(['java','-m','jdk.compiler/com.sun.tools.javac.Main','-d',str(bui
                 *[str(build/p) for p in stubs]],check=True)
 result=subprocess.check_output(['java','-ea','-cp',str(build),'PolicyTest'],text=True)
 assertions=int(result.strip().splitlines()[-1].split()[-1])
-if assertions < 102: raise SystemExit(f'expected at least 97 assertions, got {assertions}')
+if assertions < 102: raise SystemExit(f'expected at least 102 assertions, got {assertions}')
 
 integration={}
 if assembled is not None:
