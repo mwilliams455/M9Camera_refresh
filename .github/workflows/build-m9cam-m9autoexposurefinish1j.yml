@@ -511,7 +511,7 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           mkdir -p /tmp/m9livegl2g-installcheck
           javac -cp "$BUILD_TOOLS/lib/apksigner.jar" -d /tmp/m9livegl2g-installcheck patches/tests/m9livegl2g/ApkInstallCheck.java
-          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.97-m9autoexposurefinish1j-bodylockrelease1a-colorperfrollback1a-tg1 | tee M9LIVEGL2G_INSTALL_CHECK.txt
+          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.97-m9ae1j-bodylockrel1a-perf3i-tg1 | tee M9LIVEGL2G_INSTALL_CHECK.txt
           "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK" | tee -a M9LIVEGL2G_INSTALL_CHECK.txt
 
       - name: Record APK SHA256
