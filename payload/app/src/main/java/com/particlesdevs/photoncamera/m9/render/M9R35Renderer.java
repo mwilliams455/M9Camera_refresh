@@ -50,7 +50,7 @@ import java.util.List;
  * This avoids the several-hundred-MB full-resolution double[] intermediates a
  * naive LONG_SIDE=4096 promotion would create.
  *
- * All Leica/Cobalt colour, TC20, SAT3/ColorMatrix, curve02 and exact
+ * All Leica/Cobalt colour, TC20, SAT2/ColorMatrix, curve02 and exact
  * horizontal BT.601 4:2:2 arithmetic is isolated here rather than routed
  * through Photon's PostPipeline.
  *
@@ -73,7 +73,7 @@ public final class M9R35Renderer {
     // to PRIMARY2's already-validated colour stage. Each worker reads through its
     // own ShortBuffer duplicate and writes a disjoint row range into norm16.
     private static final int PARALLEL_NORMALIZE_WORKERS = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
-    public static final int SATURATION_BANK = 3;
+    public static final int SATURATION_BANK = 2;
     public static final int JPEG_QUALITY = 95;
     public static final boolean SAVE_PARITY_PNG = false;
 
@@ -102,16 +102,16 @@ public final class M9R35Renderer {
     private static final double TG_NEG_CB_COMPRESSION = 0.25;
     private static final double TG_NEG_CR_COMPRESSION = 0.16;
 
-    // SAT3: firmware ColorMatrix M06/M07 piecewise pair, selected by R >= G.
+    // SAT2 / Leica M9 Standard sRGB: firmware ColorMatrix M04/M05 piecewise pair, selected by R >= G.
     private static final long[] QE = {
-            16754, -7632, -922,
-            -3124, 14774, -3458,
-            -567, -9579, 18330
+            13659, -4457, -1004,
+            -2244, 13469, -3033,
+            -199, -6014, 14398
     };
     private static final long[] QO = {
-            18160, -9034, -922,
-            -3422, 15080, -3458,
-            137, -10264, 18330
+            14811, -5604, -1004,
+            -2455, 13688, -3033,
+            393, -6588, 14398
     };
 
     private static final double[] M9_CM_A = {
