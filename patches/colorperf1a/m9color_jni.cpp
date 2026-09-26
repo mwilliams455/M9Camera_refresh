@@ -19,15 +19,16 @@ constexpr double HSM_H = 0.25;
 constexpr double HSM_S = 0.85;
 constexpr double HSM_V = 1.00;
 
+// SAT2 / Leica M9 Standard sRGB firmware ColorMatrix M04/M05.
 constexpr std::array<int64_t, 9> QE = {
-        16754, -7632, -922,
-        -3124, 14774, -3458,
-        -567, -9579, 18330
+        13659, -4457, -1004,
+        -2244, 13469, -3033,
+        -199, -6014, 14398
 };
 constexpr std::array<int64_t, 9> QO = {
-        18160, -9034, -922,
-        -3422, 15080, -3458,
-        137, -10264, 18330
+        14811, -5604, -1004,
+        -2455, 13688, -3033,
+        393, -6588, 14398
 };
 
 struct ColorContext {
@@ -1731,4 +1732,9 @@ Java_com_particlesdevs_photoncamera_m9_render_M9NativeColorCore_renderFramePersi
 
 extern "C" const char* m9_colorperf1a_revision() {
     return "M9COLORPERF1A_PERSISTENTBLOCKS_EXACT";
+}
+
+
+extern "C" const char* m9_colorperf_saturation_revision() {
+    return "M9COLORPERF_SAT2_M04_M05_FIXED";
 }
