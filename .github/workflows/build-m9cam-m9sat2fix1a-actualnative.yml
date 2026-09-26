@@ -1,4 +1,5 @@
 name: Build M9Cam M9SAT2FIX1A ACTUALNATIVE EXACT
+# SAT2FIX1A rerun after historical-parent payload restore
 # 1.95 active TARGETINPUT renderer validation
 
 on:
