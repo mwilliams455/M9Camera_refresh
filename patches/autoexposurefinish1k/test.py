@@ -391,6 +391,8 @@ public class PolicyTest {
       "dark body is separated from bright central window");
   yes(M9AutoExposure2D.selectBacklight(windowGrid)>=3,
       "central clipped background does not prevent subject readability lift");
+  check(M9AutoExposure2D.highlightRetentionLimit(windowGrid),2.5,
+      "pre-existing bright/clipped window fields are grandfathered rather than treated as newly lost highlights");
 
   yes(!M9AutoExposure2D.multifieldBodyCandidate(isolatedEdgeShadowGrid()[0]).valid,
       "isolated outer-edge shadow is not promoted to subject");
@@ -613,7 +615,7 @@ subprocess.run(['java','-m','jdk.compiler/com.sun.tools.javac.Main','-d',str(bui
                 *[str(build/p) for p in stubs]],check=True)
 result=subprocess.check_output(['java','-ea','-cp',str(build),'PolicyTest'],text=True)
 assertions=int(result.strip().splitlines()[-1].split()[-1])
-if assertions < 112: raise SystemExit(f'expected at least 112 assertions, got {assertions}')
+if assertions < 113: raise SystemExit(f'expected at least 113 assertions, got {assertions}')
 
 integration={}
 if assembled is not None:
