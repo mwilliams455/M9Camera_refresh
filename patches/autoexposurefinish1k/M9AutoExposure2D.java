@@ -943,6 +943,9 @@ public final class M9AutoExposure2D {
      */
     public static boolean highlightRetentionUnsafe(Stats base,Stats v) {
         if(base==null||v==null||!base.valid()||!v.valid())return true;
+        // Production meters publish the 4x6 map. Devices/callers without it keep
+        // the already-validated inherited highlight policy rather than guessing.
+        if(!base.fieldMapValid||!v.fieldMapValid)return false;
 
         double clipGrowth=v.clipped-base.clipped;
         double brightGrowth=v.bright-base.bright;
