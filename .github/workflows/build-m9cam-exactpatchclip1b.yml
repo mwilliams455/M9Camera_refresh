@@ -1,0 +1,159 @@
+name: Build M9Cam 2.05 EXACTPATCHCLIP1B
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-tap-exactpatchclip1b]
+    paths:
+      - patches/tapexactpatchclip1b/**
+      - .github/workflows/build-m9cam-exactpatchclip1b.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: m9-exactpatchclip1b
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify transport and replay pinned parent source
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/apply.py --check-payload
+          python3 patches/autoexposurefinish1n/ci.py source
+      - name: Assemble and test exact 2.04 baseline
+        run: |
+          set -euo pipefail
+          python3 patches/autoexposurefinish1n/apply.py PhotonCamera
+          python3 patches/tapmeter1a/apply.py PhotonCamera > TAP_BASE_APPLY.json
+          python3 patches/tapmeter1a/apply.py PhotonCamera > TAP_BASE_VERIFY.json
+          python3 patches/tapmeter1a/test.py TAP_BASE_TESTS PhotonCamera | tee TAP_BASE_TESTS.txt
+          javac -cp TAP_BASE_TESTS/classes -d TAP_BASE_TESTS/classes patches/tapexactpatchclip1b/TapOverlapRegression.java
+          java -ea -cp TAP_BASE_TESTS/classes com.particlesdevs.photoncamera.m9.preview.TapOverlapRegression false | tee OVERLAP_BASE.txt
+      - name: Apply isolated child and execute complete-class regressions
+        run: |
+          set -euo pipefail
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera | tee EXACTPATCH_APPLY.json
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera > EXACTPATCH_VERIFY.json
+          python3 patches/tapmeter1a/test.py TAP_FIXED_TESTS PhotonCamera | tee TAP_FIXED_TESTS.txt
+          javac -cp TAP_FIXED_TESTS/classes -d TAP_FIXED_TESTS/classes patches/tapexactpatchclip1b/TapOverlapRegression.java
+          java -ea -cp TAP_FIXED_TESTS/classes com.particlesdevs.photoncamera.m9.preview.TapOverlapRegression true | tee OVERLAP_FIXED.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path('OVERLAP_BASE.txt').read_text().split('NO_TAP_PARITY ')[1].strip()
+          b=Path('OVERLAP_FIXED.txt').read_text().split('NO_TAP_PARITY ')[1].strip()
+          assert a==b, 'No-tap differential mismatch'
+          print('No-tap differential identical:', a)
+          PY
+      - name: Export audited source and proof before Android compilation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import shutil
+          from pathlib import Path
+          out=Path('M9_EXACTPATCHCLIP1B_DELIVERY');out.mkdir(exist_ok=True)
+          files=['M9EXACTPATCHCLIP1B_SOURCE_PROOF.json','app/build.gradle',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TapMeter1A.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/M9ModernExposurePolicy.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java']
+          for f in files:
+              dst=out/'source'/f;dst.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copyfile(Path('PhotonCamera')/f,dst)
+          for f in ['EXACTPATCH_APPLY.json','EXACTPATCH_VERIFY.json','TAP_BASE_TESTS.txt',
+                    'TAP_FIXED_TESTS.txt','OVERLAP_BASE.txt','OVERLAP_FIXED.txt',
+                    'M9AE1N_PARENT_SOURCE_REPLAY.json']:
+              shutil.copyfile(f,out/Path(f).name)
+          shutil.copytree('patches/tapexactpatchclip1b',out/'integration',dirs_exist_ok=True)
+          for label in ['TAP_BASE_TESTS','TAP_FIXED_TESTS']:
+              shutil.copyfile(Path(label)/'full_class_tests.json',out/(label+'.json'))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-EXACTPATCHCLIP1B-SOURCE-AUDIT
+          path: M9_EXACTPATCHCLIP1B_DELIVERY/
+          if-no-files-found: error
+      - name: Build EXACTPATCHCLIP1B APK
+        run: |
+          set -euo pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/EXACTPATCH_GRADLE.log"
+      - name: Verify inherited APK contracts and installation identity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('patches/autoexposurefinish1n/ci.py');s=p.read_text()
+          old='2.03-m9ae1n-bodyqual1a-subjecthl1a-perf3i'
+          assert s.count(old)==1
+          p.with_name('exactpatch_checks.py').write_text(s.replace(old,'2.05-m9exactpatch1b-ae1n-perf3i'))
+          PY
+          python3 patches/autoexposurefinish1n/exactpatch_checks.py checks
+      - name: Retrieve actual delivered 2.04 APK for frozen-asset comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.04-TAPMETER1A
+          run-id: 36322711110
+          github-token: ${{ github.token }}
+          path: BASELINE204
+      - name: Verify final source, packaged markers, assets and signer
+        run: |
+          set -euo pipefail
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera > EXACTPATCH_FINAL_VERIFY.json
+          python3 - <<'PY'
+          import importlib.util,shutil
+          from pathlib import Path
+          p=Path('patches/tapexactpatchclip1b/apply.py')
+          spec=importlib.util.spec_from_file_location('exactpatch_proof',p)
+          m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+          apk=list(Path('PhotonCamera/app/build/outputs/apk/debug').glob('*.apk'))
+          assert len(apk)==1,apk
+          out=Path('M9_EXACTPATCHCLIP1B_DELIVERY')
+          print(m.apk_proof(apk[0],Path('BASELINE204/M9Cam_2.04_TAPMETER1A.apk'),out))
+          text=Path('M9LIVEGL2G_INSTALL_CHECK.txt').read_text()
+          for expected in ['package=com.m9project.m9cam.photon',
+              'versionName=2.05-m9exactpatch1b-ae1n-perf3i','versionCode=26725',
+              'signerSHA256=255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956']:
+              assert expected in text,expected
+          for name in ['M9LIVEGL2G_INSTALL_CHECK.txt','M9LIVEGL2G_APK_PROOF.txt',
+              'M9AE1N_PARENT_CHECKS_REPLAY.json','EXACTPATCH_FINAL_VERIFY.json']:
+              shutil.copyfile(name,out/name)
+          PY
+      - name: Upload verified APK and delivery proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.05-EXACTPATCHCLIP1B
+          path: M9_EXACTPATCHCLIP1B_DELIVERY/
+          if-no-files-found: error
+      - name: Upload failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-EXACTPATCHCLIP1B-BUILDLOG
+          path: |
+            EXACTPATCH_GRADLE.log
+            M9AE1N_PARENT_SOURCE_REPLAY.json
+            M9AE1N_PARENT_CHECKS_REPLAY.json
+            EXACTPATCH_APPLY.json
+            EXACTPATCH_VERIFY.json
+            EXACTPATCH_FINAL_VERIFY.json
+            TAP_BASE_TESTS.txt
+            TAP_FIXED_TESTS.txt
+            OVERLAP_BASE.txt
+            OVERLAP_FIXED.txt
+          if-no-files-found: ignore
