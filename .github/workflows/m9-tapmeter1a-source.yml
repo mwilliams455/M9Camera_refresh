@@ -1,0 +1,61 @@
+name: M9 TAPMETER1A source audit
+on:
+  push:
+    branches: [research/m9-tapmeter1a]
+    paths: [.github/workflows/m9-tapmeter1a-source.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Reconstruct source only without host or APK tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,subprocess,zipfile,json
+          lines=Path('.github/workflows/build-m9cam-m9autoexposurefinish1m.yml').read_text().splitlines()
+          blocks=[];name=''
+          for i,line in enumerate(lines):
+              if line.startswith('      - name: '): name=line.split(': ',1)[1]
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '):break
+                  if following.startswith('          '):body.append(following[10:])
+                  elif not following.strip():body.append('')
+                  else:raise RuntimeError('indent')
+              if name.startswith('Build M9AUTOEXPOSUREFINISH1M'):break
+              blocks.append((name,'\n'.join(body)))
+          for index,(name,body) in enumerate(blocks):
+              if index==0: selected=body
+              else:
+                  selected='\n'.join(line.split(' | tee ')[0].split(' > ')[0] for line in body.splitlines()
+                      if re.match(r'^python3 patches/(?:apply-|verify-|[^ /]+/apply\.py)',line))
+              if selected:
+                  print(name,flush=True)
+                  subprocess.run(['bash','-e','-o','pipefail','-c',selected],check=True)
+          subprocess.run(['python3','patches/autoexposurefinish1n/apply.py','PhotonCamera'],check=True)
+          root=Path('PhotonCamera')
+          with zipfile.ZipFile('m9_tapmeter_source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for p in root.rglob('*'):
+                  if p.is_file() and '.git' not in p.parts and (p.suffix in ('.java','.glsl','.xml') or p.name.endswith('_SOURCE_PROOF.json')):
+                      z.write(p,str(p))
+              for dirname in ['patches/autoexposurefinish1n','patches/autoexposurefinish1m','patches/m9rbrollback1a']:
+                  for p in Path(dirname).rglob('*'):
+                      if p.is_file() and p.suffix in ('.py','.md','.txt','.java'): z.write(p,str(p))
+              for p in Path('.github/workflows').glob('*autoexposurefinish1[ mn]*.yml'): z.write(p,str(p))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-TAPMETER1A-ASSEMBLED-SOURCE
+          path: m9_tapmeter_source.zip
+          retention-days: 7
