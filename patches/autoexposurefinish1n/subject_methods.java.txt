@@ -1,0 +1,89 @@
+    /**
+     * SUBJECTHEADROOM1A: field-level channel clipping outside a confirmed dark
+     * body is a background cost, not proof that the subject is overexposed.
+     * Defer ONLY that counter while the preceding bracket is below the existing
+     * body target and the next bracket makes useful progress. Broad near-white
+     * growth, subject-field clipping and global highlight limits remain active.
+     * No pixel operation, local gain or new exposure target is introduced.
+     */
+    public static boolean subjectHighlightEligible(Stats base,BodyCandidate body) {
+        return base!=null&&base.valid()&&base.fieldMapValid
+                &&body!=null&&body.valid&&body.mask!=0
+                &&body.confidence>=.22&&body.severity>=.70
+                &&backlightEvidenceLiftCap(base,body)>WEAK_BACKGROUND_MAX_EV;
+    }
+
+    private static boolean deferBackgroundChannelClip(Stats base,Stats previous,
+            Stats current,BodyCandidate body) {
+        if(!subjectHighlightEligible(base,body)||previous==null||current==null
+                ||!previous.valid()||!current.valid()
+                ||!previous.fieldMapValid||!current.fieldMapValid)return false;
+        BodyMetrics prior=bodyMetrics(previous,body.mask);
+        BodyMetrics next=bodyMetrics(current,body.mask);
+        return !bodyTargetReached(body,prior)&&bodyImproved(prior,next)
+                &&!m9BodyUnsafe(base,bodyMetrics(base,body.mask),body,current,next);
+    }
+
+    private static String subjectHighlightStopReason(Stats base,Stats previous,
+            Stats current,BodyCandidate body) {
+        if(base==null||current==null||!base.valid()||!current.valid())
+            return "invalid_meter";
+        if(!base.fieldMapValid||!current.fieldMapValid)return "none";
+        double clipGrowth=current.clipped-base.clipped;
+        double brightGrowth=current.bright-base.bright;
+        if(base.clipped<.04&&current.clipped>=.08&&clipGrowth>=.035)
+            return "global_channel_clip_growth";
+        if(base.bright<.12&&current.bright>=.22&&brightGrowth>=.14)
+            return "global_nearwhite_growth";
+        boolean defer=deferBackgroundChannelClip(base,previous,current,body);
+        int near=0,clips=0;
+        for(int f=0;f<FIELD_COUNT;f++) {
+            boolean preexisting=base.fieldQ90[f]>=PREEXISTING_HIGHLIGHT_Q90_CODE;
+            if(preexisting)continue;
+            if(base.fieldBright[f]<.20&&current.fieldBright[f]>=.55
+                    &&current.fieldBright[f]-base.fieldBright[f]>=.30)near++;
+            boolean subject=body!=null&&body.valid&&(body.mask&(1<<f))!=0;
+            if(base.fieldClipped[f]<.04&&current.fieldClipped[f]>=.08
+                    &&current.fieldClipped[f]-base.fieldClipped[f]>=.04
+                    &&(!defer||subject))clips++;
+        }
+        if(near>=2)return "regional_nearwhite_growth";
+        if(clips>=2)return "regional_channel_clip_growth";
+        return "none";
+    }
+
+    public static double subjectHighlightRetentionLimit(Stats[] s,BodyCandidate body) {
+        if(!validStats(s))return 0;
+        if(!subjectHighlightEligible(s[0],body))return highlightRetentionLimit(s);
+        int safe=0;
+        for(int i=1;i<STEPS;i++) {
+            if(!"none".equals(subjectHighlightStopReason(s[0],s[i-1],s[i],body)))break;
+            safe=i;
+        }
+        return ev(safe);
+    }
+
+    private static JSONObject subjectHighlightDiagnostics(Stats[] s,BodyCandidate body,
+            boolean currentBodyConfirmed,double baseLimit,double qualifiedLimit)
+            throws org.json.JSONException {
+        JSONObject o=new JSONObject().put("revision","SUBJECTHEADROOM1A")
+                .put("sameFrameBodyConfirmed",currentBodyConfirmed)
+                .put("baselineLimitEv",baseLimit).put("qualifiedLimitEv",qualifiedLimit)
+                .put("captureExposureOnly",true).put("targetChanged",false)
+                .put("globalLimitsChanged",false).put("nearWhiteLimitsChanged",false);
+        if(!validStats(s))return o.put("eligible",false);
+        boolean eligible=currentBodyConfirmed&&subjectHighlightEligible(s[0],body);
+        int last=Math.min(STEPS-1,Math.max(0,(int)Math.round(qualifiedLimit/STEP_EV)));
+        int next=Math.min(STEPS-1,last+1);
+        String stop=last==STEPS-1?"search_ceiling":subjectHighlightStopReason(
+                s[0],s[Math.max(0,next-1)],s[next],eligible?body:null);
+        o.put("eligible",eligible).put("mask",eligible?body.mask:0)
+                .put("limitingReason",stop);
+        if(eligible) {
+            BodyMetrics selected=bodyMetrics(s[last],body.mask);
+            o.put("bodyMedianAtLimit",selected.median).put("bodyQ25AtLimit",selected.q25)
+                    .put("bodyTargetReachedAtLimit",bodyTargetReached(body,selected));
+        }
+        return o;
+    }
+
