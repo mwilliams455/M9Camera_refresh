@@ -99,6 +99,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p=Path('patches/autoexposurefinish1n/ci.py');s=p.read_text()
+          old='2.03-m9ae1m-bodyqual1a-subjecthl1a-perf3i'
           old='2.03-m9ae1n-bodyqual1a-subjecthl1a-perf3i'
           assert s.count(old)==1
           p.with_name('exactpatch_checks.py').write_text(s.replace(old,'2.05-m9exactpatch1b-ae1n-perf3i'))
@@ -114,7 +115,7 @@ jobs:
       - name: Verify final source, packaged markers, assets and signer
         run: |
           set -euo pipefail
-          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera > EXACTPATCH_FINAL_VERIFY.json
+          python3 patches/tapexactpatchclip1b/postbuild.py PhotonCamera BASELINE204 M9_EXACTPATCHCLIP1B_DELIVERY | tee EXACTPATCH_FINAL_VERIFY.json
           python3 - <<'PY'
           import importlib.util,shutil
           from pathlib import Path
@@ -152,6 +153,7 @@ jobs:
             EXACTPATCH_APPLY.json
             EXACTPATCH_VERIFY.json
             EXACTPATCH_FINAL_VERIFY.json
+            M9_EXACTPATCHCLIP1B_DELIVERY/POSTBUILD_SOURCE_AUDIT.json
             TAP_BASE_TESTS.txt
             TAP_FIXED_TESTS.txt
             OVERLAP_BASE.txt
