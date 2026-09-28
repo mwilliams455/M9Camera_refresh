@@ -1,0 +1,126 @@
+name: Build M9Cam 2.06 AECADENCE1A
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-aecadence1a]
+    paths:
+      - patches/aecadence1a/**
+      - .github/workflows/build-m9cam-aecadence1a.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: m9-aecadence1a
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Assemble pinned 2.05 parent
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/apply.py --check-payload
+          python3 patches/autoexposurefinish1n/ci.py source
+          python3 patches/autoexposurefinish1n/apply.py PhotonCamera
+          python3 patches/tapmeter1a/apply.py PhotonCamera
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera
+          cp -a PhotonCamera/app/src/main/java/com/particlesdevs/photoncamera/m9/preview BASELINE_PREVIEW
+      - name: Execute unchanged parent suites and differential
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/test.py BASE_TESTS PhotonCamera | tee BASE_TESTS.txt
+          javac -cp BASE_TESTS/classes -d BASE_TESTS/classes patches/tapexactpatchclip1b/TapOverlapRegression.java
+          java -ea -cp BASE_TESTS/classes com.particlesdevs.photoncamera.m9.preview.TapOverlapRegression true | tee BASE_DIFFERENTIAL.txt
+      - name: Apply timing-only overlay and test actual candidate classes
+        run: |
+          set -euo pipefail
+          python3 patches/aecadence1a/apply.py apply PhotonCamera | tee AECADENCE_APPLY.json
+          python3 patches/aecadence1a/apply.py apply PhotonCamera > AECADENCE_VERIFY.json
+          python3 patches/tapmeter1a/test.py CANDIDATE_TESTS PhotonCamera | tee CANDIDATE_TESTS.txt
+          javac -cp CANDIDATE_TESTS/classes -d CANDIDATE_TESTS/classes patches/tapexactpatchclip1b/TapOverlapRegression.java
+          java -ea -cp CANDIDATE_TESTS/classes com.particlesdevs.photoncamera.m9.preview.TapOverlapRegression true | tee CANDIDATE_DIFFERENTIAL.txt
+          cmp BASE_TESTS.txt CANDIDATE_TESTS.txt
+          cmp BASE_DIFFERENTIAL.txt CANDIDATE_DIFFERENTIAL.txt
+          python3 patches/aecadence1a/test.py PhotonCamera CADENCE_TESTS
+      - name: Export source and tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          out=Path('AECADENCE_DELIVERY');out.mkdir(exist_ok=True)
+          for p in ['app/build.gradle','app/src/main/java/com/particlesdevs/photoncamera/m9/preview','M9AECADENCE1A_SOURCE_PROOF.json']:
+              src=Path('PhotonCamera')/p;dst=out/'source'/p;dst.parent.mkdir(parents=True,exist_ok=True)
+              if src.is_dir():shutil.copytree(src,dst,dirs_exist_ok=True)
+              else:shutil.copyfile(src,dst)
+          shutil.copytree('patches/aecadence1a',out/'integration',dirs_exist_ok=True)
+          for p in ['AECADENCE_APPLY.json','AECADENCE_VERIFY.json','BASE_TESTS.txt','CANDIDATE_TESTS.txt','BASE_DIFFERENTIAL.txt','CANDIDATE_DIFFERENTIAL.txt']:
+              shutil.copyfile(p,out/p)
+          for p in ['CADENCE_TESTS.txt','TEST_SCOPE.json']:shutil.copyfile(Path('CADENCE_TESTS')/p,out/p)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-AECADENCE1A-SOURCE-AUDIT
+          path: AECADENCE_DELIVERY/
+          if-no-files-found: error
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/AECADENCE_GRADLE.log"
+      - name: Inherited APK and installation checks
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('patches/autoexposurefinish1n/ci.py');s=p.read_text()
+          old='2.03-m9ae1n-bodyqual1a-subjecthl1a-perf3i'
+          assert s.count(old)==1
+          p.with_name('aecadence_checks.py').write_text(s.replace(old,'2.06-m9aecadence1a-exactpatch1b-ae1n-perf3i'))
+          PY
+          python3 patches/autoexposurefinish1n/aecadence_checks.py checks
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.05-EXACTPATCHCLIP1B
+          run-id: 36338443668
+          github-token: ${{ github.token }}
+          path: BASELINE205
+      - name: Verify compiled inputs and byte-identical photographic resources
+        run: |
+          set -euo pipefail
+          python3 patches/aecadence1a/apply.py post PhotonCamera BASELINE205 AECADENCE_DELIVERY | tee AECADENCE_POST.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          text=Path('M9LIVEGL2G_INSTALL_CHECK.txt').read_text()
+          for expected in ['package=com.m9project.m9cam.photon','versionName=2.06-m9aecadence1a-exactpatch1b-ae1n-perf3i','versionCode=26726',
+            'signerSHA256=255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956']:
+              assert expected in text,expected
+          for p in ['AECADENCE_POST.json','M9LIVEGL2G_INSTALL_CHECK.txt','M9AE1N_PARENT_CHECKS_REPLAY.json']:
+              shutil.copyfile(p,Path('AECADENCE_DELIVERY')/p)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.06-AECADENCE1A
+          path: AECADENCE_DELIVERY/
+          if-no-files-found: error
+      - name: Build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-AECADENCE1A-BUILDLOG
+          path: |
+            AECADENCE_GRADLE.log
+            AECADENCE_*.json
+            BASE_TESTS.txt
+            CANDIDATE_TESTS.txt
+            CADENCE_TESTS/*.txt
+            AECADENCE_DELIVERY/POSTBUILD_INPUTS.json
+          if-no-files-found: ignore

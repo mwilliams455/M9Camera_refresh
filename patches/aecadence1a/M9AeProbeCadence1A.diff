@@ -1,0 +1,45 @@
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AeProbeCadence1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AeProbeCadence1A.java
+@@ -0,0 +1,42 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++/** GL-thread-only scheduling. Never chooses an exposure or inspects image pixels. */
++public final class M9AeProbeCadence1A {
++    public static final String REVISION = "M9AECADENCE1A";
++    public static final long FAST_NS = 125_000_000L;
++    public static final long IDLE_NS = 250_000_000L;
++    private static final long TAIL_NS = 500_000_000L;
++    private String camera = "", mode = "";
++    private long epoch = Long.MIN_VALUE, lastSubmittedNs = -1, lastTextureNs = -1;
++    private long fastUntilNs, lastIntervalNs;
++
++    /** Called only after frame eligibility and the existing one-readback-in-flight gate. */
++    public boolean due(long nowNs, long textureNs, String nextCamera, String nextMode,
++            long tapEpoch, boolean settling) {
++        if (nowNs < 0 || textureNs <= 0 || nextCamera == null || nextMode == null) return false;
++        boolean newOwner = !camera.equals(nextCamera) || !mode.equals(nextMode);
++        if (newOwner) {
++            camera = nextCamera; mode = nextMode;
++            // Sensor timestamps may restart across cameras. Wall-clock rate limit does not.
++            lastTextureNs = -1;
++        }
++        if (newOwner || epoch != tapEpoch) {
++            epoch = tapEpoch;
++            fastUntilNs = nowNs + TAIL_NS;
++        }
++        if (settling) fastUntilNs = nowNs + TAIL_NS;
++        if (lastSubmittedNs >= 0 && nowNs < lastSubmittedNs) return false;
++        if (textureNs <= lastTextureNs) return false; // no repeated/frozen/out-of-order evidence
++        long interval = nowNs < fastUntilNs ? FAST_NS : IDLE_NS;
++        return lastSubmittedNs < 0 || nowNs - lastSubmittedNs >= interval;
++    }
++
++    /** Record only a successfully queued probe, not a denied/busy eligibility check. */
++    public void submitted(long nowNs, long textureNs) {
++        lastIntervalNs = lastSubmittedNs >= 0 ? nowNs - lastSubmittedNs : -1;
++        lastSubmittedNs = nowNs;
++        lastTextureNs = textureNs;
++    }
++
++    public long lastIntervalNs() { return lastIntervalNs; }
++}

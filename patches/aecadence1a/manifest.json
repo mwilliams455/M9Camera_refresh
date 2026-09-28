@@ -1,0 +1,18 @@
+{
+  "parent": "2.05 EXACTPATCHCLIP1B",
+  "revision": "M9AECADENCE1A",
+  "files": {
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": {
+      "before": "df6b82ecf84762aeafe0a9b151ed921247833a47c2ff9d1e61353100d3cd8448",
+      "after": "cba682286e3de3e71d9e598db106401cde5b699162f8a02e27fa3c471ce5b2bd"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java": {
+      "before": "452775f0b97509e4a543411301edce2d49b4d42bb8639900e59a7a4166352968",
+      "after": "16b71671decd7927e622370e5f2670c00bc94b34ebdfa9c3f3ea34b4d17cc670"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AeProbeCadence1A.java": {
+      "before": null,
+      "after": "558a5b650ced02535dcfb6e4064e23976fa3bcd7eb6805d3d0c3494215d9c4d9"
+    }
+  }
+}

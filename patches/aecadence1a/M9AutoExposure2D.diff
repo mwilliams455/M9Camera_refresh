@@ -1,0 +1,65 @@
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+@@ -59,6 +59,25 @@
+     private static final int BACKLIGHT_CENTER_Q25_TARGET_MIN=22;
+     private static final int BACKLIGHT_CENTER_Q25_TARGET_MAX=32;
+ 
++    // AECADENCE1A: read-only scheduling hints; never used in target/guard decisions.
++    private static volatile boolean responsePending1A = true;
++    private static volatile long[] probeTiming1A;
++    public static boolean responsePending1A() { return responsePending1A; }
++    public static void recordProbeTiming1A(long submittedNs,long completedNs,long textureNs,long intervalNs) {
++        probeTiming1A = new long[]{submittedNs,completedNs,textureNs,intervalNs};
++    }
++    private static void cadenceDiagnostics1A(JSONObject o) throws org.json.JSONException {
++        o.put("aeResponseRevision","M9AECADENCE1A")
++                .put("aeResponsePending",responsePending1A)
++                .put("aeFastProbeIntervalMs",125).put("aeIdleProbeIntervalMs",250)
++                .put("aeExposureTargetsChanged",false);
++        long[] t=probeTiming1A;
++        if(t!=null)o.put("aeLastProbeSubmittedNs",t[0]).put("aeLastProbeCompletedNs",t[1])
++                .put("aeLastProbeTextureNs",t[2])
++                .put("aeLastProbeReadbackMs",(t[1]-t[0])/1e6)
++                .put("aeLastProbeIntervalMs",t[3]<0?JSONObject.NULL:t[3]/1e6);
++    }
++
+     private static long tapEpochSeen=-1;
+     private static Sample latest;
+     private static String meterStatus="awaiting_gpu_probe";
+@@ -97,6 +116,7 @@
+     }
+ 
+     public static synchronized void reset() {
++        responsePending1A=true;probeTiming1A=null;
+         M9TapMeter1A.clear("auto_reset");tapEpochSeen=M9TapMeter1A.epoch();
+         latest=null;owner="";heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+         backlightLatched=false;pendingLowerTargetEv=Double.NaN;lowerTargetConfirmations=0;
+@@ -636,8 +656,12 @@
+             reason="rendered_meter_unavailable_or_stale";
+         }
+ 
++        responsePending1A=autoEligible&&manualExposure==0&&manualIso==0&&Math.abs(userEv)<=1e-6
++                &&(!valid||Math.abs(target-result)>1e-9||lowerTargetConfirmations>0
++                    ||pendingBodyConfirmations>0);
+         JSONObject o=new JSONObject();
+         try {
++            cadenceDiagnostics1A(o);
+             o.put("revision",REVISION).put("reason",reason)
+                     .put("sampleValid",valid).put("meterStatus",meterStatus)
+                     .put("autoPlacementEligible",autoEligible)
+@@ -1578,6 +1602,7 @@
+         } else if(s==null||!s.matches(camera,mode,now,energy)) {
+             result=0;target=0;heldAutoEv=0;haveAuto=false;M9TapMeter1A.status("M9 tap: waiting for meter");
+         }
++        responsePending1A=!valid||Math.abs(target-result)>1e-9;
+         try {
+             JSONObject o=new JSONObject().put("revision",REVISION).put("tapMeterRevision",M9TapMeter1A.REVISION)
+                 .put("reason",reason).put("sampleValid",valid).put("sceneOwnership","explicit_tap_patch")
+@@ -1598,6 +1623,7 @@
+                     .put("resultTimestampNs",s.resultNs).put("probeSubmittedNs",s.submittedNs);
+                 JSONArray a=new JSONArray();for(Stats v:s.stats)a.put(v.json());o.put("bracket",a);
+             }
++            cadenceDiagnostics1A(o);
+             return new Decision(result,reason,o);
+         }catch(org.json.JSONException e){throw new IllegalStateException(e);}
+     }

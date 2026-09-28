@@ -1,0 +1,57 @@
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java
+@@ -9,11 +9,11 @@
+ 
+ /** GL-thread-only 32x24 exposure probes. PBO/fence polling never waits for the GPU. */
+ public final class M9PreviewMeter2D {
+-    private static final long INTERVAL_NS=250000000L;
++    private final M9AeProbeCadence1A cadence=new M9AeProbeCadence1A();
+     private static final int W=M9AutoExposure2D.WIDTH, H=M9AutoExposure2D.HEIGHT;
+     private static final int STEPS=M9AutoExposure2D.STEPS, BYTES=W*H*STEPS*4;
+     private int framebuffer,texture,pbo;
+-    private long fence,lastProbeNs,pendingNs,pendingTextureNs;
++    private long fence,pendingNs,pendingTextureNs,pendingIntervalNs;
+     private M9PreviewFrameState1W pending;
+     private M9TapMeter1A.Selection pendingTap;
+     private boolean disabled;
+@@ -27,7 +27,7 @@
+         long now=SystemClock.elapsedRealtimeNanos();
+         poll(now);
+         M9ExposurePlan1A plan=frame.plan;
+-        if(disabled || fence!=0 || now-lastProbeNs<INTERVAL_NS || plan==null
++        if(disabled || fence!=0 || plan==null
+                 || !M9ExposurePlan1A.supportsMode1B(plan.mode) || !frame.source2A.ready
+                 || !plan.cameraId.equals(frame.source2A.cameraId)
+                 || Math.abs(plan.userEv)>1e-6 || plan.manualIso!=0 || plan.manualExposureNs!=0
+@@ -37,7 +37,8 @@
+                 /M9ExposurePlan1A.energy(plan.observedIso,plan.observedExposureNs);
+         if(!Double.isFinite(referenceScale) || referenceScale<.0625
+                 || referenceScale*Math.pow(2,M9AutoExposure2D.ev(STEPS-1))>16)return false;
+-        lastProbeNs=now;
++        if(!cadence.due(now,textureNs,plan.cameraId,plan.mode,M9TapMeter1A.epoch(),
++                M9AutoExposure2D.responsePending1A()))return false;
+         int[] viewport=new int[4],draw=new int[1],read=new int[1],pack=new int[1],active=new int[1],tex=new int[1];
+         GLES30.glGetIntegerv(GLES30.GL_VIEWPORT,viewport,0);
+         GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING,draw,0);
+@@ -67,6 +68,7 @@
+             GLES30.glReadPixels(0,0,W*STEPS,H,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,0);
+             fence=GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+             if(fence==0 || GLES30.glGetError()!=GLES30.GL_NO_ERROR)throw new IllegalStateException("meter readback failed");
++            cadence.submitted(now,textureNs);pendingIntervalNs=cadence.lastIntervalNs();
+             pending=frame;pendingNs=now;pendingTextureNs=textureNs;
+             pendingTap=M9TapMeter1A.selection(now);
+             GLES30.glFlush(); // Submit only; readback is mapped after a later zero-timeout fence poll.
+@@ -122,10 +124,12 @@
+             mapped=false;
+             if(!intact)throw new IllegalStateException("meter mapping invalid");
+             M9ExposurePlan1A p=pending.plan;
+-            if(now-pendingNs<=M9AutoExposure2D.MAX_AGE_NS)
++            if(now-pendingNs<=M9AutoExposure2D.MAX_AGE_NS) {
++                M9AutoExposure2D.recordProbeTiming1A(pendingNs,now,pendingTextureNs,pendingIntervalNs);
+                 M9AutoExposure2D.publish(new M9AutoExposure2D.Sample(p.cameraId,p.mode,pendingNs,
+                         pendingTextureNs,pending.resultTimestampNs,
+                         M9ExposurePlan1A.energy(p.referenceIso,p.referenceExposureNs),stats,tap));
++            }
+         } catch(RuntimeException e) {fail(e);}
+         finally {
+             if(mapped)GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
