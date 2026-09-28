@@ -1,0 +1,45 @@
+name: Build Blackfin forensic objdump
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-qualitygate1c-bfin-tooling]
+    paths:
+      - .github/workflows/build-bfin-forensic-objdump.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build GPL Blackfin objdump tooling
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/redox-os/binutils-gdb.git /tmp/binutils-gdb
+          mkdir /tmp/binutils-build
+          cd /tmp/binutils-build
+          /tmp/binutils-gdb/configure             --target=bfin-elf             --disable-nls             --disable-werror             --disable-gdb             --disable-sim             --disable-gas             --disable-ld             --disable-gprof             --disable-gold
+          make -j2 all-binutils
+          test -x binutils/objdump
+          binutils/objdump --version | head
+          binutils/objdump -i | grep -i bfin
+          mkdir -p "$GITHUB_WORKSPACE/BFIN_FORENSIC_TOOL"
+          cp binutils/objdump "$GITHUB_WORKSPACE/BFIN_FORENSIC_TOOL/bfin-elf-objdump"
+          ldd binutils/objdump > "$GITHUB_WORKSPACE/BFIN_FORENSIC_TOOL/ldd.txt" || true
+          sha256sum binutils/objdump > "$GITHUB_WORKSPACE/BFIN_FORENSIC_TOOL/SHA256SUMS.txt"
+          cat > "$GITHUB_WORKSPACE/BFIN_FORENSIC_TOOL/README.txt" <<'EOF'
+          Open-source GNU objdump built with target=bfin-elf for local Leica M9 BF561 forensics.
+          No Leica firmware, photo data, or project-private captures are included in this artifact.
+          Source: redox-os/binutils-gdb (GPL), shallow-cloned at workflow runtime.
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-BFIN-FORENSIC-OBJDUMP
+          path: BFIN_FORENSIC_TOOL/
+          if-no-files-found: error
