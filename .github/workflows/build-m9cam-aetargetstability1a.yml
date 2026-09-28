@@ -32,12 +32,16 @@ jobs:
           python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera
           python3 patches/aecadence1a/apply.py apply PhotonCamera
           python3 patches/aestability1a/apply.py apply PhotonCamera
-      - name: Verify parent contracts
+      - name: Verify 2.07 parent contracts
         run: |
           set -euo pipefail
-          python3 patches/tapmeter1a/test.py PARENT_TESTS PhotonCamera | tee PARENT_TESTS.txt
+          # Do not run the pre-2.07 PolicyTest here: it asserts that a severe
+          # deficit must jump +0.75 EV in one sample, which AESTABILITY1A
+          # deliberately replaced with a bounded temporal ramp.
           python3 patches/aecadence1a/test.py PhotonCamera PARENT_CADENCE | tee PARENT_CADENCE.txt
           python3 patches/aestability1a/test.py PhotonCamera PARENT_STABILITY | tee PARENT_STABILITY.txt
+          javac --release 17 -cp PARENT_STABILITY/classes -d PARENT_STABILITY/classes patches/tapexactpatchclip1b/TapOverlapRegression.java
+          java -ea -cp PARENT_STABILITY/classes com.particlesdevs.photoncamera.m9.preview.TapOverlapRegression true | tee PARENT_OVERLAP.txt
       - name: Apply persistent-target overlay and test
         run: |
           set -euo pipefail
@@ -58,7 +62,7 @@ jobs:
           for p in ['app/build.gradle','app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java','M9AETARGETSTABILITY1A_SOURCE_PROOF.json']:
               s=Path('PhotonCamera')/p;d=out/'source'/p;d.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(s,d)
           shutil.copytree('patches/aetargetstability1a',out/'integration',dirs_exist_ok=True)
-          for p in ['TARGET_APPLY.json','TARGET_VERIFY.json','PARENT_TESTS.txt','PARENT_CADENCE.txt','PARENT_STABILITY.txt',
+          for p in ['TARGET_APPLY.json','TARGET_VERIFY.json','PARENT_CADENCE.txt','PARENT_STABILITY.txt','PARENT_OVERLAP.txt',
                     'CANDIDATE_CADENCE.txt','CANDIDATE_STABILITY.txt','OVERLAP_CANDIDATE.txt']:
               shutil.copyfile(p,out/p)
           for p in ['AETARGETSTABILITY_TESTS.txt','TEST_SCOPE.json']:shutil.copyfile(Path('TARGET_TESTS')/p,out/p)
