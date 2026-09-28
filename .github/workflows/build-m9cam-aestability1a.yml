@@ -1,0 +1,123 @@
+name: Build M9Cam 2.07 AESTABILITY1A
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-aestability1a]
+    paths:
+      - patches/aestability1a/**
+      - .github/workflows/build-m9cam-aestability1a.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: m9-aestability1a
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Assemble verified 2.06 parent
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/apply.py --check-payload
+          python3 patches/autoexposurefinish1n/ci.py source
+          python3 patches/autoexposurefinish1n/apply.py PhotonCamera
+          python3 patches/tapmeter1a/apply.py PhotonCamera
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera
+          python3 patches/aecadence1a/apply.py apply PhotonCamera
+      - name: Verify parent test baseline
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/test.py PARENT_TESTS PhotonCamera | tee PARENT_TESTS.txt
+          python3 patches/aecadence1a/test.py PhotonCamera PARENT_CADENCE | tee PARENT_CADENCE.txt
+      - name: Apply stability overlay and run candidate tests
+        run: |
+          set -euo pipefail
+          python3 patches/aestability1a/apply.py apply PhotonCamera | tee AESTABILITY_APPLY.json
+          python3 patches/aestability1a/apply.py apply PhotonCamera > AESTABILITY_VERIFY.json
+          python3 patches/aestability1a/test.py PhotonCamera STABILITY_TESTS | tee STABILITY_TESTS_RUN.txt
+          python3 patches/aecadence1a/test.py PhotonCamera CANDIDATE_CADENCE | tee CANDIDATE_CADENCE.txt
+          javac --release 17 -cp STABILITY_TESTS/classes -d STABILITY_TESTS/classes patches/tapexactpatchclip1b/TapOverlapRegression.java
+          java -ea -cp STABILITY_TESTS/classes com.particlesdevs.photoncamera.m9.preview.TapOverlapRegression true | tee OVERLAP_CANDIDATE.txt
+      - name: Export audited source
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          out=Path('AESTABILITY_DELIVERY');out.mkdir(exist_ok=True)
+          for p in ['app/build.gradle','app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java','M9AESTABILITY1A_SOURCE_PROOF.json']:
+              s=Path('PhotonCamera')/p;d=out/'source'/p;d.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(s,d)
+          shutil.copytree('patches/aestability1a',out/'integration',dirs_exist_ok=True)
+          for p in ['AESTABILITY_APPLY.json','AESTABILITY_VERIFY.json','PARENT_TESTS.txt','PARENT_CADENCE.txt','CANDIDATE_CADENCE.txt','OVERLAP_CANDIDATE.txt']:
+              shutil.copyfile(p,out/p)
+          for p in ['AESTABILITY_TESTS.txt','TEST_SCOPE.json']:shutil.copyfile(Path('STABILITY_TESTS')/p,out/p)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-AESTABILITY1A-SOURCE-AUDIT
+          path: AESTABILITY_DELIVERY/
+          if-no-files-found: error
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/AESTABILITY_GRADLE.log"
+      - name: Inherited package and installation checks
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('patches/autoexposurefinish1n/ci.py');s=p.read_text()
+          old='2.03-m9ae1n-bodyqual1a-subjecthl1a-perf3i'
+          assert s.count(old)==1
+          p.with_name('aestability_checks.py').write_text(s.replace(old,'2.07-m9aestability1a-aecadence1a-exactpatch1b-ae1n-perf3i'))
+          PY
+          python3 patches/autoexposurefinish1n/aestability_checks.py checks
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.06-AECADENCE1A
+          run-id: 36384690153
+          github-token: ${{ github.token }}
+          path: BASELINE206
+      - name: Verify compiled inputs and frozen photographic bytes
+        run: |
+          set -euo pipefail
+          python3 patches/aestability1a/apply.py post PhotonCamera BASELINE206 AESTABILITY_DELIVERY | tee AESTABILITY_POST.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          text=Path('M9LIVEGL2G_INSTALL_CHECK.txt').read_text()
+          for expected in ['package=com.m9project.m9cam.photon',
+            'versionName=2.07-m9aestability1a-aecadence1a-exactpatch1b-ae1n-perf3i',
+            'versionCode=26727',
+            'signerSHA256=255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956']:
+              assert expected in text,expected
+          for p in ['AESTABILITY_POST.json','M9LIVEGL2G_INSTALL_CHECK.txt','M9AE1N_PARENT_CHECKS_REPLAY.json']:
+              shutil.copyfile(p,Path('AESTABILITY_DELIVERY')/p)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.07-AESTABILITY1A
+          path: AESTABILITY_DELIVERY/
+          if-no-files-found: error
+      - name: Build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-AESTABILITY1A-BUILDLOG
+          path: |
+            AESTABILITY_GRADLE.log
+            AESTABILITY_*.json
+            STABILITY_TESTS_RUN.txt
+            CANDIDATE_CADENCE.txt
+            OVERLAP_CANDIDATE.txt
+            AESTABILITY_DELIVERY/POSTBUILD_INPUTS.json
+          if-no-files-found: ignore
