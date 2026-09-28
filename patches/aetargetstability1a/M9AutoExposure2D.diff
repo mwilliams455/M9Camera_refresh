@@ -1,0 +1,228 @@
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+@@ -57,6 +57,15 @@
+     private static final int STABILITY_REVERSAL_CONFIRMATIONS=2;
+     private static final long STABILITY_INVALID_HOLD_NS=375000000L;
+ 
++    // AETARGETSTABILITY1A: stabilize the photographic target separately from
++    // the already-smoothed applied exposure. These are temporal evidence rules,
++    // not new brightness targets or clipping thresholds.
++    private static final double TARGET_STABILITY_DEADBAND_EV=.125;
++    private static final double TARGET_STABILITY_SMALL_DELTA_EV=.25;
++    private static final double TARGET_STABILITY_LARGE_BYPASS_EV=1.00;
++    private static final int TARGET_STABILITY_SMALL_CONFIRMATIONS=3;
++    private static final int TARGET_STABILITY_MEDIUM_CONFIRMATIONS=2;
++
+     // Deliberately low-key targets. These are visibility floors, not middle grey.
+     private static final int SCENE_MEDIAN_TARGET=46;
+     private static final int SCENE_CENTER_TARGET=54;
+@@ -112,6 +121,18 @@
+     private static long stabilityLastValidDecisionNs;
+     private static boolean stabilityTransientHold;
+ 
++    // AETARGETSTABILITY1A persistent-target state. The raw target is allowed to
++    // move every probe; the accepted photographic target only moves when fresh
++    // evidence persists, except for large transitions or hard safety releases.
++    private static boolean targetStabilityHaveAccepted;
++    private static double targetStabilityRawEv;
++    private static double targetStabilityAcceptedEv;
++    private static double targetStabilityPendingEv=Double.NaN;
++    private static int targetStabilityConfirmations;
++    private static int targetStabilityRequiredConfirmations;
++    private static boolean targetStabilityAcceptedThisSample;
++    private static String targetStabilityReason="uninitialized";
++
+     // 1F/1J: keep the same coherent 4x6 body and readability target while
+     // current rendered evidence remains coherent. A disjoint replacement needs
+     // two fresh confirmations; two consecutive fresh candidate-absence samples
+@@ -137,7 +158,7 @@
+     }
+ 
+     public static synchronized void reset() {
+-        responsePending1A=true;probeTiming1A=null;resetAeStability1A(true);
++        responsePending1A=true;probeTiming1A=null;resetAeStability1A(true);resetTargetStability1A(true);
+         M9TapMeter1A.clear("auto_reset");tapEpochSeen=M9TapMeter1A.epoch();
+         latest=null;owner="";heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+         backlightLatched=false;pendingLowerTargetEv=Double.NaN;lowerTargetConfirmations=0;
+@@ -483,7 +504,7 @@
+         if(!key.equals(owner)){
+             owner=key;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+             backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();
+-            resetAeStability1A(true);
++            resetAeStability1A(true);resetTargetStability1A(true);
+         }
+ 
+         M9TapMeter1A.Selection tap=M9TapMeter1A.selection(nowNs);
+@@ -493,7 +514,7 @@
+         long tapEpoch=M9TapMeter1A.epoch();
+         if(tapEpoch!=tapEpochSeen) {
+             tapEpochSeen=tapEpoch;resetBodyLock();resetLowerTargetHysteresis();
+-            backlightLatched=false;consumedSampleNs=-1;resetAeStability1A(false);
++            backlightLatched=false;consumedSampleNs=-1;resetAeStability1A(false);resetTargetStability1A(true);
+         }
+         if(tap!=null&&manualExposure==0&&manualIso==0&&Math.abs(userEv)<=1e-6&&autoEligible)
+             return decideTapped(camera,mode,nowNs,referenceEnergy,tap);
+@@ -559,15 +580,15 @@
+ 
+         if(manualExposure!=0||manualIso!=0) {
+             result=0;target=0;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+-            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();resetAeStability1A(true);
++            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();resetAeStability1A(true);resetTargetStability1A(true);
+             reason="manual_ISO_or_shutter";
+         } else if(Math.abs(userEv)>1e-6) {
+             if(!haveAuto){heldAutoEv=legacy;haveAuto=true;}
+-            resetAeStability1A(false);
++            resetAeStability1A(false);resetTargetStability1A(true);
+             result=heldAutoEv;target=result;reason="manual_EV_holds_auto_baseline";
+         } else if(!autoEligible) {
+             result=0;target=0;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+-            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();resetAeStability1A(true);
++            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();resetAeStability1A(true);resetTargetStability1A(true);
+             reason="auto_scene_placement_not_eligible";
+         } else if(valid) {
+             sceneChosen=selectSceneKeyQualified(sample.stats,multifieldBody);
+@@ -606,9 +627,11 @@
+             fastAcquire=safeFastAcquire075||fastAcquireEligible(sample.stats[0],multifieldBody,
+                     useBacklight,useScene,protectedOpenAnchorMask,
+                     protectedOpenAnchorSevere,target,current);
+-            // AESTABILITY1A: target selection above is unchanged. Apply a finer
+-            // temporal ramp at the faster cadence, with confirmation only when
+-            // ordinary motion reverses direction. Real headroom loss is immediate.
++            // AETARGETSTABILITY1A first accepts/rejects the raw photographic target;
++            // AESTABILITY1A then controls how that accepted target reaches the sensor.
++            // Neither layer changes the scene/tap target calculation above.
++            double rawTarget=target;
++            target=stabilizePhotographicTarget1A(rawTarget,current,freshSample,hardSafetyRelease);
+             result=applyAeStability1A(target,current,freshSample,hardSafetyRelease,nowNs);
+             positiveRiseStepEv=stabilityLastStepEv;
+             resetLowerTargetHysteresis();
+@@ -660,17 +683,18 @@
+                 reason="rendered_meter_transient_hold";
+             } else {
+                 heldAutoEv=bounded;haveAuto=true;result=bounded;target=bounded;
+-                resetAeStability1A(false);
++                resetAeStability1A(false);resetTargetStability1A(true);
+                 reason="rendered_meter_unavailable_or_stale";
+             }
+         }
+ 
+         responsePending1A=autoEligible&&manualExposure==0&&manualIso==0&&Math.abs(userEv)<=1e-6
+                 &&(!valid||Math.abs(target-result)>1e-9||stabilityPendingConfirmations>0
+-                    ||pendingBodyConfirmations>0);
++                    ||targetStabilityConfirmations>0||pendingBodyConfirmations>0);
+         JSONObject o=new JSONObject();
+         try {
+             cadenceDiagnostics1A(o);
++            targetStabilityDiagnostics1A(o);
+             stabilityDiagnostics1A(o);
+             o.put("revision",REVISION).put("reason",reason)
+                     .put("sampleValid",valid).put("meterStatus",meterStatus)
+@@ -1506,6 +1530,76 @@
+         return v.clipped>.30+1e-9;
+     }
+ 
++    private static void resetTargetStability1A(boolean clearAccepted) {
++        targetStabilityRawEv=0;targetStabilityPendingEv=Double.NaN;
++        targetStabilityConfirmations=0;targetStabilityRequiredConfirmations=0;
++        targetStabilityAcceptedThisSample=false;targetStabilityReason="reset";
++        if(clearAccepted) {targetStabilityHaveAccepted=false;targetStabilityAcceptedEv=0;}
++    }
++    private static double stabilizePhotographicTarget1A(double rawTarget,double current,
++            boolean fresh,boolean hardSafety) {
++        targetStabilityRawEv=rawTarget;targetStabilityAcceptedThisSample=false;
++        if(!fresh) {
++            targetStabilityReason="no_fresh_sample";
++            return targetStabilityHaveAccepted?targetStabilityAcceptedEv:current;
++        }
++        if(hardSafety&&rawTarget<current-1e-9) {
++            targetStabilityHaveAccepted=true;targetStabilityAcceptedEv=rawTarget;
++            targetStabilityPendingEv=Double.NaN;targetStabilityConfirmations=0;
++            targetStabilityRequiredConfirmations=0;targetStabilityAcceptedThisSample=true;
++            targetStabilityReason="hard_safety_immediate";return rawTarget;
++        }
++        if(!targetStabilityHaveAccepted) {
++            targetStabilityHaveAccepted=true;targetStabilityAcceptedEv=rawTarget;
++            targetStabilityPendingEv=Double.NaN;targetStabilityConfirmations=0;
++            targetStabilityRequiredConfirmations=0;targetStabilityAcceptedThisSample=true;
++            targetStabilityReason="initial_target";return rawTarget;
++        }
++        double delta=rawTarget-targetStabilityAcceptedEv,abs=Math.abs(delta);
++        if(abs<=TARGET_STABILITY_DEADBAND_EV+1e-9) {
++            targetStabilityPendingEv=Double.NaN;targetStabilityConfirmations=0;
++            targetStabilityRequiredConfirmations=0;targetStabilityReason="deadband_hold";
++            return targetStabilityAcceptedEv;
++        }
++        if(abs>=TARGET_STABILITY_LARGE_BYPASS_EV-1e-9) {
++            targetStabilityAcceptedEv=rawTarget;targetStabilityPendingEv=Double.NaN;
++            targetStabilityConfirmations=0;targetStabilityRequiredConfirmations=0;
++            targetStabilityAcceptedThisSample=true;targetStabilityReason="large_transition_immediate";
++            return rawTarget;
++        }
++        int required=abs<=TARGET_STABILITY_SMALL_DELTA_EV+1e-9
++                ?TARGET_STABILITY_SMALL_CONFIRMATIONS:TARGET_STABILITY_MEDIUM_CONFIRMATIONS;
++        if(!Double.isFinite(targetStabilityPendingEv)
++                ||Math.abs(rawTarget-targetStabilityPendingEv)>TARGET_STABILITY_DEADBAND_EV+1e-9) {
++            targetStabilityPendingEv=rawTarget;targetStabilityConfirmations=1;
++        } else targetStabilityConfirmations++;
++        targetStabilityRequiredConfirmations=required;
++        if(targetStabilityConfirmations>=required) {
++            targetStabilityAcceptedEv=rawTarget;targetStabilityPendingEv=Double.NaN;
++            targetStabilityConfirmations=0;targetStabilityRequiredConfirmations=0;
++            targetStabilityAcceptedThisSample=true;targetStabilityReason="persistent_target_accepted";
++            return rawTarget;
++        }
++        targetStabilityReason="pending_persistence";return targetStabilityAcceptedEv;
++    }
++    private static void targetStabilityDiagnostics1A(JSONObject o) throws org.json.JSONException {
++        o.put("aeTargetStabilityRevision","M9AETARGETSTABILITY1A")
++                .put("aeTargetRawEv",targetStabilityRawEv)
++                .put("aeTargetAcceptedEv",targetStabilityAcceptedEv)
++                .put("aeTargetPendingEv",Double.isFinite(targetStabilityPendingEv)
++                        ?targetStabilityPendingEv:JSONObject.NULL)
++                .put("aeTargetConfirmations",targetStabilityConfirmations)
++                .put("aeTargetRequiredConfirmations",targetStabilityRequiredConfirmations)
++                .put("aeTargetAcceptedThisSample",targetStabilityAcceptedThisSample)
++                .put("aeTargetStabilityReason",targetStabilityReason)
++                .put("aeTargetDeadbandEv",TARGET_STABILITY_DEADBAND_EV)
++                .put("aeTargetSmallDeltaEv",TARGET_STABILITY_SMALL_DELTA_EV)
++                .put("aeTargetSmallConfirmations",TARGET_STABILITY_SMALL_CONFIRMATIONS)
++                .put("aeTargetMediumConfirmations",TARGET_STABILITY_MEDIUM_CONFIRMATIONS)
++                .put("aeTargetLargeBypassEv",TARGET_STABILITY_LARGE_BYPASS_EV)
++                .put("aeTargetPhotographicThresholdsChanged",false);
++    }
++
+     private static void resetAeStability1A(boolean clearValidTime) {
+         stabilityLastDirection=0;stabilityPendingDirection=0;stabilityPendingConfirmations=0;
+         stabilityRawTargetEv=0;stabilityStableTargetEv=clearValidTime?0:heldAutoEv;stabilityLastStepEv=0;
+@@ -1667,6 +1761,8 @@
+             // priority. A newly tighter highlight/background limit is safety and may
+             // still pull exposure down immediately.
+             boolean hardSafety=limit<current-1e-9&&target<current-1e-9;
++            double rawTarget=target;
++            target=stabilizePhotographicTarget1A(rawTarget,current,fresh,hardSafety);
+             result=applyAeStability1A(target,current,fresh,hardSafety,now);
+             consumedSampleNs=s.submittedNs;heldAutoEv=result;haveAuto=true;
+             int ri=Math.max(0,Math.min(STEPS-1,(int)Math.round(result/STEP_EV)));
+@@ -1681,11 +1777,12 @@
+                 result=heldAutoEv;target=result;stabilityTransientHold=true;
+                 reason="tap_transient_meter_hold";M9TapMeter1A.status("M9 tap: holding while meter refreshes");
+             } else {
+-                result=0;target=0;heldAutoEv=0;haveAuto=false;resetAeStability1A(false);
++                result=0;target=0;heldAutoEv=0;haveAuto=false;resetAeStability1A(false);resetTargetStability1A(true);
+                 M9TapMeter1A.status("M9 tap: waiting for meter");
+             }
+         }
+-        responsePending1A=!valid||Math.abs(target-result)>1e-9||stabilityPendingConfirmations>0;
++        responsePending1A=!valid||Math.abs(target-result)>1e-9||stabilityPendingConfirmations>0
++                ||targetStabilityConfirmations>0;
+         try {
+             JSONObject o=new JSONObject().put("revision",REVISION).put("tapMeterRevision",M9TapMeter1A.REVISION)
+                 .put("reason",reason).put("sampleValid",valid).put("sceneOwnership","explicit_tap_patch")
+@@ -1707,6 +1804,7 @@
+                 JSONArray a=new JSONArray();for(Stats v:s.stats)a.put(v.json());o.put("bracket",a);
+             }
+             cadenceDiagnostics1A(o);
++            targetStabilityDiagnostics1A(o);
+             stabilityDiagnostics1A(o);
+             return new Decision(result,reason,o);
+         }catch(org.json.JSONException e){throw new IllegalStateException(e);}
