@@ -1,0 +1,50 @@
+name: Build M9Cam 2.10 UPSTREAM2R FIX1
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-upstream2r-fix1]
+    paths:
+      - patches/upstream2r_fix1/**
+      - .github/workflows/build-m9cam-upstream2r-fix1.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: m9-upstream2r-fix1
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Assemble pinned Photon plus reviewed M9 overlay
+        run: python3 patches/upstream2r_fix1/assemble.py PhotonCamera
+      - name: Build and test RAW16 and zoom compatibility
+        working-directory: PhotonCamera
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*ZoomControllerTest' --tests '*M9Upstream2RZoomTest' --tests '*M9Upstream2RRawPackingTest' --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.07-CAPTURECOLOR1A
+          run-id: 36559297780
+          github-token: ${{ github.token }}
+          path: CONTROL
+      - name: Preserve exact M9 native colour and verify APK
+        run: |
+          python3 patches/upstream2r_fix1/package.py PhotonCamera CONTROL/M9Cam_2.07_CAPTURECOLOR1A.apk "$ANDROID_HOME/build-tools/35.0.0" M9_UPSTREAM2R_DELIVERY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.10-UPSTREAM2R-FIX1
+          path: M9_UPSTREAM2R_DELIVERY/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: M9-UPSTREAM2R-FIX1-TEST-RESULTS
+          path: PhotonCamera/app/build/test-results/testDebugUnitTest/
