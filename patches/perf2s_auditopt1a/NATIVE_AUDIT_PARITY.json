@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "fixture": "deterministic_synthetic_camera_RGB16",
+  "cases": [
+    {
+      "width": 1,
+      "height": 1,
+      "gain": 0.5,
+      "productionChromaPreparation": true,
+      "inputAndContextUnchanged": true,
+      "changedOutputPixels": 0
+    },
+    {
+      "width": 31,
+      "height": 19,
+      "gain": 1,
+      "productionChromaPreparation": false,
+      "inputAndContextUnchanged": true,
+      "changedOutputPixels": 0
+    },
+    {
+      "width": 257,
+      "height": 263,
+      "gain": 2.5,
+      "productionChromaPreparation": true,
+      "inputAndContextUnchanged": true,
+      "changedOutputPixels": 0
+    },
+    {
+      "width": 512,
+      "height": 385,
+      "gain": 1.37,
+      "productionChromaPreparation": true,
+      "inputAndContextUnchanged": true,
+      "changedOutputPixels": 0
+    },
+    {
+      "width": 4096,
+      "height": 3072,
+      "gain": 1.37,
+      "productionChromaPreparation": true,
+      "inputAndContextUnchanged": true,
+      "changedOutputPixels": 0
+    }
+  ]
+}
