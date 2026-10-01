@@ -1,0 +1,11 @@
+# M9Cam 2.17 DNGPROFILE1A
+
+New captures embed an editable approximation of the accepted M9 colour/tone rendering. Each file uses its own frozen renderer matrix and effective gain. Physical camera identity, Camera2 calibration, WB, Bayer samples, gain maps, capture exposure and native JPEG rendering remain unchanged.
+
+The DNG worker generates a 180 x 65 x 129 look table and 129-point monotone tone curve. A profile offset cancels the existing -0.5 EV camera baseline; the render gain appears once in the generated tables. A unique profile name, DNG-compatible fingerprint and named Camera Raw settings request select the embedded profile. This requires Lightroom phone validation on new app captures. No installed external DCP, phone brand, camera ID or other lens's calibration is used.
+
+Profile export is performed before DNG publication. It copies the valid RAW to a sibling temporary file, appends the profile and root directory, checks its identity and commits by atomic replacement. A generation, validation or I/O failure preserves the original RAW and records `dngProfile1A.status` and `reason` in PRIMARY diagnostics. Profile work is serialized to bound extra heap use. The JPEG render worker normally remains independent.
+
+Limits: this transports pointwise colour and tone. Demosaicing, detail, spatial shading and display processing can differ from the JPEG renderer. Lightroom sharpening and noise reduction default to zero, matching the successful neutral-settings trial. The experimental shared-target cross-lens override is not enabled. No universal colour-shift correction is claimed. Extreme gains or unsupported metadata may bypass the profile while preserving RAW.
+
+`verify_profile.py` compiles the production pure-Java classes, tests all four synthetic Bayer patterns, single/dual calibration, unchanged RAW/physical tags, original payload preservation, profile overwrite rejection, invalid-input rejection, 128 MiB host heap, and monotone tone transport across a gain sweep. Private-photo SDK checks are kept outside this repository. `package.py` checks the source manifest, package/version/signing identity, 16 KiB alignment, and retains every native library from the accepted 2.16 APK.

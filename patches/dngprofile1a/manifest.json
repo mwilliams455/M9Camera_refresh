@@ -1,0 +1,20 @@
+{
+  "revision": "M9DNGPROFILE1A",
+  "parentCommit": "d3de9465bed23e19a38b343843e4626f650a2cf3",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "fileOverrides": {
+    "app/build.gradle": "0c04e5dc42d7b1bcdd612b5b0e7fb930929409cd5a5fe8ffcfe4d861c255b849",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "6622f213956cde9a5305009ff32a7f3e3e401b390334219e5d9eff4a0be3bc0a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java": "23f75673b399a63f011f53d39191053b6c87ae0cfe57fce74ebf490590eb6c80",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "b2159900e8b8db6d4949156831daa896bae45a48c87da688ab8d50c4c9e21421",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileWriter.java": "0890b7bb1edcdc153b310822b6cd142b5fab48ca2d3b570520da3344a23d8e76"
+  },
+  "profileDimensions": [
+    180,
+    65,
+    129
+  ],
+  "jpegRendererUnchanged": true,
+  "physicalCalibrationUnchanged": true,
+  "crossLensExperimentalOverride": false
+}
