@@ -7,7 +7,7 @@ widget's BuildConfig, making the Software tag identify the wrong version.
 
 This patch writes integral WhiteLevel values as LONG, rejects invalid inputs,
 aligns external TIFF values and RAW strips to two bytes, and reports the app's
-own version. Padding is excluded from strip byte counts. The historical
+own version. The CMake dependency pin is updated to the verified writer hash. Padding is excluded from strip byte counts. The historical
 SetWhiteLevelRational method name remains for source compatibility.
 
 No Bayer sample arithmetic, gain-map values, colour matrices, WB, black/white
@@ -25,7 +25,7 @@ Host tests do not execute Android JNI or Camera2.
 Build: `python3 patches/dngexport1b/assemble.py PhotonCamera`, then follow the
 dedicated workflow. Packaging preserves all accepted PERF2S native libraries
 except the rebuilt libdngCreator.so, and all M9 assets. The source manifest
-checks the exact inherited files and four overrides.
+checks the exact inherited files and five overrides (four changed files; version.properties is retained).
 
 `repair_export.py SOURCE OUTPUT` is an optional offline metadata-only test
 converter for single-IFD, uncompressed RAW16 DNGs. It refuses overwrite, retains

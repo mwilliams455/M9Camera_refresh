@@ -132,3 +132,14 @@
          }
      }
      testOptions {
+--- a/app/src/main/cpp/CMakeLists.txt
++++ b/app/src/main/cpp/CMakeLists.txt
+@@ -17,7 +17,7 @@
+ 
+ # M9UPSTREAM2R: pin the native header inputs used by the verified test build.
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/deps/tiny_dng_writer.h" M9_DEP_SHA)
+-if(NOT M9_DEP_SHA STREQUAL "0c68ee68914b949eaf194a20d83505d4debee9272d991e68e538e25611f289cc")
++if(NOT M9_DEP_SHA STREQUAL "c63ae47130e1d478335cf36982462f5baf0bb14f9ec826b6d4437c3a10b55aed")
+     message(FATAL_ERROR "Pinned dependency changed: tiny_dng_writer.h")
+ endif()
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/deps/technicallyflac.h" M9_DEP_SHA)
