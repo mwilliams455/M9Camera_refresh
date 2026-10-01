@@ -1,0 +1,378 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27215
++        versionCode 27216
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.15-m9dngnoisestage1a'
++        versionName '2.16-m9dngcolormeta1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.15_DNGNOISESTAGE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.16_DNGCOLORMETA1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/cpp/dngCreator.cpp
++++ b/app/src/main/cpp/dngCreator.cpp
+@@ -697,7 +697,11 @@
+ 
+         // Set illuminants
+         dng_image0->SetCalibrationIlluminant1(metadata.calibration_illuminant1);
+-        dng_image0->SetCalibrationIlluminant2(metadata.calibration_illuminant2);
++        // M9 single-illuminant metadata explicitly sets zero to omit the optional
++        // second set. DNG forbids a present CalibrationIlluminant2 of Unknown.
++        if (metadata.calibration_illuminant2 != 0) {
++            dng_image0->SetCalibrationIlluminant2(metadata.calibration_illuminant2);
++        }
+ 
+         if(metadata.compression && metadata.bps == 16) {
+             dng_image0->SetImageDataJpeg(
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
+@@ -20,6 +20,7 @@
+         final Map<String, String> hashes = new LinkedHashMap<>();
+         JSONObject dngNoiseProfile;
+         JSONObject dngNoiseStage;
++        JSONObject dngColorMetadata;
+         long imageTimestamp = -1;
+         boolean raw16Copy;
+         boolean failed;
+@@ -143,6 +144,25 @@
+         finally { synchronized (trace) { trace.elapsedNs += System.nanoTime() - started; } }
+     }
+ 
++    public static void dngColorMetadata(ImageFrame frame,
++            com.particlesdevs.photoncamera.processing.M9DngColorMetadata metadata) {
++        if (frame == null || frame.m9PhotonBoundary2Q == null || metadata == null) return;
++        Trace trace = frame.m9PhotonBoundary2Q;
++        try {
++            JSONObject out = new JSONObject();
++            put(out, "revision", metadata.REVISION);
++            put(out, "source", "owned_physical_CameraCharacteristics_and_CaptureResult");
++            put(out, "rendererColorOverridesUsed", false);
++            put(out, "missingForwardMatrixPolicy", "omit_no_identity_substitution");
++            JSONObject tags = new JSONObject();
++            for (Map.Entry<Integer, double[]> tag : metadata.tags().entrySet()) {
++                put(tags, Integer.toString(tag.getKey()), finiteArray(tag.getValue()));
++            }
++            put(out, "tagsWhenDngSaved", tags);
++            synchronized (trace) { trace.dngColorMetadata = out; }
++        } catch (Exception ignored) { /* Optional evidence must not fail capture. */ }
++    }
++
+     /** Optional metadata evidence on the existing owned-frame trace; never touches RAW. */
+     public static void dngNoiseProfile(ImageFrame frame, Integer cfa, double[] cameraPairs,
+                                        double[] exportedRgb, boolean filtered) {
+@@ -213,6 +233,7 @@
+             put(out, "acquisition", trace.acquisition);
+             put(out, "dngNoiseProfile", trace.dngNoiseProfile);
+             put(out, "dngNoiseStage", trace.dngNoiseStage);
++            put(out, "dngColorMetadata", trace.dngColorMetadata);
+             JSONObject stages = new JSONObject();
+             for (Map.Entry<String, JSONObject> item : trace.stages.entrySet())
+                 put(stages, item.getKey(), item.getValue());
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
+@@ -524,15 +524,37 @@
+         setAperture(parameters.aperture);
+         setBlackLevel(blackLevel);
+         setWhiteLevel(parameters.whiteLevel);
+-        setCalibrationIlluminant1((short) parameters.calibrationIlluminant1);
+-        setCalibrationIlluminant2((short) parameters.calibrationIlluminant2);
+-        setColorMatrix1(toDouble(parameters.ColorMatrix1));
+-        setColorMatrix2(toDouble(parameters.ColorMatrix2));
+-        setForwardMatrix1(toDouble(parameters.ForwardTransform1));
+-        setForwardMatrix2(toDouble(parameters.ForwardTransform2));
+-        setCameraCalibration1(toDouble(parameters.calibrationTransform1));
+-        setCameraCalibration2(toDouble(parameters.calibrationTransform2));
+-        setAsShotNeutral(toDouble(parameters.whitePoint));
++        if (physicalSingleRaw) {
++            if (parameters.m9DngColorMetadata == null) {
++                throw new IllegalArgumentException("Missing physical DNG colour snapshot");
++            }
++            setCalibrationIlluminant2((short) 0); // Native omission sentinel for a single set.
++            for (java.util.Map.Entry<Integer, double[]> tag : parameters.m9DngColorMetadata.tags().entrySet()) {
++                double[] value = tag.getValue();
++                switch (tag.getKey()) {
++                    case 50778: setCalibrationIlluminant1((short) value[0]); break;
++                    case 50779: setCalibrationIlluminant2((short) value[0]); break;
++                    case 50721: setColorMatrix1(value); break;
++                    case 50722: setColorMatrix2(value); break;
++                    case 50723: setCameraCalibration1(value); break;
++                    case 50724: setCameraCalibration2(value); break;
++                    case 50964: setForwardMatrix1(value); break;
++                    case 50965: setForwardMatrix2(value); break;
++                    case 50728: setAsShotNeutral(value); break;
++                    default: throw new IllegalArgumentException("Unsupported physical colour tag");
++                }
++            }
++        } else {
++            setCalibrationIlluminant1((short) parameters.calibrationIlluminant1);
++            setCalibrationIlluminant2((short) parameters.calibrationIlluminant2);
++            setColorMatrix1(toDouble(parameters.ColorMatrix1));
++            setColorMatrix2(toDouble(parameters.ColorMatrix2));
++            setForwardMatrix1(toDouble(parameters.ForwardTransform1));
++            setForwardMatrix2(toDouble(parameters.ForwardTransform2));
++            setCameraCalibration1(toDouble(parameters.calibrationTransform1));
++            setCameraCalibration2(toDouble(parameters.calibrationTransform2));
++            setAsShotNeutral(toDouble(parameters.whitePoint));
++        }
+         setCFAPattern(parameters.cfaPattern);
+         setOrientation(parameters.cameraRotation/90);
+         // Native signature is (xmin, ymin, xmax, ymax): left, top, right, bottom.
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -369,10 +369,9 @@
+                 parameters.FillDynamicParameters(captureResult, null, iso);
+             }
+             if (physicalCfaAuthority) {
+-                // FillDynamicParameters/ReCalcColor use Photon's global current-camera
+-                // characteristics. Recompute only the M9 DNG metadata from the immutable
+-                // physical characteristics carried with this RAW job. RAW bytes are untouched.
+-                parameters.ReCalcColorPhysical(false, captureResult, characteristics);
++                parameters.m9DngColorMetadata = M9DngColorCapture.read(characteristics, captureResult);
++                com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngColorMetadata(
++                        image, parameters.m9DngColorMetadata);
+ 
+                 // Photon defaults to static black level unless dynamic black was explicitly
+                 // selected. If dynamic black was not used, replace the potentially stale
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngColorCapture.java
+@@ -0,0 +1,45 @@
++package com.particlesdevs.photoncamera.processing;
++
++import android.hardware.camera2.CameraCharacteristics;
++import android.hardware.camera2.CaptureResult;
++import android.hardware.camera2.params.ColorSpaceTransform;
++import android.util.Rational;
++
++/** Only the physical characteristics/result carried with the owned RAW may supply colour. */
++public final class M9DngColorCapture {
++    private M9DngColorCapture() {}
++
++    public static M9DngColorMetadata read(CameraCharacteristics camera, CaptureResult result) {
++        if (camera == null || result == null) {
++            throw new IllegalArgumentException("Missing owned physical colour metadata");
++        }
++        Byte second = camera.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);
++        Rational[] neutral = result.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
++        float[] white = null;
++        if (neutral != null && neutral.length == 3) {
++            white = new float[3];
++            for (int i = 0; i < 3; i++) white[i] = neutral[i] == null
++                    ? Float.NaN : neutral[i].floatValue();
++        }
++        return M9DngColorMetadata.create(
++                camera.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1),
++                second == null ? null : Byte.toUnsignedInt(second),
++                matrix(camera.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1)),
++                matrix(camera.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2)),
++                matrix(camera.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1)),
++                matrix(camera.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2)),
++                matrix(camera.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1)),
++                matrix(camera.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2)), white);
++    }
++
++    private static float[] matrix(ColorSpaceTransform transform) {
++        if (transform == null) return null;
++        float[] out = new float[9];
++        // Camera2 getElement is (column, row); DNG storage is row major.
++        for (int row = 0; row < 3; row++) for (int column = 0; column < 3; column++) {
++            Rational value = transform.getElement(column, row);
++            out[row*3+column] = value == null ? Float.NaN : value.floatValue();
++        }
++        return out;
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngColorMetadata.java
+@@ -0,0 +1,77 @@
++package com.particlesdevs.photoncamera.processing;
++
++import java.util.LinkedHashMap;
++import java.util.Map;
++
++/** Owned physical-camera colour tags. No renderer settings or sensor substitution. */
++public final class M9DngColorMetadata {
++    public static final String REVISION = "M9DNGCOLORMETA1A_PHYSICAL_COLOR";
++    private final LinkedHashMap<Integer, double[]> values = new LinkedHashMap<>();
++
++    private M9DngColorMetadata() {}
++
++    public static M9DngColorMetadata create(Integer illuminant1, Integer illuminant2,
++            float[] color1, float[] color2, float[] calibration1, float[] calibration2,
++            float[] forward1, float[] forward2, float[] neutral) {
++        if (!illuminant(illuminant1) || !matrix(color1) || !neutral(neutral)) {
++            throw new IllegalArgumentException(REVISION + ": missing or invalid required calibration");
++        }
++        M9DngColorMetadata result = new M9DngColorMetadata();
++        boolean dual = illuminant1 != 0 && illuminant(illuminant2)
++                && illuminant2 != 0 && !illuminant1.equals(illuminant2) && matrix(color2);
++        result.values.put(50778, new double[]{illuminant1});
++        if (dual) result.values.put(50779, new double[]{illuminant2});
++        result.add(50721, color1);
++        if (dual) result.add(50722, color2);
++        if (matrix(calibration1)) result.add(50723, calibration1);
++        if (dual && matrix(calibration2)) result.add(50724, calibration2);
++        // Do not let an incomplete dual-illuminant forward pair replace a valid
++        // ColorMatrix path. In a single-illuminant profile only ForwardMatrix1 is needed.
++        if (matrix(forward1) && (!dual || matrix(forward2))) {
++            result.add(50964, forward1);
++            if (dual) result.add(50965, forward2);
++        }
++        result.add(50728, neutral);
++        return result;
++    }
++
++    /** Fresh arrays on each read prevent callers/diagnostics from changing a later write. */
++    public Map<Integer, double[]> tags() {
++        LinkedHashMap<Integer, double[]> copy = new LinkedHashMap<>();
++        for (Map.Entry<Integer, double[]> item : values.entrySet()) {
++            copy.put(item.getKey(), item.getValue().clone());
++        }
++        return copy;
++    }
++
++    private void add(int tag, float[] source) {
++        double[] copy = new double[source.length];
++        for (int i = 0; i < source.length; i++) copy[i] = source[i];
++        values.put(tag, copy);
++    }
++
++    private static boolean illuminant(Integer value) {
++        return value != null && (value >= 0 && value <= 4 || value >= 9 && value <= 24);
++    }
++
++    private static boolean neutral(float[] a) {
++        if (a == null || a.length != 3) return false;
++        for (float v : a) if (!Float.isFinite(v) || v <= 0) return false;
++        return true;
++    }
++
++    private static boolean matrix(float[] a) {
++        if (a == null || a.length != 9) return false;
++        double max = 0;
++        for (float v : a) {
++            if (!Float.isFinite(v)) return false;
++            max = Math.max(max, Math.abs((double) v));
++        }
++        if (max == 0) return false;
++        double[] n = new double[9];
++        for (int i = 0; i < 9; i++) n[i] = a[i] / max;
++        double determinant = n[0]*(n[4]*n[8]-n[5]*n[7])
++                - n[1]*(n[3]*n[8]-n[5]*n[6]) + n[2]*(n[3]*n[7]-n[4]*n[6]);
++        return Math.abs(determinant) > 1e-12;
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
+@@ -66,6 +66,7 @@
+     public float aperture;
+     public int cameraRotation;
+     public NoiseModeler noiseModeler;
++    public com.particlesdevs.photoncamera.processing.M9DngColorMetadata m9DngColorMetadata;
+     public ColorCorrectionTransform CCT;
+     public SizeF sensorSize;
+     public double angleX;
+@@ -355,6 +356,7 @@
+             }
+             hotPixels = result.get(CaptureResult.STATISTICS_HOT_PIXEL_MAP);
+ 
++            if (processingNoiseModel) {
+             // Populate custom White Balance neutral point directly from the frame's CaptureRequest metadata
+             Integer awbMode = (request != null) ? request.get(CaptureRequest.CONTROL_AWB_MODE) : null;
+             RggbChannelVector gains = (request != null) ? request.get(CaptureRequest.COLOR_CORRECTION_GAINS) : null;
+@@ -377,6 +379,7 @@
+             } else {
+                 ReCalcColor(false, result);
+             }
++            } // Single RAW exports capture-owned colour without renderer recalculation.
+         }
+         if (!usedDynamic)
+             if (level != null) {
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngColorMetadataTest.java
+@@ -0,0 +1,70 @@
++package com.particlesdevs.photoncamera.processing;
++
++import org.junit.Test;
++import java.util.Map;
++import static org.junit.Assert.*;
++
++public class M9DngColorMetadataTest {
++    private final float[] color={.8f,-.2f,.1f,-.1f,1.1f,.15f,.05f,.1f,.7f};
++    private final float[] identity={1,0,0,0,1,0,0,0,1};
++    private final float[] forward={.6f,.3f,.0642f,.2f,.7f,.1f,.02f,.1f,.7049f};
++    private final float[] neutral={.5f,1,.75f};
++    private M9DngColorMetadata full() {
++        return M9DngColorMetadata.create(17,21,color,color,identity,identity,forward,forward,neutral);
++    }
++    private void rejects(Runnable task) {
++        try { task.run(); fail("accepted invalid required colour"); }
++        catch (IllegalArgumentException expected) { assertTrue(expected.getMessage().contains("M9DNGCOLORMETA1A")); }
++    }
++    @Test public void physicalValuesAndRowOrderArePreserved() {
++        Map<Integer,double[]> tags=full().tags();assertEquals(9,tags.size());
++        for(int i=0;i<9;i++) assertEquals((double)color[i],tags.get(50721)[i],0);
++        assertArrayEquals(new double[]{.5,1,.75},tags.get(50728),0);
++        assertEquals(17,tags.get(50778)[0],0);assertEquals(21,tags.get(50779)[0],0);
++    }
++    @Test public void snapshotOwnsInputsAndEveryExport() {
++        M9DngColorMetadata m=full();color[0]=99;neutral[0]=99;
++        Map<Integer,double[]> tags=m.tags();tags.get(50721)[0]=88;tags.clear();
++        assertEquals((double).8f,m.tags().get(50721)[0],0);assertEquals(.5,m.tags().get(50728)[0],0);
++    }
++    @Test public void absentOptionalMatricesStayAbsent() {
++        Map<Integer,double[]> tags=M9DngColorMetadata.create(21,null,color,null,null,null,null,null,neutral).tags();
++        assertEquals(3,tags.size());assertFalse(tags.containsKey(50779));
++        assertFalse(tags.containsKey(50964));assertFalse(tags.containsKey(50723));
++    }
++    @Test public void singleIlluminantRetainsItsRealForwardMatrix() {
++        Map<Integer,double[]> tags=M9DngColorMetadata.create(21,null,color,color,identity,identity,forward,forward,neutral).tags();
++        assertTrue(tags.containsKey(50964));assertFalse(tags.containsKey(50965));assertFalse(tags.containsKey(50722));
++    }
++    @Test public void incompleteDualForwardPairUsesColorMatrices() {
++        Map<Integer,double[]> tags=M9DngColorMetadata.create(17,21,color,color,identity,identity,forward,null,neutral).tags();
++        assertTrue(tags.containsKey(50722));assertFalse(tags.containsKey(50964));assertFalse(tags.containsKey(50965));
++    }
++    @Test public void singularNonzeroRowsAreNotCalibration() {
++        float[] singular={1,2,3,2,4,6,3,6,9};
++        rejects(()->M9DngColorMetadata.create(21,null,singular,null,null,null,null,null,neutral));
++        Map<Integer,double[]> tags=M9DngColorMetadata.create(21,null,color,null,singular,null,singular,null,neutral).tags();
++        assertFalse(tags.containsKey(50723));assertFalse(tags.containsKey(50964));
++    }
++    @Test public void invalidRequiredValuesFailWithoutGlobalFallback() {
++        rejects(()->M9DngColorMetadata.create(null,null,color,null,null,null,null,null,neutral));
++        rejects(()->M9DngColorMetadata.create(255,null,color,null,null,null,null,null,neutral));
++        rejects(()->M9DngColorMetadata.create(21,null,null,null,null,null,null,null,neutral));
++        for(float bad:new float[]{0,-1,Float.NaN,Float.POSITIVE_INFINITY}) {
++            rejects(()->M9DngColorMetadata.create(21,null,color,null,null,null,null,null,new float[]{bad,1,1}));
++        }
++        rejects(()->M9DngColorMetadata.create(21,null,color,null,null,null,null,null,new float[]{1,1}));
++    }
++    @Test public void unusableSecondSetFallsBackToFirstOnly() {
++        for(Integer ref:new Integer[]{null,0,17,255}) {
++            Map<Integer,double[]> tags=M9DngColorMetadata.create(17,ref,color,color,identity,identity,forward,forward,neutral).tags();
++            assertFalse(tags.containsKey(50779));assertFalse(tags.containsKey(50722));assertTrue(tags.containsKey(50964));
++        }
++        assertFalse(M9DngColorMetadata.create(17,21,color,null,identity,identity,forward,forward,neutral).tags().containsKey(50779));
++    }
++    @Test public void optionalNonfiniteMatricesAreOmitted() {
++        float[] bad=identity.clone();bad[2]=Float.NaN;
++        Map<Integer,double[]> tags=M9DngColorMetadata.create(21,null,color,null,bad,null,bad,null,neutral).tags();
++        assertFalse(tags.containsKey(50723));assertFalse(tags.containsKey(50964));
++    }
++}
