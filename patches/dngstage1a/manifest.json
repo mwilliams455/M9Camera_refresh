@@ -1,0 +1,16 @@
+{
+  "revision": "M9DNGSTAGE1A",
+  "baseCommit": "fac6bef14607f35a32b09f9e955b204317c62aef",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "74501d73e4136d4c2b81e0acc8b638517c192a673e6906228e1cbf3342fb88df",
+  "fileOverrides": {
+    "app/src/main/cpp/deps/tiny_dng_writer.h": "d74d44c4e072208c63f7c1b883b9cc0b1c61f2ccbe9cc5cb3f7f8daf5c472bf9",
+    "app/src/main/cpp/dngCreator.cpp": "1e5addd57a394873e6b88c0b4898878dffeae49f1b59303be76846b67ad5188c",
+    "app/src/main/cpp/CMakeLists.txt": "a31d31c3d29fcf22257aafa31c0ac4592206f34d4ab33b0cfcfd09c36fd938fe",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java": "039a0f1750e98afeceb1f37e4ccb21998bf2b797e97781f883d4238900e19e55",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "0623446240984ddc5992b63e6e0add6422f7dcd3286d6f9a8e333c57babb9f12",
+    "app/build.gradle": "6bdfe1903e8fc1c9a9cd56d77174238e25fc5897038b9e520c760140f0c11826",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngExportMetadata.java": "a7ec83549a1f02ea7691078fee24ba656d46a65f314030edb40002035cde349a",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngExportMetadataTest.java": "6b6f10f19143b4d3daa2c3a6f02ba6f8256db68c8d22c6b58c8e2a27e2ec2440"
+  }
+}
