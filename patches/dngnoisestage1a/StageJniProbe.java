@@ -15,7 +15,7 @@ public class StageJniProbe {
         for(int i=0;i<n;i++)generated.putShort((short)(140+(i*73%31)));
         for(int cfa=0;cfa<4;cfa++) {
             M9DngNoiseStage.Calibration c=M9DngNoiseStage.prepare(w,h,cfa,1023,black,p,g,3,2,true,true);
-            ByteBuffer src=ByteBuffer.allocateDirect(n*2).order(ByteOrder.LITTLE_ENDIAN());
+            ByteBuffer src=ByteBuffer.allocateDirect(n*2).order(ByteOrder.LITTLE_ENDIAN);
             src.put(original);src.position(7);src.mark();src.limit(n*2-3);
             M9DngNoiseStage.Result result=M9DngNoiseStage.process(src,c);
             if(!result.applied || result.scale!=16 || result.buffer==src)throw new AssertionError(result.reason);
