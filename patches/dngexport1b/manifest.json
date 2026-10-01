@@ -1,0 +1,12 @@
+{
+  "revision": "M9DNGEXPORT1B",
+  "baseCommit": "fa50058cd93312c3b901253213da7f04f4bf1826",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "10a1c50711c98096a7fecf5453e22fb58ed842fd8e64c061ad4b77dac18c5666",
+  "fileOverrides": {
+    "app/src/main/cpp/deps/tiny_dng_writer.h": "c63ae47130e1d478335cf36982462f5baf0bb14f9ec826b6d4437c3a10b55aed",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java": "75ce737594b27d94bb4c50332b0b5d852fdcc8f6f4d8421de19c4c572d940318",
+    "app/build.gradle": "eac80a7b009aa035c093a6d69f5f38bbdacd9ee245ae27a5ce4eac6be2c662d3",
+    "app/version.properties": "00c4f907fb985dff66010b0e801beb998503fb9ff64faaa375d85b2c792f6ace"
+  }
+}
