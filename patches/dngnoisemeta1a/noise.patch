@@ -1,0 +1,325 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27213
++        versionCode 27214
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.13-m9dngstage1a'
++        versionName '2.14-m9dngnoisemeta1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.13_DNGSTAGE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.14_DNGNOISEMETA1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
+@@ -18,6 +18,7 @@
+         final JSONObject acquisition = new JSONObject();
+         final Map<String, JSONObject> stages = new LinkedHashMap<>();
+         final Map<String, String> hashes = new LinkedHashMap<>();
++        JSONObject dngNoiseProfile;
+         long imageTimestamp = -1;
+         boolean raw16Copy;
+         boolean failed;
+@@ -141,6 +142,33 @@
+         finally { synchronized (trace) { trace.elapsedNs += System.nanoTime() - started; } }
+     }
+ 
++    /** Optional metadata evidence on the existing owned-frame trace; never touches RAW. */
++    public static void dngNoiseProfile(ImageFrame frame, Integer cfa, double[] cameraPairs,
++                                       double[] exportedRgb) {
++        if (frame == null || frame.m9PhotonBoundary2Q == null) return;
++        Trace trace = frame.m9PhotonBoundary2Q;
++        try {
++            JSONObject out = new JSONObject();
++            put(out, "revision", "M9DNGNOISEMETA1A_PHYSICAL_SINGLE_RAW");
++            put(out, "source", "owned_physical_CaptureResult_SENSOR_NOISE_PROFILE");
++            put(out, "physicalCfa", cfa);
++            put(out, "camera2CfaPairs", finiteArray(cameraPairs));
++            put(out, "exportedRgbPairs", finiteArray(exportedRgb));
++            put(out, "tagWrittenWhenDngSaved", exportedRgb != null);
++            put(out, "greenPolicy", "complete_pair_with_larger_S_first_CFA_position_on_tie");
++            put(out, "stackingOrSyntheticModelUsed", false);
++            put(out, "status", exportedRgb == null ? "omitted_missing_or_invalid_calibration" : "physical_single_frame");
++            synchronized (trace) { trace.dngNoiseProfile = out; }
++        } catch (Exception ignored) { /* Optional diagnostics cannot fail a capture. */ }
++    }
++
++    private static org.json.JSONArray finiteArray(double[] values) throws Exception {
++        if (values == null) return null;
++        org.json.JSONArray out = new org.json.JSONArray();
++        for (double value : values) out.put(Double.isFinite(value) ? value : JSONObject.NULL);
++        return out;
++    }
++
+     /** Final PRIMARY attachment, after the DNG call and before freeing the owned frame. */
+     public static JSONObject finish(ImageFrame frame, boolean dngSaved) {
+         JSONObject out = new JSONObject();
+@@ -153,6 +181,7 @@
+         }
+         synchronized (trace) {
+             put(out, "acquisition", trace.acquisition);
++            put(out, "dngNoiseProfile", trace.dngNoiseProfile);
+             JSONObject stages = new JSONObject();
+             for (Map.Entry<String, JSONObject> item : trace.stages.entrySet())
+                 put(stages, item.getKey(), item.getValue());
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
+@@ -473,6 +473,17 @@
+     }
+ 
+     public void setParameters(Parameters parameters, String captureDateTime) {
++        setParameters(parameters, captureDateTime, false, null);
++    }
++
++    /** Native M9 RAW: null noise calibration means omit the optional tag. */
++    public void setParametersForM9Raw(Parameters parameters, String captureDateTime,
++                                      double[] singleRawNoiseProfile) {
++        setParameters(parameters, captureDateTime, true, singleRawNoiseProfile);
++    }
++
++    private void setParameters(Parameters parameters, String captureDateTime,
++                               boolean physicalSingleRaw, double[] singleRawNoiseProfile) {
+         short[] blackLevel = new short[4];
+         for (int i = 0; i < 4; i++) {
+             blackLevel[i] = (short) parameters.blackLevel[i];
+@@ -485,8 +496,10 @@
+         setDateTime(captureDateTime != null ? captureDateTime
+                 : DATE_FORMAT.get().format(new Date()));
+         
+-        // Set noise profile from noise modeler
+-        if (parameters.noiseModeler != null && parameters.noiseModeler.baseModel != null) {
++        // A native single RAW must not inherit a synthetic or stacked-frame model.
++        if (physicalSingleRaw) {
++            if (singleRawNoiseProfile != null) setNoiseProfile(singleRawNoiseProfile);
++        } else if (parameters.noiseModeler != null && parameters.noiseModeler.baseModel != null) {
+             double[] noiseProfile = new double[6]; // RGB: scale, offset pairs
+             // R channel
+             noiseProfile[0] = parameters.noiseModeler.computeModel[0].first;  // R scale
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -350,8 +350,9 @@
+             Parameters parameters = new Parameters();
+ 
+             parameters.FillConstParameters(characteristics, new Point(image.width, image.height));
++            Integer physicalCfa = null;
+             if (physicalCfaAuthority && characteristics != null) {
+-                Integer physicalCfa = characteristics.get(
++                physicalCfa = characteristics.get(
+                         CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
+                 if (physicalCfa != null && physicalCfa >= 0 && physicalCfa <= 3) {
+                     parameters.cfaPattern = (byte) (int) physicalCfa;
+@@ -362,7 +363,11 @@
+                 parameters.setFullRawSize(image.fullWidth, image.fullHeight);
+             }
+             int iso = captureResult.get(CaptureResult.SENSOR_SENSITIVITY);
+-            parameters.FillDynamicParameters(captureResult, null, iso);
++            if (physicalCfaAuthority) {
++                parameters.FillDynamicParametersForSingleRaw(captureResult, null, iso);
++            } else {
++                parameters.FillDynamicParameters(captureResult, null, iso);
++            }
+             if (physicalCfaAuthority) {
+                 // FillDynamicParameters/ReCalcColor use Photon's global current-camera
+                 // characteristics. Recompute only the M9 DNG metadata from the immutable
+@@ -388,23 +393,47 @@
+             Log.d(TAG, "Camera rotation: " + parameters.cameraRotation);
+             Log.d(TAG, "activearr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE));
+             Log.d(TAG, "precorr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE));
++            double[] cameraNoisePairs = null;
++            double[] singleRawNoiseProfile = null;
++            if (physicalCfaAuthority) {
++                android.util.Pair<Double, Double>[] pairs = captureResult.get(CaptureResult.SENSOR_NOISE_PROFILE);
++                if (pairs != null && pairs.length == 4) {
++                    cameraNoisePairs = new double[8];
++                    for (int i = 0; i < 4; i++) {
++                        cameraNoisePairs[2*i] = pairs[i] == null || pairs[i].first == null
++                                ? Double.NaN : pairs[i].first;
++                        cameraNoisePairs[2*i+1] = pairs[i] == null || pairs[i].second == null
++                                ? Double.NaN : pairs[i].second;
++                    }
++                }
++                singleRawNoiseProfile = M9DngNoiseProfile.fromCfa(cameraNoisePairs,
++                        physicalCfa == null ? -1 : physicalCfa);
++                com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngNoiseProfile(
++                        image, physicalCfa, cameraNoisePairs, singleRawNoiseProfile);
++            }
+             com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngWriterInput", captureResult, parameters.cameraID);
+-            boolean boundary2QSaved = saveSingleRaw(dngFilePath, image.buffer, parameters, physicalCfaAuthority);
++            boolean boundary2QSaved = saveSingleRaw(dngFilePath, image.buffer, parameters,
++                    physicalCfaAuthority, singleRawNoiseProfile);
+             com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngWriterReturn", captureResult, parameters.cameraID);
+             return boundary2QSaved;
+         }
+ 
+         public static boolean saveSingleRaw(Path dngFilePath,
+                                             ByteBuffer buffer, Parameters parameters) {
+-            return saveSingleRaw(dngFilePath, buffer, parameters, false);
++            return saveSingleRaw(dngFilePath, buffer, parameters, false, null);
+         }
+ 
+         private static boolean saveSingleRaw(Path dngFilePath, ByteBuffer buffer,
+-                                             Parameters parameters, boolean m9FirmwareDefaults) {
++                                             Parameters parameters, boolean m9FirmwareDefaults,
++                                             double[] singleRawNoiseProfile) {
+             DngCreator dngCreator = new DngCreator();
+             String captureDateTime = m9FirmwareDefaults
+                     ? M9DngExportMetadata.captureDateTime(dngFilePath.getFileName().toString()) : null;
+-            dngCreator.setParameters(parameters, captureDateTime);
++            if (m9FirmwareDefaults) {
++                dngCreator.setParametersForM9Raw(parameters, captureDateTime, singleRawNoiseProfile);
++            } else {
++                dngCreator.setParameters(parameters, captureDateTime);
++            }
+             if (m9FirmwareDefaults) {
+                 dngCreator.setBaselineExposure(M9DngExportMetadata.BASELINE_EXPOSURE_EV);
+             }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfile.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfile.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfile.java
+@@ -0,0 +1,31 @@
++package com.particlesdevs.photoncamera.processing;
++
++/** Single-frame Camera2 CFA coefficients to DNG CFAPlaneColor RGB order. */
++public final class M9DngNoiseProfile {
++    public static final String ID = "M9DNGNOISEMETA1A_PHYSICAL_SINGLE_RAW";
++    private M9DngNoiseProfile() {}
++
++    /**
++     * Input is four (S,O) pairs in physical CFA row order, never a stacking model.
++     * Match Android DngCreator: for duplicated green, retain the complete pair
++     * having the higher S; ties retain the first channel in CFA row order.
++     * Missing/invalid calibration omits this optional tag, without guessing.
++     */
++    public static double[] fromCfa(double[] pairs, int cfa) {
++        if (pairs == null || pairs.length != 8 || cfa < 0 || cfa > 3) return null;
++        for (int i = 0; i < 8; i += 2) {
++            if (!Double.isFinite(pairs[i]) || pairs[i] <= 0.0
++                    || !Double.isFinite(pairs[i + 1]) || pairs[i + 1] < 0.0) return null;
++        }
++        final int[][] colours = {{0,1,1,2}, {1,0,2,1}, {1,2,0,1}, {2,1,1,0}};
++        double[] rgb = new double[6];
++        for (int pos = 0; pos < 4; pos++) {
++            int plane = colours[cfa][pos];
++            if (pairs[2 * pos] > rgb[2 * plane]) {
++                rgb[2 * plane] = pairs[2 * pos];
++                rgb[2 * plane + 1] = pairs[2 * pos + 1];
++            }
++        }
++        return rgb;
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
+@@ -271,6 +271,16 @@
+     }
+ 
+     public void FillDynamicParameters(CaptureResult result, CaptureRequest request, int ISO) {
++        fillDynamicParameters(result, request, ISO, true);
++    }
++
++    /** Native RAW export gets its optional noise calibration directly from Camera2. */
++    public void FillDynamicParametersForSingleRaw(CaptureResult result, CaptureRequest request, int ISO) {
++        fillDynamicParameters(result, request, ISO, false);
++    }
++
++    private void fillDynamicParameters(CaptureResult result, CaptureRequest request, int ISO,
++                                       boolean processingNoiseModel) {
+         sensorSpecifics = PhotonCamera.getSpecificSensor().selectedSensorSpecifics;
+         Integer sensivity = result.get(CaptureResult.SENSOR_SENSITIVITY);
+         if (sensivity == null) {
+@@ -280,7 +290,9 @@
+             }
+         }
+         iso = sensivity;
+-        noiseModeler = new NoiseModeler(result.get(CaptureResult.SENSOR_NOISE_PROFILE), analogIso, sensivity, cfaPattern, sensorSpecifics);
++        noiseModeler = processingNoiseModel
++                ? new NoiseModeler(result.get(CaptureResult.SENSOR_NOISE_PROFILE), analogIso, sensivity, cfaPattern, sensorSpecifics)
++                : null;
+         Long exposure = result.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+         if (exposure == null) {
+             exposure = request.get(CaptureRequest.SENSOR_EXPOSURE_TIME);
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfileTest.java b/app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfileTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfileTest.java
+@@ -0,0 +1,59 @@
++package com.particlesdevs.photoncamera.processing;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9DngNoiseProfileTest {
++    @Test public void mapsAllFourPhysicalCfasToRgbWithoutScaling() {
++        double[][] raw = {
++                {0.01,0.001, 0.02,0.004, 0.03,0.002, 0.04,0.003},
++                {0.02,0.004, 0.01,0.001, 0.04,0.003, 0.03,0.002},
++                {0.02,0.004, 0.04,0.003, 0.01,0.001, 0.03,0.002},
++                {0.04,0.003, 0.02,0.004, 0.03,0.002, 0.01,0.001}};
++        double[] expected = {0.01,0.001, 0.03,0.002, 0.04,0.003};
++        for (int cfa = 0; cfa < 4; cfa++)
++            assertArrayEquals(expected, M9DngNoiseProfile.fromCfa(raw[cfa], cfa), 0.0);
++    }
++
++    @Test public void greenKeepsCompleteHigherSlopePairNotAverageOrMaxOffset() {
++        assertArrayEquals(new double[]{1,0, 4,0.25, 2,0},
++                M9DngNoiseProfile.fromCfa(new double[]{1,0, 4,0.25, 3,0.5, 2,0}, 0), 0.0);
++    }
++
++    @Test public void equalGreenSlopesKeepFirstCfaPositionLikeAndroidDngCreator() {
++        assertArrayEquals(new double[]{1,0, 3,0.5, 2,0},
++                M9DngNoiseProfile.fromCfa(new double[]{1,0, 3,0.5, 3,0.25, 2,0}, 0), 0.0);
++        assertArrayEquals(new double[]{1,0, 3,0.25, 2,0},
++                M9DngNoiseProfile.fromCfa(new double[]{3,0.25, 1,0, 2,0, 3,0.5}, 1), 0.0);
++    }
++
++    @Test public void rejectsMissingOrUnsupportedSourceInsteadOfInventingCalibration() {
++        assertNull(M9DngNoiseProfile.fromCfa(null, 0));
++        for (int n : new int[]{0,2,6,7,9,10})
++            assertNull(M9DngNoiseProfile.fromCfa(new double[n], 0));
++        double[] good = {1,0, 2,0, 3,0, 4,0};
++        for (int cfa : new int[]{-1,4,5,6,255}) assertNull(M9DngNoiseProfile.fromCfa(good, cfa));
++    }
++
++    @Test public void rejectsInvalidCoefficientsEvenInUnselectedGreen() {
++        for (int position = 0; position < 8; position++) {
++            double[] invalid = position % 2 == 0
++                    ? new double[]{0,-1,Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY}
++                    : new double[]{-1,Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY};
++            for (double value : invalid) {
++                double[] input = {1,0, 2,0, 3,0, 4,0}; input[position] = value;
++                assertNull(M9DngNoiseProfile.fromCfa(input, 0));
++            }
++        }
++    }
++
++    @Test public void preservesSourceAndDoesNotShareOutputAcrossCaptures() {
++        double[] source = {0.01,0.001, 0.02,0.004, 0.03,0.002, 0.04,0.003};
++        double[] saved = source.clone();
++        double[] first = M9DngNoiseProfile.fromCfa(source, 0);
++        first[0] = 99;
++        double[] second = M9DngNoiseProfile.fromCfa(source, 0);
++        assertArrayEquals(saved, source, 0.0);
++        assertEquals(0.01, second[0], 0.0);
++    }
++}
