@@ -1,0 +1,26 @@
+{
+  "revision": "M9CAPTUREREQUEST1A",
+  "parentCommit": "e536776d95a9b08cea39165df24f5e114002140a",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "cc7d11577a17b849dedb0fe8551049ed4359c43433437953b85337b36dde5104",
+  "fileOverrides": {
+    "app/build.gradle": "8f9e6314cc5d2d41c88ef22eb6f3501f63411f2e20a4e251333fc3124f077ed2",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "842ace46b6079aec30796bdf2afe552ef691ebf99d5c6f8ff30f4da517c350d5",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureAuditStore.java": "5637a78b8f8bff75a76c94213854647976edc2a71d8e095d685c2dcd5ff14ed6",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestAudit1A.java": "76a285d8aa2cbcf2d12bec6c0e9be73675c792bfc37975f1be0606878680ae9b",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "ed17fa44984ca2e7af6cd70207e30b7c06d93bef3af7b75b3863eda73b9045b9",
+    "app/src/main/res/values/m9_diagnostics.xml": "33f37d6c9f830c8c8de6bdc7098b0d8f7f6577409014e075998c08b586148583",
+    "app/src/main/res/xml/preferences.xml": "8ee144dd9128db640f57028c5ee3fd0042cdce057fb18b89c9d293b1a379a223",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestPolicyTest.java": "4892dc4827d0c6926bcb64a3e9c2fa52dbeab07d17cf93e2470069c20cbc94d5"
+  },
+  "defaultCapturePolicyUnchanged": true,
+  "comparisonPolicy": "omit_only_automatic_remosaic_requests",
+  "jpegRendererUnchanged": true,
+  "dngPipelineUnchanged": true,
+  "rawPairRetained": true,
+  "noAdditionalCapture": true,
+  "metadataOnlyTimestampStore": {
+    "capacity": 16,
+    "maxRecordChars": 196608
+  }
+}
