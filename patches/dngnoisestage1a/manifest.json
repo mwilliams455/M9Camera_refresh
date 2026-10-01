@@ -2,7 +2,7 @@
   "revision": "M9DNGNOISESTAGE1A",
   "parentCommit": "782784f318a421a250a3cd63b3729a390ce1514b",
   "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
-  "patchSha256": "c56ef7dc6bcd095fcf99037f79c906944fd94132cdeb78eaee9585fbf7366e46",
+  "patchSha256": "2a731aaaa060abc39a03064e6a832e0222de54b0c40123e0999ca9e2c13d7a23",
   "fileOverrides": {
     "app/build.gradle": "5e8f51bc5e540c101d43001ac063d77d5f6049d84b1dd600bc3c4c06ffddc8d5",
     "app/src/main/cpp/CMakeLists.txt": "2758cd4b1bc214f8021d0230e82251703ef129fff537afaf7e90892ab4852051",
@@ -13,6 +13,6 @@
     "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java": "d8422f77037a7d409f74a3556ed5f39cc09a1871f765c31962ca761877519c7b",
     "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "aa1479158c04e2a162adcf676622396495ccc51741272dadb765b28cfe7c0920",
     "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngNoiseStage.java": "0a210807ecfae17b91a8afaf85fc7264ddd734f3005b0c1d6893ae5e58c2bc8e",
-    "app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseStageTest.java": "461f9180253704ec0b3942dfc1ae7d320e1e7ec7ead9ac3e9c1117bb5a6383f4"
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseStageTest.java": "058b65419b645810a242ab9b0e1734153456b82bf09fe5506dc81aae69924f87"
   }
 }

@@ -589,13 +589,13 @@
 +        ByteBuffer src=source();src.position(13);src.mark();src.limit(300);
 +        M9DngNoiseStage.Result r=M9DngNoiseStage.process(src,good(),(in,out,c)->{
 +            assertTrue(in.isReadOnly());assertEquals(0,in.position());assertEquals(384,in.limit());
-+            in.order(ByteOrder.LITTLE_ENDIAN());
++            in.order(ByteOrder.LITTLE_ENDIAN);
 +            for(int i=0;i<192;i++) out.putShort(i*2,(short)((in.getShort(i*2)&65535)*c.scale));
 +            return 0;
 +        });
 +        assertTrue(r.applied);assertNotSame(src,r.buffer);assertEquals(16,r.scale);
 +        assertEquals(13,src.position());assertEquals(300,src.limit());src.reset();
-+        ByteBuffer view=src.duplicate().order(ByteOrder.LITTLE_ENDIAN());view.clear();
++        ByteBuffer view=src.duplicate().order(ByteOrder.LITTLE_ENDIAN);view.clear();
 +        for(int i=0;i<192;i++) {assertEquals(100+i,view.getShort(i*2));assertEquals((100+i)*16,r.buffer.getShort(i*2));}
 +    }
 +    @Test public void failedStageDiscardsPartialOutputAndPreservesOriginalEncoding() {
