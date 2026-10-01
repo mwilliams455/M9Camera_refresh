@@ -92,7 +92,7 @@
  import java.util.Locale;
  
 -import de.hdodenhof.circleimageview.BuildConfig;
-+import com.particlesdevs.photoncamera.BuildConfig;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
  
  public class DngCreator {
      private long nativePtr;
@@ -101,7 +101,7 @@
          }
          setDescription(parameters.toString());
 -        setSoftware("PhotonCamera v" + BuildConfig.VERSION_NAME+BuildConfig.VERSION_CODE);
-+        setSoftware("M9Cam v" + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")");
++        setSoftware("M9Cam v" + PhotonCamera.getVersion());
          
          // Set current date and time
          setDateTime(DATE_FORMAT.get().format(new Date()));

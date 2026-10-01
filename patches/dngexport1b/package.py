@@ -39,7 +39,7 @@ def main(root,control,bt,out):
             dst.writestr(copy.copy(info),data);expected[n]=sha(data)
         assert len(updated)==2
         dex=b''.join(new.read(n) for n in new.namelist() if n.endswith('.dex'))
-        for marker in ['M9 RAW16 required:','M9PERF2S_AUDITOPT1A','M9_RAW16_PRESERVED_FIX1',VERSION,'M9Cam v']:
+        for marker in ['M9 RAW16 required:','M9PERF2S_AUDITOPT1A','M9_RAW16_PRESERVED_FIX1','M9Cam v']:
             assert marker.encode() in dex,marker
     subprocess.run([str(bt/'zipalign'),'-f','-P','16','4',str(unsigned),str(aligned)],check=True)
     signer=['java','-jar',str(bt/'lib/apksigner.jar')]
