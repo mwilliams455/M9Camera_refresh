@@ -1,0 +1,178 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27218
++        versionCode 27219
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.18-m9dngprofile1b'
++        versionName '2.19-m9dngrawpair1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.18_DNGPROFILE1B-${variant.name}.apk"
++            outputFileName = "M9Cam_2.19_DNGRAWPAIR1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -392,6 +392,9 @@
+             Log.d(TAG, "Camera rotation: " + parameters.cameraRotation);
+             Log.d(TAG, "activearr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE));
+             Log.d(TAG, "precorr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE));
++            // Capture original numeric levels before the DNG-only noise stage scales them.
++            final int rawPairWhite = parameters.whiteLevel;
++            final float[] rawPairBlack = physicalCfaAuthority ? parameters.blackLevel.clone() : null;
+             double[] cameraNoisePairs = null;
+             double[] singleRawNoiseProfile = null;
+             M9DngNoiseStage.Result noiseStage = null;
+@@ -454,6 +457,28 @@
+             com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngSourceAfterExport", captureResult, parameters.cameraID);
+             if (physicalCfaAuthority) com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngNoiseStage(
+                     image, noiseStage, iso, parameters.whiteLevel, true);
++            if (physicalCfaAuthority) {
++                M9DngRawPair.Result rawPair = M9DngRawPair.save(dngFilePath,
++                        boundary2QSaved, image.buffer, image.width, image.height, (output, source) -> {
++                    DngCreator control = new DngCreator();
++                    try {
++                        // Keep physical calibration, WB, gain-map opcodes and capture EXIF.
++                        // Both filtered output and control omit automatic noise-profile hints.
++                        control.setParametersForM9Raw(parameters,
++                                M9DngExportMetadata.captureDateTime(dngFilePath.getFileName().toString()), null);
++                        short[] originalBlack = new short[4];
++                        for (int i = 0; i < 4; i++) originalBlack[i] = (short) rawPairBlack[i];
++                        control.setBlackLevel(originalBlack);
++                        control.setWhiteLevel(rawPairWhite);
++                        control.setBaselineExposure(M9DngExportMetadata.BASELINE_EXPOSURE_EV);
++                        control.setCompression(false);
++                        control.writeBuffer(output, source, image.width, image.height);
++                    } finally { control.close(); }
++                });
++                com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngRawPair(
++                        image, rawPair, rawPairWhite, rawPairBlack, noiseStage.applied,
++                        noiseStage.scale, captureResult);
++            }
+             return boundary2QSaved;
+         }
+ 
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
+@@ -21,6 +21,8 @@
+         JSONObject dngNoiseProfile;
+         JSONObject dngNoiseStage;
+         JSONObject dngColorMetadata;
++        JSONObject dngRawPair;
++        java.nio.file.Path savedRawPairPath;
+         long imageTimestamp = -1;
+         boolean raw16Copy;
+         boolean failed;
+@@ -212,6 +214,51 @@
+         }
+     }
+ 
++    public static void dngRawPair(ImageFrame frame,
++            com.particlesdevs.photoncamera.processing.M9DngRawPair.Result result,
++            int white, float[] black, boolean filteredApplied, int filteredScale,
++            CaptureResult capture) {
++        Trace trace = frame == null ? null : frame.m9PhotonBoundary2Q;
++        if (trace == null) return;
++        synchronized (trace) {
++            trace.savedRawPairPath = result.saved ? result.path : null;
++            try {
++            JSONObject out = new JSONObject();
++            put(out, "revision", com.particlesdevs.photoncamera.processing.M9DngRawPair.ID);
++            put(out, "status", result.status);
++            put(out, "saved", result.saved);
++            put(out, "path", result.path == null ? null : result.path.toString());
++            put(out, "error", result.error);
++            put(out, "sourceBeforeSha256", result.sourceBeforeSha256);
++            put(out, "sourceAfterSha256", result.sourceAfterSha256);
++            put(out, "sourceBufferUnchanged", result.sourceBeforeSha256 == null ? null
++                    : result.sourceBeforeSha256.equals(result.sourceAfterSha256));
++            put(out, "fileBytes", result.fileBytes);
++            put(out, "elapsedMs", result.elapsedMs);
++            put(out, "source", "same_owned_frame_original_RAW16_no_scale_no_filter");
++            put(out, "profile", "none_physical_calibration_only");
++            put(out, "noiseProfile", "omitted_for_controlled_external_NR_off_comparison");
++            put(out, "whiteLevel", white);
++            org.json.JSONArray levels = new org.json.JSONArray();
++            for (float value : black) levels.put(Float.isFinite(value) ? (Object) Double.valueOf(value) : JSONObject.NULL);
++            put(out, "blackLevel", levels);
++            put(out, "normalDngNoiseFilterApplied", filteredApplied);
++            put(out, "normalDngEncodingScale", filteredScale);
++            put(out, "sensorTimestampNs", capture.get(CaptureResult.SENSOR_TIMESTAMP));
++            put(out, "savedDngDecodedPixelsCompared", false);
++            trace.dngRawPair = out;
++            } catch (Exception | LinkageError | OutOfMemoryError ignored) {
++                // Optional diagnostics cannot invalidate the already-saved normal capture.
++            }
++        }
++    }
++
++    public static java.nio.file.Path savedRawPairPath(ImageFrame frame) {
++        Trace trace = frame == null ? null : frame.m9PhotonBoundary2Q;
++        if (trace == null) return null;
++        synchronized (trace) { return trace.savedRawPairPath; }
++    }
++
+     private static org.json.JSONArray finiteArray(double[] values) throws Exception {
+         if (values == null) return null;
+         org.json.JSONArray out = new org.json.JSONArray();
+@@ -234,6 +281,7 @@
+             put(out, "dngNoiseProfile", trace.dngNoiseProfile);
+             put(out, "dngNoiseStage", trace.dngNoiseStage);
+             put(out, "dngColorMetadata", trace.dngColorMetadata);
++            put(out, "dngRawPair1A", trace.dngRawPair);
+             JSONObject stages = new JSONObject();
+             for (Map.Entry<String, JSONObject> item : trace.stages.entrySet())
+                 put(stages, item.getKey(), item.getValue());
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -30,7 +30,7 @@
+  *   method returns true, this queue owns that ImageFrame. The M9 render worker
+  *   uses it through finished-JPEG rendering, then DNGASYNC1A transfers ownership
+  *   to a bounded single DNG worker. The DNG worker closes the frame only after
+- *   the untouched development DNG is complete and final PRIMARY timing has been
++ *   the development DNG and optional RAW control are complete and final PRIMARY timing has been
+  *   frozen to immutable bytes. If the DNG handoff queue is saturated, DNG save
+  *   falls back synchronously on M9PrimaryRenderer so a DNG is never silently lost
+  *   and RAW ownership cannot grow without bound.
+@@ -422,7 +422,7 @@
+         final long dngQueueWaitMs = (dngWorkerStartedNs - job.dngQueuedAtNs) / 1_000_000L;
+         try {
+             Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+-            Log.d(DNG_TAG, "DNGASYNC1A starting untouched DNG after " + dngQueueWaitMs
++            Log.d(DNG_TAG, "DNGASYNC1A starting development DNG after " + dngQueueWaitMs
+                     + " ms DNG queue wait; dngPending=" + DNG_EXECUTOR.getQueue().size());
+             runDngAndFinalize(job, true, false, DNG_HANDOFF_FALLBACK_COUNT.get(), dngQueueWaitMs);
+         } catch (Throwable t) {
+@@ -487,6 +487,18 @@
+                     job.processingEventsListener.notifyImageSavedStatus(true, job.dngPath);
+                 } catch (Throwable publishError) {
+                     error = appendError(error, "DNG publication failed: " + publishError);
++                }
++            }
++
++            Path rawPairPath = M9PhotonBoundary2Q.savedRawPairPath(job.ownedFrame);
++            if (rawPairPath != null) {
++                try {
++                    // Make the control discoverable without replacing the normal gallery thumbnail.
++                    android.media.MediaScannerConnection.scanFile(
++                            com.particlesdevs.photoncamera.app.PhotonCamera.getAppContext(),
++                            new String[]{rawPairPath.toString()}, new String[]{"image/x-adobe-dng"}, null);
++                } catch (Throwable publishError) {
++                    error = appendError(error, "RAW control publication failed: " + publishError);
+                 }
+             }
+ 
