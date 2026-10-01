@@ -39,7 +39,7 @@ def verify(root,out):
             path=out/(name+'.dng')
             subprocess.run([str(out/'writer'),str(out/(name+'.tags')),str(path)],check=True)
             with tifffile.TiffFile(path) as f:
-                p=f.pages[0];assert TAGS.intersection(p.tags)==set(plan)
+                p=f.pages[0];assert TAGS.intersection(p.tags.keys())==set(plan), (name, list(p.tags.keys()), list(plan))
                 for tag,expected in plan.items():
                     v=np.asarray(p.tags[tag].value,dtype=float).reshape(-1)
                     if p.tags[tag].dtype in (5,10):
