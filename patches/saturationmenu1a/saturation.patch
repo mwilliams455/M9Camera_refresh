@@ -389,6 +389,7 @@ diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Ren
              long a0 = q[0] * r + q[1] * g + q[2] * b;
              long a1 = q[3] * r + q[4] * g + q[5] * b;
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java
+new file mode 100644
 --- /dev/null
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java
 @@ -0,0 +1,19 @@
@@ -486,6 +487,7 @@ diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngPr
              report.put("generationElapsedMs",profile.elapsedMs);report.put("addedBytes",result.addedBytes);
              report.put("renderGain",profile.gain);report.put("source","capture_owned_common_scene_to_m9");
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java
+new file mode 100644
 --- /dev/null
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java
 @@ -0,0 +1,37 @@
@@ -555,6 +557,7 @@ diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/vi
                  uM9ExposureScale1B = GLES20.glGetUniformLocation(mSharpProgram, "uM9ExposureScale1B");
                  uM9PreviewTc20Gain1A = GLES20.glGetUniformLocation(mSharpProgram, "uM9PreviewTc20Gain1A");
 diff --git a/app/src/main/res/values/m9_saturation.xml b/app/src/main/res/values/m9_saturation.xml
+new file mode 100644
 --- /dev/null
 +++ b/app/src/main/res/values/m9_saturation.xml
 @@ -0,0 +1,18 @@
@@ -617,6 +620,7 @@ diff --git a/app/src/main/res/xml/preferences.xml b/app/src/main/res/xml/prefere
                  android:key="@string/pref_contrast_seekbar_key"
                  android:layout="@layout/preference_seekbar"
 diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java
+new file mode 100644
 --- /dev/null
 +++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java
 @@ -0,0 +1,38 @@
