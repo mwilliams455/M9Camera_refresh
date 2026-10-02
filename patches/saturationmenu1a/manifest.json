@@ -1,0 +1,29 @@
+{
+  "revision": "M9SATURATIONMENU1A",
+  "parentCommit": "aa7e4b197787ddf37107030bbb305594b866376c",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "c37aae574269ac374ce815eea2699401f2d4bd1ecede63bb739ff9e52cd79f5f",
+  "fileOverrides": {
+    "app/build.gradle": "ae9b32e836a43b831ea7a58b23dfb8e6c22001f33210364ec8f42a8e77d5f38a",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "1a765608bbe9d84c9ba567c993cefc8fb66af2ebd3f2e3ba734494222f3e9586",
+    "app/src/main/cpp/m9color_jni.cpp": "8d62fb1527d3049024e43bd287dad42fa299808a0acfa35ec029c303cb23d7b7",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "c82582884b0093ab1316953fca45972bb6a433691173b781d84099df6cf8ff51",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "07c175e083fe149b83a6ef9acdb7212b82cc2ff58ca030a0976f19f0a01cd05e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java": "c564f787939dbec885c46e18bbece644672393aa691daa7f4c78908b4ee192d0",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java": "903a57dd1aa7d46f2c3c149eb37fd0191e2dc74c0eebd784a8ec417b42c0bb15",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "baae4a19b92d7feb5fb0753ef86863c64b781b5a5b770c2b40c629b99050c114",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java": "7a7df3c378215e38addffad4d57bbc89a04f58c0b91f2c78431afc9eba22b00b",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "7652ef3317eaa999e8c964342d85025eace25a2bc9191e311b8018ed92a6a2bd",
+    "app/src/main/res/values/m9_saturation.xml": "1ce34ba801ac8376d17ed5acac5fd6bdf200ab6669aa451a240f88c4c75a704d",
+    "app/src/main/res/xml/preferences.xml": "60d1723ba7c6398c25b16090abc7d8551d6a9294b9a068f95d4d23ea36975851",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java": "c3654b04bc3f19af4df471ec7f0a3fb4a78cb744760164b918172254b85dd86e"
+  },
+  "defaultSaturationBank": 2,
+  "levels": 5,
+  "colourSpace": "sRGB",
+  "selectionBoundary": "RAW_enqueue",
+  "capturePolicyUnchanged": true,
+  "rawSampleProcessingUnchanged": true,
+  "normalContrastCurveUnchanged": true,
+  "preSaturationMeteringUnchanged": true
+}

@@ -17,7 +17,7 @@ results=[]
 for mode in ['old_writer','success','deny_commit']:
     case=out/mode; case.mkdir(exist_ok=True); classes=case/'classes'; classes.mkdir(exist_ok=True)
     writer=HERE.parent/'dngprofile1a/src/M9DngProfileWriter.java' if mode=='old_writer' else src/'M9DngProfileWriter.java'
-    subprocess.run(['java','com.sun.tools.javac.Main','-d',str(classes),str(src/'M9DngProfile.java'),str(writer),str(HERE/'StorageHostProbe.java')],check=True)
+    subprocess.run(['java','com.sun.tools.javac.Main','-d',str(classes),*map(str,src.glob('M9Saturation.java')),str(src/'M9DngProfile.java'),str(writer),str(HERE/'StorageHostProbe.java')],check=True)
     path=case/'capture.dng'; raw=np.arange(48*64,dtype=np.uint16).reshape(48,64)+1024
     cm=[10000,10000,0,10000,0,10000,0,10000,10000,10000,0,10000,0,10000,0,10000,10000,10000]
     tags=[(50706,'B',4,[1,3,0,0],False),(50708,'s',0,'Synthetic storage regression',False),
