@@ -1,0 +1,22 @@
+{
+  "revision": "M9SETTINGSSTATUS1A",
+  "parentCommit": "6acae30ea44f815a27c0923eed36868d757f57c0",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "43c70b51940a0d6cfed95e11d83c8421a03cbfb7594094a68c4c7ef131454f55",
+  "fileOverrides": {
+    "app/build.gradle": "046ce125d2a2fd5365d86961158eedbb8fc622ad5c98337723d37da500118512",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveFeedback.java": "8f6404d8df47bc9cb308bac9fb5acaa117a619e01943702193e7876b3891c8e7",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java": "664f3593a9281e6bfea36c622f52770f5071df5cb4d8d535d58922ee3db0f41d",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatusView.java": "7bd2a3ba29d8186d4c6bc01ac844e13a70f23e04fa2ee25f269711fcb98274e2",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "2c6968bcbdef741dca9c80cb23e9a50d2f19b075f209bbdc9f66b8bfb14e5789",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "b7356cb16c56400c5aa4fcc9b5c804da9610052a72e2690bf75e65aa233ef202",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "67f5306e807c355f58046d3c3c4f5ed89a0b9f9db15a762250108d98e3414b64",
+    "app/src/main/res/layout/layout_main_viewfinder.xml": "114dac05a6b7db776c122697154488c5cf1d416aaf0a94053e1055a9802546a5",
+    "app/src/main/res/values/m9_save_status.xml": "3af33f1af2f1d751d941ccc44ff611bbd2f30d65476b8a9e2a7e7c805bf5e02c"
+  },
+  "photographicMathUnchanged": true,
+  "rendererSourceUnchanged": true,
+  "captureRearmUnchanged": true,
+  "saveCompletionBoundary": "requested file writes, EXIF/profile and publication attempts complete",
+  "statusLifetime": "in-process; survives Fragment recreation, not process death"
+}
