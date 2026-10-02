@@ -1,0 +1,345 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27225
++        versionCode 27226
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.25-m9settingsstatus1a'
++        versionName '2.26-m9capturefreeze1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.25_SETTINGSSTATUS1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.26_CAPTUREFREEZE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -13,6 +13,7 @@
+ 
+ import com.particlesdevs.photoncamera.processing.ImageFrame;
+ import com.particlesdevs.photoncamera.processing.ImageSaver;
++import com.particlesdevs.photoncamera.processing.render.M9CaptureParameters;
+ import com.particlesdevs.photoncamera.m9.M9DeferredMetadataStore;
+ import com.particlesdevs.photoncamera.processing.ProcessingEventsListener;
+ import com.particlesdevs.photoncamera.util.Log;
+@@ -138,6 +139,7 @@
+         final ImageFrame ownedFrame;
+         final CameraCharacteristics characteristics;
+         final CaptureResult captureResult;
++        final M9CaptureParameters captureParameters;
+         final int cameraRotation;
+         final boolean saveUnfilteredDng;
+         final M9SaveSelection output;
+@@ -167,6 +169,7 @@
+                ImageFrame ownedFrame,
+                CameraCharacteristics characteristics,
+                CaptureResult captureResult,
++               M9CaptureParameters captureParameters,
+                int cameraRotation,
+                M9SaveSelection output,
+                M9SaveStatus.Ticket saveTicket,
+@@ -191,6 +194,7 @@
+             this.ownedFrame = ownedFrame;
+             this.characteristics = characteristics;
+             this.captureResult = captureResult;
++            this.captureParameters = captureParameters;
+             this.cameraRotation = cameraRotation;
+             this.output = output;
+             this.saveTicket = saveTicket;
+@@ -247,6 +251,13 @@
+         final long queuedAtNs = System.nanoTime();
+         M9SaveFeedback.initialize();
+         final M9SaveStatus.Ticket saveTicket = M9SaveStatus.INSTANCE.begin(output);
++        final M9CaptureParameters captureParameters;
++        try {
++            captureParameters = M9CaptureParameters.freeze(characteristics);
++        } catch (RuntimeException failedSnapshot) {
++            saveTicket.fail(M9SaveStatus.PROCESSING);
++            throw failedSnapshot; // DefaultSaver retains and closes the rejected RAW.
++        }
+ 
+         Runnable job = () -> {
+             final long workerStartedNs = System.nanoTime();
+@@ -257,7 +268,7 @@
+             boolean frameTransferredToDngWorker = false;
+             long renderElapsedMs = -1L;
+             String error = null;
+-            try {
++            try (M9CaptureParameters.Scope captureScope = captureParameters.open()) {
+                 Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
+                 Log.d(TAG, "starting PRIMARY2.5 QUEUE1B-NAME1A-TIMINGFREEZE1A-DNGASYNC1A-EXIFASYNC1A TC20NATIVE1B-ORIENT1A-NORMNATIVE1A-METAFREEZE1A-COLORNATIVE2A-FIX1 M9 render after "
+                         + queueWaitMs + " ms queue wait; pending=" + EXECUTOR.getQueue().size()
+@@ -301,6 +312,7 @@
+                         ownedFrame,
+                         characteristics,
+                         captureResult,
++                        captureParameters,
+                         cameraRotation,
+                         output,
+                         saveTicket,
+@@ -492,7 +504,7 @@
+         long dngSaveElapsedMs = -1L;
+         String error = job.renderError;
+         JSONObject dngProfileReport = null;
+-        try {
++        try (M9CaptureParameters.Scope captureScope = job.captureParameters.open()) {
+             if (job.output.dng) {
+                 long dngStartedNs = System.nanoTime();
+                 dngSaved = ImageSaver.Util.saveSingleRawM9PhysicalCfa(
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java
+@@ -36,6 +36,8 @@
+ 
+ public class Parameters {
+     private static final String TAG = "Parameters";
++    // Non-M9 callers retain their existing live-state behavior.
++    private final M9CaptureParameters m9CaptureInputs = M9CaptureParameters.current();
+     private int analogIso;
+     public int iso;
+     public double exposureTime = 1.0/30.0; // Default to 1/30s if not available
+@@ -100,7 +102,7 @@
+     public float[] ForwardTransform2 = new float[9];
+ 
+     public boolean mirror = false;
+-    public String cameraID = PhotonCamera.getSettings().mCameraID;
++    public String cameraID = m9CaptureInputs != null ? m9CaptureInputs.cameraId : PhotonCamera.getSettings().mCameraID;
+     public int physicalID = 0;
+     public int logicalID = 0;
+     /** Wall time from onProcessing start to onProcessing finished (stop before encode), ms. 0 = not measured. */
+@@ -136,8 +138,9 @@
+     float blackLevelOverride;
+ 
+     public void FillConstParameters(CameraCharacteristics characteristics, Point size) {
+-        com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
+-        cameraID = PhotonCamera.getSettings().mCameraID;
++        if (m9CaptureInputs == null) com.particlesdevs.photoncamera.settings.TunableInjector.inject(this);
++        else m9CaptureInputs.applyOverrides(this);
++        cameraID = m9CaptureInputs != null ? m9CaptureInputs.cameraId : PhotonCamera.getSettings().mCameraID;
+         // Split x-y, x - logical, y - physical
+         if(cameraID.contains("-")){
+             String[] ids = cameraID.split("-");
+@@ -148,7 +151,7 @@
+             physicalID = Integer.parseInt(cameraID);
+             logicalID = Integer.parseInt(cameraID);
+         }
+-        com.particlesdevs.photoncamera.settings.SensorConfigInjector.applyToSensor(String.valueOf(physicalID), this);
++        if (m9CaptureInputs == null) com.particlesdevs.photoncamera.settings.SensorConfigInjector.applyToSensor(String.valueOf(physicalID), this);
+ 
+         rawSize = size;
+         alignmentSize = new Point((size.x / (tile)) + 1, (size.y / (tile)) + 1);
+@@ -158,11 +161,12 @@
+             analogIso = analogue;
+         } else analogIso = 100;
+         for (int i = 0; i < 4; i++) blackLevel[i] = 64;
+-        tonemapStrength = (float) PhotonCamera.getSettings().compressor;
++        tonemapStrength = m9CaptureInputs != null ? m9CaptureInputs.compressor : (float) PhotonCamera.getSettings().compressor;
+         Object ptr = characteristics.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
+         if (ptr != null) cfaPattern = (byte) (int) ptr;
+-        if (PhotonCamera.getSettings().cfaPattern >= 0) {
+-            cfaPattern = (byte) PhotonCamera.getSettings().cfaPattern;
++        int selectedCfa = m9CaptureInputs != null ? m9CaptureInputs.cfaPattern : PhotonCamera.getSettings().cfaPattern;
++        if (selectedCfa >= 0) {
++            cfaPattern = (byte) selectedCfa;
+         }
+         float[] flen = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+         if (flen == null || flen.length <= 0) {
+@@ -282,7 +286,7 @@
+ 
+     private void fillDynamicParameters(CaptureResult result, CaptureRequest request, int ISO,
+                                        boolean processingNoiseModel) {
+-        sensorSpecifics = PhotonCamera.getSpecificSensor().selectedSensorSpecifics;
++        sensorSpecifics = m9CaptureInputs != null ? m9CaptureInputs.sensorCopy() : PhotonCamera.getSpecificSensor().selectedSensorSpecifics;
+         Integer sensivity = result.get(CaptureResult.SENSOR_SENSITIVITY);
+         if (sensivity == null) {
+             sensivity = request.get(CaptureRequest.SENSOR_SENSITIVITY);
+@@ -304,7 +308,9 @@
+         exposureTime = ExposureIndex.time2sec(exposure);
+ 
+         int[] blarr = new int[4];
+-        BlackLevelPattern level = CaptureController.mCameraCharacteristics.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN);
++        CameraCharacteristics captureCharacteristics = m9CaptureInputs != null
++                ? m9CaptureInputs.characteristics : CaptureController.mCameraCharacteristics;
++        BlackLevelPattern level = captureCharacteristics.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN);
+         if (result != null) {
+             boolean isHuawei = Build.BRAND.equals("Huawei");
+ 
+@@ -407,7 +413,7 @@
+         }
+         this.focalLength = focalLength;
+ 
+-        if (Allocator.binning) {
++        if (m9CaptureInputs != null ? m9CaptureInputs.binning : Allocator.binning) {
+             for (int i = 0; i < blackLevel.length; i++) {
+                 blackLevel[i] = Math.min(blackLevel[i] * 4f, 65535f);
+             }
+@@ -419,7 +425,8 @@
+     public float[] customNeutral;
+ 
+     public void ReCalcColor(boolean customNeutr, CaptureResult result) {
+-        ReCalcColorPhysical(customNeutr, result, CaptureController.mCameraCharacteristics);
++        ReCalcColorPhysical(customNeutr, result, m9CaptureInputs != null
++                ? m9CaptureInputs.characteristics : CaptureController.mCameraCharacteristics);
+     }
+ 
+     // DNGPHYSICALMETA1A: explicit physical-sensor color authority. Ordinary Photon
+@@ -590,10 +597,11 @@
+                         forwardt1.getElement(2, 2).floatValue() == forwardt2.getElement(2, 2).floatValue() &&
+                         forwardt1.getElement(1, 2).floatValue() == forwardt2.getElement(1, 2).floatValue();
+         Rational[] rat = new Rational[9];
+-        if (PhotonCamera.getSettings().colorMethod == 1){
++        int selectedColorMethod = m9CaptureInputs != null ? m9CaptureInputs.colorMethod : PhotonCamera.getSettings().colorMethod;
++        if (selectedColorMethod == 1){
+             wrongCalibration = false;
+         }
+-        if (PhotonCamera.getSettings().colorMethod == 2){
++        if (selectedColorMethod == 2){
+             wrongCalibration = true;
+         }
+         if (CST != null) {
+@@ -605,7 +613,7 @@
+             if (cnt <= 4) wrongCalibration = false;
+         } else wrongCalibration = false;
+         if (sensorSpecifics.CCTExists) wrongCalibration = false;
+-        if (PhotonCamera.getSpecific().specificSetting.isRawColorCorrection)
++        if (m9CaptureInputs != null ? m9CaptureInputs.rawColorCorrection : PhotonCamera.getSpecific().specificSetting.isRawColorCorrection)
+             wrongCalibration = false;
+         if (wrongCalibration && !customCCT.exists()) {
+             sensorToProPhoto[0] = 1.0f / whitePoint[0];
+@@ -623,7 +631,7 @@
+         } else {
+             Log.d(TAG, "Using calculated color correction transform");
+         }
+-        Log.d(TAG, Arrays.toString(sensorToProPhoto) + PhotonCamera.getSettings().colorMethod);
++        Log.d(TAG, Arrays.toString(sensorToProPhoto) + selectedColorMethod);
+         Converter.multiply(Converter.sXYZtoSRGB, Converter.sProPhotoToXYZ, /*out*/proPhotoToSRGB);
+         if (CST != null && wrongCalibration && !customCCT.exists()) {
+             Rational[] temp = new Rational[9];
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/render/M9CaptureParameters.java
+@@ -0,0 +1,113 @@
++package com.particlesdevs.photoncamera.processing.render;
++
++import android.hardware.camera2.CameraCharacteristics;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SensorConfigInjector;
++import com.particlesdevs.photoncamera.settings.TunableInjector;
++import com.particlesdevs.photoncamera.util.Allocator;
++
++/** M9CAPTUREFREEZE1A: capture-owned inputs for both deferred parameter builders.
++ * Frozen at RAW enqueue, before DefaultSaver rearms capture/lens controls.
++ * Holds metadata only; no image, Activity, request builder or shared working Parameters.
++ */
++public final class M9CaptureParameters {
++    private static final ThreadLocal<M9CaptureParameters> ACTIVE = new ThreadLocal<>();
++    final CameraCharacteristics characteristics;
++    final String cameraId;
++    final float compressor;
++    final int cfaPattern, colorMethod;
++    final boolean rawColorCorrection, binning;
++    private final boolean dynamicBlack, dynamicWhite, disableMirror;
++    private final int whiteOverride;
++    private final float blackOverride;
++    private final SpecificSettingSensor sensor;
++
++    private M9CaptureParameters(CameraCharacteristics characteristics) {
++        if (characteristics == null) throw new IllegalArgumentException("Missing capture characteristics");
++        this.characteristics = characteristics;
++        cameraId = PhotonCamera.getSettings().mCameraID;
++        compressor = (float) PhotonCamera.getSettings().compressor;
++        cfaPattern = PhotonCamera.getSettings().cfaPattern;
++        colorMethod = PhotonCamera.getSettings().colorMethod;
++        rawColorCorrection = PhotonCamera.getSpecific().specificSetting.isRawColorCorrection;
++        binning = Allocator.binning;
++        sensor = copySensor(PhotonCamera.getSpecificSensor().selectedSensorSpecifics);
++        Parameters overrides = new Parameters();
++        TunableInjector.inject(overrides);
++        String[] ids = cameraId.split("-");
++        SensorConfigInjector.applyToSensor(String.valueOf(Integer.parseInt(ids[ids.length - 1])), overrides);
++        dynamicBlack = overrides.useDynamicBlackLevel;
++        dynamicWhite = overrides.useDynamicWhiteLevel;
++        disableMirror = overrides.disableMirror;
++        whiteOverride = overrides.whiteLevelOverride;
++        blackOverride = overrides.blackLevelOverride;
++    }
++
++    public static M9CaptureParameters freeze(CameraCharacteristics characteristics) {
++        return new M9CaptureParameters(characteristics);
++    }
++
++    static M9CaptureParameters current() { return ACTIVE.get(); }
++
++    /** The renderer and DNG worker each enter the same immutable snapshot.
++     * Nested synchronous DNG fallback restores the surrounding render scope.
++     */
++    public Scope open() { return new Scope(this); }
++
++    public static final class Scope implements AutoCloseable {
++        private final M9CaptureParameters previous;
++        private Scope(M9CaptureParameters inputs) {
++            previous = ACTIVE.get();
++            ACTIVE.set(inputs);
++        }
++        @Override public void close() {
++            if (previous == null) ACTIVE.remove(); else ACTIVE.set(previous);
++        }
++    }
++
++    void applyOverrides(Parameters p) {
++        p.useDynamicBlackLevel = dynamicBlack;
++        p.useDynamicWhiteLevel = dynamicWhite;
++        p.disableMirror = disableMirror;
++        p.whiteLevelOverride = whiteOverride;
++        p.blackLevelOverride = blackOverride;
++    }
++
++    SpecificSettingSensor sensorCopy() { return copySensor(sensor); }
++
++    // Android ColorSpaceTransform is immutable. Every mutable array is copied,
++    // including nested noise/matrix arrays; JPEG and DNG get separate working copies.
++    private static SpecificSettingSensor copySensor(SpecificSettingSensor s) {
++        if (s == null) return null;
++        SpecificSettingSensor d = new SpecificSettingSensor();
++        d.id=s.id; d.isRawColorCorrection=s.isRawColorCorrection;
++        d.blackLevel=copy(s.blackLevel); d.captureSharpeningS=s.captureSharpeningS;
++        d.captureSharpeningIntense=s.captureSharpeningIntense; d.aberrationCorrection=copy(s.aberrationCorrection);
++        d.CalibrationTransform1=copy(s.CalibrationTransform1); d.CalibrationTransform2=copy(s.CalibrationTransform2);
++        d.ColorTransform1=copy(s.ColorTransform1); d.ColorTransform2=copy(s.ColorTransform2);
++        d.ForwardMatrix1=copy(s.ForwardMatrix1); d.ForwardMatrix2=copy(s.ForwardMatrix2);
++        d.calibrationTransform1=s.calibrationTransform1; d.calibrationTransform2=s.calibrationTransform2;
++        d.colorTransform1=s.colorTransform1; d.colorTransform2=s.colorTransform2;
++        d.forwardMatrix1=s.forwardMatrix1; d.forwardMatrix2=s.forwardMatrix2;
++        d.CCTExists=s.CCTExists; d.referenceIlluminant1=s.referenceIlluminant1; d.referenceIlluminant2=s.referenceIlluminant2;
++        d.profileHueSatMapDims=copy(s.profileHueSatMapDims); d.profileLookTableDims=copy(s.profileLookTableDims);
++        d.profileHueSatMapData1=copy(s.profileHueSatMapData1); d.profileHueSatMapData2=copy(s.profileHueSatMapData2);
++        d.profileLookTableData=copy(s.profileLookTableData); d.overrideRawColors=s.overrideRawColors;
++        d.NoiseModelerArr=s.NoiseModelerArr == null ? null : new double[s.NoiseModelerArr.length][];
++        if (d.NoiseModelerArr != null) for (int i=0;i<d.NoiseModelerArr.length;i++)
++            d.NoiseModelerArr[i]=s.NoiseModelerArr[i] == null ? null : s.NoiseModelerArr[i].clone();
++        d.ModelerExists=s.ModelerExists; d.preferredResolution=copy(s.preferredResolution);
++        // ISZ is a capture-session configuration and is never read by Parameters.
++        d.iszKey=s.iszKey; d.iszZoomRatio=s.iszZoomRatio; d.hasIsz=s.hasIsz;
++        return d;
++    }
++    private static float[] copy(float[] a) { return a == null ? null : a.clone(); }
++    private static int[] copy(int[] a) { return a == null ? null : a.clone(); }
++    private static float[][] copy(float[][] a) {
++        if (a == null) return null;
++        float[][] b=new float[a.length][];
++        for (int i=0;i<a.length;i++) b[i]=copy(a[i]);
++        return b;
++    }
++}

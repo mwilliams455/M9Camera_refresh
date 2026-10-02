@@ -1,0 +1,25 @@
+{
+  "revision": "M9CAPTUREFREEZE1A",
+  "parentCommit": "e39bc07d608eddf1023b5a715ab9c98ffd706b85",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "477b33625f2fd10bf281a6cd0288f6fc18fae3bb9b289a255d94253e5d19f3d7",
+  "fileOverrides": {
+    "app/build.gradle": "1a42987d6a102dce63e98cafe330542eea0e8e6ef1d7d25a65a4f30843a5b95d",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "7d61e835b7268525d2c4c14335f36b9c4100b1aff017ba7e956adea033694423",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java": "e628574622bad5de0377e90ae0810e4d71a1485c55dfcde307f8539fe9a291b3",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/M9CaptureParameters.java": "70e91386e227ae236365aa94829522c60f9b14f3b617143c7334d3fd9ecba791"
+  },
+  "photographicMathUnchanged": true,
+  "rendererSourceUnchanged": true,
+  "captureRearmUnchanged": true,
+  "snapshotBoundary": "RAW enqueue, before queued worker execution",
+  "frozenInputs": [
+    "camera identity",
+    "physical characteristics",
+    "sensor calibration and noise arrays",
+    "parameter tunables and sensor overrides",
+    "compressor/cfa/color settings",
+    "binning"
+  ],
+  "deviceValidationPending": true
+}
