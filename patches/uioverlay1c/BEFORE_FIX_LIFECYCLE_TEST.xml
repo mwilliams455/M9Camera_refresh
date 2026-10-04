@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-04T15:10:19" hostname="98105acafb20" time="8.369">
+  <properties/>
+  <testcase name="inflateDisableAndCancelThroughParent" classname="com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest" time="8.369">
+    <failure message="android.util.SuperNotCalledException: View M9LinearManualView did not call through to super.onCancelPendingInputEvents()" type="android.util.SuperNotCalledException">android.util.SuperNotCalledException: View M9LinearManualView did not call through to super.onCancelPendingInputEvents()
+	at android.view.View.dispatchCancelPendingInputEvents(View.java:22995)
+	at android.view.View.cancelPendingInputEvents(View.java:22984)
+	at android.view.View.setEnabled(View.java:13586)
+	at com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest.inflateDisableAndCancelThroughParent(M9LinearManualLifecycleTest.java:29)
+	at java.base@17.0.20.1/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base@17.0.20.1/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base@17.0.20.1/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at app//org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at app//org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at app//org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at app//org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at app//org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at app//org.robolectric.RobolectricTestRunner$HelperTestRunner$1.evaluate(RobolectricTestRunner.java:524)
+	at app//org.robolectric.internal.SandboxTestRunner.executeInSandbox(SandboxTestRunner.java:494)
+	at app//org.robolectric.internal.SandboxTestRunner.access$900(SandboxTestRunner.java:67)
+	at app//org.robolectric.internal.SandboxTestRunner$7.evaluate(SandboxTestRunner.java:442)
+	at app//org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
+	at app//org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
+	at app//org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
+	at app//org.robolectric.internal.SandboxTestRunner.access$600(SandboxTestRunner.java:67)
+	at app//org.robolectric.internal.SandboxTestRunner$6.evaluate(SandboxTestRunner.java:333)
+	at app//org.robolectric.internal.SandboxTestRunner$3.evaluate(SandboxTestRunner.java:233)
+	at app//org.robolectric.internal.SandboxTestRunner$5.lambda$evaluate$0(SandboxTestRunner.java:317)
+	at app//org.robolectric.internal.bytecode.Sandbox.lambda$runOnMainThread$0(Sandbox.java:101)
+	at java.base@17.0.20.1/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base@17.0.20.1/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base@17.0.20.1/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base@17.0.20.1/java.lang.Thread.run(Thread.java:840)
+	Suppressed: org.robolectric.android.internal.AndroidTestEnvironment$UnExecutedRunnablesException: Main looper has queued unexecuted runnables. This might be the cause of the test failure. You might need a shadowOf(Looper.getMainLooper()).idle() call.
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[[Robolectric] WARN: Android SDK 36 requires Java 21 (have Java 17). Tests won't be run on SDK 36 unless explicitly requested.
+]]></system-err>
+</testsuite>
