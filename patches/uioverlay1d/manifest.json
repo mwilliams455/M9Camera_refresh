@@ -1,0 +1,27 @@
+{
+  "parentCommit": "85099dcbda6ae7eb2eed9f4e4b0f4989ff5cd44e",
+  "version": "2.42-m9uioverlay1d",
+  "parentFiles": {
+    "app/build.gradle": "b3c8ccaec35c73b22392030d85c103776b2121e3df976b5e8153983d5d1a0e72",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "2d354fb5637e7774a2615d3cf8cd65cc0376210732a10fc9412ef6cbde74b01c",
+    "app/src/main/res/layout/layout_main_topbar.xml": "30f7cfa88014c051c38e920e6444a999f9f118ef2407a70dda56c7c76cb5529b",
+    "app/src/main/res/values/m9_menu.xml": "e808e82a2e1e3f52693c11fa5351e71d0024b4e15d6aa4874444629ccef236eb",
+    "app/src/main/res/values/m9_overlay.xml": "5a179edf3d4667919d8490ae1aab6709b726afdc5cf294a8ffa84ee5f381ffeb",
+    "app/src/main/res/xml/preferences.xml": "de56c6eda0fb2de48768b6f000af60ca34f4641636b18c288172f3841a87e273",
+    "app/src/main/res/xml/preferences_m9.xml": "9f3f483f42d843a51e15a42b32fc70c0a7b0e83453addc262d3dd1e73c72ecaa"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "da2e879f56a248ab97752c51383f7cf7dc39aad028760815e1c52c376c9719a6",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "aaf5e3b4003169b46a6885821bf2ede4b076f723e9e289213a9fd97bbde94087",
+    "app/src/main/res/drawable/m9_overlay_chevron_down.xml": "c6a2050326eae024b3eb9d0f1a84cba789d17ec96adefc4ccadc716efd64fee7",
+    "app/src/main/res/layout/layout_main_topbar.xml": "cb2f79738ff8c91f02bae79eda8299fc55ab752d17c526df0c69ec0ba4c708b9",
+    "app/src/main/res/values/m9_menu.xml": "7e4156c3433d6ddd8476e33a94319426a225e49a7326a59a503583a00196c83d",
+    "app/src/main/res/values/m9_overlay.xml": "7f13caa00849a52e3ea31e54d59ef87290919b74345973aa3d55443d91baee0b",
+    "app/src/main/res/xml/preferences.xml": "f6dff5e2fc67e02234d3a8ad8b0b4139f2b3cdb8b475be82f631724ad75f0a6a",
+    "app/src/main/res/xml/preferences_m9.xml": "7a31f39d2ea6c69ac258e90371b84de66c1e6ac3cc2dd88188319f610535ceca"
+  },
+  "newFiles": [
+    "app/src/main/res/drawable/m9_overlay_chevron_down.xml"
+  ],
+  "patchSha256": "a6888b4aefa1db6d70b458817c65718a92166641e936f7c8cfe57484ee4e676c"
+}
