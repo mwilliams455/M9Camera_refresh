@@ -1,0 +1,82 @@
+M9 PROJECT HANDOFF — 4 OCTOBER 2026 — 2.44 UIOVERLAY1F
+
+CURRENT POSITION
+The UI overlay is built and delivered. Malcolm selected option 2 (the Photo/Motion text strip), then asked for the shooting-controls arrow to be centred and to open enable/disable icons. After delivery he said, "I think this will work create handoff but also merge the changes in github". An initial push was held by automatic approval review. On 4 October 2026 at 17:35 Europe/London, Malcolm explicitly answered "Yes" to publishing the complete 2.44 branch, including required history and firmware-derived assets, to public mwilliams455/M9Camera_refresh and merging it into main. That publication and merge are now explicitly authorized.
+
+2.44 is the current UI candidate, with design acceptance sufficient to proceed with this merge. Do not describe the whole 2.44 phone test matrix as passed: detailed phone confirmation remains pending. The accepted photographic reference is 2.38 BRACKET1A. Monochrom has NOT been integrated. M10-R and M11 are future render profiles.
+
+DELIVERED BUILD
+APK: M9Cam_2.44_UIOVERLAY1F.apk
+Package: com.m9project.m9cam.photon
+Version name: 2.44-m9uioverlay1f
+Version code: 27244
+Size: 117000373 bytes
+SHA-256: abbf263a9d67d33ade5b2d7c7c584907ecbd39e8432b1010227bd590b1c2c300
+Signing certificate SHA-256: 255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956
+Install over 2.43 without resetting data. Test notes and recovery: M9Cam_2.44_Test_Notes.txt and M9_2.44_Source_and_Checks.zip. The latter contains the incremental bundle through the tested source commit c699a420fae7b356e9c1d777c2d5a397ea13b649 and requires base db5538a649cba8d61feb453738053dac8d98a6c1 (2.26).
+
+FINAL UI DECISIONS
+- Photo then Motion: plain text strip below the shutter, muted inactive label, bright selected label and thin underline; both retain 48 dp touch targets.
+- Top left: torch and Night toggles. The redundant M9 Colour heading was removed; render selection remains at the lower right.
+- Top centre: shooting-controls chevron, geometrically centred independently of AE-L visibility. It points up while its popup is open.
+- Top right: AE-L, with compact timer/capture-mode status in the remaining space.
+- Manual row: ISO / Shutter / EV / Focus / WB / settings gear. The gear opens the app's real settings directly. WB uses the existing straight ruler and long-press reset.
+- Shooting popup: two rows of three labelled icons for self-timer, grid, histogram, highlights, shadows and lens lock. Tap to toggle; hold the first five for choices. Current values and selected states are visible and exposed to accessibility.
+- Last enabled values are remembered in m9_overlay_ui / quick_last_0..4. First explicit enable defaults: 2-second timer, 3x3 grid, RGB histogram, 100% highlight threshold and 0% shadow threshold. Existing preferences are not reset. 0% shadows is enabled; -1 means off.
+- Lens lock uses the original action and is unavailable without auto lens switching or more than one lens choice.
+- Other capture modes remains below the tiles; Unlimited remains accessible. VIDEO/RAWVIDEO options and video preference screens are hidden, not deleted.
+- Popup closes through the cross, back, outside tap, camera stop or capture/processing/final-save lock. Any options dialog closes with it. Actions recheck availability.
+- Night is the existing Photon capture mode, not an additive modifier on Motion. Turning Night off restores the remembered Photo/Motion choice; direct Photo/Motion selection exits Night.
+- Render picker contains M9 / Monochrom / M10-R / M11. Only M9 is enabled. Never present uninstalled profiles as functional.
+
+RECENT BUILD HISTORY
+2.38 BRACKET1A: exposure bracketing confirmed working; accepted photographic baseline.
+2.39 UIOVERLAY1A: first refreshed overlay; user reported a good first pass.
+2.40 UIOVERLAY1B: flat rulers and clipped backgrounds; rejected due to startup crash.
+2.41 UIOVERLAY1C: fixed missing super.onCancelPendingInputEvents(); user confirmed it worked. Preserve this fix.
+2.42 UIOVERLAY1D: app settings separated from shooting shortcuts; video settings hidden.
+2.43 UIOVERLAY1E: torch/Night at top left, WB before settings, redundant render heading removed.
+2.44 UIOVERLAY1F: text mode strip, centred chevron and stateful icon panel.
+Do not reintroduce the withdrawn 2.34 preview sampling transforms or 2.40 startup regression.
+
+VERIFICATION
+Local Android build passed; 62 tests across ten suites passed with no failures/errors/skips. Tests include actual Android API 35 view lifecycle and layout behavior via Robolectric 4.16.1, plus control policy, flat ruler selection, AE-L, self-timer, bracketing, EV and save-selection regressions. New tests cover value restoration across panel recreation, histogram/camera-info preservation, clipping thresholds, busy and unsupported guards, accessibility checked state, hold-to-choose, dialog close and invalid saved-value fallback. Centring passes at 320, 360 and 480 dp with AE-L visible and hidden.
+
+Fourteen source/build/resource/test files differ from 2.43; 1,230 parent files match. Patch round trip passed. Capture/processing, assets, shaders, manual exposure math and native sources are unchanged from 2.43. The packaged APK preserves every asset and all 25 native entries from accepted 2.38; signing, version and 16 KiB alignment passed. These checks are not a physical camera launch or handset visual review. No new photographic tuning was introduced by the overlay.
+
+SOURCE AND BUILD
+Repository: https://github.com/mwilliams455/M9Camera_refresh
+Working branch: research/m9-uioverlay1a
+Tested code commit: c699a420fae7b356e9c1d777c2d5a397ea13b649
+Source/recovery entry point: patches/uioverlay1f/README.md
+Assembly: python3 patches/uioverlay1f/assemble.py <fresh-destination>
+Assembly chains the hash-checked 1a..1f UI patches on the accepted controls/bracketing chain. This repository is an incremental assembly/recovery repository, not a conventional already-assembled Android project.
+
+Use Java 17, Android compile SDK 36 / target 35 / min 26, build tools 35.0.0 and NDK 27.0.12077973. Robolectric tests explicitly use API 35. Adapt the local paths in run_uioverlay1f_build.py and uioverlay1f_test_runtime.gradle. They assemble debug and run the ten recorded suites. package.py takes assembled source, built APK, accepted 2.38 APK, build tools directory and output directory; it preserves accepted native binaries and verifies all asset and signing invariants. Do not substitute an arbitrary debug APK for the verified package. SHA-256 of the accepted 2.38 APK is ca30fd5c41e44095f8fc1d142a967cbfd03092b978cf690c61634ce1ea608711.
+
+Key assembled files:
+app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControls.java
+app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java
+app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java
+app/src/main/res/layout/layout_main_topbar.xml
+app/src/main/res/layout/layout_main_bottombar.xml
+app/src/main/res/layout/layout_m9_overlay_controls.xml
+
+GITHUB INTEGRATION
+Main was at 20788d74418d27e75ff087521a989d7a6f08b377 before integration. It was far behind the research lineage. Once shallow history was fetched, main had two exclusive commits whose net tree change from the common ancestor was empty. A three-way merge produced the tested research tree without source conflicts. The integration carries the established development history and complete accepted controls/UI chain through 2.44. No APK source changed after the 62 passing checks; subsequent changes document the handoff and authorization.
+
+Malcolm explicitly approved public publication of the full branch, its required history and firmware-derived assets, and its merge into main on 4 October 2026 at 17:35 Europe/London. The earlier automatic approval hold is resolved by that specific confirmation. No raw user photos or newly uploaded attachment files were added in this task.
+
+The branch's pull request and merge commit are the authoritative integration receipt. Preserve the full history because the source assembly chain depends on preceding patches. Local verification already completed for the exact APK/source; inspect GitHub status separately rather than assuming a fresh Actions build occurred. Do not confuse this repository merge with Monochrom integration, which remains future work.
+
+NEXT WORK, IN ORDER
+1. Confirm 2.44 on the phone: open/close popup, plain Photo/Motion strip, timer off/on restore after choosing 12 seconds, grid restore, histogram/clipping state and hold menus, lens lock, capture/back/resume, Night round trip, WB and app settings. Address concrete regressions first.
+2. Retrieve and audit the latest accepted Monochrom handoff, source and APK. Its diagnostics/dark-frame work has a separate history; do not assume an older Monochrom build is the current integration target.
+3. Define a render-profile boundary separate from Photon capture modes. Photo/Motion remain capture behavior; M9/Monochrom/M10-R/M11 identify rendering. Snapshot the chosen profile per capture so switching later cannot change queued JPEG/DNG output. Preserve the existing capture/processing/save guards.
+4. Map shared settings and renderer-specific settings explicitly. Keep M9 and Monochrom tone/contrast/sharpness/toning/output behavior isolated as needed. Audit preview, JPEG, rendered DNG, original-sensor RAW and optional diagnostics together. Keep JPEG-only/RAW-only/RAW+JPEG semantics correct.
+5. Integrate M9 + Monochrom first. Enable the Monochrom picker only after it genuinely controls the preview and saved outputs. Clear stale preview frames on switch and preserve coherent lens, WB, exposure/EV, AE-L, timer and bracketing state.
+6. Run M9-to-Monochrom-and-back checks across lenses and supported Photo/Motion/Night behavior, lifecycle, output selections and queued saves. Compare M9 back to accepted photographic output. Add M10-R/M11 only after the shared switch is stable.
+
+CONTINUING CONSTRAINTS
+No HDR/stacking for the M rendering projects. Preserve exposure intent and the accepted photographic character. UI work is not permission to reopen colour/fringing experiments, change tone curves or brighten the renderer. Keep all-lens behavior; do not introduce Xiaomi-specific requirements. No white-balance preset menu, automatic image review or JPEG size/quality work is required now. Exposure bracketing, Auto ISO/slowest shutter, AE lock and self-timer are already implemented and phone-accepted in the preceding controls work.
