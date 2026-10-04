@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "parent": "2.47-monolabel1a",
+  "version": "2.48-monoprofiles1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/MonoImageProfiles.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/MonoProfilesUi.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java",
+    "app/src/main/res/values/mono_profiles.xml",
+    "app/src/main/res/xml/preferences_monochrom.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoImageProfilesTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/settings/MonoProfilesUiTest.java"
+  ],
+  "unchangedParentSourceFiles": 1322,
+  "rendererCaptureAndM9ProfilesUnchanged": true,
+  "independentMenus": true
+}
