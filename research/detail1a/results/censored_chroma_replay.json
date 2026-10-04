@@ -1,0 +1,71 @@
+{
+  "schema": "m9.censored_chroma.same_raw.v1",
+  "raw_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "script_sha256": "35a770f71da078c9104c05c40159df1dd8dd26fca2b044c4117d6f66707b7e68",
+  "actual_render_gain": 1.4142135623730951,
+  "H_stats": {
+    "status": 1.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 1158767.0,
+    "max_abs_correction": 7.0,
+    "censored_samples": 325092.0,
+    "mean_confidence": 0.11420202918960681,
+    "mean_residual_variance14": 82.36768180924791,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 1820.529227
+  },
+  "variants": {
+    "H": {
+      "pink_pixels": 174776,
+      "green_exact_native": true,
+      "noise_guard": true
+    },
+    "independent4": {
+      "pink_pixels": 66153,
+      "green_exact_native": true,
+      "noise_guard": false
+    },
+    "joint2": {
+      "pink_pixels": 67578,
+      "green_exact_native": true,
+      "noise_guard": false
+    },
+    "joint4": {
+      "pink_pixels": 100997,
+      "green_exact_native": true,
+      "noise_guard": false
+    },
+    "certificate8": {
+      "pink_pixels": 159524,
+      "green_exact_native": true,
+      "noise_guard": false
+    }
+  },
+  "synthetic_summary": {
+    "independent4": {
+      "cases_worse_than_D": 909,
+      "max_rms_increase": 0.28547465796244215,
+      "mean_rms_change": 0.010391351711474575
+    },
+    "joint2": {
+      "cases_worse_than_D": 44,
+      "max_rms_increase": 0.051768485798339314,
+      "mean_rms_change": -0.002910086385681706
+    },
+    "joint4": {
+      "cases_worse_than_D": 34,
+      "max_rms_increase": 0.03065622645970817,
+      "mean_rms_change": -0.0041430990095429445
+    },
+    "certificate8": {
+      "cases_worse_than_D": 0,
+      "max_rms_increase": 0.0,
+      "mean_rms_change": -0.0036900609694011477
+    }
+  },
+  "synthetic_case_count": 1536,
+  "photographic_acceptance_passed": false,
+  "android_implementation_changed": false,
+  "scope": "H uses the live profile; cleanup probes use D with guard off. Green, colour and exposure fixed. No Android full-pixel parity claim."
+}

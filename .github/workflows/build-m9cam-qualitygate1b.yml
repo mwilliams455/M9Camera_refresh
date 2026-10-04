@@ -1,0 +1,102 @@
+name: Build M9Cam 2.06 QUALITYGATE1B SAT diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-qualitygate1b-satdiag]
+    paths:
+      - patches/qualitygate1b/**
+      - .github/workflows/build-m9cam-qualitygate1b.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: m9-qualitygate1b
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Replay exact 2.05 parent source
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/apply.py --check-payload
+          python3 patches/autoexposurefinish1n/ci.py source
+          python3 patches/autoexposurefinish1n/apply.py PhotonCamera > QG1B_AE1N.json
+          python3 patches/tapmeter1a/apply.py PhotonCamera > QG1B_TAP1A.json
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera > QG1B_EXACTPATCH1B.json
+
+      - name: Apply read-only QUALITYGATE1B telemetry
+        run: |
+          set -euo pipefail
+          python3 patches/qualitygate1b/apply.py PhotonCamera | tee QG1B_APPLY.json
+          python3 patches/qualitygate1b/apply.py PhotonCamera > QG1B_VERIFY.json
+
+      - name: Build diagnostic APK
+        run: |
+          set -euo pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/QG1B_GRADLE.log"
+
+      - name: Verify packaged read-only contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile, shutil
+          apk=list(Path('PhotonCamera/app/build/outputs/apk/debug').glob('*.apk'))
+          assert len(apk)==1,apk
+          apk=apk[0]
+          with zipfile.ZipFile(apk) as z:
+              dex=b''.join(z.read(n) for n in z.namelist() if n.endswith('.dex'))
+              for token in [
+                  b'M9QUALITYGATE1B_SATDOMAIN_READONLY',
+                  b'qualityGate1BPhotographicPixelChange',
+                  b'qualityGate1BSatAuditForced',
+                  b'SAT2_STANDARD_M04_M05',
+                  b'SAT3_M06_M07',
+                  b'SAT4_HIGH_M08_M09',
+                  b'EXACTPATCHCLIP1B',
+              ]:
+                  assert token in dex,token
+          out=Path('M9_QUALITYGATE1B_DELIVERY');out.mkdir(exist_ok=True)
+          dst=out/'M9Cam_2.06_QUALITYGATE1B_SATDIAG.apk'
+          shutil.copyfile(apk,dst)
+          h=hashlib.sha256(dst.read_bytes()).hexdigest()
+          (out/'SHA256SUMS.txt').write_text(h+'  '+dst.name+'\n')
+          shutil.copyfile('QG1B_APPLY.json',out/'QG1B_APPLY.json')
+          shutil.copyfile('QG1B_VERIFY.json',out/'QG1B_VERIFY.json')
+          shutil.copyfile('PhotonCamera/M9QUALITYGATE1B_SATDOMAIN_READONLY_SOURCE_PROOF.json',
+                          out/'SOURCE_PROOF.json')
+          print(json.dumps({'apk':dst.name,'sha256':h,'pixelChange':False},indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.06-QUALITYGATE1B-SATDIAG
+          path: M9_QUALITYGATE1B_DELIVERY/
+          if-no-files-found: error
+
+      - name: Upload failure log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-QUALITYGATE1B-BUILDLOG
+          path: |
+            QG1B_GRADLE.log
+            QG1B_APPLY.json
+            QG1B_VERIFY.json
+          if-no-files-found: ignore

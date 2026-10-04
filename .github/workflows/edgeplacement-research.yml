@@ -1,0 +1,42 @@
+name: Verify M9EDGEPLACEMENT1A Research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    paths:
+      - 'research/m9edgeplacement1a_*.py'
+      - 'research/m9edgeplacement1a_*.csv'
+      - 'research/M9EDGEPLACEMENT1A_*.md'
+      - '.github/workflows/edgeplacement-research.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RENDERGRID research dependencies
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check 'numpy>=2,<3' 'Pillow>=11,<13'
+
+      - name: Compile EDGEPLACEMENT research tools
+        run: |
+          set -euo pipefail
+          for f in research/m9edgeplacement1a_*.py; do
+            python3 -m py_compile "$f"
+          done
+
+      - name: Run conservative research self-tests
+        run: |
+          set -euo pipefail
+          python3 research/m9edgeplacement1a_archive_index.py --self-test
+          python3 research/m9edgeplacement1a_conjunction_search.py --self-test
+          python3 research/m9edgeplacement1a_readiness.py --self-test
+          python3 research/m9edgeplacement1a_rule_coverage.py --self-test
+          python3 research/m9edgeplacement1a_cohort_metadata.py --self-test
+          python3 research/m9edgeplacement1a_cohort_readiness.py --self-test
+          python3 research/m9edgeplacement1a_feature_inventory.py --self-test
+          python3 research/m9edgeplacement1a_rendergrid.py --self-test

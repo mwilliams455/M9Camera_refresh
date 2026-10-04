@@ -1,0 +1,209 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 408ed13a..530dafb7 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27210
++        versionCode 27211
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.10-m9upstream2r-fix1-raw16'
++        versionName '2.11-m9perf2s-auditopt1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.10_UPSTREAM2R_FIX1-${variant.name}.apk"
++            outputFileName = "M9Cam_2.11_PERF2S-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index 202e2a69..13eaa9aa 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -4323,13 +4323,14 @@ public final class M9R35Renderer {
+                     ? skyChromaSignedAudit1A(cam16, ctx, skyChromaMode1A)
+                     : null;
+ 
+-                        // SATDOMAIN1A runs only for the SKYSAT SAT3 control. It reads the same full-resolution
++            // SATDOMAIN1A reads the same full-resolution
+             // demosaiced camera Mat and the exact final effective render gain, evaluates SAT2/3/4
+             // side-by-side, and returns aggregate JSON. It cannot alter cam16, the native context,
+             // meter.gain, or any rendered pixel.
+-            // QUALITYGATE1B: force the existing full-frame SAT-domain audit on ordinary
+-            // production captures. Read-only: no context, gain, matrix, curve or pixel mutation.
+-            final boolean qualityGate1BSatAuditEnabled = true;
++            // PERF2S: this expensive research audit is opt-in for ordinary captures.
++            // The existing SKYSAT control probe remains available. Only diagnostic work
++            // is gated; exposure, demosaic, preparation and native colour are unchanged.
++            final boolean qualityGate1BSatAuditEnabled = M9RenderDiagnostics.fullFrameSatAuditEnabled();
+             String satDomainTelemetryJson1A = null;
+             long satDomainAuditElapsedMs1A = -1L;
+             final boolean satDomainAuditInputEligible1A = cam16.isContinuous()
+@@ -4337,8 +4338,10 @@ public final class M9R35Renderer {
+                     && cam16.elemSize1() == 2L
+                     && cam16.step1() == (long)width * 3L
+                     && cam16.dataAddr() != 0L;
+-            if ((skySatDiagnosticEncoded1A || qualityGate1BSatAuditEnabled)
+-                    && skyChromaMode1A == 0 && satDomainAuditInputEligible1A) {
++            final boolean satDomainAuditExecuted1A = M9RenderDiagnostics.shouldRunSatAudit(
++                    qualityGate1BSatAuditEnabled, skySatDiagnosticEncoded1A,
++                    skyChromaMode1A, satDomainAuditInputEligible1A);
++            if (satDomainAuditExecuted1A) {
+                 long satDomainStartedNs1A = System.nanoTime();
+                 satDomainTelemetryJson1A = M9NativeColorCore.auditSatDomainJsonDirect(
+                         nativeContextForFrame, cam16.dataAddr(), pixels, width, height, effectiveRenderGain);
+@@ -4637,7 +4640,11 @@ public final class M9R35Renderer {
+             d.put("satDomain1A", skySatDiagnosticEncoded1A || qualityGate1BSatAuditEnabled);
+             d.put("qualityGate1B", "M9QUALITYGATE1B_SATDOMAIN_READONLY");
+             d.put("qualityGate1BPhotographicPixelChange", false);
+-            d.put("qualityGate1BSatAuditForced", qualityGate1BSatAuditEnabled);
++            d.put("qualityGate1BSatAuditForced", false);
++            d.put("diagnosticPerformanceRevision", M9RenderDiagnostics.REVISION);
++            d.put("satDomainAuditPolicy", "opt_in_default_off");
++            d.put("satDomainAuditEnabledByUser", qualityGate1BSatAuditEnabled);
++            d.put("satDomainAuditExecuted", satDomainAuditExecuted1A);
+             d.put("satDomainAuditReadOnly", true);
+             d.put("satDomainAuditControlOnly", true);
+             d.put("satDomainAuditInputEligible", satDomainAuditInputEligible1A);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnostics.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnostics.java
+new file mode 100644
+index 00000000..9480f6ba
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnostics.java
+@@ -0,0 +1,31 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/** Optional expensive research work; never selects photographic processing. */
++public final class M9RenderDiagnostics {
++    public static final String REVISION = "M9PERF2S_AUDITOPT1A";
++    public static final String SAT_AUDIT_KEY = "pref_m9_full_frame_sat_audit";
++
++    private M9RenderDiagnostics() {}
++
++    public static boolean fullFrameSatAuditEnabled() {
++        return fullFrameSatAuditEnabled(PhotonCamera.getSettingsManagerStatic());
++    }
++
++    static boolean fullFrameSatAuditEnabled(SettingsManager settings) {
++        if (settings == null) return false;
++        try {
++            return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, SAT_AUDIT_KEY, false);
++        } catch (NumberFormatException malformedPreference) {
++            // A damaged optional diagnostic preference must not prevent a photograph.
++            return false;
++        }
++    }
++
++    static boolean shouldRunSatAudit(boolean userEnabled, boolean legacyProbe,
++                                     int skyChromaMode, boolean inputEligible) {
++        return (userEnabled || legacyProbe) && skyChromaMode == 0 && inputEligible;
++    }
++}
+diff --git a/app/src/main/res/values/m9_diagnostics.xml b/app/src/main/res/values/m9_diagnostics.xml
+new file mode 100644
+index 00000000..07fcd050
+--- /dev/null
++++ b/app/src/main/res/values/m9_diagnostics.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_full_frame_sat_audit_title">Extended M9 colour diagnostics</string>
++    <string name="m9_full_frame_sat_audit_summary">Collect detailed colour measurements for troubleshooting. Adds several seconds per photo; image quality is unchanged. Leave off for normal shooting.</string>
++</resources>
+diff --git a/app/src/main/res/xml/preferences.xml b/app/src/main/res/xml/preferences.xml
+index 773bb994..160de18d 100644
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -630,6 +630,13 @@
+             android:layout="@layout/preference_category_layout"
+             android:key="@string/pref_category_advanced_key"
+             android:title="@string/advanced">
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++                android:key="pref_m9_full_frame_sat_audit"
++                android:defaultValue="false"
++                android:layout="@layout/preference_with_margin"
++                android:title="@string/m9_full_frame_sat_audit_title"
++                android:summary="@string/m9_full_frame_sat_audit_summary"
++                android:icon="@drawable/ic_developer" />
+         <PreferenceScreen
+                 android:layout="@layout/preference_with_margin"
+                 android:title="Tunable Settings"
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnosticsTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnosticsTest.java
+new file mode 100644
+index 00000000..fbf40039
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnosticsTest.java
+@@ -0,0 +1,49 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import org.junit.Test;
++import org.mockito.MockMakers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9RenderDiagnosticsTest {
++    private SettingsManager settings() {
++        return mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++    }
++
++    @Test public void unsetPreferenceAndUnavailableSettingsLeaveAuditOff() {
++        assertFalse(M9RenderDiagnostics.fullFrameSatAuditEnabled(null));
++        SettingsManager settings = settings();
++        assertFalse(M9RenderDiagnostics.fullFrameSatAuditEnabled(settings));
++        verify(settings).getBoolean(SettingsManager.SCOPE_GLOBAL,
++                M9RenderDiagnostics.SAT_AUDIT_KEY, false);
++    }
++
++    @Test public void userCanEnableThenDisableWithoutRestarting() {
++        SettingsManager settings = settings();
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL,
++                M9RenderDiagnostics.SAT_AUDIT_KEY, false)).thenReturn(true, false);
++        assertTrue(M9RenderDiagnostics.fullFrameSatAuditEnabled(settings));
++        assertFalse(M9RenderDiagnostics.fullFrameSatAuditEnabled(settings));
++    }
++
++    @Test public void malformedOptionalPreferenceDoesNotRejectPhotograph() {
++        SettingsManager settings = settings();
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL,
++                M9RenderDiagnostics.SAT_AUDIT_KEY, false)).thenThrow(new NumberFormatException());
++        assertFalse(M9RenderDiagnostics.fullFrameSatAuditEnabled(settings));
++    }
++
++    @Test public void ordinaryCaptureSkipsAuditAndExplicitControlCanRunIt() {
++        assertFalse(M9RenderDiagnostics.shouldRunSatAudit(false, false, 0, true));
++        assertTrue(M9RenderDiagnostics.shouldRunSatAudit(true, false, 0, true));
++        assertTrue(M9RenderDiagnostics.shouldRunSatAudit(false, true, 0, true));
++    }
++
++    @Test public void optInDoesNotBypassControlModeOrMemoryLayoutGuards() {
++        for (int mode : new int[]{0, 1, 8, 9, 10}) {
++            assertFalse(M9RenderDiagnostics.shouldRunSatAudit(true, true, mode, false));
++            if (mode != 0) assertFalse(M9RenderDiagnostics.shouldRunSatAudit(true, true, mode, true));
++        }
++    }
++}
+diff --git a/app/version.properties b/app/version.properties
+index 649b66c2..508ee870 100644
+--- a/app/version.properties
++++ b/app/version.properties
+@@ -1,3 +1,3 @@
+-#Wed Sep 30 14:20:42 CEST 2026
++#Wed Sep 30 17:24:25 CEST 2026
+ VERSION_NAME=2.09-m9upstream2r-photon4ee108e
+-VERSION_BUILD=27216
++VERSION_BUILD=27219

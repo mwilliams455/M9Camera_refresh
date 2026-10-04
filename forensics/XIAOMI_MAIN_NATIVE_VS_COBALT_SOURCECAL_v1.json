@@ -1,0 +1,87 @@
+{
+  "schema": "m9cam.sourcecal.forensics.v1.main_native_vs_cobalt",
+  "purpose": "First static comparison supporting a Cobalt-free Xiaomi source-normalization investigation. This is evidence for what to test live, not a rendering replacement decision.",
+  "sourceCamera": "Xiaomi 15 Ultra rear wide/main RAW camera",
+  "nativeEvidence": {
+    "source": "12 Open Camera DNGs from the fixed M9 regression/capture corpus",
+    "stability": "ColorMatrix1/2, CameraCalibration1/2 and ForwardMatrix1/2 were identical across all 12 inspected DNGs; AsShotNeutral varied by scene",
+    "calibrationIlluminant1": "D65 (21)",
+    "calibrationIlluminant2": "Standard Light A (17)",
+    "colorMatrixD65": [
+      [1.28125, -0.484375, -0.2265625],
+      [-0.5859375, 1.59375, 0.140625],
+      [-0.046875, 0.1796875, 0.703125]
+    ],
+    "colorMatrixA": [
+      [0.8359375, -0.171875, -0.1328125],
+      [-0.46875, 1.3984375, 0.046875],
+      [-0.0859375, 0.3359375, 0.40625]
+    ],
+    "forwardMatrixRawBothIlluminants": [
+      [0.6328125, 0.109375, 0.21875],
+      [0.21875, 0.7578125, 0.0234375],
+      [-0.0390625, -0.453125, 1.3203125]
+    ],
+    "forwardMatrixNormalizedD50UsingPhotonNormalizeFM": [
+      [0.63496098, 0.10974634, 0.21949268],
+      [0.21875, 0.7578125, 0.0234375],
+      [-0.03891038, -0.45136038, 1.31517075]
+    ],
+    "cfa": "RGGB",
+    "blackLevelApprox": 64,
+    "whiteLevel": 1023
+  },
+  "currentEmbeddedCobaltEvidence": {
+    "asset": "m9/m9_r35_calibration.bin",
+    "loader": "M9R35Calibration.java",
+    "profileSource": "Xiaomi 15 Ultra Rear Wide Camera Cobalt Modular.dcp",
+    "colorMatrixA": [
+      [0.9782, -0.5828, 0.0542],
+      [-0.3299, 1.086, 0.2812],
+      [-0.0026, 0.0737, 0.6096]
+    ],
+    "colorMatrixD65": [
+      [0.8569, -0.3516, -0.0954],
+      [-0.4348, 1.2444, 0.2119],
+      [-0.0399, 0.1421, 0.4942]
+    ],
+    "forwardMatrixA_normalized": [
+      [0.62800781, 0.18070225, 0.15550193],
+      [0.2384, 0.7167, 0.0449],
+      [0.0037004, 0.00630067, 0.81518721]
+    ],
+    "forwardMatrixD65_normalized": [
+      [0.54775001, 0.20838098, 0.20808101],
+      [0.2507, 0.6854, 0.0639],
+      [0.00250027, 0.00310033, 0.81958769]
+    ],
+    "hueSatMap": {
+      "illuminants": ["A", "D65"],
+      "dimensions": [90, 30, 1],
+      "triplet": "HueShift, SaturationScale, ValueScale"
+    }
+  },
+  "matrixDifferenceDiagnostics": {
+    "note": "Frobenius distances are descriptive only. They do not measure visual error and do not include the Cobalt HueSatMap.",
+    "colorMatrixA_frobenius": 0.71619916,
+    "colorMatrixA_relativeToCobaltFrobenius": 0.41051036,
+    "colorMatrixD65_frobenius": 0.64030067,
+    "colorMatrixD65_relativeToCobaltFrobenius": 0.37499647,
+    "normalizedForwardMatrixA_frobenius": 0.68772652,
+    "normalizedForwardMatrixA_relativeToCobaltFrobenius": 0.52928338,
+    "normalizedForwardMatrixD65_frobenius": 0.69225596,
+    "normalizedForwardMatrixD65_relativeToCobaltFrobenius": 0.54809965
+  },
+  "interpretation": [
+    "Xiaomi exposes a stable dual-illuminant native characterization for the main RAW camera, so Cobalt is not required merely to obtain a defined sensor transform.",
+    "The native and Cobalt matrix sets are materially different numerically; therefore removing Cobalt must be an A/B colour-science experiment, not a blind substitution.",
+    "Cobalt also contributes a dual-illuminant 90x30 HueSatMap. Matrix parity alone cannot establish that native Camera2 metadata reproduces the same hue behaviour.",
+    "The Leica M9 target should remain defined separately from either Xiaomi source characterization."
+  ],
+  "nextEvidence": [
+    "Collect SOURCECAL1A + RAWSHADING1A live sidecars from all four Xiaomi rear physical cameras.",
+    "Confirm complete native ColorMatrix/ForwardMatrix/CalibrationTransform metadata per physical camera.",
+    "Construct a render A/B for the main camera: existing Cobalt adapter versus native Camera2 sensor-to-XYZ, with all M9 firmware target stages frozen.",
+    "If native-only hue errors remain, solve a small empirical source correction per Xiaomi sensor rather than embedding Leica target colour into the source adapter."
+  ]
+}

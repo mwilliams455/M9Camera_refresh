@@ -1,0 +1,6 @@
+{
+  "cases": 16,
+  "rgb_samples": 3195024,
+  "source": "actual Java helper and C++ JNI with host Camera2/JSON stubs",
+  "result": "DETAIL1H JVM/JNI PASS: 16 CFA/origin cases, 3195024 RGB samples, exact D fallback"
+}

@@ -1,0 +1,345 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27227
++        versionCode 27228
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.27-m9contrastmenu1a'
++        versionName '2.28-m9sharpnessmenu1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.27_CONTRASTMENU1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.28_SHARPNESSMENU1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -378,6 +378,17 @@
+                 android:defaultValue="2"
+                 app:useSimpleSummaryProvider="true"
+                 android:icon="@drawable/ic_saturation"/>
++        <ListPreference android:key="pref_m9_sharpness"
++                android:layout="@layout/preference_with_margin"
++                android:title="@string/m9_sharpness_title"
++                android:dialogTitle="@string/m9_sharpness_dialog"
++                android:entries="@array/m9_sharpness_entries"
++                android:entryValues="@array/m9_sharpness_values"
++                android:defaultValue="2" app:useSimpleSummaryProvider="true"/>
++        <Preference android:key="m9_sharpness_info" android:selectable="false"
++                android:layout="@layout/preference_with_margin"
++                android:title="@string/m9_sharpness_info_title"
++                android:summary="@string/m9_sharpness_info"/>
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
+                 android:key="@string/pref_frame_count_key"
+                 android:layout="@layout/preference_seekbar"
+--- /dev/null
++++ b/app/src/main/res/values/m9_sharpness.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_sharpness_title">Leica M9 sharpness</string>
++    <string name="m9_sharpness_dialog">Leica M9 sharpness — saved JPEG</string>
++    <string name="m9_sharpness_info_title">About sharpness</string>
++    <string name="m9_sharpness_info">Applies to saved JPEGs. Preview detail is unchanged; RAW detail is controlled by your editor. Off restores the earlier image detail.</string>
++    <string-array name="m9_sharpness_entries"><item>Off</item><item>Low</item><item>Standard</item><item>Medium high</item><item>High</item></string-array>
++    <string-array name="m9_sharpness_values" translatable="false"><item>0</item><item>1</item><item>2</item><item>3</item><item>4</item></string-array>
++</resources>
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Sharpness.java
+@@ -0,0 +1,22 @@
++package com.particlesdevs.photoncamera.processing;
++/** M9 1.216 menu and ISO selectors. Off is an explicit bypass in this app. */
++public final class M9Sharpness {
++    public static final int STANDARD=2;
++    public static final int[] ISOS={160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500};
++    private static final int[][] MODES={
++        {0,0,0,0,0,0,0,0,0,0,0,0,0},
++        {3,3,3,3,3,3,2,2,2,2,2,1,1},
++        {4,4,4,4,4,4,3,3,3,3,3,2,2},
++        {7,7,7,7,7,7,6,6,6,6,6,3,4},
++        {5,5,5,5,5,5,4,4,4,4,4,4,5}};
++    private M9Sharpness() {}
++    public static int normalize(int level) {return level>=0&&level<5?level:STANDARD;}
++    public static int parse(String s) {try{return normalize(Integer.parseInt(s));}catch(RuntimeException e){return STANDARD;}}
++    public static String name(int level) {return new String[]{"Off","Low","Standard","Medium high","High"}[normalize(level)];}
++    public static int isoSlot(int sensorIso) {
++        int iso=Math.max(160,Math.min(2500,sensorIso));int best=0;double distance=Double.POSITIVE_INFINITY;
++        for(int i=0;i<ISOS.length;i++){double d=Math.abs(Math.log(iso/(double)ISOS[i]));if(d<distance){distance=d;best=i;}}
++        return best;
++    }
++    public static int mode(int level,int slot) {return MODES[normalize(level)][Math.max(0,Math.min(12,slot))];}
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
+@@ -47,6 +47,10 @@
+             report.put("lightroomSelection","named_profile_digest_neutral_settings");
+             report.put("detailPolicy","zero_lightroom_sharpening_and_noise_reduction");
+             report.put("jpegSpatialShadingMayDiffer",true);
++            JSONObject sharpness=renderer.optJSONObject("sharpness");
++            report.put("jpegSharpness",sharpness==null?JSONObject.NULL:sharpness);
++            report.put("jpegSharpnessBakedIntoRaw",false);
++            report.put("detailPolicy","colour_tone_profile_only_zero_default_Lightroom_detail_reader_controlled");
+         } catch(Exception|OutOfMemoryError error) {
+             Log.e("M9DNGPROFILE1B","Profile export bypassed; retaining saved RAW",error);
+             try { report.put("status","bypassed_original_raw_preserved");report.put("reason",error.toString()); }
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessSettings.java
+@@ -0,0 +1,19 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.processing.M9Sharpness;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/** Global across cameras; default SharedPreferences is also the settings UI's store. */
++public final class M9SharpnessSettings {
++    public static final String KEY = "pref_m9_sharpness";
++    private M9SharpnessSettings() {}
++    public static int selected() {
++        return selected(PhotonCamera.getSettingsManagerStatic());
++    }
++    static int selected(SettingsManager settings) {
++        if (settings == null) return M9Sharpness.STANDARD;
++        try { return M9Sharpness.parse(settings.getString(SettingsManager.SCOPE_GLOBAL, KEY, "2")); }
++        catch (ClassCastException invalidType) { return M9Sharpness.STANDARD; }
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessStage.java
+@@ -0,0 +1,43 @@
++package com.particlesdevs.photoncamera.m9.render;
++import android.hardware.camera2.CaptureResult;
++import com.particlesdevs.photoncamera.processing.M9Sharpness;
++import org.json.JSONObject;
++/** Recovered Sharp kernel with colour-preserving transport onto accepted AMaZE. */
++public final class M9SharpnessStage {
++    private M9SharpnessStage() {}
++    private static final class Native {static {System.loadLibrary("m9sharpness");}static void ready(){}}
++    private static native int applyNative(long rgb,int w,int h,int slot,int level,double[] stats);
++    static JSONObject apply(long rgb,int w,int h,int choice,CaptureResult capture) throws Exception {
++        int level=M9Sharpness.normalize(choice);
++        Integer measured=capture==null?null:capture.get(CaptureResult.SENSOR_SENSITIVITY);
++        int iso=measured!=null&&measured>0?measured:160,slot=M9Sharpness.isoSlot(iso);
++        double[] stats=new double[7];
++        if(level!=0){Native.ready();int rc=applyNative(rgb,w,h,slot,level,stats);
++            if(rc!=0)throw new IllegalStateException("M9SHARPNESSMENU1A failed: "+rc);}
++        JSONObject d=new JSONObject();
++        d.put("revision","M9SHARPNESSMENU1A");d.put("level",level);d.put("name",M9Sharpness.name(level));
++        d.put("applied",level!=0);d.put("sensorIso",iso);d.put("isoFallback",measured==null||measured<=0);
++        d.put("leicaIso",M9Sharpness.ISOS[slot]);d.put("isoSlot",slot);d.put("internalMode",M9Sharpness.mode(level,slot));
++        d.put("isoPolicy","capture_SENSOR_SENSITIVITY_nearest_log_ISO160_2500_no_device_factor");
++        d.put("kernel","firmware_Gaussian121_residual_LUT_14bit");
++        d.put("source","accepted_AMaZE_camera_green_after_shading_restore");
++        d.put("rgbTransport","common_ratio_gain_joint_headroom_cap_half_up_16bit");
++        d.put("fullLeicaReconstruction",false);d.put("offPolicy","exact_stage_bypass_2_27_pixels");
++        d.put("stage","after_meter_and_gain_selection_before_target_colour_preparation");
++        d.put("consideredPixels",(long)stats[0]);d.put("changedPixels",(long)stats[1]);
++        d.put("jointHeadroomLimitedPixels",(long)stats[2]);d.put("maxCorrection16",(long)stats[3]);
++        d.put("elapsedMs",stats[4]);d.put("scratchBytes",(long)stats[5]);d.put("untouchedBorder",18);
++        d.put("previewPolicy","camera_ISP_preview_no_spatial_sharpness_simulation");
++        d.put("dngPolicy","reader_controls_spatial_detail_profile_is_colour_and_tone_only");
++        return d;
++    }
++    public static void describe(JSONObject output,JSONObject renderer) throws Exception {
++        JSONObject d=renderer==null?null:renderer.optJSONObject("sharpness");
++        output.put("sharpness",d==null?JSONObject.NULL:d);
++        output.put("sharpnessResearch",d==null?"not_reported":d.optString("revision"));
++        output.put("sharpnessMenu",d==null?JSONObject.NULL:d.optString("name"));
++        output.put("sharpnessApplied",d==null?JSONObject.NULL:d.getBoolean("applied"));
++        output.put("sharpnessSlot",d==null?JSONObject.NULL:d.getInt("isoSlot"));
++        output.put("sharpnessInternalMode",d==null?JSONObject.NULL:d.getInt("internalMode"));
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -94,9 +94,12 @@
+     private static final class SaturationState {
+         final int bank;
+         final int contrast;
++        final int sharpness;
+         final long[] even, odd;
+         SaturationState(int bank) { this(bank, M9Contrast.STANDARD); }
+-        SaturationState(int bank, int contrast) {
++        SaturationState(int bank, int contrast) {this(bank,contrast,com.particlesdevs.photoncamera.processing.M9Sharpness.STANDARD);}
++        SaturationState(int bank, int contrast, int sharpness) {
++            this.sharpness = com.particlesdevs.photoncamera.processing.M9Sharpness.normalize(sharpness);
+             this.contrast = M9Contrast.normalize(contrast);
+             this.bank = M9Saturation.normalize(bank);
+             even = M9Saturation.matrix(this.bank, true);
+@@ -534,8 +537,16 @@
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+             int contrastLevel, boolean saveJpeg) {
++        return renderAndSavePrimary(dngPath,frame,characteristics,captureResult,captureRequest,
++                cameraRotation,saturationBank,contrastLevel,M9SharpnessSettings.selected(),saveJpeg);
++    }
++
++    public static Result renderAndSavePrimary(Path dngPath, ImageFrame frame,
++            CameraCharacteristics characteristics, CaptureResult captureResult,
++            CaptureRequest captureRequest, int cameraRotation, int saturationBank,
++            int contrastLevel, int sharpnessLevel, boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel));
++        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel, sharpnessLevel));
+         try {
+             return renderAndSaveInternal(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, true, saveJpeg);
+@@ -556,7 +567,7 @@
+             CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute,
+             boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected()));
++        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected(), M9SharpnessSettings.selected()));
+         try {
+             return renderAndSaveSelected(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, primaryRoute, saveJpeg);
+@@ -4451,6 +4462,13 @@
+             final long nativeColorCvBaseAddress = nativeColorCvDirectEligible ? cam16.dataAddr() : 0L;
+             if (colourTrial1CActive && !nativeColorCvDirectEligible)
+                 throw new IllegalStateException("COLOURTRIAL1C requires packed camera RGB");
++            // Metering/audits finish before spatial detail; Sharp cannot alter exposure selection.
++            JSONObject sharpnessJson = null;
++            if (colourTrial1CActive && !Boolean.TRUE.equals(M9_LIVE_PREVIEW_1A_ACTIVE.get())) {
++                M9RenderCrash1D.stage("firmware_sharpness");
++                sharpnessJson = M9SharpnessStage.apply(nativeColorCvBaseAddress,width,height,
++                        saturation().sharpness,nativeCaptureResult);
++            }
+             M9RenderCrash1D.stage("preSAT_chroma_in_place");
+             final long colourTrialPrepareStart = System.nanoTime();
+             // Borrow the owning cam16 storage after its final meter/audit read.
+@@ -4746,6 +4764,7 @@
+             d.put("nativeNormalizeWorkersUsed", nativeNormalizeWorkersUsed);
+             d.put("nativeLibraryLoadElapsedMs", nativeLibraryLoadElapsedMs);
+             d.put("demosaicElapsedMs", demosaicElapsedMs);
++            d.put("sharpness", sharpnessJson == null ? JSONObject.NULL : sharpnessJson);
+             d.put("demosaicMode", demosaicNeutralEa1A ? "DEMOSAICMHCNEUTRAL1A_OpenCV_EA_sameRAW_gainlocked" : (demosaicPlainMhc1A ? "DEMOSAICMHC1A_MalvarHeCutler5x5_RGGB_plain_sameRAW_gainlocked" : "DEMOSAICMHCNEUTRAL1A_MalvarHeCutler5x5_RGGB_liveNeutral_balanced_restore"));
+             d.put("demosaicMhcNeutral1A", true);
+             d.put("demosaicNeutralVariant", demosaicNeutralEa1A ? "EA_SAT3_GAINLOCK"
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -241,6 +241,7 @@
+         // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
+         final int saturationBank = M9SaturationSettings.selected();
+         final int contrastLevel = M9ContrastSettings.selected();
++        final int sharpnessLevel = M9SharpnessSettings.selected();
+         final M9SaveSelection output = M9SaveSelection.fromMode(
+                 PreferenceKeys.isSaveRaw(), M9OutputSettings.saveUnfilteredDng());
+         final long enqueueStartedNs = System.nanoTime();
+@@ -280,7 +281,7 @@
+                 long renderStartedNs = System.nanoTime();
+                 M9PhotonBoundary2Q.frame(ownedFrame, "rendererEntry", captureResult, null);
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+-                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, output.jpeg);
++                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, output.jpeg);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
+                 if (renderResult != null && renderResult.diagnostics != null) {
+                     try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
+@@ -221,21 +221,7 @@
+         root.put("schema", "m9cam.primarytiming.v8.sidecar1b");
+         root.put("route", ROUTE);
+ 
+-        // SHARPSOURCE1B-ID1 -- research identity only. No photographic behavior.
+-        // Keep these fields in the PRIMARY timing sidecar so a field capture can
+-        // independently prove which sharpness research arithmetic produced it.
+-        root.put("sharpnessResearch", "SHARPSOURCE1C_RBANCHOR1A");
+-        root.put("sharpnessMenu", "Standard");
+-        root.put("sharpnessSlot", 0);
+-        root.put("sharpnessInternalMode", 4);
+-        root.put("sharpnessScale", "2x");
+-        root.put("sharpnessNoiseMode", 2);
+-        root.put("sharpnessSupportMargin", 9);
+-        root.put("sharpnessSource", "LeicaGreenInterpolationWithCo-interior14bit");
+-        root.put("sharpnessRgbFoundation", "MHCNeutralFrozen_color_difference_proxy");
+-        root.put("sharpnessCorrectionPolicy", "anchor_to_sharpLeicaGreen14_then_restore_frozenMHC_RminusG_BminusG_proxy");
+-        root.put("sharpnessRbPolicy", "RBANCHOR1A_sharpLeicaGreen_plus_frozenMHC_color_differences_proxy");
+-        root.put("sharpnessBorderPolicy", "outside-9px-preserve-frozen-MHC-exactly");
++        M9SharpnessStage.describe(root,rendererDiagnostics);
+ 
+         root.put("primaryPhotonFinishedImage", true);
+         root.put("rawHandoffCopy", "none");
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessSettingsTest.java
+@@ -0,0 +1,40 @@
++package com.particlesdevs.photoncamera.m9.render;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import com.particlesdevs.photoncamera.processing.M9Sharpness;
++import org.junit.Test;
++import org.mockito.MockMakers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9SharpnessSettingsTest {
++    private SettingsManager settings() {
++        return mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++    }
++    @Test public void installationWithoutPreferenceUsesSelectedLeicaStandard() {
++        assertEquals(2, M9SharpnessSettings.selected(null));
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SharpnessSettings.KEY,"2")).thenReturn("2");
++        assertEquals(2,M9SharpnessSettings.selected(s));
++    }
++    @Test public void allFiveLevelsCanChangeWithoutRestart() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SharpnessSettings.KEY,"2")).thenReturn("0","1","2","3","4","2");
++        for(int n:new int[]{0,1,2,3,4,2}) assertEquals(n,M9SharpnessSettings.selected(s));
++    }
++    @Test public void corruptOrFuturePreferenceFallsBackToStandard() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SharpnessSettings.KEY,"2")).thenReturn("broken","-1","5",null);
++        for(int n=0;n<4;n++) assertEquals(2,M9SharpnessSettings.selected(s));
++    }
++    @Test public void wrongStoredTypeDoesNotPreventCapture() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SharpnessSettings.KEY,"2")).thenThrow(new ClassCastException());
++        assertEquals(2,M9SharpnessSettings.selected(s));
++    }
++    @Test public void actualCaptureIsoMapsWithoutDeviceMultiplier() {
++        for(int i=0;i<M9Sharpness.ISOS.length;i++) assertEquals(i,M9Sharpness.isoSlot(M9Sharpness.ISOS[i]));
++        assertEquals(0,M9Sharpness.isoSlot(80));assertEquals(12,M9Sharpness.isoSlot(25600));
++        assertEquals(0,M9Sharpness.isoSlot(178));assertEquals(1,M9Sharpness.isoSlot(180));
++        assertEquals(4,M9Sharpness.mode(2,0));assertEquals(3,M9Sharpness.mode(2,6));assertEquals(2,M9Sharpness.mode(2,12));
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessDiagnosticsTest.java
+@@ -0,0 +1,25 @@
++package com.particlesdevs.photoncamera.m9.render;
++import org.junit.Test;
++import org.json.JSONObject;
++import static org.junit.Assert.*;
++
++public class M9SharpnessDiagnosticsTest {
++    @Test public void missingRendererCannotClaimOldStandard() throws Exception {
++        JSONObject out=new JSONObject();M9SharpnessStage.describe(out,null);
++        assertEquals("not_reported",out.getString("sharpnessResearch"));
++        assertTrue(out.isNull("sharpnessApplied"));assertTrue(out.isNull("sharpnessMenu"));
++    }
++    @Test public void actualCapturedSelectionOwnsSummary() throws Exception {
++        JSONObject actual=new JSONObject().put("revision","M9SHARPNESSMENU1A")
++                .put("name","High").put("applied",true).put("isoSlot",12).put("internalMode",5);
++        JSONObject out=new JSONObject();M9SharpnessStage.describe(out,new JSONObject().put("sharpness",actual));
++        assertEquals("High",out.getString("sharpnessMenu"));assertEquals(12,out.getInt("sharpnessSlot"));
++        assertEquals(5,out.getInt("sharpnessInternalMode"));assertTrue(out.getBoolean("sharpnessApplied"));
++    }
++    @Test public void explicitOffIsNotUnknownOrStandard() throws Exception {
++        JSONObject actual=new JSONObject().put("revision","M9SHARPNESSMENU1A")
++                .put("name","Off").put("applied",false).put("isoSlot",0).put("internalMode",0);
++        JSONObject out=new JSONObject();M9SharpnessStage.describe(out,new JSONObject().put("sharpness",actual));
++        assertEquals("Off",out.getString("sharpnessMenu"));assertFalse(out.getBoolean("sharpnessApplied"));
++    }
++}

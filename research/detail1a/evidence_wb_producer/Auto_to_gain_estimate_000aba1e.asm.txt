@@ -1,0 +1,9 @@
+aba1e: R0 = P5;
+aba20: CALL 0x0xab3f0;
+aba24: R0 = P3;
+aba26: R1 = [FP + 0x28];
+aba28: R2 = P4;
+aba2a: [SP + 0xc] = P5;
+aba2c: CALL 0x0xab588;
+aba30: UNLINK;
+aba34: (R7:4, P5:3) = [SP++];

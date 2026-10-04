@@ -1,0 +1,12 @@
+{
+  "version": "2.38-m9bracket1a",
+  "acceptedOn": "2026-10-04",
+  "timezone": "Europe/London",
+  "user": "Malcolm Williams",
+  "feedback": "Exposure bracketing works. Create hand off",
+  "status": "phone_accepted",
+  "apkSha256": "ca30fd5c41e44095f8fc1d142a967cbfd03092b978cf690c61634ce1ea608711",
+  "buildSourceCommit": "79e62f0ff34acea03d1406b04ef7423101f3910f",
+  "scope": "User-reported feature acceptance; individual scenario coverage was not specified.",
+  "nextRequest": "Create handoff; no new APK requested."
+}

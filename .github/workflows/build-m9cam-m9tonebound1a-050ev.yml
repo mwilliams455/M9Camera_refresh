@@ -1,0 +1,200 @@
+name: Build M9Cam M9TONEBOUND1A 050EV
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9tonebound1a-050ev]
+    paths:
+      - 'patches/apply-m9cam-m9tonebound1a-050ev.py'
+      - 'patches/verify-m9cam-m9tonebound1a-050ev.py'
+      - '.github/workflows/build-m9cam-m9tonebound1a-050ev.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-m9toneforensics1a.py
+          python3 -m py_compile patches/verify-m9cam-m9toneforensics1a.py
+          python3 -m py_compile patches/apply-m9cam-m9tonebound1a-050ev.py
+          python3 -m py_compile patches/verify-m9cam-m9tonebound1a-050ev.py
+
+      - name: Reconstruct true SAT2 NATIVEFIX baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-m9nativehsm1a-sat2standard1b-nativefix.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact SAT2STANDARD1A assembled baseline',
+              'Apply true native SAT2 selection',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |':
+                  i += 1
+              if i >= len(lines):
+                  raise SystemExit('baseline run block missing: ' + name)
+              i += 1
+              out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'):
+                      break
+                  if line.startswith('          '):
+                      out.append(line[10:])
+                  elif not line.strip():
+                      out.append('')
+                  else:
+                      raise SystemExit('unexpected workflow indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/tonebound_baseline_{idx:02d}.sh').write_text('\n'.join(out) + '\n')
+          PY
+          for s in /tmp/tonebound_baseline_*.sh; do
+            echo "=== replay $s ==="
+            bash "$s"
+          done
+
+      - name: Snapshot frozen native and SAT2 baseline
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum "$ROOT/app/src/main/cpp/m9color_jni.cpp" > TONEBOUND_CPP_BEFORE.sha256
+          grep 'nativeSaturationMode1A\|nativeSaturationBankActuallySelected\|nativeSaturationMatrixPairActuallySelected' \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
+            > TONEBOUND_SAT2_BEFORE.txt
+
+      - name: Apply read-only tone forensics baseline
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9toneforensics1a.py "$ROOT"
+          python3 patches/verify-m9cam-m9toneforensics1a.py "$ROOT" | tee M9TONEFORENSICS1A_VERIFY.txt
+
+      - name: Apply bounded TC20 authority
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9tonebound1a-050ev.py "$ROOT"
+          python3 patches/verify-m9cam-m9tonebound1a-050ev.py "$ROOT" | tee M9TONEBOUND1A_VERIFY.txt
+          sha256sum "$ROOT/app/src/main/cpp/m9color_jni.cpp" > TONEBOUND_CPP_AFTER.sha256
+          diff -u TONEBOUND_CPP_BEFORE.sha256 TONEBOUND_CPP_AFTER.sha256
+          grep 'nativeSaturationMode1A\|nativeSaturationBankActuallySelected\|nativeSaturationMatrixPairActuallySelected' \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" \
+            > TONEBOUND_SAT2_AFTER.txt
+          diff -u TONEBOUND_SAT2_BEFORE.txt TONEBOUND_SAT2_AFTER.txt
+
+      - name: Snapshot assembled bounded source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-m9tonebound1a-050ev"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/cpp/m9color_jni.cpp" "$OUT/"
+          cp M9TONEFORENSICS1A_VERIFY.txt M9TONEBOUND1A_VERIFY.txt "$OUT/"
+          cp TONEBOUND_CPP_BEFORE.sha256 TONEBOUND_CPP_AFTER.sha256 "$OUT/"
+          cp TONEBOUND_SAT2_BEFORE.txt TONEBOUND_SAT2_AFTER.txt "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build M9TONEBOUND1A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9TONEBOUND1A_GRADLE.log"
+
+      - name: Verify packaged native SAT2 bank
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/tonebound-apk
+          mkdir -p /tmp/tonebound-apk
+          unzip -q "$APK" 'lib/arm64-v8a/libm9color.so' -d /tmp/tonebound-apk
+          python3 - <<'PY' | tee M9TONEBOUND1A_APK_SAT2_PROOF.txt
+          from pathlib import Path
+          import struct
+          b=Path('/tmp/tonebound-apk/lib/arm64-v8a/libm9color.so').read_bytes()
+          sat2=[13659,-4457,-1004,-2244,13469,-3033,-199,-6014,14398,
+                14811,-5604,-1004,-2455,13688,-3033,393,-6588,14398]
+          p1=b''.join(struct.pack('<q',x) for x in sat2[:9])
+          p2=b''.join(struct.pack('<q',x) for x in sat2[9:])
+          ok1=p1 in b; ok2=p2 in b
+          print('SAT2_M04_PRESENT', ok1)
+          print('SAT2_M05_PRESENT', ok2)
+          if not (ok1 and ok2): raise SystemExit(1)
+          print('M9TONEBOUND1A APK SAT2 PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee M9TONEBOUND1A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9TONEBOUND1A-050EV-ASSEMBLED-SOURCE
+          path: assembled-m9tonebound1a-050ev/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9TONEBOUND1A-050EV-BUILDLOG
+          path: M9TONEBOUND1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9TONEBOUND1A-050EV-SAT2NATIVEFIX
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            M9TONEBOUND1A_APK_SHA256.txt
+            M9TONEFORENSICS1A_VERIFY.txt
+            M9TONEBOUND1A_VERIFY.txt
+            M9TONEBOUND1A_APK_SAT2_PROOF.txt

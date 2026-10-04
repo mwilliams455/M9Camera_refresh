@@ -1,0 +1,10 @@
+{
+  "description": "Scalar-only observations from the 2026-09-21 Xiaomi 15 Ultra GL2F logs; no image data. Shutter/ISO request and result are paired within each capture.",
+  "camera": {"isoMin":50,"isoMax":12800,"analogIsoMax":3200,"exposureMinNs":11041,"exposureMaxNs":33430445787},
+  "captures": [
+    {"sample":"photo","mode":"PHOTO","observedIso":2132,"observedExposureNs":20000000,"requestedIso":983,"requestedExposureNs":43377416,"actualIso":983,"actualExposureNs":43377416},
+    {"sample":"motion_high_iso","mode":"MOTION","observedIso":1743,"observedExposureNs":20000000,"requestedIso":12800,"requestedExposureNs":2466657,"actualIso":3200,"actualExposureNs":2466657},
+    {"sample":"motion_moderate_iso","mode":"MOTION","observedIso":1821,"observedExposureNs":20000000,"requestedIso":4361,"requestedExposureNs":8350338,"actualIso":3207,"actualExposureNs":8350338}
+  ],
+  "controlledGyroSweep": {"observedIso":1824,"observedExposureNs":20000000,"shake":[50,100,200,300,400,1829,100,50],"gl2fPreviewScale":[1.0,1.0,1.0,0.9356722807017543,0.7017543859649122,0.5614035087719298,1.0,1.0]}
+}

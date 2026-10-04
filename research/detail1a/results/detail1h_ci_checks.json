@@ -1,0 +1,990 @@
+{
+  "M9DETAIL1H_SANITIZE.txt": "DETAIL1H ASan/UBSan PASS: 1457352 RGB samples\n",
+  "M9DETAIL1H_VERIFY.txt": "M9DETAIL1H SOURCE PASS: tiled D/G candidate; GL2G exposure, preview, green/Sharp and downstream native colour authorities retained\n",
+  "M9LIVEGL2G_APK_PROOF.txt": "M9DETAIL1H APK PROOF PASS: native entry point, capture diagnostics, exact shader/curve and exposure contracts\n",
+  "M9LIVEGL2G_ATOMIC_TESTS.txt": "M9LIVEGL2A atomic: 38 assertions PASS\n",
+  "M9LIVEGL2G_AUTO_TESTS.txt": "M9LIVEGL2D Auto PASS: 198 assertions; actual allocator, bounded placement, manual ownership and neutral TC20 reference\n",
+  "M9LIVEGL2G_CONTRACT_TESTS.txt": "GL2F curve contract PASS: 254 assertions; actual recorded telephoto mismatch rejected; uniform-input and recovery checked\n",
+  "M9LIVEGL2G_ENERGY_TESTS.txt": "SWEEP shake=50 oldScale=1.0 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=100 oldScale=1.0 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=200 oldScale=1.0 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=300 oldScale=0.9356722807017543 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=400 oldScale=0.7017543859649122 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=1829 oldScale=0.5614035087719298 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=100 oldScale=1.0 newScale=1.0 ISO=3200 ns=11400000\nSWEEP shake=50 oldScale=1.0 newScale=1.0 ISO=3200 ns=11400000\nM9LIVEGL2G HOST PASS: 3708 assertions; real allocator/RAW setter; phone validation pending\n",
+  "M9LIVEGL2G_EVIDENCE_TESTS.txt": "M9LIVEGL2E paired evidence PASS: 26 assertions; actual collector, RGB layout, timestamps, nonblocking GL and failure isolation\n",
+  "M9LIVEGL2G_EV_FLOOR_TESTS.txt": "FIXTURE IMG_20260920_115301_1789901581726_00_M9_PRIMARY.json old=1.0 new=1.0 ISO=50 exposureNs=491227\nFIXTURE IMG_20260920_115307_1789901587012_00_M9_PRIMARY.json old=1.9899986592405503 new=2.0 ISO=50 exposureNs=1103852\nFIXTURE IMG_20260920_115312_1789901592731_00_M9_PRIMARY.json old=0.9899951271773888 new=0.500000820340507 ISO=50 exposureNs=304752\nM9EXPOSUREPLAN1C: 2561 assertions PASS; actual production allocator and dial\n",
+  "M9LIVEGL2G_EXPOSURE_TESTS.txt": "M9EXPOSUREPLAN1B HOST PASS: 479 assertions; real routing/allocator/MFM/manual controls, Photo + Motion synthetic scenes, no device claim\n",
+  "M9LIVEGL2G_FOCUS_TESTS.txt": "M9LIVEGL2B AF PASS: 83 assertions; production still/lock/resume/prime methods, recording Camera2 stub; hardware focus not verified\n",
+  "M9LIVEGL2G_HOST_TESTS.txt": "GL2A math PASS: 3126 assertions\n",
+  "M9LIVEGL2G_INSTALL_CHECK.txt": "APK INSTALL CHECK PASS: package=com.m9project.m9cam.photon versionName=1.61-m9detail1h-nativeguard length=27 versionCode=26681 minSdk=26 targetSdk=35 signerSHA256=255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956\n",
+  "M9LIVEGL2G_METER_TESTS.txt": "GL2D meter PASS: 14 assertions; actual meter methods, zero-timeout fence, restored GL state and failure fallback\n",
+  "M9LIVEGL2G_VERIFY.txt": "M9LIVEGL2G SOURCE PASS: energy-preserving automatic RAW allocation; GL2F preview, Auto policy, focus, native renderer and colour assets frozen\n",
+  "tile_checks": {
+    "cases": [
+      {
+        "cfa": 0,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 0,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 1,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 2,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          24,
+          25
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 1800
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          65,
+          67
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 13065
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          127,
+          129
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 49149
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 32,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 64,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 0,
+        "rgb_samples": 199689
+      },
+      {
+        "cfa": 3,
+        "shape": [
+          259,
+          257
+        ],
+        "tile": 256,
+        "origin_y": 1,
+        "rgb_samples": 199689
+      }
+    ],
+    "exact_guard_and_D_rgb_samples": 6328872,
+    "green_unchanged": true,
+    "injected_partial_frame_guard_failure_exact_D_all_cfa": true
+  },
+  "jni_checks": {
+    "cases": 16,
+    "rgb_samples": 3195024,
+    "source": "actual Java helper and C++ JNI with host Camera2/JSON stubs",
+    "result": "DETAIL1H JVM/JNI PASS: 16 CFA/origin cases, 3195024 RGB samples, exact D fallback"
+  }
+}

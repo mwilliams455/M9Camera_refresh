@@ -1,0 +1,74 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity-m9livegl2c'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -1,7 +1,7 @@
+ #extension GL_OES_EGL_image_external_essl3 : require
+ precision highp float;
+ precision highp int;
+-// M9LIVEGL2A_CONTROLLEDOES: no display-domain residual fitting.
++// M9LIVEGL2C_INVERSEPRECISION: no display-domain residual fitting.
+ uniform highp samplerExternalOES sTexture;
+ uniform highp sampler2D uM9Curve;
+ uniform highp sampler2D uM9Inverse2A;
+@@ -26,11 +26,17 @@
+     c=max(c,vec3(0));
+     return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-.055,step(vec3(.0031308),c));
+ }
++float inverseTexel2C(int index,int channel) {
++    vec3 hi=texelFetch(uM9Inverse2A,ivec2(index,0),0).rgb;
++    vec3 lo=texelFetch(uM9Inverse2A,ivec2(index,1),0).rgb;
++    return (hi[channel]*256.0+lo[channel])*(255.0/65535.0);
++}
+ float inverseChannel2A(float code,int channel) {
+-    float x=(clamp(code,0.0,1.0)*1023.0+.5)/1024.0;
+-    vec3 hi=texture(uM9Inverse2A,vec2(x,.25)).rgb;
+-    vec3 lo=texture(uM9Inverse2A,vec2(x,.75)).rgb;
+-    return (hi[channel]*256.0+lo[channel])*(255.0/65535.0);
++    // Decode packed 16-bit values BEFORE interpolation. Filtering byte planes
++    // independently can quantize the high byte and reverse dark gradients.
++    float x=clamp(code,0.0,1.0)*1023.0;
++    int left=int(floor(x));
++    return mix(inverseTexel2C(left,channel),inverseTexel2C(min(left+1,1023),channel),fract(x));
+ }
+ vec3 curveSat2M9(vec3 m9) {
+     // Exact production order: 14-bit nearest-even -> branch -> signed integer SAT2 -> >>16 -> LUT.
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
+@@ -15,7 +15,7 @@
+ 
+ /** Controlled OES reconstruction. This is not RAW: clipping and ISP demosaic are irreversible. */
+ public final class M9GpuPreview2A {
+-    public static final String REVISION="M9LIVEGL2A_CONTROLLEDOES";
++    public static final String REVISION="M9LIVEGL2C_INVERSEPRECISION";
+     private M9GpuPreview2A() {}
+     private static String cachedKey;
+     private static Frame cachedFrame;
+@@ -111,6 +111,7 @@
+                 o.put("sourceToTarget",ready?"native_physical_sensor_ProPhoto_D50_M9":"bypassed");
+                 o.put("postRawBoostRemoved",ready?postRawBoost:JSONObject.NULL);
+                 o.put("sourceReconstructionExact",false);
++                o.put("inverseToneSampling",ready?"decode_16bit_texels_before_float_interpolation":"bypassed");
+                 o.put("limitations","ISP_CCM_approximation_demosaic_shading_and_preexisting_clipping;_no_RAW_recovery");
+                 o.put("toneNormalization","unity_pending_live_linear_TC20_meter");
+                 o.put("rawCpuPreview",false).put("fittedResidualStack",false);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMath2A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMath2A.java
+@@ -26,7 +26,7 @@
+             return c[i-2]+(c[i]-c[i-2])*(y-c[i-1])/(c[i+1]-c[i-1]);
+         return 1;
+     }
+-    /** Two RGBA8 rows hold high/low bytes of linear RGB; linear filtering remains linear. */
++    /** Two RGBA8 rows hold high/low bytes of linear RGB; decode texels before interpolating. */
+     public static byte[] inverseTexture(float[][] curves) {
+         byte[] b=new byte[1024*2*4];
+         for (int c=0;c<3;c++) {

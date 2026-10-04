@@ -1,0 +1,143 @@
+name: M9 Sharpness Off Process Mask Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-off-mask-source.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Extract canonical BF547 and process-mask template
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, os, pathlib, sys, hashlib, struct, json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          spec=importlib.util.spec_from_file_location('gateb',pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          fw=(root/'m9.dec').read_bytes(); bf=m.get_bf547(fw)
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('BF547 hash mismatch')
+          (root/'BF547.bin').write_bytes(bf)
+          RAM=m.RAM
+          target=0xF2C38
+          off=target-RAM
+          raw=bf[off:off+32]
+          u32=struct.unpack_from('<I',raw,0)[0]
+          bits=[i for i in range(32) if u32&(1<<i)]
+          report={
+            'schema':'m9.sharpness.off-mask-source.v1',
+            'template_runtime':'0xf2c38',
+            'template_first_u32':hex(u32),
+            'template_first_u32_le_bytes':raw[:4].hex(' '),
+            'set_bits':bits,
+            'sharp_bit7_set':bool(u32&(1<<7)),
+            'window_32_bytes':raw.hex(' '),
+            'serializer_evidence':'0x37084/0x37088 loads 0xF2C38, 0x3707e length=4, call 0xBF61C copies to record base P5+0x12C.'
+          }
+          (root/'mask_template.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$RUNNER_TEMP/m9sharp/BF547.bin" > "$RUNNER_TEMP/m9sharp/BF547.full.gnu.dis.txt"
+
+      - name: Trace template and processing-record mask writers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,pathlib,re,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          lines=(root/'BF547.full.gnu.dis.txt').read_text(errors='replace').splitlines()
+          are=re.compile(r'^\s*([0-9a-f]+):')
+          def adr(i):
+              m=are.match(lines[i]); return int(m.group(1),16) if m else None
+          # high/low constructions of 0xF2C38
+          refs=[]
+          for i,l in enumerate(lines):
+              ll=l.lower(); mh=re.search(r'\b([pr][0-7])\.h = 0xf\b',ll)
+              if not mh: continue
+              reg=mh.group(1)
+              for j in range(i+1,min(len(lines),i+14)):
+                  if re.search(rf'\b{re.escape(reg)}\.l = 0x2c38\b',lines[j].lower()):
+                      refs.append({'runtime':hex(adr(i) or 0),'hi_line':i+1,'lo_line':j+1,'reg':reg,'context':'\n'.join(lines[max(0,i-15):min(len(lines),j+30)])})
+                      break
+          (root/'mask_template_xrefs.json').write_text(json.dumps(refs,indent=2)+'\n')
+
+          # All explicit accesses to the serialized record header P? + 0x12c..0x12f.
+          hdr=[]
+          rx=re.compile(r'\b(?:B|W)?\[P([0-7]) \+ 0x(12c|12d|12e|12f)\]')
+          for i,l in enumerate(lines):
+              if rx.search(l.lower()):
+                  hdr.append({'runtime':hex(adr(i) or 0),'line':i+1,'text':l,'context':'\n'.join(lines[max(0,i-28):min(len(lines),i+45)])})
+          (root/'record_header_explicit_accesses.json').write_text(json.dumps(hdr,indent=2)+'\n')
+
+          # Find all calls to memcpy-like 0xBF61C; keep caller context. This catches
+          # later whole-header rewrites even when destination is held in a register.
+          calls=[]
+          for i,l in enumerate(lines):
+              if 'call 0x0xbf61c' in l.lower():
+                  calls.append({'runtime':hex(adr(i) or 0),'line':i+1,'context':'\n'.join(lines[max(0,i-30):min(len(lines),i+25)])})
+          (root/'bf61c_call_contexts.json').write_text(json.dumps(calls,indent=2)+'\n')
+          print(json.dumps({'template_xrefs':len(refs),'record_header_explicit_accesses':len(hdr),'bf61c_calls':len(calls)},indent=2))
+          PY
+
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-OFF-MASK-SOURCE
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/mask_template.json
+            ${{ runner.temp }}/m9sharp/mask_template_xrefs.json
+            ${{ runner.temp }}/m9sharp/record_header_explicit_accesses.json
+            ${{ runner.temp }}/m9sharp/bf61c_call_contexts.json
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec" "$RUNNER_TEMP/m9sharp/BF547.bin" "$RUNNER_TEMP/m9sharp/BF547.full.gnu.dis.txt"

@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "gradleBuild": "BUILD SUCCESSFUL",
+  "suiteFiles": 15,
+  "tests": 96,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 1,
+  "passed": 95,
+  "profileTests": 13,
+  "patchRoundTripExact": true
+}

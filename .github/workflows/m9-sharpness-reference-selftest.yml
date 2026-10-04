@@ -1,0 +1,58 @@
+name: M9 Sharpness Reference Selftest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpnessforensics1a]
+    paths:
+      - '.github/workflows/m9-sharpness-reference-selftest.yml'
+      - 'tools/m9_sharpness_reference.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Synthetic reference self-test
+        run: python3 tools/m9_sharpness_reference.py --self-test
+      - name: Recover canonical LUT bank and validate reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharpref/evidence"
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharpref/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharpref/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharpref/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharpref/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharpref/m9.upd" "$RUNNER_TEMP/m9sharpref/mm.upm" --m9-out "$RUNNER_TEMP/m9sharpref/m9.dec" --meta-out "$RUNNER_TEMP/m9sharpref/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharpref/m9.dec" | sha256sum -c --strict
+          python3 - <<'PY'
+          import os,pathlib,struct,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharpref'
+          fw=(root/'m9.dec').read_bytes()
+          archive=0xC0C; sharp=archive+0xACF8; n=13*2050
+          raw=fw[sharp:sharp+n*2]
+          digest=hashlib.sha256(raw).hexdigest()
+          expect='a9c60000a8ec60ce922f8715436aa45223988f16c5b00fbfc417e546cdf7a8eb'
+          if digest!=expect: raise SystemExit(f'bank hash mismatch {digest}')
+          vals=list(struct.unpack('<'+'h'*n,raw))
+          luts=[vals[i*2050:(i+1)*2050] for i in range(13)]
+          obj={'schema':'m9.sharpness.base-lut-bank.v1','archive_offset_hex':'0xc0c','sharp_bank_offset_hex':'0xacf8','bank_sha256':digest,'count_per_lut':2050,'lut_count':13,'luts':luts}
+          (root/'sharp_base_lut_bank.json').write_text(json.dumps(obj)+'\n')
+          PY
+          python3 tools/m9_sharpness_reference.py --lut-json "$RUNNER_TEMP/m9sharpref/sharp_base_lut_bank.json" --self-test | tee "$RUNNER_TEMP/m9sharpref/evidence/reference_selftest.json"
+      - name: Publish reference test evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-REFERENCE-SELFTEST
+          retention-days: 30
+          path: ${{ runner.temp }}/m9sharpref/evidence/*
+      - name: Remove firmware and LUT material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharpref/m9.upd" "$RUNNER_TEMP/m9sharpref/mm.upm" "$RUNNER_TEMP/m9sharpref/m9.dec" "$RUNNER_TEMP/m9sharpref/sharp_base_lut_bank.json"

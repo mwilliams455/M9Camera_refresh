@@ -1,0 +1,27 @@
+{
+  "parentCommit": "c12b93a00e599f05ed0877c6248c1470fd0ced6d",
+  "version": "2.43-m9uioverlay1e",
+  "parentFiles": {
+    "app/build.gradle": "da2e879f56a248ab97752c51383f7cf7dc39aad028760815e1c52c376c9719a6",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "aaf5e3b4003169b46a6885821bf2ede4b076f723e9e289213a9fd97bbde94087",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java": "ce1bf28a5b61c052f968ed9f609260bfe163f5a7735ef81068d08ba146061aa2",
+    "app/src/main/res/layout/layout_m9_overlay_controls.xml": "e40426cb3d92f1a91269c8c07ae554fa89393e3d0cf8ab9b0deae44d009c14b7",
+    "app/src/main/res/layout/layout_main_topbar.xml": "cb2f79738ff8c91f02bae79eda8299fc55ab752d17c526df0c69ec0ba4c708b9",
+    "app/src/main/res/values/m9_overlay.xml": "7f13caa00849a52e3ea31e54d59ef87290919b74345973aa3d55443d91baee0b",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java": "f45d8fc4d431d2659b27b0787a1baeaa0027d44c18d20777fc58ebb50b893290"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "028f68e893155bbea09024cebfe5f6f2255511fda5e9bf0c5949e488d57b4bb3",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "ca0b2366d529bc622a44fb7bd1d04fda8552853ebd511c633e404725900baff8",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java": "830b67186626c24d660d39fdbcc64b7c4459bb484bf692f9afce1b356ce6adc5",
+    "app/src/main/res/drawable/m9_overlay_moon.xml": "dcc6332603faaa39ae4acce914c199c5c63b3cd3f068b837b7c9df3c9e4e4d45",
+    "app/src/main/res/layout/layout_m9_overlay_controls.xml": "aa12552c220d525737d43d07d936f1ea00de9619dad6d19037031cc6549b049d",
+    "app/src/main/res/layout/layout_main_topbar.xml": "ddc245751c1b0970ca76b7c1cbd2e11a04626a523d488f4291cdd76b74ff504c",
+    "app/src/main/res/values/m9_overlay.xml": "60e74ab4eb2d889fc696ac5bb58e6cd60ac2915db12fe697957659c876867e72",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java": "7690d1d861a1408a05352a040502ea3d7430f2b067694ee250de9cc7632737a7"
+  },
+  "newFiles": [
+    "app/src/main/res/drawable/m9_overlay_moon.xml"
+  ],
+  "patchSha256": "f57f7cad0005e124e03ba179b42a9c66273f2cfe0645c0f92059594a8e57ca40"
+}

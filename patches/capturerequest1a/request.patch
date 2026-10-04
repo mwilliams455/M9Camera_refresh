@@ -1,0 +1,560 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27219
++        versionCode 27220
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.19-m9dngrawpair1a'
++        versionName '2.20-m9capturerequest1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.19_DNGRAWPAIR1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.20_CAPTUREREQUEST1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -147,6 +147,8 @@
+ import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+ import static android.hardware.camera2.CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON;
+ import static android.hardware.camera2.CameraMetadata.FLASH_MODE_TORCH;
++import com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestAudit1A;
++
+ import static android.hardware.camera2.CaptureRequest.COLOR_CORRECTION_MODE;
+ import static android.hardware.camera2.CaptureRequest.CONTROL_AE_MODE;
+ import static android.hardware.camera2.CaptureRequest.CONTROL_AE_REGIONS;
+@@ -3060,6 +3062,11 @@
+             }
+ 
+             CaptureRequest sessionParams = buildSessionParams();
++            final int m9AuditSessionType = resolveVideoSessionType();
++            final int m9AuditOutputCount = outputConfigurations.size();
++            final String m9AuditStreamId = streamPhysicalId;
++            final String[] m9AuditSessionSubmission = {sessionParams == null
++                    ? "no_session_parameters" : "not_submitted"};
+ 
+             CameraCaptureSession.StateCallback stateCallback =
+                     new CameraCaptureSession.StateCallback() {
+@@ -3072,6 +3079,11 @@
+                     }
+                     // When the session is ready, we start displaying the preview.
+                     mCaptureSession = cameraCaptureSession;
++                    if (M9Config.isCaptureTest() && !mIsRecordingVideo) {
++                        M9CaptureRequestAudit1A.configured(cameraCaptureSession, sessionParams,
++                                m9AuditStreamId, m9AuditSessionType, m9AuditOutputCount,
++                                m9AuditSessionSubmission[0]);
++                    }
+                     try {
+                         // Auto focus should be continuous for camera preview.
+                         //mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+@@ -3171,7 +3183,7 @@
+             };
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                 SessionConfiguration configuration = new SessionConfiguration(
+-                        resolveVideoSessionType(),
++                        m9AuditSessionType,
+                         outputConfigurations,
+                         processExecutor,
+                         stateCallback
+@@ -3179,12 +3191,15 @@
+                 if (sessionParams != null) {
+                     try {
+                         configuration.setSessionParameters(sessionParams);
++                        m9AuditSessionSubmission[0] = "setSessionParameters_accepted";
+                     } catch (Exception e) {
++                        m9AuditSessionSubmission[0] = "setSessionParameters_rejected";
+                         Log.w(TAG, "setSessionParameters failed, continuing without", e);
+                     }
+                 }
+                 mCameraDevice.createCaptureSession(configuration);
+             } else {
++                m9AuditSessionSubmission[0] = "legacy_session_API_no_parameters";
+                 mCameraDevice.createCaptureSession(surfaces, stateCallback, mBackgroundHandler);
+             }
+         } catch (Exception e) {
+@@ -4708,7 +4723,22 @@
+             } else {
+                 applyAeMeteringRegions(captureBuilder);
+             }
+-            VendorTagUtils.builderSessionApply(captureBuilder, true, useMaximumResolutionKey, physicalID);
++            // M9CAPTUREREQUEST1A: latch the A/B policy once per shutter. The helper's
++            // burst flag controls only its three automatic remosaic assignments.
++            final boolean m9AuditEligible = M9Config.isCaptureTest()
++                    && PhotonCamera.getSettings().selectedMode != CameraMode.RAWVIDEO
++                    && PhotonCamera.getSettings().selectedMode != CameraMode.UNLIMITED;
++            final M9CaptureRequestAudit1A.Start m9CaptureAudit = m9AuditEligible
++                    ? M9CaptureRequestAudit1A.begin(captureBuilder, mCameraCharacteristics,
++                        physicalID, PhotonCamera.getSettings().mCameraID,
++                        mImageReaderRaw.getWidth(), mImageReaderRaw.getHeight(),
++                        isDualSession, useMaximumResolutionKey,
++                        isDualSession && mTargetFormat == mPreviewTargetFormat ? "analysis" : "raw")
++                    : null;
++            VendorTagUtils.builderSessionApply(captureBuilder,
++                    m9CaptureAudit == null || !m9CaptureAudit.omitRemosaic,
++                    useMaximumResolutionKey, physicalID);
++            M9CaptureRequestAudit1A.afterVendor(m9CaptureAudit, captureBuilder);
+             applyIszIfActive(captureBuilder, physicalID);
+             try {
+                 captureBuilder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE, CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
+@@ -4846,6 +4876,7 @@
+ 
+                     int frameCount = (int) (result.getFrameNumber() - baseFrameNumber[0]);
+                     Log.v("BurstCounter", "CaptureCompleted! FrameCount:" + frameCount);
++                    M9CaptureRequestAudit1A.completed(m9CaptureAudit, session, request, result);
+                     // M9LIVEGL1P_LIVEPAIRDIAG1A: one asynchronous sidecar per shutter.
+                     if (m9LivePairWritten1P.compareAndSet(false, true)) {
+                         com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.completed(
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureAuditStore.java
+@@ -0,0 +1,31 @@
++package com.particlesdevs.photoncamera.m9.capture;
++
++import java.util.LinkedHashMap;
++
++/** Bounded immutable metadata only; ambiguity must never attach another capture's policy. */
++public final class M9CaptureAuditStore {
++    private static final String DUPLICATE = "{\"status\":\"ambiguous_duplicate_timestamp\"}";
++    private final int capacity;
++    private final int maxChars;
++    private final LinkedHashMap<Long, String> records = new LinkedHashMap<>();
++
++    public M9CaptureAuditStore(int capacity, int maxChars) {
++        if (capacity < 1 || maxChars < DUPLICATE.length()) throw new IllegalArgumentException();
++        this.capacity = capacity;
++        this.maxChars = maxChars;
++    }
++
++    public synchronized void put(long timestamp, String json) {
++        if (timestamp <= 0) return;
++        if (records.containsKey(timestamp)) records.put(timestamp, DUPLICATE);
++        else if (json != null && json.length() <= maxChars) records.put(timestamp, json);
++        while (records.size() > capacity) records.remove(records.keySet().iterator().next());
++    }
++
++    public synchronized String take(long imageTimestamp, long resultTimestamp) {
++        if (imageTimestamp <= 0 || imageTimestamp != resultTimestamp) return null;
++        return records.remove(imageTimestamp);
++    }
++
++    synchronized int size() { return records.size(); }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestAudit1A.java
+@@ -0,0 +1,318 @@
++package com.particlesdevs.photoncamera.m9.capture;
++
++import android.hardware.camera2.CameraCaptureSession;
++import android.hardware.camera2.CameraCharacteristics;
++import android.hardware.camera2.CaptureRequest;
++import android.hardware.camera2.CaptureResult;
++import android.hardware.camera2.TotalCaptureResult;
++import android.hardware.camera2.params.ColorSpaceTransform;
++import android.hardware.camera2.params.RggbChannelVector;
++import android.os.Build;
++import android.util.Rational;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.api.VendorTagUtils;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import com.particlesdevs.photoncamera.settings.TunableKeyManager;
++import java.lang.reflect.Array;
++import java.util.*;
++import org.json.JSONArray;
++import org.json.JSONObject;
++
++/** Per-frame request evidence; never processes pixels or claims HAL action from a request value. */
++public final class M9CaptureRequestAudit1A {
++    public static final String REVISION = "M9CAPTUREREQUEST1A";
++    public static final String OMIT_KEY = "pref_m9_omit_auto_remosaic";
++    private static final M9CaptureAuditStore FRAMES = new M9CaptureAuditStore(16, 196608);
++    private static final Map<CameraCaptureSession, String> SESSIONS =
++            Collections.synchronizedMap(new WeakHashMap<>());
++    private static final String[] VENDOR = {
++        "com.xiaomi.sessionparams.clientName", "xiaomi.remosaic.enabled",
++        "xiaomi.quadcfa.enabled", "com.mediatek.control.capture.remosaicenable"};
++    private static final String[] STANDARD = {
++        "android.control.mode", "android.control.captureIntent", "android.control.sceneMode",
++        "android.control.effectMode", "android.control.aeMode", "android.control.aeLock",
++        "android.control.aeState", "android.control.aeExposureCompensation",
++        "android.control.aeTargetFpsRange", "android.control.aeAntibandingMode",
++        "android.control.awbMode", "android.control.awbState", "android.control.awbLock",
++        "android.control.afMode", "android.control.afState", "android.control.afTrigger",
++        "android.control.enableZsl", "android.control.postRawSensitivityBoost",
++        "android.control.videoStabilizationMode", "android.control.zoomRatio",
++        "android.sensor.timestamp", "android.sensor.sensitivity", "android.sensor.exposureTime",
++        "android.sensor.frameDuration", "android.sensor.pixelMode", "android.sensor.testPatternMode",
++        "android.sensor.dynamicBlackLevel", "android.sensor.dynamicWhiteLevel",
++        "android.sensor.neutralColorPoint", "android.blackLevel.lock",
++        "android.hotPixel.mode", "android.noiseReduction.mode", "android.edge.mode",
++        "android.shading.mode", "android.statistics.lensShadingMapMode",
++        "android.statistics.hotPixelMapMode", "android.colorCorrection.mode",
++        "android.colorCorrection.aberrationMode", "android.colorCorrection.gains",
++        "android.colorCorrection.transform", "android.distortionCorrection.mode",
++        "android.tonemap.mode", "android.lens.focusDistance", "android.lens.state",
++        "android.lens.aperture", "android.lens.focalLength", "android.lens.opticalStabilizationMode",
++        "android.scaler.cropRegion", "android.flash.mode"};
++    private static final Set<String> CHARACTERISTICS = new HashSet<>(Arrays.asList(
++        "android.request.availableCapabilities", "android.info.supportedHardwareLevel",
++        "android.sensor.info.colorFilterArrangement", "android.sensor.info.pixelArraySize",
++        "android.sensor.info.activeArraySize", "android.sensor.info.preCorrectionActiveArraySize",
++        "android.sensor.info.whiteLevel", "android.sensor.blackLevelPattern",
++        "android.sensor.info.lensShadingApplied", "android.sensor.info.binningFactor",
++        "android.noiseReduction.availableNoiseReductionModes", "android.edge.availableEdgeModes",
++        "android.shading.availableModes", "android.hotPixel.availableHotPixelModes",
++        "android.colorCorrection.availableAberrationModes", "android.distortionCorrection.availableModes",
++        "android.lens.info.availableOpticalStabilization", "android.lens.info.minimumFocusDistance"));
++
++    private M9CaptureRequestAudit1A() {}
++
++    static boolean omitEnabled(SettingsManager settings) {
++        if (settings == null) return false;
++        try { return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, OMIT_KEY, false); }
++        catch (RuntimeException malformed) { return false; }
++    }
++
++    public static final class Start {
++        public final boolean omitRemosaic;
++        final String physicalId;
++        final String cameraId;
++        final String header;
++        volatile String afterVendor;
++        final Set<String> names;
++        Start(boolean omit, String physicalId, String cameraId, String header,
++              Set<String> names) {
++            this.omitRemosaic = omit; this.physicalId = physicalId; this.cameraId = cameraId;
++            this.header = header; this.names = names;
++        }
++    }
++
++    public static Start begin(CaptureRequest.Builder builder, CameraCharacteristics chars,
++            String physicalId, String cameraId, int width, int height,
++            boolean dualSession, boolean maximumResolution, String declaredTargets) {
++        boolean omit = omitEnabled(PhotonCamera.getSettingsManagerStatic());
++        Set<String> names = names();
++        String header;
++        try {
++            JSONObject d = new JSONObject();
++            d.put("revision", REVISION);
++            d.put("policy", omit ? "B_omit_automatic_remosaic" : "A_existing_automatic_remosaic");
++            d.put("omitAutomaticRemosaic", omit);
++            d.put("policyLatchedBeforeVendorHelper", true);
++            d.put("headerComplete", true);
++            d.put("physicalIdAtRequestConstruction", physicalId);
++            d.put("cameraIdAtRequestConstruction", cameraId);
++            d.put("rawWidth", width); d.put("rawHeight", height);
++            d.put("dualSession", dualSession);
++            d.put("appDeclaredStillTargets", declaredTargets);
++            d.put("targetEvidence", "CaptureController_addTarget_branch_not_HAL_verification");
++            d.put("maximumResolutionFlag", maximumResolution);
++            d.put("tunableConfigurationAtShutter", tunables(physicalId, names));
++            d.put("beforeAutomaticVendorHelper", builder(builder, names, physicalId));
++            d.put("characteristics", characteristics(chars));
++            d.put("availableRequestKeyNames", keyNames(chars == null ? null : chars.getAvailableCaptureRequestKeys()));
++            d.put("availableSessionKeyNames", Build.VERSION.SDK_INT >= 28 && chars != null
++                    ? keyNames(chars.getAvailableSessionKeys()) : JSONObject.NULL);
++            d.put("scope", "Request values establish submission only; result values establish reporting, not independent HAL processing proof");
++            d.put("experimentScope", "Only automatic vendor remosaic assignments omitted in B; template defaults, clientName, pixel mode and custom tunables retained");
++            header = d.toString();
++        } catch (Throwable error) { header = error("begin", error).toString(); }
++        return new Start(omit, physicalId, cameraId, header, names);
++    }
++
++    public static void afterVendor(Start start, CaptureRequest.Builder builder) {
++        if (start == null) return;
++        try { start.afterVendor = builder(builder, start.names, start.physicalId).toString(); }
++        catch (Throwable e) { start.afterVendor = error("afterVendor", e).toString(); }
++    }
++
++    public static void configured(CameraCaptureSession session, CaptureRequest params,
++                                  String physicalId, int sessionType, int outputCount,
++                                  String parameterSubmissionState) {
++        try {
++            JSONObject d = new JSONObject();
++            Set<String> names = names();
++            d.put("configurationState", "onConfigured");
++            d.put("sessionType", sessionType); d.put("outputCount", outputCount);
++            d.put("physicalStreamId", physicalId);
++            d.put("parameterSubmissionState", parameterSubmissionState);
++            d.put("tunableConfigurationAtConfigure", tunables(physicalId, names));
++            d.put("sessionParametersProvided", params != null);
++            d.put("sessionParameterValues", params == null ? JSONObject.NULL : request(params, names, physicalId));
++            SESSIONS.put(session, d.toString());
++        } catch (Throwable ignored) { /* Missing evidence is reported with the capture. */ }
++    }
++
++    public static void completed(Start start, CameraCaptureSession session,
++                                 CaptureRequest request, TotalCaptureResult result) {
++        if (start == null || result == null) return;
++        try {
++            Long timestamp = result.get(CaptureResult.SENSOR_TIMESTAMP);
++            if (timestamp == null || timestamp <= 0) return;
++            JSONObject d = new JSONObject(start.header);
++            if (!d.has("headerComplete")) d.put("headerComplete", false);
++            d.put("revision", REVISION);
++            d.put("policy", start.omitRemosaic ? "B_omit_automatic_remosaic" : "A_existing_automatic_remosaic");
++            d.put("omitAutomaticRemosaic", start.omitRemosaic);
++            d.put("status", "completed_request_and_result_recorded");
++            d.put("sensorTimestampNs", timestamp); d.put("frameNumber", result.getFrameNumber());
++            d.put("request", request(request, start.names, start.physicalId));
++            d.put("afterAutomaticVendorHelperBeforeExposureAssignment", start.afterVendor == null
++                    ? JSONObject.NULL : new JSONObject(start.afterVendor));
++            d.put("result", result(result, start.names));
++            String configured = SESSIONS.get(session);
++            d.put("configuredSession", configured == null ? JSONObject.NULL : new JSONObject(configured));
++            if (Build.VERSION.SDK_INT >= 28) {
++                JSONObject physical = new JSONObject();
++                for (Map.Entry<String, CaptureResult> entry : result.getPhysicalCameraResults().entrySet())
++                    physical.put(entry.getKey(), result(entry.getValue(), start.names));
++                d.put("physicalResults", physical);
++            }
++            FRAMES.put(timestamp, d.toString());
++        } catch (Throwable ignored) { /* Never reject a photo for a diagnostic failure. */ }
++    }
++
++    public static JSONObject take(long imageTimestamp, CaptureResult result) {
++        try {
++            Long timestamp = result == null ? null : result.get(CaptureResult.SENSOR_TIMESTAMP);
++            String json = FRAMES.take(imageTimestamp, timestamp == null ? -1 : timestamp);
++            JSONObject d = json == null ? new JSONObject() : new JSONObject(json);
++            d.put("revision", REVISION); d.put("rawImageTimestampNs", imageTimestamp);
++            d.put("renderResultTimestampNs", timestamp == null ? JSONObject.NULL : timestamp);
++            d.put("rawResultTimestampMatch", timestamp != null && timestamp == imageTimestamp);
++            if (json == null) d.put("status", "missing_or_timestamp_mismatch_no_policy_inferred");
++            return d;
++        } catch (Throwable e) { return error("take", e); }
++    }
++
++    private static Set<String> names() {
++        Set<String> result = new TreeSet<>(Arrays.asList(STANDARD));
++        result.addAll(Arrays.asList(VENDOR)); return result;
++    }
++
++    private static JSONArray tunables(String id, Set<String> names) throws Exception {
++        JSONArray a = new JSONArray();
++        SettingsManager settings = PhotonCamera.getSettingsManagerStatic();
++        if (settings == null) return a;
++        List<VendorTagUtils.TunableKey> keys = TunableKeyManager.loadKeys(settings.getContext(), id);
++        int count = 0;
++        for (VendorTagUtils.TunableKey k : keys) {
++            if (k == null || ++count > 64) continue;
++            JSONObject v = new JSONObject();
++            v.put("name", k.name); v.put("type", k.type); v.put("valueType", k.valueType);
++            v.put("configuredValue", bounded(k.value)); v.put("init", k.init);
++            v.put("lastStoredTested", k.tested); v.put("lastStoredSupported", k.supported);
++            v.put("storedStatusIsCurrentCaptureProof", false); a.put(v);
++            if (k.name != null && !k.name.startsWith("android.jpeg.gps")) names.add(k.name);
++        }
++        return a;
++    }
++
++    private static JSONObject request(CaptureRequest r, Set<String> names, String physical) throws Exception {
++        JSONObject global = new JSONObject(), out = new JSONObject();
++        Map<String, CaptureRequest.Key<?>> keys = new HashMap<>();
++        for (CaptureRequest.Key<?> key : r.getKeys()) keys.put(key.getName(), key);
++        // Explicitly probe known vendor keys; getKeys may omit null/default values.
++        keys.putIfAbsent(VENDOR[0], new CaptureRequest.Key<>(VENDOR[0], String.class));
++        keys.putIfAbsent(VENDOR[1], new CaptureRequest.Key<>(VENDOR[1], Byte.class));
++        keys.putIfAbsent(VENDOR[2], new CaptureRequest.Key<>(VENDOR[2], Byte.class));
++        keys.putIfAbsent(VENDOR[3], new CaptureRequest.Key<>(VENDOR[3], int[].class));
++        for (String name : names) {
++            CaptureRequest.Key<?> key = keys.get(name);
++            if (key == null) { global.put(name, state("not_listed")); continue; }
++            try { global.put(name, value(r.get(key))); }
++            catch (Throwable e) { global.put(name, error("read", e)); }
++        }
++        out.put("global", global);
++        out.put("physicalMemberReadScope", "public_immutable_request_API_unavailable_see_builder_snapshot");
++        out.put("physicalId", physical); return out;
++    }
++
++    private static JSONObject builder(CaptureRequest.Builder b, Set<String> names, String physical) throws Exception {
++        CaptureRequest r = b.build();
++        JSONObject out = request(r, names, physical), member = new JSONObject();
++        if (Build.VERSION.SDK_INT >= 28 && physical != null) {
++            Map<String, CaptureRequest.Key<?>> keys = new HashMap<>();
++            for (CaptureRequest.Key<?> k : r.getKeys()) keys.put(k.getName(), k);
++            keys.putIfAbsent(VENDOR[0], new CaptureRequest.Key<>(VENDOR[0], String.class));
++            keys.putIfAbsent(VENDOR[1], new CaptureRequest.Key<>(VENDOR[1], Byte.class));
++            keys.putIfAbsent(VENDOR[2], new CaptureRequest.Key<>(VENDOR[2], Byte.class));
++            keys.putIfAbsent(VENDOR[3], new CaptureRequest.Key<>(VENDOR[3], int[].class));
++            for (String name : names) {
++                CaptureRequest.Key<?> k = keys.get(name);
++                if (k == null) { member.put(name, state("not_listed")); continue; }
++                try { member.put(name, value(b.getPhysicalCameraKey(k, physical))); }
++                catch (Throwable e) { member.put(name, error("physical_read", e)); }
++            }
++        }
++        out.put("physicalMember", member);
++        out.put("physicalMemberReadScope", "public_Builder_getPhysicalCameraKey");
++        return out;
++    }
++
++    private static JSONObject result(CaptureResult r, Set<String> names) throws Exception {
++        JSONObject out = new JSONObject();
++        Map<String, CaptureResult.Key<?>> keys = new HashMap<>();
++        for (CaptureResult.Key<?> key : r.getKeys()) keys.put(key.getName(), key);
++        for (String name : names) {
++            CaptureResult.Key<?> key = keys.get(name);
++            if (key == null) { out.put(name, state("not_listed")); continue; }
++            try { out.put(name, value(r.get(key))); }
++            catch (Throwable e) { out.put(name, error("read", e)); }
++        }
++        if (Build.VERSION.SDK_INT >= 31) out.put("cameraId", r.getCameraId());
++        return out;
++    }
++
++    private static JSONObject characteristics(CameraCharacteristics chars) throws Exception {
++        JSONObject out = new JSONObject();
++        if (chars == null) return out;
++        for (CameraCharacteristics.Key<?> key : chars.getKeys()) {
++            if (!CHARACTERISTICS.contains(key.getName())) continue;
++            try { out.put(key.getName(), value(chars.get(key))); }
++            catch (Throwable e) { out.put(key.getName(), error("read", e)); }
++        }
++        return out;
++    }
++
++    private static JSONArray keyNames(List<CaptureRequest.Key<?>> keys) {
++        JSONArray a = new JSONArray();
++        if (keys != null) for (CaptureRequest.Key<?> k : keys) a.put(k.getName());
++        return a;
++    }
++
++    private static JSONObject value(Object v) throws Exception {
++        JSONObject d = state(v == null ? "null" : "present");
++        d.put("value", encode(v)); return d;
++    }
++
++    private static Object encode(Object v) throws Exception {
++        if (v == null) return JSONObject.NULL;
++        if (v instanceof Rational) {
++            Rational r = (Rational)v;
++            return new JSONArray().put(r.getNumerator()).put(r.getDenominator());
++        }
++        if (v instanceof Number || v instanceof Boolean) return v;
++        if (v instanceof RggbChannelVector) {
++            RggbChannelVector g = (RggbChannelVector)v;
++            return new JSONArray().put(g.getRed()).put(g.getGreenEven()).put(g.getGreenOdd()).put(g.getBlue());
++        }
++        if (v instanceof ColorSpaceTransform) {
++            ColorSpaceTransform m = (ColorSpaceTransform)v; JSONArray a = new JSONArray();
++            for (int row=0; row<3; row++) for (int col=0; col<3; col++) a.put(encode(m.getElement(col,row)));
++            return a;
++        }
++        if (v.getClass().isArray()) {
++            int n = Array.getLength(v); JSONArray a = new JSONArray();
++            for (int i=0; i<Math.min(n,64); i++) a.put(encode(Array.get(v,i)));
++            if (n>64) return new JSONObject().put("prefix", a).put("totalLength", n).put("truncated", true);
++            return a;
++        }
++        return bounded(String.valueOf(v));
++    }
++
++    private static String bounded(String s) { return s == null || s.length()<=1024 ? s : s.substring(0,1024)+"[truncated]"; }
++    private static JSONObject state(String s) {
++        JSONObject d = new JSONObject(); try { d.put("status", s); } catch (Exception ignored) {} return d;
++    }
++    private static JSONObject error(String at, Throwable e) {
++        JSONObject d = state("error");
++        try { d.put("at", at); d.put("errorType", e.getClass().getSimpleName()); } catch (Exception ignored) {}
++        return d;
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -214,6 +214,9 @@
+             throw new IllegalArgumentException("missing Photon-owned RAW frame");
+         }
+ 
++        final org.json.JSONObject m9CaptureAudit =
++                com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestAudit1A.take(
++                        ownedFrame.timestamp, captureResult);
+         final long enqueueStartedNs = System.nanoTime();
+         final QueueTelemetry queueTelemetry = new QueueTelemetry(
+                 EXECUTOR.getQueue().size(),
+@@ -243,6 +246,10 @@
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+                         dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
++                if (renderResult != null && renderResult.diagnostics != null) {
++                    try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
++                    catch (org.json.JSONException ignored) { }
++                }
+ 
+                 final Path jpegPath = renderResult != null ? renderResult.jpegPath : null;
+                 final boolean jpegPayloadSaved = renderResult != null && renderResult.success && jpegPath != null;
+--- a/app/src/main/res/values/m9_diagnostics.xml
++++ b/app/src/main/res/values/m9_diagnostics.xml
+@@ -2,4 +2,6 @@
+ <resources>
+     <string name="m9_full_frame_sat_audit_title">Extended M9 colour diagnostics</string>
+     <string name="m9_full_frame_sat_audit_summary">Collect detailed colour measurements for troubleshooting. Adds several seconds per photo; image quality is unchanged. Leave off for normal shooting.</string>
++    <string name="m9_capture_test_title">RAW capture comparison B</string>
++    <string name="m9_capture_test_summary">Off: existing capture (A). On: omit automatic remosaic requests (B). For the fringe comparison; leave off for normal shooting. Each photo records its setting.</string>
+ </resources>
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -630,6 +630,13 @@
+             android:layout="@layout/preference_category_layout"
+             android:key="@string/pref_category_advanced_key"
+             android:title="@string/advanced">
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++                android:key="pref_m9_omit_auto_remosaic"
++                android:defaultValue="false"
++                android:layout="@layout/preference_with_margin"
++                android:title="@string/m9_capture_test_title"
++                android:summary="@string/m9_capture_test_summary"
++                android:icon="@drawable/ic_developer" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+                 android:key="pref_m9_full_frame_sat_audit"
+                 android:defaultValue="false"
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestPolicyTest.java
+@@ -0,0 +1,35 @@
++package com.particlesdevs.photoncamera.m9.capture;
++
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import org.junit.Test;
++import org.mockito.MockMakers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9CaptureRequestPolicyTest {
++    private SettingsManager settings() {
++        return mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++    }
++    @Test public void defaultAndUnavailableSettingsPreserveExistingPolicy() {
++        assertFalse(M9CaptureRequestAudit1A.omitEnabled(null));
++        SettingsManager s = settings();
++        assertFalse(M9CaptureRequestAudit1A.omitEnabled(s));
++        verify(s).getBoolean(SettingsManager.SCOPE_GLOBAL, M9CaptureRequestAudit1A.OMIT_KEY, false);
++    }
++    @Test public void selectionChangesOnlyOnNextRead() {
++        SettingsManager s = settings();
++        when(s.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CaptureRequestAudit1A.OMIT_KEY, false))
++                .thenReturn(false, true, false);
++        boolean a = M9CaptureRequestAudit1A.omitEnabled(s);
++        boolean b = M9CaptureRequestAudit1A.omitEnabled(s);
++        assertFalse(a); assertTrue(b);
++        assertFalse(M9CaptureRequestAudit1A.omitEnabled(s));
++        assertTrue(b);
++    }
++    @Test public void corruptPreferenceFallsBackToExistingPolicy() {
++        SettingsManager s = settings();
++        when(s.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CaptureRequestAudit1A.OMIT_KEY, false))
++                .thenThrow(new NumberFormatException());
++        assertFalse(M9CaptureRequestAudit1A.omitEnabled(s));
++    }
++}

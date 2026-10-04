@@ -1,0 +1,142 @@
+name: M9 Sharpness RBCLOSURE1A Forensics
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-rbclosure1a-forensics]
+    paths:
+      - '.github/workflows/m9-sharpness-rbclosure1a-forensics.yml'
+      - 'tools/m9_bf561_rb_semantics.py'
+      - 'tools/m9_bf561_sharp_rb_alias.py'
+      - 'tools/m9_bf561_sharp_dataflow.py'
+
+permissions:
+  contents: read
+
+jobs:
+  rbclosure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Recover canonical M9 BF561 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbclosure1a"
+          mkdir -p "$ROOT/evidence"
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$ROOT/m9.dec" --out "$ROOT/pass"
+          python3 - <<'PY'
+          import json, os, pathlib, shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbclosure1a'
+          d=json.load(open(root/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              det=x.get('detail',{}) if isinstance(x.get('detail'),dict) else {}
+              t=det.get('targets',{}) if isinstance(det,dict) else {}
+              score=sum(k in t for k in ('Run','Process_Sharpness','Process_Noise','Process_WB'))
+              if x.get('covered',0)>0 and 'error' not in det: cand.append((score,x.get('covered',0),i))
+          if not cand: raise SystemExit('no coherent BF561 pair')
+          cand.sort(reverse=True); pair=cand[0][2]
+          pdir=root/'pass'/f'bf561_pair_{pair:02d}'
+          shutil.copy2(next(pdir.rglob('bf0.bin')), root/'bf0.bin')
+          shutil.copy2(next(pdir.rglob('bf0.map')), root/'bf0.map')
+          (root/'evidence'/'selected_pair.json').write_text(json.dumps({'pair':pair},indent=2)+'\n')
+          PY
+
+      - name: Extract and disassemble exact stage functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbclosure1a"
+          python3 tools/m9_bf561_sharp_dataflow.py --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" --out "$ROOT/evidence/functions"
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbclosure1a'
+          man=json.load(open(root/'evidence/functions/manifest.json'))
+          out=root/'evidence/disassembly'; out.mkdir(parents=True,exist_ok=True)
+          for e in man['targets']:
+              src=root/'evidence/functions'/e['file']
+              dst=out/(src.stem+'.gnu.dis.txt')
+              r=subprocess.run([os.environ['OBJDUMP'],'-D','-b','binary','-m','bfin',f"--adjust-vma={e['address']}",str(src)],text=True,capture_output=True,check=True)
+              dst.write_text(r.stdout)
+          PY
+
+      - name: Run existing BF561 semantic proofs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbclosure1a"
+          python3 tools/m9_bf561_sharp_rb_alias.py --disassembly "$ROOT/evidence/disassembly" --out "$ROOT/evidence/sharp_rb_alias.json" | tee "$ROOT/evidence/sharp_rb_alias.stdout.txt"
+          python3 tools/m9_bf561_rb_semantics.py --disassembly "$ROOT/evidence/disassembly" --out "$ROOT/evidence/rb_semantics.json" | tee "$ROOT/evidence/rb_semantics.stdout.txt"
+
+      - name: Build full R/B lane trace package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/rbclosure1a"
+          python3 - <<'PY'
+          import os,pathlib,re,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'rbclosure1a'
+          d=root/'evidence'/'disassembly'
+          picks={}
+          for p in sorted(d.glob('*.gnu.dis.txt')):
+              if any(k in p.name for k in ('ASMRedBlueAndGreenDiffer_','ASMRedBlueInterpolation1_','Run_')):
+                  picks[p.name]=p.read_text(errors='replace')
+          out=root/'evidence'/'rbclosure1a_full_trace.txt'
+          with out.open('w') as f:
+              for n,t in picks.items():
+                  f.write('\n===== '+n+' =====\n'+t+'\n')
+          # Produce a compact machine-readable memory/access trace for every instruction
+          # touching pointer/index registers or 16-bit words in the two core functions.
+          report={}
+          for n,t in picks.items():
+              if not n.startswith(('ASMRedBlueAndGreenDiffer_','ASMRedBlueInterpolation1_')): continue
+              rows=[]
+              for ln in t.splitlines():
+                  if re.search(r'\b(?:R[0-7]|P[0-5]|I[0-3]|M[0-3]|B[0-3]|L[0-3])\b|W\[|\[P|\[I|\+\|\+|MIN|MAX|ABS|>>>|<<',ln): rows.append(ln.strip())
+              report[n]=rows
+          (root/'evidence'/'rbclosure1a_access_trace.json').write_text(json.dumps(report,indent=2)+'\n')
+          PY
+          sha256sum "$ROOT/evidence"/* 2>/dev/null | tee "$ROOT/evidence/SHA256SUMS.txt" || true
+
+      - name: Publish RBCLOSURE1A evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-RBCLOSURE1A-FORENSICS
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/rbclosure1a/recovery_meta.json
+            ${{ runner.temp }}/rbclosure1a/evidence/**/*.json
+            ${{ runner.temp }}/rbclosure1a/evidence/**/*.txt
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/rbclosure1a/pass" "$RUNNER_TEMP/rbclosure1a/m9.upd" "$RUNNER_TEMP/rbclosure1a/mm.upm" "$RUNNER_TEMP/rbclosure1a/m9.dec" "$RUNNER_TEMP/rbclosure1a/bf0.bin" "$RUNNER_TEMP/rbclosure1a/bf0.map" "$RUNNER_TEMP/rbclosure1a/evidence/functions"

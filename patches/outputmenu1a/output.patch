@@ -1,0 +1,565 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27222
++        versionCode 27223
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.22-m9saturationmenu1a'
++        versionName '2.23-m9outputmenu1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.22_SATURATIONMENU1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.23_OUTPUTMENU1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DeferredMetadataStore.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DeferredMetadataStore.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DeferredMetadataStore.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DeferredMetadataStore.java
+@@ -33,8 +33,8 @@
+     public static boolean stage(Path jsonPath, byte[] bytes) {
+         if (jsonPath == null || bytes == null) return false;
+         final String key = jsonPath.toString();
+-        final byte[] persistedCopy = bytes.clone();
+-        STAGED.put(key, persistedCopy);
++        if (M9OutputSettings.diagnosticsEnabled()) STAGED.put(key, bytes.clone());
++        else STAGED.remove(key);
+         synchronized (RENDER_SNAPSHOT_LOCK) {
+             RENDER_SNAPSHOTS.put(key, bytes.clone());
+             while (RENDER_SNAPSHOTS.size() > MAX_RENDER_SNAPSHOTS) {
+@@ -69,6 +69,7 @@
+         if (jsonPath == null) return false;
+         final String key = jsonPath.toString();
+         final byte[] bytes = STAGED.remove(key);
++        if (!M9OutputSettings.diagnosticsEnabled()) return false;
+         if (bytes == null) {
+             Log.w(TAG, "No staged metadata for " + jsonPath);
+             return false;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
+@@ -114,6 +114,8 @@
+     private M9DiagnosticBurstSpool() {}
+ 
+     public static boolean stage(Path publicPath, byte[] bytes, String role) {
++        // A disabled optional write is handled, so callers must not try legacy fallback.
++        if (!M9OutputSettings.diagnosticsEnabled()) return true;
+         if (publicPath == null || bytes == null) return false;
+         final long startedNs = System.nanoTime();
+         try {
+@@ -164,9 +166,11 @@
+         }
+     }
+ 
++    public static void onDiagnosticPreferenceChanged() { setAppVisible(appVisible); }
++
+     public static void setAppVisible(boolean visible) {
+         appVisible = visible;
+-        if (!visible) {
++        if (!visible || !M9OutputSettings.diagnosticsEnabled()) {
+             synchronized (BUNDLE_LOCK) {
+                 if (scheduledBundle != null) scheduledBundle.cancel(false);
+             }
+@@ -176,11 +180,12 @@
+             return;
+         }
+         BUNDLE_EXECUTOR.execute(() -> {
++            if (!M9OutputSettings.diagnosticsEnabled()) return;
+             if (recovered.compareAndSet(false, true)) {
+                 purgeLegacyBacklogOnce();
+                 recoverPrivate();
+             }
+-            if (!appVisible) return;
++            if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return;
+             scheduleBundle();
+             int normalIndex = 0;
+             int recoveredPriorityIndex = 0;
+@@ -373,7 +378,7 @@
+     }
+ 
+     private static void scheduleBundle() {
+-        if (!appVisible) return;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return;
+         synchronized (BUNDLE_LOCK) {
+             if (scheduledBundle != null) scheduledBundle.cancel(false);
+             scheduledBundle = BUNDLE_EXECUTOR.schedule(
+@@ -386,7 +391,7 @@
+      * stage and is streamed later as the normal individual sidecar.
+      */
+     private static void flushBundle() {
+-        if (!appVisible) return;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return;
+         List<Entry> entries = new ArrayList<>(BUNDLE_PENDING.values());
+         if (entries.isEmpty()) return;
+         entries.sort(Comparator.comparingLong(e -> e.sequence));
+@@ -451,7 +456,7 @@
+     }
+ 
+     private static void exportIndividual(Entry entry, boolean freshPrimary, boolean recoveredPrimary) {
+-        if (!appVisible) return;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return;
+         String key = entry.publicPath.toString();
+         if (INDIVIDUAL_PENDING.get(key) != entry) return;
+         try {
+@@ -475,7 +480,7 @@
+     }
+ 
+     private static boolean writePublicBytes(Path path, byte[] bytes) {
+-        if (!appVisible) return false;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return false;
+         try {
+             OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(path.toString());
+             if (safOut != null) {
+@@ -488,7 +493,7 @@
+         } catch (Throwable safError) {
+             Log.w(TAG, "M9SPOOLSTREAM1A SAF manifest write failed, trying direct path: " + safError);
+         }
+-        if (!appVisible) return false;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return false;
+         try (OutputStream out = Files.newOutputStream(path)) {
+             out.write(bytes);
+             out.flush();
+@@ -500,7 +505,7 @@
+     }
+ 
+     private static boolean streamPublic(Path publicPath, Path privatePath) {
+-        if (!appVisible || !Files.isRegularFile(privatePath)) return false;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled() || !Files.isRegularFile(privatePath)) return false;
+         try {
+             OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(publicPath.toString());
+             if (safOut != null) {
+@@ -514,7 +519,7 @@
+         } catch (Throwable safError) {
+             Log.w(TAG, "M9SPOOLSTREAM1A SAF stream failed, trying direct path: " + safError);
+         }
+-        if (!appVisible) return false;
++        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return false;
+         try (InputStream in = Files.newInputStream(privatePath);
+              OutputStream out = Files.newOutputStream(publicPath)) {
+             copy(in, out);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java
+@@ -44,6 +44,10 @@
+     }
+ 
+     public static boolean persist(Path path, byte[] bytes, String role) {
++        if (!M9OutputSettings.diagnosticsEnabled()) {
++            PENDING.updateAndGet(value -> Math.max(0L, value - 1L));
++            return true; // handled without writing; no alternate transport needed
++        }
+         final long startedNs = System.nanoTime();
+         boolean success = false;
+         String mode = "none";
+@@ -60,6 +64,7 @@
+                 success = true;
+             } catch (Throwable direct) {
+                 directError = direct;
++                if (!M9OutputSettings.diagnosticsEnabled()) return true;
+                 OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(path.toString());
+                 if (safOut == null) throw direct;
+                 try (OutputStream out = safOut) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9OutputSettings.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9OutputSettings.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9OutputSettings.java
+@@ -0,0 +1,22 @@
++package com.particlesdevs.photoncamera.m9;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/** M9OUTPUTMENU1A: optional output only; never gates capture metadata or DNG look generation. */
++public final class M9OutputSettings {
++    public static final String UNFILTERED_DNG_KEY = "pref_m9_save_unfiltered_dng";
++    public static final String DIAGNOSTICS_KEY = "pref_m9_save_diagnostic_files";
++    private M9OutputSettings() {}
++    public static boolean saveUnfilteredDng() {
++        return enabled(PhotonCamera.getSettingsManagerStatic(), UNFILTERED_DNG_KEY);
++    }
++    public static boolean diagnosticsEnabled() {
++        return enabled(PhotonCamera.getSettingsManagerStatic(), DIAGNOSTICS_KEY);
++    }
++    static boolean enabled(SettingsManager settings, String key) {
++        if (settings == null) return false;
++        try { return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, key, false); }
++        catch (NumberFormatException | ClassCastException malformed) { return false; }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -1,4 +1,6 @@
+ package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.m9.M9OutputSettings;
+ 
+ import android.hardware.camera2.CameraCharacteristics;
+ import android.hardware.camera2.CaptureRequest;
+@@ -133,6 +135,7 @@
+         final CameraCharacteristics characteristics;
+         final CaptureResult captureResult;
+         final int cameraRotation;
++        final boolean saveUnfilteredDng;
+         final ProcessingEventsListener processingEventsListener;
+         final Path jpegPath;
+         final boolean jpegPayloadSaved;
+@@ -158,6 +161,7 @@
+                CameraCharacteristics characteristics,
+                CaptureResult captureResult,
+                int cameraRotation,
++               boolean saveUnfilteredDng,
+                ProcessingEventsListener processingEventsListener,
+                Path jpegPath,
+                boolean jpegPayloadSaved,
+@@ -179,6 +183,7 @@
+             this.characteristics = characteristics;
+             this.captureResult = captureResult;
+             this.cameraRotation = cameraRotation;
++            this.saveUnfilteredDng = saveUnfilteredDng;
+             this.processingEventsListener = processingEventsListener;
+             this.jpegPath = jpegPath;
+             this.jpegPayloadSaved = jpegPayloadSaved;
+@@ -219,6 +224,7 @@
+                         ownedFrame.timestamp, captureResult);
+         // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
+         final int saturationBank = M9SaturationSettings.selected();
++        final boolean saveUnfilteredDng = M9OutputSettings.saveUnfilteredDng();
+         final long enqueueStartedNs = System.nanoTime();
+         final QueueTelemetry queueTelemetry = new QueueTelemetry(
+                 EXECUTOR.getQueue().size(),
+@@ -281,6 +287,7 @@
+                         characteristics,
+                         captureResult,
+                         cameraRotation,
++                        saveUnfilteredDng,
+                         processingEventsListener,
+                         jpegPath,
+                         jpegPayloadSaved,
+@@ -463,7 +470,7 @@
+                     job.ownedFrame,
+                     job.characteristics,
+                     job.captureResult,
+-                    job.cameraRotation);
++                    job.cameraRotation, job.saveUnfilteredDng);
+             if (dngSaved) {
+                 dngProfileReport = com.particlesdevs.photoncamera.processing.M9DngProfileExport.embed(
+                         job.dngPath, job.rendererDiagnosticsJson, job.jpegPayloadSaved);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java
+@@ -1,4 +1,6 @@
+ package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.m9.M9OutputSettings;
+ 
+ import android.os.Process;
+ 
+@@ -79,7 +81,7 @@
+                                               JSONObject rendererDiagnostics,
+                                               String error,
+                                               String primaryTimingFreezeThread) {
+-        if (dngPath == null) return false;
++        if (dngPath == null || !M9OutputSettings.diagnosticsEnabled()) return false;
+         try {
+             FrozenTiming frozen = freezeInternal(
+                     dngPath,
+@@ -132,6 +134,7 @@
+                                           long queueFullCountAtEnqueue,
+                                           long enqueueWaitElapsedMs,
+                                           String error) {
++        if (!M9OutputSettings.diagnosticsEnabled()) return;
+         TIMING_WRITER.execute(() -> {
+             try {
+                 FrozenTiming frozen = freezeInternal(
+@@ -307,6 +310,7 @@
+     }
+ 
+     private static boolean persistFrozen(FrozenTiming frozen) {
++        if (!M9OutputSettings.diagnosticsEnabled()) return false;
+         if (frozen == null || frozen.timingPath == null || frozen.bytes == null) {
+             return false;
+         }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -1,4 +1,6 @@
+ package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.m9.M9OutputSettings;
+ 
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlanDiagnostics1A;
+@@ -913,7 +915,7 @@
+             pngPath = dngPath.resolveSibling(stem + "_M9_PARITY.png");
+ 
+             boolean pngSaved = true;
+-            if (SAVE_PARITY_PNG) pngSaved = savePng(pngPath, bitmap);
++            if (SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled()) pngSaved = savePng(pngPath, bitmap);
+ 
+             // PERF3F EXIFASYNC1A keeps the exact quality-95 Bitmap.compress + 64 KiB
+             // transport path on the render worker, but stops before EXIF rewrite/publication.
+@@ -953,7 +955,7 @@
+             diag.put("jpegQuality", JPEG_QUALITY);
+             diag.put("jpegPath", jpgPath.toString());
+             diag.put("parityPngEnabled", SAVE_PARITY_PNG);
+-            if (SAVE_PARITY_PNG) diag.put("parityPngPath", pngPath.toString());
++            if (SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled()) diag.put("parityPngPath", pngPath.toString());
+             diag.put("renderElapsedMs", elapsedMs);
+             diag.put("setupParametersElapsedMs", setupElapsedMs);
+             diag.put("renderCoreElapsedMs", renderCoreElapsedMs);
+@@ -991,7 +993,7 @@
+ 
+             // DEMOSAICMHCNEUTRAL1A-FROZEN1A: the historical same-RAW bank is dormant.
+             // It stays compiled for explicit forensic rollback, but normal capture must not emit it.
+-            if (primaryRoute && DEMOSAIC_DIAGNOSTIC_BANK_ENABLED) {
++            if (primaryRoute && DEMOSAIC_DIAGNOSTIC_BANK_ENABLED && M9OutputSettings.diagnosticsEnabled()) {
+                 JSONObject nativeAb1A = new JSONObject();
+                 try {
+                     nativeAb1A.put("schema", "m9cam.renderer.bridgeprobe.v1a.physical_source.fixedgain");
+@@ -1292,7 +1294,7 @@
+             // have frozen its own _M9.json queued record while this background job was running.
+             Log.d(TAG, "R3.8-H25/TG1 PRIMARY2.4 COLORNATIVE2A render complete in " + elapsedMs + " ms: " + jpgPath);
+             M9RenderCrash1D.stage("render_complete");
+-            return new Result(true, jpgPath, SAVE_PARITY_PNG ? pngPath : null, null, diag, exif);
++            return new Result(true, jpgPath, SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled() ? pngPath : null, null, diag, exif);
+         } catch (Throwable t) {
+             M9RenderCrash1D.failure(t);
+             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -1,4 +1,6 @@
+ package com.particlesdevs.photoncamera.processing;
++
++import com.particlesdevs.photoncamera.m9.M9OutputSettings;
+ 
+ import android.graphics.Bitmap;
+ import android.graphics.ImageFormat;
+@@ -321,7 +323,7 @@
+                                             CaptureResult captureResult,
+                                             int cameraRotation) {
+             return saveSingleRawInternal(dngFilePath, image, characteristics, captureResult,
+-                    cameraRotation, false);
++                    cameraRotation, false, false);
+         }
+ 
+         /**
+@@ -335,7 +337,14 @@
+                                                          CaptureResult captureResult,
+                                                          int cameraRotation) {
+             return saveSingleRawInternal(dngFilePath, image, characteristics, captureResult,
+-                    cameraRotation, true);
++                    cameraRotation, true, M9OutputSettings.saveUnfilteredDng());
++        }
++
++        public static boolean saveSingleRawM9PhysicalCfa(Path dngFilePath,
++                ImageFrame image, CameraCharacteristics characteristics,
++                CaptureResult captureResult, int cameraRotation, boolean saveUnfilteredDng) {
++            return saveSingleRawInternal(dngFilePath, image, characteristics, captureResult,
++                    cameraRotation, true, saveUnfilteredDng);
+         }
+ 
+         private static boolean saveSingleRawInternal(Path dngFilePath,
+@@ -343,7 +352,7 @@
+                                                      CameraCharacteristics characteristics,
+                                                      CaptureResult captureResult,
+                                                      int cameraRotation,
+-                                                     boolean physicalCfaAuthority) {
++                                                     boolean physicalCfaAuthority, boolean saveUnfilteredDng) {
+             // M9UPSTREAM2R_FIX1: native DNG output assumes width*height RAW16
+             // bytes. A packing regression must fail before native memory access.
+             if (physicalCfaAuthority) image.requireM9Raw16();
+@@ -458,7 +467,7 @@
+             if (physicalCfaAuthority) com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngNoiseStage(
+                     image, noiseStage, iso, parameters.whiteLevel, true);
+             if (physicalCfaAuthority) {
+-                M9DngRawPair.Result rawPair = M9DngRawPair.save(dngFilePath,
++                M9DngRawPair.Result rawPair = M9DngRawPair.saveIfEnabled(saveUnfilteredDng, dngFilePath,
+                         boundary2QSaved, image.buffer, image.width, image.height, (output, source) -> {
+                     DngCreator control = new DngCreator();
+                     try {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngRawPair.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngRawPair.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngRawPair.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngRawPair.java
+@@ -56,6 +56,15 @@
+         return hex.toString();
+     }
+ 
++    /** Disabled means no path resolution, buffer hashing, writer call or temporary file. */
++    public static Result saveIfEnabled(boolean enabled, Path normalDng, boolean normalSaved,
++            ByteBuffer source, int width, int height, Writer writer) {
++        if (enabled) return save(normalDng, normalSaved, source, width, height, writer);
++        Result result = new Result();
++        result.status = "disabled_by_setting";
++        return result;
++    }
++
+     /** Normal capture has already been saved; a diagnostic failure cannot undo it. */
+     public static Result save(Path normalDng, boolean normalSaved, ByteBuffer source,
+                               int width, int height, Writer writer) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+@@ -742,6 +742,10 @@
+             }
+             
+             Log.d("SettingsFragment", "onSharedPreferenceChanged: key=" + key);
++            if (com.particlesdevs.photoncamera.m9.M9OutputSettings.DIAGNOSTICS_KEY.equals(key)) {
++                com.particlesdevs.photoncamera.m9.M9DiagnosticBurstSpool.onDiagnosticPreferenceChanged();
++                com.particlesdevs.photoncamera.util.Log.onDiagnosticPreferenceChanged();
++            }
+             
+             if (key.equals(PreferenceKeys.Key.KEY_SAVE_PER_LENS_SETTINGS.mValue)) {
+                 setHdrxTitle();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/util/Log.java b/app/src/main/java/com/particlesdevs/photoncamera/util/Log.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/util/Log.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/util/Log.java
+@@ -1,4 +1,6 @@
+ package com.particlesdevs.photoncamera.util;
++
++import com.particlesdevs.photoncamera.m9.M9OutputSettings;
+ 
+ import android.content.Context;
+ import android.os.Handler;
+@@ -27,26 +29,27 @@
+     static {writeThread.start();exportThread.start();writeHandler=new Handler(writeThread.getLooper());exportHandler=new Handler(exportThread.getLooper());}
+     private static final Runnable FLUSH=()->{flushPending=false;try{M9LocalLog1E j=journal;if(j!=null)j.flush();}catch(Exception e){android.util.Log.w("M9LOG1E","private flush failed",e);}};
+     private static final Runnable EXPORT=new Runnable(){public void run(){
+-        if(stopped||!visible||!storageReady)return;
+-        try{M9LocalLog1E j=journal;if(j!=null)j.exportOne(()->visible&&storageReady&&!stopped,Log::publish);}
++        if(stopped||!visible||!storageReady||!M9OutputSettings.diagnosticsEnabled())return;
++        try{M9LocalLog1E j=journal;if(j!=null)j.exportOne(()->visible&&storageReady&&!stopped&&M9OutputSettings.diagnosticsEnabled(),Log::publish);}
+         catch(Exception e){android.util.Log.w("M9LOG1E","public export deferred; private log retained",e);}
+-        synchronized(exportLock){exportHandler.removeCallbacks(this);if(visible&&storageReady&&!stopped)exportHandler.postDelayed(this,5000);}
++        synchronized(exportLock){exportHandler.removeCallbacks(this);if(visible&&storageReady&&!stopped&&M9OutputSettings.diagnosticsEnabled())exportHandler.postDelayed(this,5000);}
+     }};
+     public static synchronized void initPrivate(Context c){
+         if(context!=null||c==null)return;context=c.getApplicationContext();
+         try{journal=new M9LocalLog1E(new File(context.getFilesDir(),"m9_logs"));}
+         catch(Exception e){android.util.Log.e("M9LOG1E","private log initialization failed",e);}
+     }
++    public static void onDiagnosticPreferenceChanged(){setAppVisible(visible);}
+     public static void setAppVisible(boolean value){
+         synchronized(exportLock){visible=value;exportHandler.removeCallbacks(EXPORT);
+-            if(value&&storageReady&&!stopped)exportHandler.postDelayed(EXPORT,1000);}
++            if(value&&storageReady&&!stopped&&M9OutputSettings.diagnosticsEnabled())exportHandler.postDelayed(EXPORT,1000);}
+         writeHandler.post(()->{try{M9LocalLog1E j=journal;if(j!=null){j.flush();if(!value)j.close();}}catch(Exception e){android.util.Log.w("M9LOG1E","private lifecycle flush failed",e);}});
+     }
+     /** The camera has established storage access; public export is still visibility gated. */
+     public static void setLogFolder(Context c){
+         if(c!=null)initPrivate(c);
+         synchronized(exportLock){storageReady=c!=null;exportHandler.removeCallbacks(EXPORT);
+-            if(visible&&storageReady&&!stopped)exportHandler.postDelayed(EXPORT,1000);}
++            if(visible&&storageReady&&!stopped&&M9OutputSettings.diagnosticsEnabled())exportHandler.postDelayed(EXPORT,1000);}
+         if(c!=null){com.particlesdevs.photoncamera.m9.render.M9RenderCrash1D.storageReady();
+             writeHandler.post(()->{M9LocalLog1E j=journal;if(j!=null)j.cleanup(System.currentTimeMillis());});}
+     }
+@@ -55,15 +58,15 @@
+         writeHandler.post(()->{try{if(journal!=null)journal.close();journal=folder==null?null:new M9LocalLog1E(folder);}catch(Exception e){android.util.Log.w("M9LOG1E","local log folder failed",e);}});
+     }
+     private static boolean publish(String filename,byte[] bytes)throws Exception {
+-        Context c=context;if(c==null||!visible||!storageReady)return false;
++        Context c=context;if(c==null||!visible||!storageReady||!M9OutputSettings.diagnosticsEnabled())return false;
+         // Resolution happens per bounded batch, never on a logging/camera caller.
+         if(!SimpleStorageHelper.hasStorageAccess(c))return false;
+         DocumentFile root=DocumentFileCompat.fromSimplePath(c,StorageId.PRIMARY,SimpleStorageHelper.PHOTON_CAMERA_RELATIVE_PATH,DocumentFileType.FOLDER,true);
+-        if(root==null||!visible)return false;
++        if(root==null||!visible||!M9OutputSettings.diagnosticsEnabled())return false;
+         DocumentFile folder=root.findFile("PhotonLog");if(folder==null)folder=root.createDirectory("PhotonLog");
+-        if(folder==null||!visible)return false;
++        if(folder==null||!visible||!M9OutputSettings.diagnosticsEnabled())return false;
+         DocumentFile file=folder.findFile(filename);if(file==null)file=folder.createFile("text/plain",filename);
+-        if(file==null||!visible)return false;
++        if(file==null||!visible||!M9OutputSettings.diagnosticsEnabled())return false;
+         try(OutputStream out=c.getContentResolver().openOutputStream(file.getUri(),"wa")){
+             if(out==null)return false;out.write(bytes);out.flush();
+         }
+diff --git a/app/src/main/res/values/m9_output.xml b/app/src/main/res/values/m9_output.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/m9_output.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_save_unfiltered_dng_title">Save unfiltered DNG</string>
++    <string name="m9_save_unfiltered_dng_summary">Save an extra RAW_UNFILTERED.dng for comparison. Applies to new captures.</string>
++    <string name="m9_save_diagnostic_files_title">Save diagnostic files</string>
++    <string name="m9_save_diagnostic_files_summary">Save JSON reports, diagnostic images and exported logs for testing. Existing files are kept.</string>
++</resources>
+diff --git a/app/src/main/res/xml/preferences.xml b/app/src/main/res/xml/preferences.xml
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -346,6 +346,18 @@
+             android:layout="@layout/preference_category_layout"
+             android:key="@string/pref_category_photo_key"
+             android:title="@string/photo_settings">
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++                android:key="pref_m9_save_unfiltered_dng"
++                android:title="@string/m9_save_unfiltered_dng_title"
++                android:summary="@string/m9_save_unfiltered_dng_summary"
++                android:defaultValue="false"
++                android:layout="@layout/preference_with_margin"/>
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++                android:key="pref_m9_save_diagnostic_files"
++                android:title="@string/m9_save_diagnostic_files_title"
++                android:summary="@string/m9_save_diagnostic_files_summary"
++                android:defaultValue="false"
++                android:layout="@layout/preference_with_margin"/>
+         <ListPreference
+                 android:key="pref_m9_saturation"
+                 android:layout="@layout/preference_with_margin"
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9OutputSettingsTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9OutputSettingsTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9OutputSettingsTest.java
+@@ -0,0 +1,36 @@
++package com.particlesdevs.photoncamera.m9;
++
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import org.junit.Test;
++import org.mockito.MockMakers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9OutputSettingsTest {
++    private SettingsManager settings() {
++        return mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++    }
++    @Test public void missingSettingsDisableOptionalFiles() {
++        assertFalse(M9OutputSettings.enabled(null,M9OutputSettings.UNFILTERED_DNG_KEY));
++        assertFalse(M9OutputSettings.enabled(null,M9OutputSettings.DIAGNOSTICS_KEY));
++        SettingsManager s=settings();
++        assertFalse(M9OutputSettings.enabled(s,M9OutputSettings.DIAGNOSTICS_KEY));
++        verify(s).getBoolean(SettingsManager.SCOPE_GLOBAL,M9OutputSettings.DIAGNOSTICS_KEY,false);
++    }
++    @Test public void choicesAreIndependentAndReadWithoutRestart() {
++        SettingsManager s=settings();
++        for(boolean raw:new boolean[]{false,true})for(boolean diag:new boolean[]{false,true}) {
++            when(s.getBoolean(SettingsManager.SCOPE_GLOBAL,M9OutputSettings.UNFILTERED_DNG_KEY,false)).thenReturn(raw);
++            when(s.getBoolean(SettingsManager.SCOPE_GLOBAL,M9OutputSettings.DIAGNOSTICS_KEY,false)).thenReturn(diag);
++            assertEquals(raw,M9OutputSettings.enabled(s,M9OutputSettings.UNFILTERED_DNG_KEY));
++            assertEquals(diag,M9OutputSettings.enabled(s,M9OutputSettings.DIAGNOSTICS_KEY));
++        }
++    }
++    @Test public void malformedPreferenceCannotPreventNormalCapture() {
++        SettingsManager s=settings();
++        when(s.getBoolean(SettingsManager.SCOPE_GLOBAL,M9OutputSettings.UNFILTERED_DNG_KEY,false)).thenThrow(new NumberFormatException());
++        when(s.getBoolean(SettingsManager.SCOPE_GLOBAL,M9OutputSettings.DIAGNOSTICS_KEY,false)).thenThrow(new ClassCastException());
++        assertFalse(M9OutputSettings.enabled(s,M9OutputSettings.UNFILTERED_DNG_KEY));
++        assertFalse(M9OutputSettings.enabled(s,M9OutputSettings.DIAGNOSTICS_KEY));
++    }
++}

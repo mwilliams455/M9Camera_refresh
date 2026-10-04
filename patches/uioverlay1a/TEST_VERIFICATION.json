@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "tests": 44,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9AeLockTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.012"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9BracketTest",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.02"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9LeicaEvTest",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.884"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SelfTimerTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.001"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayPolicyTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.001"
+    }
+  ],
+  "hardwareRun": false
+}

@@ -1,0 +1,136 @@
+name: M9 Sharpness Noise2 Sharp Handoff
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpness-rbclosure1a-forensics
+    paths:
+      - '.github/workflows/m9-sharpness-noise2-sharp-handoff.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9noise2"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9noise2/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9noise2/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9noise2/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9noise2/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9noise2/m9.upd" "$RUNNER_TEMP/m9noise2/mm.upm" --m9-out "$RUNNER_TEMP/m9noise2/m9.dec" --meta-out "$RUNNER_TEMP/m9noise2/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9noise2/m9.dec" | sha256sum -c --strict
+
+      - name: Extract canonical BF561 functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9noise2/m9.dec" --out "$RUNNER_TEMP/m9noise2/pass"
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys,hashlib
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9noise2'
+          d=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              score=sum(k in t for k in ('Run','Process_Noise','Process_Sharpness','GreenInterpolationWithCo'))
+              cand.append((score,x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=m.parse_map(root/'bf0.map');_,blocks=m.parse_ldr(root/'bf0.bin')
+          out=rt/'evidence';out.mkdir(exist_ok=True)
+          wanted=('Run','Process_Noise','Process_Sharpness','GreenInterpolationWithCo','ASMBox9CDI','ASMUMGauss3LUT')
+          manifest=[]
+          for name in wanted:
+              hits=[q for q in syms if q['name']==name and q['size']>0]
+              for s in hits:
+                  code=m.read_overlay(blocks,s['addr'],s['size'])
+                  p=out/f"{name}_{s['addr']:08x}.bin";p.write_bytes(code)
+                  manifest.append({'name':name,'addr':hex(s['addr']),'size':s['size'],'sha256':hashlib.sha256(code).hexdigest(),'file':p.name})
+          (out/'manifest.json').write_text(json.dumps({'pair':pair,'functions':manifest},indent=2)+'\n')
+          print(json.dumps({'pair':pair,'functions':manifest},indent=2))
+          PY
+          for f in "$RUNNER_TEMP/m9noise2/evidence"/*.bin; do
+            bn=$(basename "$f" .bin); base=$(printf '%s' "$bn" | sed -nE 's/^.*_([0-9a-fA-F]{8})$/\1/p')
+            test -n "$base" || continue
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$RUNNER_TEMP/m9noise2/evidence/${bn}.gnu.dis.txt"
+          done
+
+      - name: Analyze Noise2 to Sharp handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          e=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9noise2/evidence'
+          files={p.name:p.read_text(errors='replace').splitlines() for p in e.glob('*.gnu.dis.txt')}
+          def keep(name, needles):
+              out=[]
+              for fn,lines in files.items():
+                  if not fn.startswith(name+'_'): continue
+                  for i,l in enumerate(lines):
+                      low=l.lower()
+                      if any(n.lower() in low for n in needles):
+                          lo=max(0,i-12); hi=min(len(lines),i+18)
+                          out.append({'file':fn,'line':i+1,'match':l,'context':'\n'.join(lines[lo:hi])})
+              return out
+          report={
+            'schema':'m9.sharpness.noise2-sharp-handoff.v1',
+            'run_frame_offsets':keep('Run',['0x34','0x38','0x3c','process_noise','process_sharpness','call']),
+            'noise_pointer_ops':keep('Process_Noise',['[fp + 0x14]','[fp+0x14]','0x3fff','asmbox9cdi','call','r0','r1','r2','p0','p1','p2']),
+            'sharp_pointer_ops':keep('Process_Sharpness',['[fp + 0x14]','[fp+0x14]','0x3c','asmumgauss3lut','call','r0','r1','r2','p0','p1','p2']),
+            'box9_ops':keep('ASMBox9CDI',['r0','r1','r2','p0','p1','p2','[fp','0x3fff']),
+            'decision_question':'Does mode-2 ASMBox9CDI overwrite the same frame+0x3c green/base storage later supplied to Process_Sharpness, or is frame+0x3c source-only while filtered output goes elsewhere?'
+          }
+          (e/'noise2_sharp_handoff_report.json').write_text(json.dumps(report,indent=2)+'\n')
+          with open(e/'noise2_sharp_handoff_full.txt','w') as f:
+              for fn in sorted(files):
+                  f.write('\n===== '+fn+' =====\n')
+                  f.write('\n'.join(files[fn])+'\n')
+          print(json.dumps({k:len(v) if isinstance(v,list) else v for k,v in report.items()},indent=2))
+          PY
+
+      - name: Publish evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-NOISE2-SHARP-HANDOFF
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9noise2/evidence/*.json
+            ${{ runner.temp }}/m9noise2/evidence/*.txt
+            ${{ runner.temp }}/m9noise2/recovery_meta.json
+
+      - name: Remove firmware/binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9noise2/pass" "$RUNNER_TEMP/m9noise2/evidence"/*.bin "$RUNNER_TEMP/m9noise2/m9.upd" "$RUNNER_TEMP/m9noise2/mm.upm" "$RUNNER_TEMP/m9noise2/m9.dec"

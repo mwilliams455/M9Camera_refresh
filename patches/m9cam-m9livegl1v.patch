@@ -1,0 +1,167 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1vspatialgate1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SubjectMotionAnalyzer.java
+@@ -105,6 +105,8 @@
+     private static final int[] liveToneMap1R = new int[256];
+     private static final int[] liveToneGlobalHist1R = new int[256];
+     private static final int[] liveToneCenterHist1R = new int[256];
++    private static final com.particlesdevs.photoncamera.m9.preview.M9PreviewSpatialStats1V
++            liveToneSpatialStats1V = new com.particlesdevs.photoncamera.m9.preview.M9PreviewSpatialStats1V();
+     private static boolean liveToneExposureDomainValid1R;
+     private static double liveToneExposureScale1R = 1.0;
+     private static double liveToneExposureEv1R;
+@@ -316,6 +318,10 @@
+      */
+     public static synchronized boolean fillLiveToneStats1R(float exposureScale, float[] out) {
+         if (out == null || out.length < 18) return false;
++        if (out.length >= 20) {
++            out[18] = Float.NaN;
++            out[19] = Float.NaN;
++        }
+ 
+         // Preserve the original GL1F values in the first eight slots so scale=1
+         // exactly retains the established classifier baseline.
+@@ -385,6 +391,12 @@
+         out[16] = (float) vBright240;
+         out[17] = (float) vClip255;
+ 
++        // M9LIVEGL1V_SPATIALGATE1A: same neutral input as slots 0..7.
++        // Regional medians expose dark foreground that a bright global median hides.
++        // No user-EV mapping, RAW capture, readback or allocation is added here.
++        if (out.length >= 20) {
++            liveToneSpatialStats1V.fill(latestLumaFrame, W, H, out, 18);
++        }
+         liveToneExposureDomainValid1R = true;
+         liveToneExposureScale1R = scale;
+         liveToneExposureEv1R = scaleEv;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java
+@@ -55,11 +55,17 @@
+     private static double lastRawStructure1R;
+     private static double lastTailExpansion1R;
+     private static double lastPositivePlacementStress1R;
++    private static boolean lastSpatialValid1V;
++    private static double lastLowRegionalMedian1V;
++    private static double lastHighRegionalMedian1V;
++    private static double lastSpatialPairStrength1V;
+ 
+     private M9LiveToneModel1F() {}
+ 
+     /** out = [gainEv, shadowPlacement, midtoneGamma, highlightShoulder]. */
+     public static synchronized boolean fill(float[] stats, float[] out) {
++        lastSpatialValid1V = false;
++        lastSpatialPairStrength1V = 0.0;
+         if (out == null || out.length < 4) return false;
+         if (stats == null || stats.length < 8 || stats[0] < 3.0f) {
+             lastValid1P = false;
+@@ -188,7 +194,25 @@
+         // M9LIVEGL1R_FIX1_EXPOSUREAUTHORITY1A
+         // GL1Q strength remains a property of the observed scene structure only.
+         // Positive/negative intended exposure is not an automatic tone correction.
+-        double shoulder = basePairCurveStrength1Q;
++        // M9LIVEGL1V_SPATIALGATE1A. A large window can make the global and
++        // center medians bright while the foreground remains dark. Require two
++        // dark and two bright tiles via the second extreme 3x3 medians, plus the
++        // existing broad highlight-support gate. Reuse the established spread
++        // and shadow thresholds; only activation of the existing pair curve changes.
++        final boolean spatialValid1V = stats.length >= 20
++                && finite(stats[18]) && finite(stats[19])
++                && stats[18] >= 0.0f && stats[19] <= 255.0f
++                && stats[19] >= stats[18];
++        final double spatialPairStrength1V = spatialValid1V
++                ? clamp01(smoothstep(stats[19] - stats[18], 85.0, 130.0)
++                        * brightSupportKey1Q
++                        * (1.0 - smoothstep(stats[18], 68.0, 108.0)))
++                : 0.0;
++        double shoulder = Math.max(basePairCurveStrength1Q, spatialPairStrength1V);
++        lastSpatialValid1V = spatialValid1V;
++        lastLowRegionalMedian1V = spatialValid1V ? stats[18] : 0.0;
++        lastHighRegionalMedian1V = spatialValid1V ? stats[19] : 0.0;
++        lastSpatialPairStrength1V = spatialPairStrength1V;
+ 
+         // Diagnostic mirrors only; none of these feed the model or shader.
+         lastValid1P = true;
+@@ -255,6 +279,14 @@
+             o.put("smoothedShadowPlacement", smoothShadow);
+             o.put("smoothedGamma", smoothGamma);
+             o.put("smoothedHighlightShoulder", smoothShoulder);
++            o.put("previewRevision", "M9LIVEGL1V_SPATIALGATE1A");
++            o.put("spatialPairValid1V", lastSpatialValid1V);
++            o.put("lowRegionalMedian1V", lastLowRegionalMedian1V);
++            o.put("highRegionalMedian1V", lastHighRegionalMedian1V);
++            o.put("spatialPairStrength1V", lastSpatialPairStrength1V);
++            o.put("spatialPairRule1V", "second_lowest_highest_3x3_medians_existing_shadow_spread_bright_support_gates");
++            o.put("spatialPairInput1V", "neutral_Y_feed_no_user_EV_mapping");
++            o.put("spatialPairCaptureEffect1V", false);
+             o.put("gl1qPairCurveStrengthRaw", lastPairCurveStrength1Q);
+             o.put("gl1qSpreadKey", lastSpreadKey1Q);
+             o.put("gl1qBrightSupportKey", lastBrightSupportKey1Q);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -111,7 +111,7 @@
+     // M9LIVEGL1F_TONELUT1A: persistent scratch only; analyzer already owns YUV work.
+     // M9LIVEGL1R_EXPOSUREDOMAIN1A extends the stats vector with the same intended
+     // exposure state already applied by GL1B to the visible OES preview.
+-    private final float[] mM9LiveToneStats1F = new float[18];
++    private final float[] mM9LiveToneStats1F = new float[20];
+     private final float[] mM9LiveToneParams1F = new float[4];
+     private volatile float mM9LiveExposureScale1R = 1.0f;
+     private volatile float mM9LiveReferenceScale1A = 1.0f;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewSpatialStats1V.java
+@@ -0,0 +1,45 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import java.util.Arrays;
++
++/** Small, rotation-independent regional summary of the existing neutral Y feed. */
++public final class M9PreviewSpatialStats1V {
++    private final int[][] histograms = new int[9][256];
++    private final int[] counts = new int[9];
++    private final int[] medians = new int[9];
++
++    /** Writes second-lowest/highest tile medians; single outlier tiles cannot qualify. */
++    public synchronized boolean fill(byte[] frame, int width, int height,
++                                     float[] out, int offset) {
++        if (out == null || offset < 0 || offset > out.length - 2) return false;
++        out[offset] = Float.NaN;
++        out[offset + 1] = Float.NaN;
++        if (frame == null || width < 3 || height < 3
++                || (long) width * height > frame.length) return false;
++        Arrays.fill(counts, 0);
++        for (int[] histogram : histograms) Arrays.fill(histogram, 0);
++        for (int y = 0; y < height; y++) {
++            int tileRow = (int) ((long) y * 3 / height) * 3;
++            for (int x = 0; x < width; x++) {
++                int tile = tileRow + (int) ((long) x * 3 / width);
++                histograms[tile][frame[y * width + x] & 255]++;
++                counts[tile]++;
++            }
++        }
++        for (int tile = 0; tile < 9; tile++) {
++            int target = (counts[tile] + 1) / 2;
++            int cumulative = 0;
++            for (int code = 0; code < 256; code++) {
++                cumulative += histograms[tile][code];
++                if (cumulative >= target) {
++                    medians[tile] = code;
++                    break;
++                }
++            }
++        }
++        Arrays.sort(medians);
++        out[offset] = medians[1];
++        out[offset + 1] = medians[7];
++        return true;
++    }
++}

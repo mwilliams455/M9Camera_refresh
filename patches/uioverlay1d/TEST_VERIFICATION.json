@@ -1,0 +1,73 @@
+{
+  "status": "passed",
+  "tests": 52,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9AeLockTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.013"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9BracketTest",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.014"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9LeicaEvTest",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "1.088"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SelfTimerTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.001"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayPolicyTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.003"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "8.556"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.views.M9LinearRulerSelectionTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    }
+  ],
+  "hardwareRun": false,
+  "androidUiRuntime": "Robolectric 4.16.1, Android API 35",
+  "startupFixRegressionCovered": true
+}

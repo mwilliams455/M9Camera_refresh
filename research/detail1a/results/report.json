@@ -1,0 +1,3452 @@
+{
+  "schema": "m9.detail1a.offline.v1",
+  "source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "firmware_sha256": "4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20",
+  "checks": {
+    "slot0_1_2_rgb_parity_cases": 36,
+    "rgb_samples": 212184,
+    "all_four_cfa_patterns": true,
+    "all_13_rows_independent_integer_oracle": true,
+    "border9_unchanged_all_rows": true,
+    "constant_input_unchanged": true
+  },
+  "captures": [
+    {
+      "name": "IMG_20260912_124558_1789213558532_00.dng",
+      "model": "25010PN30G",
+      "iso": 50,
+      "exposure_seconds": 0.0011457395739853382,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.349609375,
+        1.0,
+        0.5703125
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        2.9567403268055556e-05,
+        4.834904956268195e-07,
+        3.472056504539444e-05,
+        4.0775853931925274e-07,
+        2.917632891202222e-05,
+        4.945284597326194e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 4.81640625,
+      "norm030_alpha": 0.27230435871073716,
+      "norm030_outside_ev": 1.1017084023935264,
+      "representation_scale": 1.5814861382356415,
+      "sha256": "08ac00c1ac84419d311844855bd4ffebcfeb161ad6f3f5e444cfbb1d48911b0f",
+      "mapping_probes": {
+        "physical_iso_1x": 0,
+        "historical_main_iso_2x": 0
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            1552,
+            1936
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.2499274743209338,
+            "green_hf_rms": 0.024937761640103456,
+            "green_gradient_p95": 0.13538757364004292,
+            "rgb_zero_pct": 3.753209997106482,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.2499274743209338,
+              "green_hf_rms": 0.024937761640103456,
+              "green_gradient_p95": 0.13538757364004292,
+              "rgb_zero_pct": 3.753209997106482,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.2499274743209338,
+              "green_hf_rms": 0.024937761640103456,
+              "green_gradient_p95": 0.13538757364004292,
+              "rgb_zero_pct": 3.753209997106482,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.2499274743209338,
+              "green_hf_rms": 0.024937761640103456,
+              "green_gradient_p95": 0.13538757364004292,
+              "rgb_zero_pct": 3.753209997106482,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.2499317364285107,
+              "green_hf_rms": 0.024941395474034397,
+              "green_gradient_p95": 0.13538886918504214,
+              "rgb_zero_pct": 3.635434751157408,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 10.789695457175926,
+              "changed_channels_pct": 45.749014395254626
+            },
+            {
+              "green_mean": 0.2499317364285107,
+              "green_hf_rms": 0.024941395474034397,
+              "green_gradient_p95": 0.13538886918504214,
+              "rgb_zero_pct": 3.635434751157408,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 10.789695457175926,
+              "changed_channels_pct": 45.749014395254626
+            },
+            {
+              "green_mean": 0.2499317364285107,
+              "green_hf_rms": 0.024941395474034397,
+              "green_gradient_p95": 0.13538886918504214,
+              "rgb_zero_pct": 3.635434751157408,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 10.789695457175926,
+              "changed_channels_pct": 45.749014395254626
+            },
+            {
+              "green_mean": 0.249709485529394,
+              "green_hf_rms": 0.020098524616431683,
+              "green_gradient_p95": 0.11865202648450776,
+              "rgb_zero_pct": 0.6236888744212963,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 301.19351535373266,
+              "changed_channels_pct": 80.97715024594908
+            },
+            {
+              "green_mean": 0.249709485529394,
+              "green_hf_rms": 0.020098524616431683,
+              "green_gradient_p95": 0.11865202648450776,
+              "rgb_zero_pct": 0.6236888744212963,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 301.19351535373266,
+              "changed_channels_pct": 80.97715024594908
+            },
+            {
+              "green_mean": 0.249709485529394,
+              "green_hf_rms": 0.020098524616431683,
+              "green_gradient_p95": 0.11865202648450776,
+              "rgb_zero_pct": 0.6236888744212963,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 301.19351535373266,
+              "changed_channels_pct": 80.97715024594908
+            },
+            {
+              "green_mean": 0.24973518618192247,
+              "green_hf_rms": 0.020050272993770723,
+              "green_gradient_p95": 0.11839480678310714,
+              "rgb_zero_pct": 0.509304470486111,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 319.8812572337963,
+              "changed_channels_pct": 81.10464590567129
+            },
+            {
+              "green_mean": 0.24973518618192247,
+              "green_hf_rms": 0.020050272993770723,
+              "green_gradient_p95": 0.11839480678310714,
+              "rgb_zero_pct": 0.509304470486111,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 319.8812572337963,
+              "changed_channels_pct": 81.10464590567129
+            },
+            {
+              "green_mean": 0.24968481276223134,
+              "green_hf_rms": 0.017678874621001286,
+              "green_gradient_p95": 0.11029985816377409,
+              "rgb_zero_pct": 0.15507450810185186,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 6145,
+              "mean_abs_rgb16_delta": 456.8286946614583,
+              "changed_channels_pct": 81.54545536747685
+            },
+            {
+              "green_mean": 0.24969795940881623,
+              "green_hf_rms": 0.017482702021718137,
+              "green_gradient_p95": 0.10928310871512352,
+              "rgb_zero_pct": 0.10692455150462964,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 6145,
+              "mean_abs_rgb16_delta": 480.0983615451389,
+              "changed_channels_pct": 81.60038700810185
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            3088,
+            2320
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.004415405197895739,
+            "green_hf_rms": 0.0003957434834119059,
+            "green_gradient_p95": 0.0011812690765521875,
+            "rgb_zero_pct": 0.1164189091435185,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.004415405197895739,
+              "green_hf_rms": 0.0003957434834119059,
+              "green_gradient_p95": 0.0011812690765521875,
+              "rgb_zero_pct": 0.1164189091435185,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004415405197895739,
+              "green_hf_rms": 0.0003957434834119059,
+              "green_gradient_p95": 0.0011812690765521875,
+              "rgb_zero_pct": 0.1164189091435185,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004415405197895739,
+              "green_hf_rms": 0.0003957434834119059,
+              "green_gradient_p95": 0.0011812690765521875,
+              "rgb_zero_pct": 0.1164189091435185,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004405506950537456,
+              "green_hf_rms": 0.00034876035415158023,
+              "green_gradient_p95": 0.0010867166439163716,
+              "rgb_zero_pct": 0.10850694444444445,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 2.858497902199074,
+              "changed_channels_pct": 31.62909613715278
+            },
+            {
+              "green_mean": 0.004405506950537456,
+              "green_hf_rms": 0.00034876035415158023,
+              "green_gradient_p95": 0.0010867166439163716,
+              "rgb_zero_pct": 0.10850694444444445,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 2.858497902199074,
+              "changed_channels_pct": 31.62909613715278
+            },
+            {
+              "green_mean": 0.004405506950537456,
+              "green_hf_rms": 0.00034876035415158023,
+              "green_gradient_p95": 0.0010867166439163716,
+              "rgb_zero_pct": 0.10850694444444445,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 2.858497902199074,
+              "changed_channels_pct": 31.62909613715278
+            },
+            {
+              "green_mean": 0.004396593850534702,
+              "green_hf_rms": 0.00030552099255787496,
+              "green_gradient_p95": 0.0010018218993991207,
+              "rgb_zero_pct": 0.11980975115740741,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 220,
+              "mean_abs_rgb16_delta": 5.1777524594907405,
+              "changed_channels_pct": 42.128951461226855
+            },
+            {
+              "green_mean": 0.004396593850534702,
+              "green_hf_rms": 0.00030552099255787496,
+              "green_gradient_p95": 0.0010018218993991207,
+              "rgb_zero_pct": 0.11980975115740741,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 220,
+              "mean_abs_rgb16_delta": 5.1777524594907405,
+              "changed_channels_pct": 42.128951461226855
+            },
+            {
+              "green_mean": 0.004396593850534702,
+              "green_hf_rms": 0.00030552099255787496,
+              "green_gradient_p95": 0.0010018218993991207,
+              "rgb_zero_pct": 0.11980975115740741,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 220,
+              "mean_abs_rgb16_delta": 5.1777524594907405,
+              "changed_channels_pct": 42.128951461226855
+            },
+            {
+              "green_mean": 0.004395287081542517,
+              "green_hf_rms": 0.0002991072523827006,
+              "green_gradient_p95": 0.000988249937618705,
+              "rgb_zero_pct": 0.1220703125,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 252,
+              "mean_abs_rgb16_delta": 5.477005570023148,
+              "changed_channels_pct": 42.129629629629626
+            },
+            {
+              "green_mean": 0.004395287081542517,
+              "green_hf_rms": 0.0002991072523827006,
+              "green_gradient_p95": 0.000988249937618705,
+              "rgb_zero_pct": 0.1220703125,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 252,
+              "mean_abs_rgb16_delta": 5.477005570023148,
+              "changed_channels_pct": 42.129629629629626
+            },
+            {
+              "green_mean": 0.004394035364902554,
+              "green_hf_rms": 0.0002968313930287768,
+              "green_gradient_p95": 0.000983822404505371,
+              "rgb_zero_pct": 0.12410481770833333,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 276,
+              "mean_abs_rgb16_delta": 5.559380425347222,
+              "changed_channels_pct": 42.129629629629626
+            },
+            {
+              "green_mean": 0.004394477439430161,
+              "green_hf_rms": 0.0002956761478569339,
+              "green_gradient_p95": 0.0009818679650259528,
+              "rgb_zero_pct": 0.12410481770833333,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 288,
+              "mean_abs_rgb16_delta": 5.597023292824074,
+              "changed_channels_pct": 42.129629629629626
+            }
+          ]
+        }
+      ],
+      "full_raster_slot0_parity_rgb_samples": 37748736
+    },
+    {
+      "name": "IMG_20260920_162257_1789917777152_00.dng",
+      "model": "25128PNA1C",
+      "iso": 104,
+      "exposure_seconds": 0.0481339693069458,
+      "cfa": 3,
+      "cfa_pattern": [
+        2,
+        1,
+        1,
+        0
+      ],
+      "neutral": [
+        0.400390625,
+        1.0,
+        0.6513671875
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.710000038146973,
+      "noise_profile": [
+        5.7279636544182224e-05,
+        5.014323367903248e-07,
+        6.216925982018444e-05,
+        4.140617580835352e-07,
+        5.738686982793555e-05,
+        4.903393616525596e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 4.80078125,
+      "norm030_alpha": 0.2572396619750452,
+      "norm030_outside_ev": 1.1662276248407717,
+      "representation_scale": 1.5941837385927742,
+      "sha256": "90d35b19e8a6daa3193991be1d6a70d40efd612251a27499c32f54de23372dbc",
+      "mapping_probes": {
+        "physical_iso_1x": 0,
+        "historical_main_iso_2x": 1
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            1552,
+            1168
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.10511164422484436,
+            "green_hf_rms": 0.0035278955552934753,
+            "green_gradient_p95": 0.008840228091882566,
+            "rgb_zero_pct": 0.0,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.10511164422484436,
+              "green_hf_rms": 0.0035278955552934753,
+              "green_gradient_p95": 0.008840228091882566,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.10511164422484436,
+              "green_hf_rms": 0.0035278955552934753,
+              "green_gradient_p95": 0.008840228091882566,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.10511164422484436,
+              "green_hf_rms": 0.0035278955552934753,
+              "green_gradient_p95": 0.008840228091882566,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.10510081877997497,
+              "green_hf_rms": 0.00337430641649624,
+              "green_gradient_p95": 0.008327575376642719,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 20.882023564091437,
+              "changed_channels_pct": 74.64124891493056
+            },
+            {
+              "green_mean": 0.10510081877997497,
+              "green_hf_rms": 0.00337430641649624,
+              "green_gradient_p95": 0.008327575376642719,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 20.882023564091437,
+              "changed_channels_pct": 74.64124891493056
+            },
+            {
+              "green_mean": 0.10510081877997497,
+              "green_hf_rms": 0.00337430641649624,
+              "green_gradient_p95": 0.008327575376642719,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 20.882023564091437,
+              "changed_channels_pct": 74.64124891493056
+            },
+            {
+              "green_mean": 0.10507013764876222,
+              "green_hf_rms": 0.0026453930877657138,
+              "green_gradient_p95": 0.0070383799532898915,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 3140,
+              "mean_abs_rgb16_delta": 57.3927001953125,
+              "changed_channels_pct": 81.97224934895834
+            },
+            {
+              "green_mean": 0.10507013764876222,
+              "green_hf_rms": 0.0026453930877657138,
+              "green_gradient_p95": 0.0070383799532898915,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 3140,
+              "mean_abs_rgb16_delta": 57.3927001953125,
+              "changed_channels_pct": 81.97224934895834
+            },
+            {
+              "green_mean": 0.10507013764876222,
+              "green_hf_rms": 0.0026453930877657138,
+              "green_gradient_p95": 0.0070383799532898915,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 3140,
+              "mean_abs_rgb16_delta": 57.3927001953125,
+              "changed_channels_pct": 81.97224934895834
+            },
+            {
+              "green_mean": 0.1050655199774969,
+              "green_hf_rms": 0.002561108930184549,
+              "green_gradient_p95": 0.006794095563851846,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 3140,
+              "mean_abs_rgb16_delta": 64.13180655020254,
+              "changed_channels_pct": 81.97224934895834
+            },
+            {
+              "green_mean": 0.1050655199774969,
+              "green_hf_rms": 0.002561108930184549,
+              "green_gradient_p95": 0.006794095563851846,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 3140,
+              "mean_abs_rgb16_delta": 64.13180655020254,
+              "changed_channels_pct": 81.97224934895834
+            },
+            {
+              "green_mean": 0.1050491667383589,
+              "green_hf_rms": 0.002345134954849089,
+              "green_gradient_p95": 0.006634104353522882,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 4713,
+              "mean_abs_rgb16_delta": 69.50361463758681,
+              "changed_channels_pct": 81.97224934895834
+            },
+            {
+              "green_mean": 0.10505168362428127,
+              "green_hf_rms": 0.0022992091879665325,
+              "green_gradient_p95": 0.0065668530808550545,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 4713,
+              "mean_abs_rgb16_delta": 71.81003146701389,
+              "changed_channels_pct": 81.97224934895834
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            1552,
+            2320
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.00571995429711011,
+            "green_hf_rms": 0.0002538270783013755,
+            "green_gradient_p95": 0.0008020064103772276,
+            "rgb_zero_pct": 0.01220703125,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.00571995429711011,
+              "green_hf_rms": 0.0002538270783013755,
+              "green_gradient_p95": 0.0008020064103772276,
+              "rgb_zero_pct": 0.01220703125,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.00571995429711011,
+              "green_hf_rms": 0.0002538270783013755,
+              "green_gradient_p95": 0.0008020064103772276,
+              "rgb_zero_pct": 0.01220703125,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.00571995429711011,
+              "green_hf_rms": 0.0002538270783013755,
+              "green_gradient_p95": 0.0008020064103772276,
+              "rgb_zero_pct": 0.01220703125,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.005712333064710969,
+              "green_hf_rms": 0.0002242308455923152,
+              "green_gradient_p95": 0.0007553601157872193,
+              "rgb_zero_pct": 0.014015480324074073,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 56,
+              "mean_abs_rgb16_delta": 1.529712818287037,
+              "changed_channels_pct": 18.370451750578702
+            },
+            {
+              "green_mean": 0.005712333064710969,
+              "green_hf_rms": 0.0002242308455923152,
+              "green_gradient_p95": 0.0007553601157872193,
+              "rgb_zero_pct": 0.014015480324074073,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 56,
+              "mean_abs_rgb16_delta": 1.529712818287037,
+              "changed_channels_pct": 18.370451750578702
+            },
+            {
+              "green_mean": 0.005712333064710969,
+              "green_hf_rms": 0.0002242308455923152,
+              "green_gradient_p95": 0.0007553601157872193,
+              "rgb_zero_pct": 0.014015480324074073,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 56,
+              "mean_abs_rgb16_delta": 1.529712818287037,
+              "changed_channels_pct": 18.370451750578702
+            },
+            {
+              "green_mean": 0.005707206159187626,
+              "green_hf_rms": 0.00020034650493160289,
+              "green_gradient_p95": 0.0007144905634206549,
+              "rgb_zero_pct": 0.016276041666666664,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 124,
+              "mean_abs_rgb16_delta": 2.4954698350694446,
+              "changed_channels_pct": 24.652099609375
+            },
+            {
+              "green_mean": 0.005707206159187626,
+              "green_hf_rms": 0.00020034650493160289,
+              "green_gradient_p95": 0.0007144905634206549,
+              "rgb_zero_pct": 0.016276041666666664,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 124,
+              "mean_abs_rgb16_delta": 2.4954698350694446,
+              "changed_channels_pct": 24.652099609375
+            },
+            {
+              "green_mean": 0.005707206159187626,
+              "green_hf_rms": 0.00020034650493160289,
+              "green_gradient_p95": 0.0007144905634206549,
+              "rgb_zero_pct": 0.016276041666666664,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 124,
+              "mean_abs_rgb16_delta": 2.4954698350694446,
+              "changed_channels_pct": 24.652099609375
+            },
+            {
+              "green_mean": 0.005706712343727482,
+              "green_hf_rms": 0.0001976537783518282,
+              "green_gradient_p95": 0.000709995582460172,
+              "rgb_zero_pct": 0.016502097800925927,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 140,
+              "mean_abs_rgb16_delta": 2.5822392216435186,
+              "changed_channels_pct": 24.652099609375
+            },
+            {
+              "green_mean": 0.005706712343727482,
+              "green_hf_rms": 0.0001976537783518282,
+              "green_gradient_p95": 0.000709995582460172,
+              "rgb_zero_pct": 0.016502097800925927,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 140,
+              "mean_abs_rgb16_delta": 2.5822392216435186,
+              "changed_channels_pct": 24.652099609375
+            },
+            {
+              "green_mean": 0.005706436254111459,
+              "green_hf_rms": 0.00019693137281522914,
+              "green_gradient_p95": 0.0007093393941661376,
+              "rgb_zero_pct": 0.016502097800925927,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 148,
+              "mean_abs_rgb16_delta": 2.6003327546296298,
+              "changed_channels_pct": 24.652099609375
+            },
+            {
+              "green_mean": 0.0057065028964325675,
+              "green_hf_rms": 0.00019668994324244747,
+              "green_gradient_p95": 0.0007092573279433644,
+              "rgb_zero_pct": 0.016502097800925927,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 148,
+              "mean_abs_rgb16_delta": 2.605568214699074,
+              "changed_channels_pct": 24.652099609375
+            }
+          ]
+        }
+      ],
+      "full_raster_slot0_parity_rgb_samples": 37748736
+    },
+    {
+      "name": "IMG_20260912_164755_1789228075236_00.dng",
+      "model": "25010PN30G",
+      "iso": 85,
+      "exposure_seconds": 0.024678360670804977,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.4091796875,
+        1.0,
+        0.482421875
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        4.759853900131111e-05,
+        4.873818967778082e-07,
+        5.2511385732758335e-05,
+        4.113399136171405e-07,
+        4.7391435710644445e-05,
+        4.984511171517702e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 4.951171875,
+      "norm030_alpha": 0.25822083548296426,
+      "norm030_outside_ev": 1.161796256444194,
+      "representation_scale": 1.5362446197832824,
+      "sha256": "ba969094f0941db36f2562746d8490051283d05f8144e3436d224eb608835ab1",
+      "mapping_probes": {
+        "physical_iso_1x": 0,
+        "historical_main_iso_2x": 0
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            400,
+            1168
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.11509947086659321,
+            "green_hf_rms": 0.03402574644531713,
+            "green_gradient_p95": 0.1810111527743217,
+            "rgb_zero_pct": 0.7552535445601852,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.11509947086659321,
+              "green_hf_rms": 0.03402574644531713,
+              "green_gradient_p95": 0.1810111527743217,
+              "rgb_zero_pct": 0.7552535445601852,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.11509947086659321,
+              "green_hf_rms": 0.03402574644531713,
+              "green_gradient_p95": 0.1810111527743217,
+              "rgb_zero_pct": 0.7552535445601852,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.11509947086659321,
+              "green_hf_rms": 0.03402574644531713,
+              "green_gradient_p95": 0.1810111527743217,
+              "rgb_zero_pct": 0.7552535445601852,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.11518910799642285,
+              "green_hf_rms": 0.03402019409614501,
+              "green_gradient_p95": 0.1810111527743217,
+              "rgb_zero_pct": 0.7489239728009259,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 16.841105143229168,
+              "changed_channels_pct": 51.17730034722222
+            },
+            {
+              "green_mean": 0.11518910799642285,
+              "green_hf_rms": 0.03402019409614501,
+              "green_gradient_p95": 0.1810111527743217,
+              "rgb_zero_pct": 0.7489239728009259,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 16.841105143229168,
+              "changed_channels_pct": 51.17730034722222
+            },
+            {
+              "green_mean": 0.11518910799642285,
+              "green_hf_rms": 0.03402019409614501,
+              "green_gradient_p95": 0.1810111527743217,
+              "rgb_zero_pct": 0.7489239728009259,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 16.841105143229168,
+              "changed_channels_pct": 51.17730034722222
+            },
+            {
+              "green_mean": 0.11536370560015377,
+              "green_hf_rms": 0.02773124311994056,
+              "green_gradient_p95": 0.15961633802772873,
+              "rgb_zero_pct": 0.08160626446759259,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 408.59837058738424,
+              "changed_channels_pct": 90.89400679976852
+            },
+            {
+              "green_mean": 0.11536370560015377,
+              "green_hf_rms": 0.02773124311994056,
+              "green_gradient_p95": 0.15961633802772873,
+              "rgb_zero_pct": 0.08160626446759259,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 408.59837058738424,
+              "changed_channels_pct": 90.89400679976852
+            },
+            {
+              "green_mean": 0.11536370560015377,
+              "green_hf_rms": 0.02773124311994056,
+              "green_gradient_p95": 0.15961633802772873,
+              "rgb_zero_pct": 0.08160626446759259,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 408.59837058738424,
+              "changed_channels_pct": 90.89400679976852
+            },
+            {
+              "green_mean": 0.11552306394702416,
+              "green_hf_rms": 0.027663897377223905,
+              "green_gradient_p95": 0.15938560503384092,
+              "rgb_zero_pct": 0.07618091724537036,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 441.3493381076389,
+              "changed_channels_pct": 90.89943214699075
+            },
+            {
+              "green_mean": 0.11552306394702416,
+              "green_hf_rms": 0.027663897377223905,
+              "green_gradient_p95": 0.15938560503384092,
+              "rgb_zero_pct": 0.07618091724537036,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 441.3493381076389,
+              "changed_channels_pct": 90.89943214699075
+            },
+            {
+              "green_mean": 0.11543099675255696,
+              "green_hf_rms": 0.02466965688000025,
+              "green_gradient_p95": 0.14891813195773393,
+              "rgb_zero_pct": 0.020118995949074073,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 6145,
+              "mean_abs_rgb16_delta": 604.9073102032697,
+              "changed_channels_pct": 90.96137152777779
+            },
+            {
+              "green_mean": 0.11552860167555185,
+              "green_hf_rms": 0.02455718455037085,
+              "green_gradient_p95": 0.14855664471562602,
+              "rgb_zero_pct": 0.01808449074074074,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 6145,
+              "mean_abs_rgb16_delta": 629.3866803204572,
+              "changed_channels_pct": 90.96408420138889
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            3472,
+            16
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.004407575346056603,
+            "green_hf_rms": 0.0004525456643297993,
+            "green_gradient_p95": 0.0017869350556554394,
+            "rgb_zero_pct": 0.6438078703703703,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.004407575346056603,
+              "green_hf_rms": 0.0004525456643297993,
+              "green_gradient_p95": 0.0017869350556554394,
+              "rgb_zero_pct": 0.6438078703703703,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004407575346056603,
+              "green_hf_rms": 0.0004525456643297993,
+              "green_gradient_p95": 0.0017869350556554394,
+              "rgb_zero_pct": 0.6438078703703703,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004407575346056603,
+              "green_hf_rms": 0.0004525456643297993,
+              "green_gradient_p95": 0.0017869350556554394,
+              "rgb_zero_pct": 0.6438078703703703,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004396422070638675,
+              "green_hf_rms": 0.00040137474477367613,
+              "green_gradient_p95": 0.0016850341044484117,
+              "rgb_zero_pct": 0.6377043547453703,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.320583767361111,
+              "changed_channels_pct": 34.218569155092595
+            },
+            {
+              "green_mean": 0.004396422070638675,
+              "green_hf_rms": 0.00040137474477367613,
+              "green_gradient_p95": 0.0016850341044484117,
+              "rgb_zero_pct": 0.6377043547453703,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.320583767361111,
+              "changed_channels_pct": 34.218569155092595
+            },
+            {
+              "green_mean": 0.004396422070638675,
+              "green_hf_rms": 0.00040137474477367613,
+              "green_gradient_p95": 0.0016850341044484117,
+              "rgb_zero_pct": 0.6377043547453703,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.320583767361111,
+              "changed_channels_pct": 34.218569155092595
+            },
+            {
+              "green_mean": 0.0043858557443594605,
+              "green_hf_rms": 0.0003534693455892761,
+              "green_gradient_p95": 0.001593271339455773,
+              "rgb_zero_pct": 0.6616663049768519,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 232,
+              "mean_abs_rgb16_delta": 6.144495081018518,
+              "changed_channels_pct": 45.03309461805556
+            },
+            {
+              "green_mean": 0.0043858557443594605,
+              "green_hf_rms": 0.0003534693455892761,
+              "green_gradient_p95": 0.001593271339455773,
+              "rgb_zero_pct": 0.6616663049768519,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 232,
+              "mean_abs_rgb16_delta": 6.144495081018518,
+              "changed_channels_pct": 45.03309461805556
+            },
+            {
+              "green_mean": 0.0043858557443594605,
+              "green_hf_rms": 0.0003534693455892761,
+              "green_gradient_p95": 0.001593271339455773,
+              "rgb_zero_pct": 0.6616663049768519,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 232,
+              "mean_abs_rgb16_delta": 6.144495081018518,
+              "changed_channels_pct": 45.03309461805556
+            },
+            {
+              "green_mean": 0.0043841561582074464,
+              "green_hf_rms": 0.0003461887436570759,
+              "green_gradient_p95": 0.0015784792537941554,
+              "rgb_zero_pct": 0.6707085503472222,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 272,
+              "mean_abs_rgb16_delta": 6.528871889467593,
+              "changed_channels_pct": 45.034677010995374
+            },
+            {
+              "green_mean": 0.0043841561582074464,
+              "green_hf_rms": 0.0003461887436570759,
+              "green_gradient_p95": 0.0015784792537941554,
+              "rgb_zero_pct": 0.6707085503472222,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 272,
+              "mean_abs_rgb16_delta": 6.528871889467593,
+              "changed_channels_pct": 45.034677010995374
+            },
+            {
+              "green_mean": 0.004382229739807186,
+              "green_hf_rms": 0.0003431855065648243,
+              "green_gradient_p95": 0.0015692329451050511,
+              "rgb_zero_pct": 0.6729691116898148,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 296,
+              "mean_abs_rgb16_delta": 6.658402054398148,
+              "changed_channels_pct": 45.034677010995374
+            },
+            {
+              "green_mean": 0.004382853942417326,
+              "green_hf_rms": 0.00034157965966865944,
+              "green_gradient_p95": 0.0015661882658672514,
+              "rgb_zero_pct": 0.6729691116898148,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 308,
+              "mean_abs_rgb16_delta": 6.721263744212963,
+              "changed_channels_pct": 45.034677010995374
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IMG_20260917_073643_1789627003451_00.dng",
+      "model": "25010PN30G",
+      "iso": 521,
+      "exposure_seconds": 0.019999999552965164,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.3310546875,
+        1.0,
+        0.6083984375
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        0.00027221497270700886,
+        7.0498410767932e-07,
+        0.0002741341805810628,
+        6.116058165781373e-07,
+        0.0002742996232591956,
+        7.178011388784019e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 3.3154296875,
+      "norm030_alpha": 0.3906516008941686,
+      "norm030_outside_ev": 0.7679477040752559,
+      "representation_scale": 1.6257198262235255,
+      "sha256": "10cd0d0d6cf63b05b522b182977e5125fa88a9058bd1eac1a971b819781c28a1",
+      "mapping_probes": {
+        "physical_iso_1x": 5,
+        "historical_main_iso_2x": 8
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            1552,
+            16
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.30217414260224873,
+            "green_hf_rms": 0.0038066046333700425,
+            "green_gradient_p95": 0.027879504025743573,
+            "rgb_zero_pct": 0.0,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.30217414260224873,
+              "green_hf_rms": 0.0038066046333700425,
+              "green_gradient_p95": 0.027879504025743573,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.30217414260224873,
+              "green_hf_rms": 0.0038066046333700425,
+              "green_gradient_p95": 0.027879504025743573,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.30217414260224873,
+              "green_hf_rms": 0.0038066046333700425,
+              "green_gradient_p95": 0.027879504025743573,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.30218173651543545,
+              "green_hf_rms": 0.0035938143327365305,
+              "green_gradient_p95": 0.027692969259808256,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 26.468101218894677,
+              "changed_channels_pct": 79.77023654513889
+            },
+            {
+              "green_mean": 0.30218173651543545,
+              "green_hf_rms": 0.0035938143327365305,
+              "green_gradient_p95": 0.027692969259808256,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 26.468101218894677,
+              "changed_channels_pct": 79.77023654513889
+            },
+            {
+              "green_mean": 0.30218173651543545,
+              "green_hf_rms": 0.0035938143327365305,
+              "green_gradient_p95": 0.027692969259808256,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 26.468101218894677,
+              "changed_channels_pct": 79.77023654513889
+            },
+            {
+              "green_mean": 0.3021496795928265,
+              "green_hf_rms": 0.002677992934199931,
+              "green_gradient_p95": 0.02689296155558978,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 652,
+              "mean_abs_rgb16_delta": 87.56955747251158,
+              "changed_channels_pct": 86.90728081597221
+            },
+            {
+              "green_mean": 0.3021496795928265,
+              "green_hf_rms": 0.002677992934199931,
+              "green_gradient_p95": 0.02689296155558978,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 652,
+              "mean_abs_rgb16_delta": 87.56955747251158,
+              "changed_channels_pct": 86.90728081597221
+            },
+            {
+              "green_mean": 0.3021496795928265,
+              "green_hf_rms": 0.002677992934199931,
+              "green_gradient_p95": 0.02689296155558978,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 652,
+              "mean_abs_rgb16_delta": 87.56955747251158,
+              "changed_channels_pct": 86.90728081597221
+            },
+            {
+              "green_mean": 0.3021411776262737,
+              "green_hf_rms": 0.0024873857067055673,
+              "green_gradient_p95": 0.026737978970434072,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 732,
+              "mean_abs_rgb16_delta": 100.19735152633102,
+              "changed_channels_pct": 86.90728081597221
+            },
+            {
+              "green_mean": 0.3021411776262737,
+              "green_hf_rms": 0.0024873857067055673,
+              "green_gradient_p95": 0.026737978970434072,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 732,
+              "mean_abs_rgb16_delta": 100.19735152633102,
+              "changed_channels_pct": 86.90728081597221
+            },
+            {
+              "green_mean": 0.30212039836428445,
+              "green_hf_rms": 0.002352652614051162,
+              "green_gradient_p95": 0.026630223087498635,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 1020,
+              "mean_abs_rgb16_delta": 108.37940131293402,
+              "changed_channels_pct": 86.90728081597221
+            },
+            {
+              "green_mean": 0.3021195088341723,
+              "green_hf_rms": 0.00229208721187124,
+              "green_gradient_p95": 0.026585894926888908,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 1124,
+              "mean_abs_rgb16_delta": 112.41677969473379,
+              "changed_channels_pct": 86.90728081597221
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            2704,
+            2320
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.004025292640091597,
+            "green_hf_rms": 0.00031673695744596954,
+            "green_gradient_p95": 0.0008756338893967236,
+            "rgb_zero_pct": 3.7828233506944446,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.004025292640091597,
+              "green_hf_rms": 0.00031673695744596954,
+              "green_gradient_p95": 0.0008756338893967236,
+              "rgb_zero_pct": 3.7828233506944446,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004025292640091597,
+              "green_hf_rms": 0.00031673695744596954,
+              "green_gradient_p95": 0.0008756338893967236,
+              "rgb_zero_pct": 3.7828233506944446,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004025292640091597,
+              "green_hf_rms": 0.00031673695744596954,
+              "green_gradient_p95": 0.0008756338893967236,
+              "rgb_zero_pct": 3.7828233506944446,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004017291836211354,
+              "green_hf_rms": 0.00027529801204895373,
+              "green_gradient_p95": 0.0007941291103007098,
+              "rgb_zero_pct": 3.885226779513889,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 48,
+              "mean_abs_rgb16_delta": 1.9888780381944444,
+              "changed_channels_pct": 22.576904296875
+            },
+            {
+              "green_mean": 0.004017291836211354,
+              "green_hf_rms": 0.00027529801204895373,
+              "green_gradient_p95": 0.0007941291103007098,
+              "rgb_zero_pct": 3.885226779513889,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 48,
+              "mean_abs_rgb16_delta": 1.9888780381944444,
+              "changed_channels_pct": 22.576904296875
+            },
+            {
+              "green_mean": 0.004017291836211354,
+              "green_hf_rms": 0.00027529801204895373,
+              "green_gradient_p95": 0.0007941291103007098,
+              "rgb_zero_pct": 3.885226779513889,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 48,
+              "mean_abs_rgb16_delta": 1.9888780381944444,
+              "changed_channels_pct": 22.576904296875
+            },
+            {
+              "green_mean": 0.004010526191872663,
+              "green_hf_rms": 0.00023860416759734852,
+              "green_gradient_p95": 0.0007197666233353632,
+              "rgb_zero_pct": 3.981752748842592,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 104,
+              "mean_abs_rgb16_delta": 3.4839952256944446,
+              "changed_channels_pct": 30.219862196180557
+            },
+            {
+              "green_mean": 0.004010526191872663,
+              "green_hf_rms": 0.00023860416759734852,
+              "green_gradient_p95": 0.0007197666233353632,
+              "rgb_zero_pct": 3.981752748842592,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 104,
+              "mean_abs_rgb16_delta": 3.4839952256944446,
+              "changed_channels_pct": 30.219862196180557
+            },
+            {
+              "green_mean": 0.004010526191872663,
+              "green_hf_rms": 0.00023860416759734852,
+              "green_gradient_p95": 0.0007197666233353632,
+              "rgb_zero_pct": 3.981752748842592,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 104,
+              "mean_abs_rgb16_delta": 3.4839952256944446,
+              "changed_channels_pct": 30.219862196180557
+            },
+            {
+              "green_mean": 0.0040097360043509405,
+              "green_hf_rms": 0.00023366374045373782,
+              "green_gradient_p95": 0.0007095855358868648,
+              "rgb_zero_pct": 3.99169921875,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 116,
+              "mean_abs_rgb16_delta": 3.6549750434027777,
+              "changed_channels_pct": 30.219862196180557
+            },
+            {
+              "green_mean": 0.0040097360043509405,
+              "green_hf_rms": 0.00023366374045373782,
+              "green_gradient_p95": 0.0007095855358868648,
+              "rgb_zero_pct": 3.99169921875,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 116,
+              "mean_abs_rgb16_delta": 3.6549750434027777,
+              "changed_channels_pct": 30.219862196180557
+            },
+            {
+              "green_mean": 0.004009041848000008,
+              "green_hf_rms": 0.00023198252937176318,
+              "green_gradient_p95": 0.0007053894457206818,
+              "rgb_zero_pct": 3.993281611689815,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 124,
+              "mean_abs_rgb16_delta": 3.7005027488425926,
+              "changed_channels_pct": 30.219862196180557
+            },
+            {
+              "green_mean": 0.004009361399999365,
+              "green_hf_rms": 0.00023106193270237287,
+              "green_gradient_p95": 0.0007036543709571272,
+              "rgb_zero_pct": 3.993507667824074,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 128,
+              "mean_abs_rgb16_delta": 3.723650896990741,
+              "changed_channels_pct": 30.219862196180557
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IMG_20260917_073736_1789627056711_00.dng",
+      "model": "25010PN30G",
+      "iso": 50,
+      "exposure_seconds": 0.009999999776482582,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.287109375,
+        1.0,
+        0.6845703125
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        2.9567403268055556e-05,
+        4.834904956268195e-07,
+        3.472056504539444e-05,
+        4.0775853931925274e-07,
+        2.917632891202222e-05,
+        4.945284597326194e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 4.68359375,
+      "norm030_alpha": 0.2694359548410245,
+      "norm030_outside_ev": 1.1134371438177553,
+      "representation_scale": 1.5566938596091535,
+      "sha256": "adca8c453f5223fe06640552b8fa3ed95c7a6a6af34ad6c3e48ae912bf58a92c",
+      "mapping_probes": {
+        "physical_iso_1x": 0,
+        "historical_main_iso_2x": 0
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            1168,
+            2320
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.09206606009902203,
+            "green_hf_rms": 0.0013670431319072656,
+            "green_gradient_p95": 0.012113972080708343,
+            "rgb_zero_pct": 0.0,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.09206606009902203,
+              "green_hf_rms": 0.0013670431319072656,
+              "green_gradient_p95": 0.012113972080708343,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.09206606009902203,
+              "green_hf_rms": 0.0013670431319072656,
+              "green_gradient_p95": 0.012113972080708343,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.09206606009902203,
+              "green_hf_rms": 0.0013670431319072656,
+              "green_gradient_p95": 0.012113972080708343,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.092051092792503,
+              "green_hf_rms": 0.001256778963236435,
+              "green_gradient_p95": 0.011848112805653007,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 12.507249620225695,
+              "changed_channels_pct": 59.84022352430556
+            },
+            {
+              "green_mean": 0.092051092792503,
+              "green_hf_rms": 0.001256778963236435,
+              "green_gradient_p95": 0.011848112805653007,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 12.507249620225695,
+              "changed_channels_pct": 59.84022352430556
+            },
+            {
+              "green_mean": 0.092051092792503,
+              "green_hf_rms": 0.001256778963236435,
+              "green_gradient_p95": 0.011848112805653007,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 12.507249620225695,
+              "changed_channels_pct": 59.84022352430556
+            },
+            {
+              "green_mean": 0.09202915567192546,
+              "green_hf_rms": 0.0010834367374090738,
+              "green_gradient_p95": 0.011410369167739862,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 348,
+              "mean_abs_rgb16_delta": 27.42622658058449,
+              "changed_channels_pct": 68.52145724826389
+            },
+            {
+              "green_mean": 0.09202915567192546,
+              "green_hf_rms": 0.0010834367374090738,
+              "green_gradient_p95": 0.011410369167739862,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 348,
+              "mean_abs_rgb16_delta": 27.42622658058449,
+              "changed_channels_pct": 68.52145724826389
+            },
+            {
+              "green_mean": 0.09202915567192546,
+              "green_hf_rms": 0.0010834367374090738,
+              "green_gradient_p95": 0.011410369167739862,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 348,
+              "mean_abs_rgb16_delta": 27.42622658058449,
+              "changed_channels_pct": 68.52145724826389
+            },
+            {
+              "green_mean": 0.0920250908007834,
+              "green_hf_rms": 0.001052694906374697,
+              "green_gradient_p95": 0.011338249051455432,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 444,
+              "mean_abs_rgb16_delta": 30.161625614872687,
+              "changed_channels_pct": 68.52145724826389
+            },
+            {
+              "green_mean": 0.0920250908007834,
+              "green_hf_rms": 0.001052694906374697,
+              "green_gradient_p95": 0.011338249051455432,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 444,
+              "mean_abs_rgb16_delta": 30.161625614872687,
+              "changed_channels_pct": 68.52145724826389
+            },
+            {
+              "green_mean": 0.0920156077226678,
+              "green_hf_rms": 0.0010354837895581728,
+              "green_gradient_p95": 0.011301512957015598,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 524,
+              "mean_abs_rgb16_delta": 31.59041793258102,
+              "changed_channels_pct": 68.52145724826389
+            },
+            {
+              "green_mean": 0.09201725153209456,
+              "green_hf_rms": 0.0010267273243106537,
+              "green_gradient_p95": 0.011283970603370934,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 556,
+              "mean_abs_rgb16_delta": 32.37846091941551,
+              "changed_channels_pct": 68.52145724826389
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            2320,
+            16
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.011619118074231962,
+            "green_hf_rms": 0.0002466797956670537,
+            "green_gradient_p95": 0.0007877262225766574,
+            "rgb_zero_pct": 0.03639503761574074,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.011619118074231962,
+              "green_hf_rms": 0.0002466797956670537,
+              "green_gradient_p95": 0.0007877262225766574,
+              "rgb_zero_pct": 0.03639503761574074,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.011619118074231962,
+              "green_hf_rms": 0.0002466797956670537,
+              "green_gradient_p95": 0.0007877262225766574,
+              "rgb_zero_pct": 0.03639503761574074,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.011619118074231962,
+              "green_hf_rms": 0.0002466797956670537,
+              "green_gradient_p95": 0.0007877262225766574,
+              "rgb_zero_pct": 0.03639503761574074,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.01161175347685821,
+              "green_hf_rms": 0.0002178595095846471,
+              "green_gradient_p95": 0.0007494805334702259,
+              "rgb_zero_pct": 0.03820348668981482,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 32,
+              "mean_abs_rgb16_delta": 1.553882740162037,
+              "changed_channels_pct": 19.16255244502315
+            },
+            {
+              "green_mean": 0.01161175347685821,
+              "green_hf_rms": 0.0002178595095846471,
+              "green_gradient_p95": 0.0007494805334702259,
+              "rgb_zero_pct": 0.03820348668981482,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 32,
+              "mean_abs_rgb16_delta": 1.553882740162037,
+              "changed_channels_pct": 19.16255244502315
+            },
+            {
+              "green_mean": 0.01161175347685821,
+              "green_hf_rms": 0.0002178595095846471,
+              "green_gradient_p95": 0.0007494805334702259,
+              "rgb_zero_pct": 0.03820348668981482,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 32,
+              "mean_abs_rgb16_delta": 1.553882740162037,
+              "changed_channels_pct": 19.16255244502315
+            },
+            {
+              "green_mean": 0.011606594284992965,
+              "green_hf_rms": 0.00019443606011943445,
+              "green_gradient_p95": 0.0007186335142636219,
+              "rgb_zero_pct": 0.03955982349537037,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 60,
+              "mean_abs_rgb16_delta": 2.5369285300925926,
+              "changed_channels_pct": 26.264558015046298
+            },
+            {
+              "green_mean": 0.011606594284992965,
+              "green_hf_rms": 0.00019443606011943445,
+              "green_gradient_p95": 0.0007186335142636219,
+              "rgb_zero_pct": 0.03955982349537037,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 60,
+              "mean_abs_rgb16_delta": 2.5369285300925926,
+              "changed_channels_pct": 26.264558015046298
+            },
+            {
+              "green_mean": 0.011606594284992965,
+              "green_hf_rms": 0.00019443606011943445,
+              "green_gradient_p95": 0.0007186335142636219,
+              "rgb_zero_pct": 0.03955982349537037,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 60,
+              "mean_abs_rgb16_delta": 2.5369285300925926,
+              "changed_channels_pct": 26.264558015046298
+            },
+            {
+              "green_mean": 0.011606190705719166,
+              "green_hf_rms": 0.0001921152745846477,
+              "green_gradient_p95": 0.0007147349311745091,
+              "rgb_zero_pct": 0.03978587962962963,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 68,
+              "mean_abs_rgb16_delta": 2.611499927662037,
+              "changed_channels_pct": 26.264558015046298
+            },
+            {
+              "green_mean": 0.011606190705719166,
+              "green_hf_rms": 0.0001921152745846477,
+              "green_gradient_p95": 0.0007147349311745091,
+              "rgb_zero_pct": 0.03978587962962963,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 68,
+              "mean_abs_rgb16_delta": 2.611499927662037,
+              "changed_channels_pct": 26.264558015046298
+            },
+            {
+              "green_mean": 0.011606091777056153,
+              "green_hf_rms": 0.00019185956179109783,
+              "green_gradient_p95": 0.0007144090889277248,
+              "rgb_zero_pct": 0.03978587962962963,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 68,
+              "mean_abs_rgb16_delta": 2.6179832175925926,
+              "changed_channels_pct": 26.264558015046298
+            },
+            {
+              "green_mean": 0.011606136067294406,
+              "green_hf_rms": 0.0001917274417012586,
+              "green_gradient_p95": 0.0007135122554810824,
+              "rgb_zero_pct": 0.03978587962962963,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 68,
+              "mean_abs_rgb16_delta": 2.6208857783564814,
+              "changed_channels_pct": 26.264558015046298
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IMG_20260917_145548_1789653348825_00.dng",
+      "model": "25010PN30G",
+      "iso": 50,
+      "exposure_seconds": 0.0008825049735605717,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.3583984375,
+        1.0,
+        0.5908203125
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        2.9567403268055556e-05,
+        4.834904956268195e-07,
+        3.472056504539444e-05,
+        4.0775853931925274e-07,
+        2.917632891202222e-05,
+        4.945284597326194e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 4.8251953125,
+      "norm030_alpha": 0.26620510826356836,
+      "norm030_outside_ev": 1.1269505756552631,
+      "representation_scale": 1.5522503708337523,
+      "sha256": "720ab1e4e708b08084cfbeb225693c5341f646568fc24b7cb0f03287a224c9f2",
+      "mapping_probes": {
+        "physical_iso_1x": 0,
+        "historical_main_iso_2x": 0
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            1552,
+            1552
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.11917633359066376,
+            "green_hf_rms": 0.008923342614138715,
+            "green_gradient_p95": 0.03608417897070913,
+            "rgb_zero_pct": 0.7577401620370371,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.11917633359066376,
+              "green_hf_rms": 0.008923342614138715,
+              "green_gradient_p95": 0.03608417897070913,
+              "rgb_zero_pct": 0.7577401620370371,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.11917633359066376,
+              "green_hf_rms": 0.008923342614138715,
+              "green_gradient_p95": 0.03608417897070913,
+              "rgb_zero_pct": 0.7577401620370371,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.11917633359066376,
+              "green_hf_rms": 0.008923342614138715,
+              "green_gradient_p95": 0.03608417897070913,
+              "rgb_zero_pct": 0.7577401620370371,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.11919371368034892,
+              "green_hf_rms": 0.008885369491922803,
+              "green_gradient_p95": 0.035990408708150845,
+              "rgb_zero_pct": 0.6447120949074074,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 15.61270480685764,
+              "changed_channels_pct": 64.11245840567129
+            },
+            {
+              "green_mean": 0.11919371368034892,
+              "green_hf_rms": 0.008885369491922803,
+              "green_gradient_p95": 0.035990408708150845,
+              "rgb_zero_pct": 0.6447120949074074,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 15.61270480685764,
+              "changed_channels_pct": 64.11245840567129
+            },
+            {
+              "green_mean": 0.11919371368034892,
+              "green_hf_rms": 0.008885369491922803,
+              "green_gradient_p95": 0.035990408708150845,
+              "rgb_zero_pct": 0.6447120949074074,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 15.61270480685764,
+              "changed_channels_pct": 64.11245840567129
+            },
+            {
+              "green_mean": 0.11915632319893207,
+              "green_hf_rms": 0.006858068847746862,
+              "green_gradient_p95": 0.031045780774769254,
+              "rgb_zero_pct": 0.11054144965277778,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 3153,
+              "mean_abs_rgb16_delta": 93.8413244176794,
+              "changed_channels_pct": 79.61131908275463
+            },
+            {
+              "green_mean": 0.11915632319893207,
+              "green_hf_rms": 0.006858068847746862,
+              "green_gradient_p95": 0.031045780774769254,
+              "rgb_zero_pct": 0.11054144965277778,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 3153,
+              "mean_abs_rgb16_delta": 93.8413244176794,
+              "changed_channels_pct": 79.61131908275463
+            },
+            {
+              "green_mean": 0.11915632319893207,
+              "green_hf_rms": 0.006858068847746862,
+              "green_gradient_p95": 0.031045780774769254,
+              "rgb_zero_pct": 0.11054144965277778,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 3153,
+              "mean_abs_rgb16_delta": 93.8413244176794,
+              "changed_channels_pct": 79.61131908275463
+            },
+            {
+              "green_mean": 0.11916199917923152,
+              "green_hf_rms": 0.00672956840347416,
+              "green_gradient_p95": 0.03042000187808564,
+              "rgb_zero_pct": 0.08997034143518519,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 3153,
+              "mean_abs_rgb16_delta": 105.79071044921875,
+              "changed_channels_pct": 79.64545355902779
+            },
+            {
+              "green_mean": 0.11916199917923152,
+              "green_hf_rms": 0.00672956840347416,
+              "green_gradient_p95": 0.03042000187808564,
+              "rgb_zero_pct": 0.08997034143518519,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 3153,
+              "mean_abs_rgb16_delta": 105.79071044921875,
+              "changed_channels_pct": 79.64545355902779
+            },
+            {
+              "green_mean": 0.11912412688625088,
+              "green_hf_rms": 0.0058494179667394845,
+              "green_gradient_p95": 0.028683188754003656,
+              "rgb_zero_pct": 0.09878653067129631,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 4729,
+              "mean_abs_rgb16_delta": 129.8003946940104,
+              "changed_channels_pct": 79.6714500144676
+            },
+            {
+              "green_mean": 0.11912396348838593,
+              "green_hf_rms": 0.005690024078110678,
+              "green_gradient_p95": 0.028262668611490255,
+              "rgb_zero_pct": 0.1103153935185185,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 4729,
+              "mean_abs_rgb16_delta": 137.10772026909723,
+              "changed_channels_pct": 79.67845775462963
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            16,
+            2320
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.01106848900052347,
+            "green_hf_rms": 0.00045166109614377215,
+            "green_gradient_p95": 0.0013811311525993215,
+            "rgb_zero_pct": 0.0,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.01106848900052347,
+              "green_hf_rms": 0.00045166109614377215,
+              "green_gradient_p95": 0.0013811311525993215,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.01106848900052347,
+              "green_hf_rms": 0.00045166109614377215,
+              "green_gradient_p95": 0.0013811311525993215,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.01106848900052347,
+              "green_hf_rms": 0.00045166109614377215,
+              "green_gradient_p95": 0.0013811311525993215,
+              "rgb_zero_pct": 0.0,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.01105825505799488,
+              "green_hf_rms": 0.0003939664530307567,
+              "green_gradient_p95": 0.0012694369076550283,
+              "rgb_zero_pct": 0.00022605613425925923,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.168728298611111,
+              "changed_channels_pct": 32.23130967881944
+            },
+            {
+              "green_mean": 0.01105825505799488,
+              "green_hf_rms": 0.0003939664530307567,
+              "green_gradient_p95": 0.0012694369076550283,
+              "rgb_zero_pct": 0.00022605613425925923,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.168728298611111,
+              "changed_channels_pct": 32.23130967881944
+            },
+            {
+              "green_mean": 0.01105825505799488,
+              "green_hf_rms": 0.0003939664530307567,
+              "green_gradient_p95": 0.0012694369076550283,
+              "rgb_zero_pct": 0.00022605613425925923,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.168728298611111,
+              "changed_channels_pct": 32.23130967881944
+            },
+            {
+              "green_mean": 0.011048570397206116,
+              "green_hf_rms": 0.0003376557894268188,
+              "green_gradient_p95": 0.0011633190474521196,
+              "rgb_zero_pct": 0.00022605613425925923,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 224,
+              "mean_abs_rgb16_delta": 5.84229419849537,
+              "changed_channels_pct": 42.54286024305556
+            },
+            {
+              "green_mean": 0.011048570397206116,
+              "green_hf_rms": 0.0003376557894268188,
+              "green_gradient_p95": 0.0011633190474521196,
+              "rgb_zero_pct": 0.00022605613425925923,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 224,
+              "mean_abs_rgb16_delta": 5.84229419849537,
+              "changed_channels_pct": 42.54286024305556
+            },
+            {
+              "green_mean": 0.011048570397206116,
+              "green_hf_rms": 0.0003376557894268188,
+              "green_gradient_p95": 0.0011633190474521196,
+              "rgb_zero_pct": 0.00022605613425925923,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 224,
+              "mean_abs_rgb16_delta": 5.84229419849537,
+              "changed_channels_pct": 42.54286024305556
+            },
+            {
+              "green_mean": 0.011047136966411079,
+              "green_hf_rms": 0.000328879356600244,
+              "green_gradient_p95": 0.0011455577938161588,
+              "rgb_zero_pct": 0.00045211226851851847,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 260,
+              "mean_abs_rgb16_delta": 6.206470630787037,
+              "changed_channels_pct": 42.54286024305556
+            },
+            {
+              "green_mean": 0.011047136966411079,
+              "green_hf_rms": 0.000328879356600244,
+              "green_gradient_p95": 0.0011455577938161588,
+              "rgb_zero_pct": 0.00045211226851851847,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 260,
+              "mean_abs_rgb16_delta": 6.206470630787037,
+              "changed_channels_pct": 42.54286024305556
+            },
+            {
+              "green_mean": 0.011045508161854777,
+              "green_hf_rms": 0.00032529127204255413,
+              "green_gradient_p95": 0.0011375265633318489,
+              "rgb_zero_pct": 0.00045211226851851847,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 280,
+              "mean_abs_rgb16_delta": 6.324661820023148,
+              "changed_channels_pct": 42.54286024305556
+            },
+            {
+              "green_mean": 0.011046037575076507,
+              "green_hf_rms": 0.00032329374002977893,
+              "green_gradient_p95": 0.0011342083426656366,
+              "rgb_zero_pct": 0.00045211226851851847,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 292,
+              "mean_abs_rgb16_delta": 6.388708043981482,
+              "changed_channels_pct": 42.54286024305556
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IMG_20260908_201025_1788894625828_00.dng",
+      "model": "25010PN30G",
+      "iso": 573,
+      "exposure_seconds": 0.03302527964115143,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.3125,
+        1.0,
+        0.6015625
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        0.00029900408865356,
+        7.518357539602614e-07,
+        0.00030056625703086057,
+        6.547248051618914e-07,
+        0.00030136206764572,
+        7.650291040129306e-07
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 2.5380859375,
+      "norm030_alpha": 0.5608918932416617,
+      "norm030_outside_ev": 0.5348624282411303,
+      "representation_scale": 1.7100288992538677,
+      "sha256": "cde734262366f3d7456805ac8cfafe56053d79fbe8e36e22554b1ba8c996350f",
+      "mapping_probes": {
+        "physical_iso_1x": 6,
+        "historical_main_iso_2x": 9
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            1168,
+            400
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.14320901119336016,
+            "green_hf_rms": 0.03218202074519481,
+            "green_gradient_p95": 0.2009823036028455,
+            "rgb_zero_pct": 2.983036747685185,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.14320901119336016,
+              "green_hf_rms": 0.03218202074519481,
+              "green_gradient_p95": 0.2009823036028455,
+              "rgb_zero_pct": 2.983036747685185,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.14320901119336016,
+              "green_hf_rms": 0.03218202074519481,
+              "green_gradient_p95": 0.2009823036028455,
+              "rgb_zero_pct": 2.983036747685185,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.14320901119336016,
+              "green_hf_rms": 0.03218202074519481,
+              "green_gradient_p95": 0.2009823036028455,
+              "rgb_zero_pct": 2.983036747685185,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.14325354906371596,
+              "green_hf_rms": 0.03218552809697729,
+              "green_gradient_p95": 0.20097170280277984,
+              "rgb_zero_pct": 2.905499493634259,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 8.794698079427084,
+              "changed_channels_pct": 37.97042281539352
+            },
+            {
+              "green_mean": 0.14325354906371596,
+              "green_hf_rms": 0.03218552809697729,
+              "green_gradient_p95": 0.20097170280277984,
+              "rgb_zero_pct": 2.905499493634259,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 8.794698079427084,
+              "changed_channels_pct": 37.97042281539352
+            },
+            {
+              "green_mean": 0.14325354906371596,
+              "green_hf_rms": 0.03218552809697729,
+              "green_gradient_p95": 0.20097170280277984,
+              "rgb_zero_pct": 2.905499493634259,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 8.794698079427084,
+              "changed_channels_pct": 37.97042281539352
+            },
+            {
+              "green_mean": 0.14317422338433186,
+              "green_hf_rms": 0.026545297613759008,
+              "green_gradient_p95": 0.17829129645809255,
+              "rgb_zero_pct": 0.3372757523148148,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 389.81697139033565,
+              "changed_channels_pct": 74.60168909143519
+            },
+            {
+              "green_mean": 0.14317422338433186,
+              "green_hf_rms": 0.026545297613759008,
+              "green_gradient_p95": 0.17829129645809255,
+              "rgb_zero_pct": 0.3372757523148148,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 389.81697139033565,
+              "changed_channels_pct": 74.60168909143519
+            },
+            {
+              "green_mean": 0.14317422338433186,
+              "green_hf_rms": 0.026545297613759008,
+              "green_gradient_p95": 0.17829129645809255,
+              "rgb_zero_pct": 0.3372757523148148,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 389.81697139033565,
+              "changed_channels_pct": 74.60168909143519
+            },
+            {
+              "green_mean": 0.1432852992660768,
+              "green_hf_rms": 0.026521946862665405,
+              "green_gradient_p95": 0.17804578869811413,
+              "rgb_zero_pct": 0.27375397858796297,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 406.6346186885127,
+              "changed_channels_pct": 74.67063621238425
+            },
+            {
+              "green_mean": 0.1432852992660768,
+              "green_hf_rms": 0.026521946862665405,
+              "green_gradient_p95": 0.17804578869811413,
+              "rgb_zero_pct": 0.27375397858796297,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 4097,
+              "mean_abs_rgb16_delta": 406.6346186885127,
+              "changed_channels_pct": 74.67063621238425
+            },
+            {
+              "green_mean": 0.1431692787103729,
+              "green_hf_rms": 0.023789223194074893,
+              "green_gradient_p95": 0.16690447574348521,
+              "rgb_zero_pct": 0.09177879050925926,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 6145,
+              "mean_abs_rgb16_delta": 587.8024201569734,
+              "changed_channels_pct": 74.89171911168981
+            },
+            {
+              "green_mean": 0.1432645579819321,
+              "green_hf_rms": 0.02368464384923549,
+              "green_gradient_p95": 0.16633298976804542,
+              "rgb_zero_pct": 0.08138020833333334,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 6145,
+              "mean_abs_rgb16_delta": 608.3517388237847,
+              "changed_channels_pct": 74.90799515335648
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            3088,
+            1552
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.004955527136951842,
+            "green_hf_rms": 0.0005430761169018215,
+            "green_gradient_p95": 0.0020152815569875544,
+            "rgb_zero_pct": 0.7091380931712963,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.004955527136951842,
+              "green_hf_rms": 0.0005430761169018215,
+              "green_gradient_p95": 0.0020152815569875544,
+              "rgb_zero_pct": 0.7091380931712963,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004955527136951842,
+              "green_hf_rms": 0.0005430761169018215,
+              "green_gradient_p95": 0.0020152815569875544,
+              "rgb_zero_pct": 0.7091380931712963,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004955527136951842,
+              "green_hf_rms": 0.0005430761169018215,
+              "green_gradient_p95": 0.0020152815569875544,
+              "rgb_zero_pct": 0.7091380931712963,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.004943125042386172,
+              "green_hf_rms": 0.00047740209723182153,
+              "green_gradient_p95": 0.001880848541696455,
+              "rgb_zero_pct": 0.7450810185185185,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.8171748408564814,
+              "changed_channels_pct": 34.62727864583333
+            },
+            {
+              "green_mean": 0.004943125042386172,
+              "green_hf_rms": 0.00047740209723182153,
+              "green_gradient_p95": 0.001880848541696455,
+              "rgb_zero_pct": 0.7450810185185185,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.8171748408564814,
+              "changed_channels_pct": 34.62727864583333
+            },
+            {
+              "green_mean": 0.004943125042386172,
+              "green_hf_rms": 0.00047740209723182153,
+              "green_gradient_p95": 0.001880848541696455,
+              "rgb_zero_pct": 0.7450810185185185,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 3.8171748408564814,
+              "changed_channels_pct": 34.62727864583333
+            },
+            {
+              "green_mean": 0.004929664535304502,
+              "green_hf_rms": 0.0004093177182599501,
+              "green_gradient_p95": 0.00175082731332538,
+              "rgb_zero_pct": 0.8126718026620371,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 244,
+              "mean_abs_rgb16_delta": 7.230116102430555,
+              "changed_channels_pct": 44.60313585069444
+            },
+            {
+              "green_mean": 0.004929664535304502,
+              "green_hf_rms": 0.0004093177182599501,
+              "green_gradient_p95": 0.00175082731332538,
+              "rgb_zero_pct": 0.8126718026620371,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 244,
+              "mean_abs_rgb16_delta": 7.230116102430555,
+              "changed_channels_pct": 44.60313585069444
+            },
+            {
+              "green_mean": 0.004929664535304502,
+              "green_hf_rms": 0.0004093177182599501,
+              "green_gradient_p95": 0.00175082731332538,
+              "rgb_zero_pct": 0.8126718026620371,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 244,
+              "mean_abs_rgb16_delta": 7.230116102430555,
+              "changed_channels_pct": 44.60313585069444
+            },
+            {
+              "green_mean": 0.004927380897505999,
+              "green_hf_rms": 0.00039816390967688063,
+              "green_gradient_p95": 0.0017280379126104596,
+              "rgb_zero_pct": 0.8255570023148149,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 288,
+              "mean_abs_rgb16_delta": 7.738190827546297,
+              "changed_channels_pct": 44.60381401909722
+            },
+            {
+              "green_mean": 0.004927380897505999,
+              "green_hf_rms": 0.00039816390967688063,
+              "green_gradient_p95": 0.0017280379126104596,
+              "rgb_zero_pct": 0.8255570023148149,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 288,
+              "mean_abs_rgb16_delta": 7.738190827546297,
+              "changed_channels_pct": 44.60381401909722
+            },
+            {
+              "green_mean": 0.004924613792433857,
+              "green_hf_rms": 0.0003928945468103557,
+              "green_gradient_p95": 0.0017140439667520304,
+              "rgb_zero_pct": 0.832564742476852,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 316,
+              "mean_abs_rgb16_delta": 7.940131293402778,
+              "changed_channels_pct": 44.60381401909722
+            },
+            {
+              "green_mean": 0.004925177147707332,
+              "green_hf_rms": 0.00039004570608596004,
+              "green_gradient_p95": 0.0017088316258383083,
+              "rgb_zero_pct": 0.832564742476852,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 332,
+              "mean_abs_rgb16_delta": 8.04807761863426,
+              "changed_channels_pct": 44.60381401909722
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IMG_20260908_201112_1788894672206_00.dng",
+      "model": "25010PN30G",
+      "iso": 1142,
+      "exposure_seconds": 0.015621715225279331,
+      "cfa": 0,
+      "cfa_pattern": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "neutral": [
+        0.328125,
+        1.0,
+        0.5908203125
+      ],
+      "white": 1023,
+      "black": [
+        64.0,
+        64.0,
+        64.0,
+        64.0
+      ],
+      "shape": [
+        3072,
+        4096
+      ],
+      "focal_length_mm": 8.720000267028809,
+      "noise_profile": [
+        0.0005921388381456288,
+        1.555510979817427e-06,
+        0.0005897941704911478,
+        1.394371448120472e-06,
+        0.0005974876610290356,
+        1.575159559593242e-06
+      ],
+      "gainmap_shape": [
+        13,
+        17,
+        4
+      ],
+      "gainmap_max": 2.513671875,
+      "norm030_alpha": 0.5599010627649432,
+      "norm030_outside_ev": 0.5358089490284563,
+      "representation_scale": 1.693949395087171,
+      "sha256": "f06d21a35e340d79acd8eb8aa8849a7cdf364a0c5023e571a9e01d5eac88e2d8",
+      "mapping_probes": {
+        "physical_iso_1x": 9,
+        "historical_main_iso_2x": 12
+      },
+      "tiles": [
+        {
+          "kind": "edge",
+          "xy": [
+            784,
+            2320
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.03596965150503362,
+            "green_hf_rms": 0.012536807566138215,
+            "green_gradient_p95": 0.07562585269716303,
+            "rgb_zero_pct": 1.9072356047453702,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.03596965150503362,
+              "green_hf_rms": 0.012536807566138215,
+              "green_gradient_p95": 0.07562585269716303,
+              "rgb_zero_pct": 1.9072356047453702,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.03596965150503362,
+              "green_hf_rms": 0.012536807566138215,
+              "green_gradient_p95": 0.07562585269716303,
+              "rgb_zero_pct": 1.9072356047453702,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.03596965150503362,
+              "green_hf_rms": 0.012536807566138215,
+              "green_gradient_p95": 0.07562585269716303,
+              "rgb_zero_pct": 1.9072356047453702,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.03601933035444641,
+              "green_hf_rms": 0.012524599413830618,
+              "green_gradient_p95": 0.07563169886389086,
+              "rgb_zero_pct": 1.6768844039351853,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 13.087696216724536,
+              "changed_channels_pct": 54.92531105324075
+            },
+            {
+              "green_mean": 0.03601933035444641,
+              "green_hf_rms": 0.012524599413830618,
+              "green_gradient_p95": 0.07563169886389086,
+              "rgb_zero_pct": 1.6768844039351853,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 13.087696216724536,
+              "changed_channels_pct": 54.92531105324075
+            },
+            {
+              "green_mean": 0.03601933035444641,
+              "green_hf_rms": 0.012524599413830618,
+              "green_gradient_p95": 0.07563169886389086,
+              "rgb_zero_pct": 1.6768844039351853,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 65,
+              "mean_abs_rgb16_delta": 13.087696216724536,
+              "changed_channels_pct": 54.92531105324075
+            },
+            {
+              "green_mean": 0.035971240676035604,
+              "green_hf_rms": 0.010174926612856027,
+              "green_gradient_p95": 0.06677029519112504,
+              "rgb_zero_pct": 0.3379539207175926,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 2956,
+              "mean_abs_rgb16_delta": 151.33984601056133,
+              "changed_channels_pct": 79.41125940393519
+            },
+            {
+              "green_mean": 0.035971240676035604,
+              "green_hf_rms": 0.010174926612856027,
+              "green_gradient_p95": 0.06677029519112504,
+              "rgb_zero_pct": 0.3379539207175926,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 2956,
+              "mean_abs_rgb16_delta": 151.33984601056133,
+              "changed_channels_pct": 79.41125940393519
+            },
+            {
+              "green_mean": 0.035971240676035604,
+              "green_hf_rms": 0.010174926612856027,
+              "green_gradient_p95": 0.06677029519112504,
+              "rgb_zero_pct": 0.3379539207175926,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 2956,
+              "mean_abs_rgb16_delta": 151.33984601056133,
+              "changed_channels_pct": 79.41125940393519
+            },
+            {
+              "green_mean": 0.036045427652963744,
+              "green_hf_rms": 0.010049704329984937,
+              "green_gradient_p95": 0.06612930783614496,
+              "rgb_zero_pct": 0.2846046730324074,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 2956,
+              "mean_abs_rgb16_delta": 169.4841783311632,
+              "changed_channels_pct": 79.48314525462963
+            },
+            {
+              "green_mean": 0.036045427652963744,
+              "green_hf_rms": 0.010049704329984937,
+              "green_gradient_p95": 0.06612930783614496,
+              "rgb_zero_pct": 0.2846046730324074,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 2956,
+              "mean_abs_rgb16_delta": 169.4841783311632,
+              "changed_channels_pct": 79.48314525462963
+            },
+            {
+              "green_mean": 0.035937470404186586,
+              "green_hf_rms": 0.00899638387883864,
+              "green_gradient_p95": 0.06212307804570519,
+              "rgb_zero_pct": 0.28030960648148145,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 4436,
+              "mean_abs_rgb16_delta": 220.98162841796875,
+              "changed_channels_pct": 79.52315719039352
+            },
+            {
+              "green_mean": 0.03595255536958622,
+              "green_hf_rms": 0.008795677659835507,
+              "green_gradient_p95": 0.06128957120701927,
+              "rgb_zero_pct": 0.2895779079861111,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 4436,
+              "mean_abs_rgb16_delta": 235.67649558738427,
+              "changed_channels_pct": 79.52880859375
+            }
+          ]
+        },
+        {
+          "kind": "quiet",
+          "xy": [
+            3088,
+            1552
+          ],
+          "size": 384,
+          "baseline": {
+            "green_mean": 0.0051747220096290784,
+            "green_hf_rms": 0.0007424024660600126,
+            "green_gradient_p95": 0.0024338259509748108,
+            "rgb_zero_pct": 1.2867115162037037,
+            "rgb_white_pct": 0.0
+          },
+          "slots": [
+            {
+              "green_mean": 0.0051747220096290784,
+              "green_hf_rms": 0.0007424024660600126,
+              "green_gradient_p95": 0.0024338259509748108,
+              "rgb_zero_pct": 1.2867115162037037,
+              "rgb_white_pct": 0.0,
+              "slot": 0,
+              "leica_iso": 160,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.0051747220096290784,
+              "green_hf_rms": 0.0007424024660600126,
+              "green_gradient_p95": 0.0024338259509748108,
+              "rgb_zero_pct": 1.2867115162037037,
+              "rgb_white_pct": 0.0,
+              "slot": 1,
+              "leica_iso": 200,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.0051747220096290784,
+              "green_hf_rms": 0.0007424024660600126,
+              "green_gradient_p95": 0.0024338259509748108,
+              "rgb_zero_pct": 1.2867115162037037,
+              "rgb_white_pct": 0.0,
+              "slot": 2,
+              "leica_iso": 250,
+              "max_rgb16_delta": 0,
+              "mean_abs_rgb16_delta": 0.0,
+              "changed_channels_pct": 0.0
+            },
+            {
+              "green_mean": 0.005159909615462051,
+              "green_hf_rms": 0.0006433863714814174,
+              "green_gradient_p95": 0.002222454405685995,
+              "rgb_zero_pct": 1.3199417679398149,
+              "rgb_white_pct": 0.0,
+              "slot": 3,
+              "leica_iso": 320,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 5.782751012731482,
+              "changed_channels_pct": 45.16691984953704
+            },
+            {
+              "green_mean": 0.005159909615462051,
+              "green_hf_rms": 0.0006433863714814174,
+              "green_gradient_p95": 0.002222454405685995,
+              "rgb_zero_pct": 1.3199417679398149,
+              "rgb_white_pct": 0.0,
+              "slot": 4,
+              "leica_iso": 400,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 5.782751012731482,
+              "changed_channels_pct": 45.16691984953704
+            },
+            {
+              "green_mean": 0.005159909615462051,
+              "green_hf_rms": 0.0006433863714814174,
+              "green_gradient_p95": 0.002222454405685995,
+              "rgb_zero_pct": 1.3199417679398149,
+              "rgb_white_pct": 0.0,
+              "slot": 5,
+              "leica_iso": 500,
+              "max_rgb16_delta": 64,
+              "mean_abs_rgb16_delta": 5.782751012731482,
+              "changed_channels_pct": 45.16691984953704
+            },
+            {
+              "green_mean": 0.005142903819682867,
+              "green_hf_rms": 0.0005318170881612152,
+              "green_gradient_p95": 0.002013027338153335,
+              "rgb_zero_pct": 1.4515064380787037,
+              "rgb_white_pct": 0.0,
+              "slot": 6,
+              "leica_iso": 640,
+              "max_rgb16_delta": 364,
+              "mean_abs_rgb16_delta": 11.358525028935185,
+              "changed_channels_pct": 55.86796513310185
+            },
+            {
+              "green_mean": 0.005142903819682867,
+              "green_hf_rms": 0.0005318170881612152,
+              "green_gradient_p95": 0.002013027338153335,
+              "rgb_zero_pct": 1.4515064380787037,
+              "rgb_white_pct": 0.0,
+              "slot": 7,
+              "leica_iso": 800,
+              "max_rgb16_delta": 364,
+              "mean_abs_rgb16_delta": 11.358525028935185,
+              "changed_channels_pct": 55.86796513310185
+            },
+            {
+              "green_mean": 0.005142903819682867,
+              "green_hf_rms": 0.0005318170881612152,
+              "green_gradient_p95": 0.002013027338153335,
+              "rgb_zero_pct": 1.4515064380787037,
+              "rgb_white_pct": 0.0,
+              "slot": 8,
+              "leica_iso": 1000,
+              "max_rgb16_delta": 364,
+              "mean_abs_rgb16_delta": 11.358525028935185,
+              "changed_channels_pct": 55.86796513310185
+            },
+            {
+              "green_mean": 0.005139775769865339,
+              "green_hf_rms": 0.0005125768309924279,
+              "green_gradient_p95": 0.0019779130042554102,
+              "rgb_zero_pct": 1.4833803530092593,
+              "rgb_white_pct": 0.0,
+              "slot": 9,
+              "leica_iso": 1250,
+              "max_rgb16_delta": 464,
+              "mean_abs_rgb16_delta": 12.265742549189815,
+              "changed_channels_pct": 55.87271231192129
+            },
+            {
+              "green_mean": 0.005139775769865339,
+              "green_hf_rms": 0.0005125768309924279,
+              "green_gradient_p95": 0.0019779130042554102,
+              "rgb_zero_pct": 1.4833803530092593,
+              "rgb_white_pct": 0.0,
+              "slot": 10,
+              "leica_iso": 1600,
+              "max_rgb16_delta": 464,
+              "mean_abs_rgb16_delta": 12.265742549189815,
+              "changed_channels_pct": 55.87271231192129
+            },
+            {
+              "green_mean": 0.005134777595782152,
+              "green_hf_rms": 0.0005027731118727968,
+              "green_gradient_p95": 0.0019594999373534457,
+              "rgb_zero_pct": 1.5105070891203705,
+              "rgb_white_pct": 0.0,
+              "slot": 11,
+              "leica_iso": 2000,
+              "max_rgb16_delta": 552,
+              "mean_abs_rgb16_delta": 12.660056785300926,
+              "changed_channels_pct": 55.87271231192129
+            },
+            {
+              "green_mean": 0.005136088504048939,
+              "green_hf_rms": 0.0004972506822519774,
+              "green_gradient_p95": 0.0019466394793891135,
+              "rgb_zero_pct": 1.5116373697916665,
+              "rgb_white_pct": 0.0,
+              "slot": 12,
+              "leica_iso": 2500,
+              "max_rgb16_delta": 592,
+              "mean_abs_rgb16_delta": 12.891664858217593,
+              "changed_channels_pct": 55.873842592592595
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scope": "Native RGB16 detail stage; NORM030 reconstructed from Android DNG GainMaps; downstream colour, TC20, tone and JPEG are not executed",
+  "sensor_iso_mapping_validated": false,
+  "noise_reduction_implemented": false,
+  "metric_limit": "High-frequency RMS includes scene texture and noise; it is not a noise-only quality score",
+  "schedule": [
+    {
+      "iso": 160,
+      "slot": 0,
+      "mode": 4,
+      "base_sha256": "2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9",
+      "correction_at_positive_residual": {
+        "4": 2,
+        "8": 8,
+        "16": 24,
+        "32": 64,
+        "64": 128,
+        "128": 256,
+        "256": 512,
+        "512": 1024,
+        "1024": 2048
+      }
+    },
+    {
+      "iso": 200,
+      "slot": 1,
+      "mode": 4,
+      "base_sha256": "2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9",
+      "correction_at_positive_residual": {
+        "4": 2,
+        "8": 8,
+        "16": 24,
+        "32": 64,
+        "64": 128,
+        "128": 256,
+        "256": 512,
+        "512": 1024,
+        "1024": 2048
+      }
+    },
+    {
+      "iso": 250,
+      "slot": 2,
+      "mode": 4,
+      "base_sha256": "2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9",
+      "correction_at_positive_residual": {
+        "4": 2,
+        "8": 8,
+        "16": 24,
+        "32": 64,
+        "64": 128,
+        "128": 256,
+        "256": 512,
+        "512": 1024,
+        "1024": 2048
+      }
+    },
+    {
+      "iso": 320,
+      "slot": 3,
+      "mode": 4,
+      "base_sha256": "533add730b3082119869cdb4955274f5ff804ed51efe59824cd5987155ce924a",
+      "correction_at_positive_residual": {
+        "4": 2,
+        "8": 4,
+        "16": 14,
+        "32": 48,
+        "64": 128,
+        "128": 256,
+        "256": 512,
+        "512": 1024,
+        "1024": 2048
+      }
+    },
+    {
+      "iso": 400,
+      "slot": 4,
+      "mode": 4,
+      "base_sha256": "533add730b3082119869cdb4955274f5ff804ed51efe59824cd5987155ce924a",
+      "correction_at_positive_residual": {
+        "4": 2,
+        "8": 4,
+        "16": 14,
+        "32": 48,
+        "64": 128,
+        "128": 256,
+        "256": 512,
+        "512": 1024,
+        "1024": 2048
+      }
+    },
+    {
+      "iso": 500,
+      "slot": 5,
+      "mode": 4,
+      "base_sha256": "533add730b3082119869cdb4955274f5ff804ed51efe59824cd5987155ce924a",
+      "correction_at_positive_residual": {
+        "4": 2,
+        "8": 4,
+        "16": 14,
+        "32": 48,
+        "64": 128,
+        "128": 256,
+        "256": 512,
+        "512": 1024,
+        "1024": 2048
+      }
+    },
+    {
+      "iso": 640,
+      "slot": 6,
+      "mode": 3,
+      "base_sha256": "f2b692021542fceb2f9e31e5f3315a77354709f34f79715daa90b52e5c525a24",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 1,
+        "16": 4,
+        "32": 15,
+        "64": 49,
+        "128": 128,
+        "256": 256,
+        "512": 512,
+        "1024": 1024
+      }
+    },
+    {
+      "iso": 800,
+      "slot": 7,
+      "mode": 3,
+      "base_sha256": "f2b692021542fceb2f9e31e5f3315a77354709f34f79715daa90b52e5c525a24",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 1,
+        "16": 4,
+        "32": 15,
+        "64": 49,
+        "128": 128,
+        "256": 256,
+        "512": 512,
+        "1024": 1024
+      }
+    },
+    {
+      "iso": 1000,
+      "slot": 8,
+      "mode": 3,
+      "base_sha256": "f2b692021542fceb2f9e31e5f3315a77354709f34f79715daa90b52e5c525a24",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 1,
+        "16": 4,
+        "32": 15,
+        "64": 49,
+        "128": 128,
+        "256": 256,
+        "512": 512,
+        "1024": 1024
+      }
+    },
+    {
+      "iso": 1250,
+      "slot": 9,
+      "mode": 3,
+      "base_sha256": "75c5417aaa04568b3c7ddb894b0cf4633c86208a5ec6e4e25af694254532b995",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 1,
+        "16": 2,
+        "32": 8,
+        "64": 30,
+        "128": 98,
+        "256": 256,
+        "512": 512,
+        "1024": 1024
+      }
+    },
+    {
+      "iso": 1600,
+      "slot": 10,
+      "mode": 3,
+      "base_sha256": "75c5417aaa04568b3c7ddb894b0cf4633c86208a5ec6e4e25af694254532b995",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 1,
+        "16": 2,
+        "32": 8,
+        "64": 30,
+        "128": 98,
+        "256": 256,
+        "512": 512,
+        "1024": 1024
+      }
+    },
+    {
+      "iso": 2000,
+      "slot": 11,
+      "mode": 2,
+      "base_sha256": "75c5417aaa04568b3c7ddb894b0cf4633c86208a5ec6e4e25af694254532b995",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 0,
+        "16": 1,
+        "32": 4,
+        "64": 15,
+        "128": 49,
+        "256": 128,
+        "512": 256,
+        "1024": 512
+      }
+    },
+    {
+      "iso": 2500,
+      "slot": 12,
+      "mode": 2,
+      "base_sha256": "6f14a5114b17aa7e94279bd4dcd1329de46a458d38c15db4fb3739e8840c75ea",
+      "correction_at_positive_residual": {
+        "4": 0,
+        "8": 0,
+        "16": 0,
+        "32": 2,
+        "64": 8,
+        "128": 29,
+        "256": 98,
+        "512": 256,
+        "1024": 512
+      }
+    }
+  ],
+  "captures_count": 8,
+  "tile_count": 16,
+  "full_raster_parity_rgb_samples": 75497472,
+  "photographic_promotion": "HOLD: 1x and 2x are uncalibrated mapping probes; full post-detail colour/TC20/JPEG replay remains next",
+  "assembly_limit": "Local historical workflow replay yielded mixed UI/exposure source versions. Required native C++ and Java renderer match exact GL2G manifest hashes. No full app assembly, Android build or installability claim."
+}

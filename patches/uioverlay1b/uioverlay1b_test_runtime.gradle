@@ -1,0 +1,6 @@
+allprojects {
+ tasks.withType(Test).configureEach {
+  jvmArgs '-javaagent:/root/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.17.7/fbf3d6d649ed37fc9e9c59480a05be0a26e3c2da/byte-buddy-agent-1.17.7.jar'
+ }
+}
+gradle.beforeProject { p -> p.layout.buildDirectory.set(new File("/tmp/m9uioverlay240_build", p.name)) }

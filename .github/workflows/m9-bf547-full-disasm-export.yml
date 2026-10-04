@@ -1,0 +1,71 @@
+name: M9 BF547 Full Disassembly Export
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpnessforensics1a]
+    paths:
+      - '.github/workflows/m9-bf547-full-disasm-export.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+      - name: Recover and disassemble canonical BF547
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/bf547export"
+          mkdir -p "$ROOT"
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$ROOT/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$ROOT/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$ROOT/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$ROOT/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$ROOT/m9.upd" "$ROOT/mm.upm" --m9-out "$ROOT/m9.dec" --meta-out "$ROOT/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$ROOT/m9.dec" | sha256sum -c --strict
+          python3 - <<'PY'
+          import importlib.util,os,pathlib,sys,hashlib,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'bf547export'
+          spec=importlib.util.spec_from_file_location('gateb',pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          bf=m.get_bf547((root/'m9.dec').read_bytes())
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('BF547 mismatch')
+          (root/'BF547.bin').write_bytes(bf)
+          (root/'manifest.json').write_text(json.dumps({'bf547_sha256':hashlib.sha256(bf).hexdigest(),'size':len(bf),'vma':'0x20000'},indent=2)+'\n')
+          PY
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$ROOT/BF547.bin" > "$ROOT/BF547.full.gnu.dis.txt"
+          xz -T0 -9 "$ROOT/BF547.full.gnu.dis.txt"
+          rm -f "$ROOT/m9.upd" "$ROOT/mm.upm" "$ROOT/m9.dec"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-BF547-CANONICAL-FULL-DISASM
+          retention-days: 30
+          path: |
+            ${{ runner.temp }}/bf547export/BF547.bin
+            ${{ runner.temp }}/bf547export/BF547.full.gnu.dis.txt.xz
+            ${{ runner.temp }}/bf547export/manifest.json
+            ${{ runner.temp }}/bf547export/recovery_meta.json

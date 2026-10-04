@@ -1,0 +1,29 @@
+name: M9 Sharpness Domain Scale Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-splitdemosaic1a]
+    paths:
+      - 'tools/m9_sharpness_domain_scale.py'
+      - '.github/workflows/m9-sharpness-domain-scale.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Quantify 16-bit to 14-bit mappings
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 tools/m9_sharpness_domain_scale.py --out evidence/sharpness_domain_scale.json | tee evidence/sharpness_domain_scale.stdout.txt
+          sha256sum evidence/* | tee evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-DOMAIN-SCALE
+          retention-days: 30
+          path: evidence/*

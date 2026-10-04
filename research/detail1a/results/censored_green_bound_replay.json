@@ -1,0 +1,244 @@
+{
+  "schema": "m9.censored_green_bound.replay.v1",
+  "raw_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "H_stats": {
+    "status": 1.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 1158767.0,
+    "max_abs_correction": 7.0,
+    "censored_samples": 325092.0,
+    "mean_confidence": 0.11420202918960681,
+    "mean_residual_variance14": 82.36768180924791,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 1776.223098
+  },
+  "H_phone_statistics_exact": 8,
+  "actual_render_gain": 1.4142135623730951,
+  "variants": {
+    "H": {
+      "pink_pixels": 174776,
+      "pink_at_green_cfa": 93198,
+      "pink_at_censored_green": 67,
+      "native_green_exact": true,
+      "pink_by_cfa_and_raw_clip_distance": {
+        "R": [
+          135,
+          19034,
+          17024,
+          3408,
+          711,
+          434,
+          279,
+          210,
+          150,
+          997
+        ],
+        "G": [
+          67,
+          44358,
+          38131,
+          5232,
+          1454,
+          824,
+          524,
+          389,
+          311,
+          1908
+        ],
+        "B": [
+          666,
+          12078,
+          20702,
+          2967,
+          840,
+          409,
+          270,
+          191,
+          165,
+          908
+        ]
+      }
+    },
+    "H_bound": {
+      "pink_pixels": 174776,
+      "pink_at_green_cfa": 93198,
+      "pink_at_censored_green": 67,
+      "native_green_exact": true,
+      "pink_by_cfa_and_raw_clip_distance": {
+        "R": [
+          135,
+          19034,
+          17024,
+          3408,
+          711,
+          434,
+          279,
+          210,
+          150,
+          997
+        ],
+        "G": [
+          67,
+          44358,
+          38131,
+          5232,
+          1454,
+          824,
+          524,
+          389,
+          311,
+          1908
+        ],
+        "B": [
+          666,
+          12078,
+          20702,
+          2967,
+          840,
+          409,
+          270,
+          191,
+          165,
+          908
+        ]
+      },
+      "projection": {
+        "selected_green_sites": 185925,
+        "changed_pixels": 182566,
+        "changed_rb_samples": 350954,
+        "maximum_correction": 36596,
+        "green_exact": true,
+        "unselected_pixels_exact": true,
+        "noise_sigmas": 6.0,
+        "green_profile": [
+          3.1248508540855e-05,
+          3.669826853873275e-07
+        ]
+      },
+      "final_rgb_changed_pixels": 5,
+      "final_rgb_maximum_channel_change": 2,
+      "final_rgb_exact": false
+    },
+    "DCB": {
+      "pink_pixels": 66712,
+      "pink_at_green_cfa": 36180,
+      "pink_at_censored_green": 24,
+      "native_green_exact": true,
+      "pink_by_cfa_and_raw_clip_distance": {
+        "R": [
+          102,
+          5793,
+          4418,
+          1723,
+          671,
+          422,
+          275,
+          219,
+          152,
+          997
+        ],
+        "G": [
+          24,
+          18191,
+          9591,
+          2943,
+          1383,
+          871,
+          562,
+          394,
+          313,
+          1908
+        ],
+        "B": [
+          141,
+          4753,
+          6756,
+          1330,
+          770,
+          427,
+          304,
+          204,
+          167,
+          908
+        ]
+      }
+    },
+    "DCB_bound": {
+      "pink_pixels": 66712,
+      "pink_at_green_cfa": 36180,
+      "pink_at_censored_green": 24,
+      "native_green_exact": true,
+      "pink_by_cfa_and_raw_clip_distance": {
+        "R": [
+          102,
+          5793,
+          4418,
+          1723,
+          671,
+          422,
+          275,
+          219,
+          152,
+          997
+        ],
+        "G": [
+          24,
+          18191,
+          9591,
+          2943,
+          1383,
+          871,
+          562,
+          394,
+          313,
+          1908
+        ],
+        "B": [
+          141,
+          4753,
+          6756,
+          1330,
+          770,
+          427,
+          304,
+          204,
+          167,
+          908
+        ]
+      },
+      "projection": {
+        "selected_green_sites": 185925,
+        "changed_pixels": 182096,
+        "changed_rb_samples": 346399,
+        "maximum_correction": 38563,
+        "green_exact": true,
+        "unselected_pixels_exact": true,
+        "noise_sigmas": 6.0,
+        "green_profile": [
+          3.1248508540855e-05,
+          3.669826853873275e-07
+        ]
+      },
+      "final_rgb_changed_pixels": 331,
+      "final_rgb_maximum_channel_change": 15,
+      "final_rgb_exact": false
+    }
+  },
+  "spatial_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "colour_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "script_sha256": "8d8a3f91fecc72ac9da74db6414017d54d2db0ebd62b0889a6c484fc9e1c5f1f",
+  "bound_script_sha256": "1ffc012250a72c2009d5b2ea870ccf87eb8d0710fe4645e43d4e8e0c11b939ae",
+  "scope": "Partial offline colour-difference constraint at directly measured censored green CFA sites. Noise allowance is model-dependent, calibration remains open. DCB still has its previous interpolation regressions.",
+  "android_implementation_changed": false,
+  "auto_exposure_changed": false,
+  "complete_fringe_fix": false
+}

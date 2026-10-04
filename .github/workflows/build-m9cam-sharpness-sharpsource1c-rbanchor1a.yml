@@ -1,0 +1,161 @@
+name: Build M9Cam SHARPSOURCE1C RBANCHOR1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-sharpsource1c-rbanchor1a]
+    paths:
+      - 'patches/apply-m9cam-sharpness-sharpsource1c-rbanchor1a.py'
+      - 'patches/verify-m9cam-sharpness-sharpsource1c-rbanchor1a.py'
+      - '.github/workflows/build-m9cam-sharpness-sharpsource1c-rbanchor1a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicmhc1a.py
+          python3 -m py_compile patches/fix-m9cam-basishsm1p-demosaicmhc1a-lifetime1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhc1a.py
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicab1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicab1a.py
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicmhcneutral1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a.py
+          python3 -m py_compile patches/promote-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-splitdemosaic1a.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-splitdemosaic1a.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-closuretest1a.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-closuretest1a.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-closuretest1b.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-closuretest1b.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-sharpsource1b.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-sharpsource1b.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-sharpsource1b-id1.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-sharpsource1c-rbanchor1a.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-sharpsource1c-rbanchor1a.py
+
+      - name: Replay exact UPSTREAMAXIS1A parent assembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/build-m9cam-basishsm1p-curvedomain1c-upstreamaxis1a.yml')
+          lines=wf.read_text().splitlines()
+          names=['Replay exact CURVEDOMAIN1B parent assembly','Apply CURVEDOMAIN1C UPSTREAMAXIS1A read-only extension']
+          for idx,name in enumerate(names):
+              target='      - name: '+name
+              i=lines.index(target)
+              while i<len(lines) and lines[i].strip()!='run: |': i+=1
+              if i>=len(lines): raise SystemExit('parent run block missing: '+name)
+              i+=1; out=[]
+              while i<len(lines):
+                  line=lines[i]
+                  if line.startswith('      - name:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected parent indentation: '+line)
+                  i+=1
+              Path(f'/tmp/upstreamaxis_parent_{idx}.sh').write_text('\n'.join(out)+'\n')
+          PY
+          for s in /tmp/upstreamaxis_parent_*.sh; do bash "$s"; done
+
+      - name: Assemble frozen neutral-MHC parent
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+          python3 patches/fix-m9cam-basishsm1p-demosaicmhc1a-lifetime1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+          python3 patches/apply-m9cam-basishsm1p-demosaicab1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicab1a.py "$ROOT"
+          python3 patches/apply-m9cam-basishsm1p-demosaicmhcneutral1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a.py "$ROOT"
+          python3 patches/promote-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py "$ROOT"
+
+      - name: Assemble SHARPSOURCE1C RBANCHOR1A
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-sharpness-splitdemosaic1a.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-splitdemosaic1a.py "$ROOT"
+          python3 patches/apply-m9cam-sharpness-closuretest1a.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-closuretest1a.py "$ROOT" | tee CLOSURETEST1A_PARENT_VERIFY.txt
+          python3 patches/apply-m9cam-sharpness-closuretest1b.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-closuretest1b.py "$ROOT" | tee CLOSURETEST1B_PARENT_VERIFY.txt
+          python3 patches/apply-m9cam-sharpness-sharpsource1b.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-sharpsource1b.py "$ROOT" | tee SHARPSOURCE1B_PARENT_VERIFY.txt
+          python3 patches/apply-m9cam-sharpness-sharpsource1b-id1.py "$ROOT" | tee SHARPSOURCE1B_ID1_PARENT.txt
+          python3 patches/apply-m9cam-sharpness-sharpsource1c-rbanchor1a.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-sharpsource1c-rbanchor1a.py "$ROOT" | tee SHARPSOURCE1C_RBANCHOR1A_VERIFY.txt
+
+      - name: Snapshot and guard assembled source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          mkdir -p assembled-sharpsource1c-rbanchor1a
+          cp "$ROOT/app/src/main/cpp/m9color_jni.cpp" assembled-sharpsource1c-rbanchor1a/
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java" assembled-sharpsource1c-rbanchor1a/
+          cp SHARPSOURCE1C_RBANCHOR1A_VERIFY.txt assembled-sharpsource1c-rbanchor1a/
+          grep -n 'SHARPNESS_SHARPSOURCE1C_RBANCHOR1A\|m9SharpSourceLeicaGreen14\|const int sg=\|const int dr=\|const int db=\|x>=9' "$ROOT/app/src/main/cpp/m9color_jni.cpp" > assembled-sharpsource1c-rbanchor1a/NATIVE_ANCHORS.txt
+          grep -n 'sharpnessResearch\|sharpnessInternalMode\|sharpnessScale\|sharpnessNoiseMode\|sharpnessSupportMargin\|sharpnessSource\|sharpnessRgbFoundation\|sharpnessCorrectionPolicy\|sharpnessRbPolicy' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java" > assembled-sharpsource1c-rbanchor1a/IDENTITY_ANCHORS.txt
+          if grep -q 'const int delta=static_cast<int>(closureSharp14\[p\])-static_cast<int>(sharpSourceGreen14\[p\]);' "$ROOT/app/src/main/cpp/m9color_jni.cpp"; then
+            echo 'Rejected SHARPSOURCE1B delta graft remains active' >&2; exit 1
+          fi
+          sha256sum assembled-sharpsource1c-rbanchor1a/* | tee assembled-sharpsource1c-rbanchor1a/SHA256SUMS.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/SHARPSOURCE1C_RBANCHOR1A_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee SHARPSOURCE1C_RBANCHOR1A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPSOURCE1C-RBANCHOR1A-ASSEMBLED-SOURCE
+          path: assembled-sharpsource1c-rbanchor1a/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPSOURCE1C-RBANCHOR1A-BUILDLOG
+          path: SHARPSOURCE1C_RBANCHOR1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload research APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-SHARPSOURCE1C-RBANCHOR1A-ISO160-STANDARD-MODE4-NOISE2-MARGIN9
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            SHARPSOURCE1C_RBANCHOR1A_APK_SHA256.txt
+            SHARPSOURCE1C_RBANCHOR1A_VERIFY.txt

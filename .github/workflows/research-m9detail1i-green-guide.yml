@@ -1,0 +1,103 @@
+name: Research M9DETAIL1I green guide
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9detail1a-offline]
+    paths:
+      - 'research/detail1a/green_guide2_probe.py'
+      - 'research/detail1a/rb_domain.cpp'
+      - '.github/workflows/research-m9detail1i-green-guide.yml'
+  pull_request:
+    branches: [research/m9livegl2g-exposureenergy]
+    paths:
+      - 'research/detail1a/green_guide2_probe.py'
+      - 'research/detail1a/rb_domain.cpp'
+      - '.github/workflows/research-m9detail1i-green-guide.yml'
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected exposure-plan parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No exposure-plan parent source blocks found')
+          for idx,body in enumerate(blocks):
+              script=Path('/tmp/m9detail1i-parent-'+str(idx)+'.sh')
+              script.write_text(body+'\n')
+              subprocess.run(['bash',str(script)],check=True)
+          PYREPLAY
+
+      - name: Apply GL2A through GL2G frozen source
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2c.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2d.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2e.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera
+
+      - name: Run four-CFA colour-preservation screen
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/m9detail1i-python
+          /tmp/m9detail1i-python/bin/pip install -q numpy scipy
+          OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
+          /tmp/m9detail1i-python/bin/python research/detail1a/green_guide2_probe.py \
+            --assembled PhotonCamera \
+            --out M9DETAIL1I_GREEN_GUIDE \
+            --cfas 0 1 2 3 | tee M9DETAIL1I_GREEN_GUIDE.txt
+
+      - name: Record compact verdict
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('M9DETAIL1I_GREEN_GUIDE/report.json')
+          r=json.loads(p.read_text())
+          print('case_count',r['case_count'])
+          for name,s in r['summary'].items():
+              a=s['scene_rgb_rms']; b=s['fixed_green_rb_rms']; c=s['neutral_false_pink']
+              print(name,
+                    'scene_worse',a['cases_worse_than_D'],
+                    'scene_max',a['max_rms_increase'],
+                    'fixedG_worse',b['cases_worse_than_D'],
+                    'fixedG_max',b['max_rms_increase'],
+                    'neutral_pink_improved',c['cases_improved'],
+                    'neutral_pink_worse',c['cases_worse'])
+          PY
+
+      - name: Upload research report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9DETAIL1I-green-guide-research
+          path: |
+            M9DETAIL1I_GREEN_GUIDE/report.json
+            M9DETAIL1I_GREEN_GUIDE.txt
+          if-no-files-found: ignore

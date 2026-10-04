@@ -1,0 +1,77 @@
+name: Build M9Cam 2.26 CAPTUREFREEZE1A
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-capturefreeze1a]
+    paths:
+      - patches/capturefreeze1a/**
+      - patches/dngprofile1a/verify_profile.py
+      - patches/dngprofile1b/verify_storage.py
+      - .github/workflows/build-m9cam-capturefreeze1a.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: m9-capturefreeze1a
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Assemble capture-owned parameter inputs
+        run: python3 patches/capturefreeze1a/assemble.py PhotonCamera
+      - name: Validate production profile and RAW transport
+        run: |
+          python3 -m pip install numpy tifffile
+          python3 patches/capturefreeze1a/verify_parameters.py PhotonCamera PARAMETER_TESTS
+          python3 patches/capturefreeze1a/verify_queue.py PhotonCamera STATUS_TESTS
+          python3 patches/savemode1a/verify_outputs.py PhotonCamera OUTPUT_TESTS
+          python3 patches/saturationmenu1a/verify_saturation.py PhotonCamera SATURATION_TESTS
+          python3 patches/capturefreeze1a/verify_readout.py PhotonCamera REQUEST_TESTS
+          python3 patches/dngprofile1a/verify_profile.py PhotonCamera PROFILE_TESTS
+          python3 patches/dngprofile1b/verify_storage.py PhotonCamera STORAGE_TESTS
+          python3 patches/capturefreeze1a/verify_pair.py PhotonCamera PAIR_TESTS
+          python3 patches/dngnoisemeta1a/verify_writer.py PhotonCamera WRITER_TESTS
+          python3 patches/dngcolormeta1a/verify_color.py PhotonCamera COLOR_TESTS
+      - name: Build and retain accepted RAW and metadata regression gates
+        working-directory: PhotonCamera
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*M9SaveSelectionTest' --tests '*M9OutputSettingsTest' --tests '*M9SaturationSettingsTest' --tests '*M9RawReadoutAuditTest' --tests '*M9CaptureRequestPolicyTest' --tests '*M9DngColorMetadataTest' --tests '*M9DngNoiseProfileTest' --tests '*M9DngNoiseStageTest' --tests '*M9DngExportMetadataTest' --tests '*M9RenderDiagnosticsTest' --tests '*M9Upstream2RRawPackingTest' --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.23-OUTPUTMENU1A
+          run-id: 37008815623
+          github-token: ${{ github.token }}
+          path: CONTROL
+      - name: Preserve all accepted native binaries and verify signed APK
+        run: python3 patches/capturefreeze1a/package.py PhotonCamera CONTROL/M9Cam_2.23_OUTPUTMENU1A.apk "$ANDROID_HOME/build-tools/35.0.0" DELIVERY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.26-CAPTUREFREEZE1A
+          path: DELIVERY/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: M9-CAPTUREFREEZE1A-TEST-RESULTS
+          path: |
+            PhotonCamera/app/build/test-results/testDebugUnitTest/
+            STATUS_TESTS/STATUS_VERIFICATION.json
+            STATUS_TESTS/QUEUE_VERIFICATION.json
+            PARAMETER_TESTS/PARAMETERS_VERIFICATION.json
+            PARAMETER_BASELINE/PARAMETERS_VERIFICATION.json
+            OUTPUT_TESTS/OUTPUT_VERIFICATION.json
+            SATURATION_TESTS/SATURATION_VERIFICATION.json
+            REQUEST_TESTS/REQUEST_VERIFICATION.json
+            PROFILE_TESTS/PROFILE_VERIFICATION.json
+            STORAGE_TESTS/STORAGE_VERIFICATION.json
+            PAIR_TESTS/PAIR_VERIFICATION.json
+            WRITER_TESTS/WRITER_VERIFICATION.json
+            COLOR_TESTS/COLOR_VERIFICATION.json

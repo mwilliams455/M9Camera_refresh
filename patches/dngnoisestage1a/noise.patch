@@ -1,0 +1,624 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27214
++        versionCode 27215
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.14-m9dngnoisemeta1a'
++        versionName '2.15-m9dngnoisestage1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.14_DNGNOISEMETA1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.15_DNGNOISESTAGE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/cpp/CMakeLists.txt
++++ b/app/src/main/cpp/CMakeLists.txt
+@@ -323,3 +323,12 @@
+             log
+             dl)
+ endif()
++
++# DNGNOISESTAGE1A: isolated RAW export library; accepted m9color remains frozen.
++add_library(m9dngnoise SHARED
++    m9dngnoise/shaded_noise.cpp
++    m9dngnoise/raw16_adapter.cpp
++    m9dngnoise/noise_jni.cpp)
++set_target_properties(m9dngnoise PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
++target_compile_options(m9dngnoise PRIVATE -O2 -ffp-contract=off -fno-fast-math)
++set_property(TARGET m9dngnoise APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,max-page-size=16384")
+--- /dev/null
++++ b/app/src/main/cpp/m9dngnoise/noise_jni.cpp
+@@ -0,0 +1,26 @@
++#include "raw16_adapter.h"
++#include <jni.h>
++#include <vector>
++
++extern "C" JNIEXPORT jint JNICALL
++Java_com_particlesdevs_photoncamera_processing_M9DngNoiseStage_filterNative(
++    JNIEnv* env, jclass, jobject src, jobject dst, jint w, jint h, jint white, jint scale,
++    jdoubleArray black, jdoubleArray profile, jfloatArray grids, jint gw, jint gh) {
++    if (!src || !dst || !black || !profile || !grids || gw<1 || gh<1 || gw>1024 || gh>1024
++        || env->GetArrayLength(black)!=4 || env->GetArrayLength(profile)!=8
++        || env->GetArrayLength(grids)!=4*gw*gh) return -1;
++    auto in=static_cast<const uint16_t*>(env->GetDirectBufferAddress(src));
++    auto out=static_cast<uint16_t*>(env->GetDirectBufferAddress(dst));
++    jlong inBytes=env->GetDirectBufferCapacity(src), outBytes=env->GetDirectBufferCapacity(dst);
++    if (!in || !out || inBytes<0 || outBytes<0) return -1;
++    try {
++        double b[4], p[8]; std::vector<float> g(size_t(4)*gw*gh);
++        env->GetDoubleArrayRegion(black,0,4,b);
++        if (env->ExceptionCheck()) return -1;
++        env->GetDoubleArrayRegion(profile,0,8,p);
++        if (env->ExceptionCheck()) return -1;
++        env->GetFloatArrayRegion(grids,0,jsize(g.size()),g.data());
++        if (env->ExceptionCheck()) return -1;
++        return m9_dng_noise_raw16(in,size_t(inBytes),out,size_t(outBytes),w,h,white,scale,b,p,g.data(),gw,gh);
++    } catch (...) { return -5; }
++}
+--- /dev/null
++++ b/app/src/main/cpp/m9dngnoise/raw16_adapter.cpp
+@@ -0,0 +1,38 @@
++#include "raw16_adapter.h"
++#include <cmath>
++#include <limits>
++#include <vector>
++extern "C" int phone_noise_shaded(const uint16_t*, uint16_t*, int, int, int, double,
++    const double*, const double*, double, const float*, int, int, const double*) noexcept;
++
++extern "C" int m9_dng_noise_raw16(const uint16_t* src, size_t srcBytes,
++    uint16_t* dst, size_t dstBytes, int width, int height, int white, int scale,
++    const double* black, const double* profile, const float* grids, int gw, int gh) noexcept {
++    if (!src || !dst || !black || !profile || !grids || width<6 || height<6
++        || width>32767 || height>32767 || (width&1) || (height&1)
++        || size_t(width)*height>32000000 || white<1 || white>16383 || scale<1
++        || scale>8192 || (scale&(scale-1)) || int64_t(white)*scale>16383
++        || gw<1 || gh<1 || gw>1024 || gh>1024) return -1;
++    size_t n=size_t(width)*height, bytes=n*sizeof(uint16_t);
++    if (srcBytes<bytes || dstBytes<bytes) return -1;
++    uintptr_t a=reinterpret_cast<uintptr_t>(src), b=reinterpret_cast<uintptr_t>(dst);
++    if ((a|b)%alignof(uint16_t) || a>std::numeric_limits<uintptr_t>::max()-bytes
++        || b>std::numeric_limits<uintptr_t>::max()-bytes) return -1;
++    if (a<b+bytes && b<a+bytes) return -2;
++    double scaledBlack[4];
++    for (int c=0;c<4;c++) {
++        if (!std::isfinite(black[c]) || black[c]<0 || black[c]>=white
++            || std::floor(black[c])!=black[c]) return -3;
++        scaledBlack[c]=black[c]*scale;
++    }
++    try {
++        std::vector<uint16_t> expanded(n);
++        for (size_t i=0;i<n;i++) {
++            if (src[i]>white) return -4;
++            expanded[i]=uint16_t(src[i]*scale);
++        }
++        double geometry[4]={1.0/(gh>1?gh-1:1),1.0/(gw>1?gw-1:1),0,0};
++        return phone_noise_shaded(expanded.data(),dst,width,height,1,1.0,profile,
++            scaledBlack,white*scale,grids,gh,gw,geometry);
++    } catch (...) { return -5; }
++}
+--- /dev/null
++++ b/app/src/main/cpp/m9dngnoise/raw16_adapter.h
+@@ -0,0 +1,6 @@
++#pragma once
++#include <cstddef>
++#include <cstdint>
++extern "C" int m9_dng_noise_raw16(const uint16_t* src, size_t srcBytes,
++    uint16_t* dst, size_t dstBytes, int width, int height, int white, int scale,
++    const double* black, const double* profile, const float* grids, int gw, int gh) noexcept;
+--- /dev/null
++++ b/app/src/main/cpp/m9dngnoise/shaded_noise.cpp
+@@ -0,0 +1,119 @@
++// Experimental phone adapter 02: virtual shading -> noise -> inverse shading.
++// Recovered M9 same-phase kernels/pass order, adapted Camera2 noise thresholds.
++// This is not a bit-exact Leica firmware implementation or production default.
++#include <algorithm>
++#include <cmath>
++#include <cstdint>
++#include <cstring>
++#include <limits>
++#include <vector>
++
++// Four phase-major grids, sharing geometry. Normalized DNG pixel-centre coords.
++static double gain_at(const float* grids,int gh,int gw,const double* geo,
++                      int width,int height,int y,int x) {
++    const int c=(y&1)*2+(x&1);
++    double fy=std::clamp(((y+0.5)/height-geo[2])/geo[0],0.0,double(gh-1));
++    double fx=std::clamp(((x+0.5)/width-geo[3])/geo[1],0.0,double(gw-1));
++    int iy=int(fy),ix=int(fx),jy=std::min(iy+1,gh-1),jx=std::min(ix+1,gw-1);
++    fy-=iy;fx-=ix;const float* g=grids+size_t(c)*gh*gw;
++    double a=g[iy*gw+ix]*(1-fy)+g[jy*gw+ix]*fy;
++    double b=g[iy*gw+jx]*(1-fy)+g[jy*gw+jx]*fy;
++    return a*(1-fx)+b*fx;
++}
++
++extern "C" int phone_noise_shaded(const uint16_t* src,uint16_t* dst,
++        int width,int height,int mode,double strength,const double* profile,
++        const double* black,double white,const float* grids,int gh,int gw,
++        const double* geo) noexcept {
++    if(!src||!dst||!profile||!black||!grids||!geo||width<1||height<1||width>32767||height>32767
++       ||gh<1||gw<1||gh>1024||gw>1024||mode<0||mode>2
++       ||!std::isfinite(strength)||strength<0||strength>4
++       ||!std::isfinite(white)||white<=0||white>65535) return -1;
++    int border=2*mode;
++    if(mode&&(width<=2*border||height<=2*border)) return -1;
++    for(int i=0;i<4;i++) {
++        if(!std::isfinite(profile[2*i])||profile[2*i]<=0||profile[2*i]>1
++           ||!std::isfinite(profile[2*i+1])||profile[2*i+1]<0||profile[2*i+1]>1
++           ||!std::isfinite(black[i])||black[i]<0||black[i]>=white||!std::isfinite(geo[i]))return -3;
++    }
++    if(geo[0]<=0||geo[1]<=0)return -3;
++    for(size_t i=0;i<size_t(4)*gh*gw;i++)
++        if(!std::isfinite(grids[i])||grids[i]<1.0/64||grids[i]>64)return -3;
++    const size_t count=size_t(width)*height,bytes=count*sizeof(uint16_t);
++    const uintptr_t a=reinterpret_cast<uintptr_t>(src),b=reinterpret_cast<uintptr_t>(dst);
++    if(a>std::numeric_limits<uintptr_t>::max()-bytes||b>std::numeric_limits<uintptr_t>::max()-bytes)return -1;
++    if(a<b+bytes&&b<a+bytes)return -2;
++    for(size_t i=0;i<count;i++)if(src[i]>white)return -4;
++    if(!mode||strength==0){std::memcpy(dst,src,bytes);return 0;}
++    constexpr int rows=64;
++    const int taps=mode==1?3:5,denom=mode==1?4:8;
++    const int w1[3]={1,2,1},w2[5]={1,2,2,2,1};const int* weights=mode==1?w1:w2;
++    const double center=mode==1?0.25:0.0625;
++    try {
++        const size_t n=size_t(rows+2*border)*width;
++        std::vector<double> value(n),variance(n),gain(n),first(n),firstVar(n);
++        std::vector<uint8_t> valid(n);
++        std::memcpy(dst,src,bytes);
++        for(int y0=border;y0<height-border;y0+=rows) {
++            int y1=std::min(y0+rows,height-border),top=y0-border,bottom=y1+border;
++            for(int y=top;y<bottom;y++)for(int x=0;x<width;x++) {
++                size_t i=size_t(y-top)*width+x;int c=(y&1)*2+(x&1);
++                double g=gain_at(grids,gh,gw,geo,width,height,y,x),range=white-black[c];
++                double raw=src[size_t(y)*width+x],signal=(raw-black[c])/range;
++                gain[i]=g;value[i]=black[c]+g*(raw-black[c]);
++                variance[i]=g*g*range*range*(profile[2*c]*std::max(0.0,signal)+profile[2*c+1]);
++                // Exclude censored support plus a one-code margin in both
++                // encoded input and normalized reader domains. No highlight
++                // reconstruction or black clipping is inferred from the model.
++                const double margin=std::max(1.0,(g+1)*range/65535.0);
++                valid[i]=raw>black[c]+margin&&raw<white-margin
++                    &&value[i]>black[c]+margin&&value[i]<white-margin;
++            }
++            // Preserve recovered separable pass order and floor each value
++            // pass. Variance uses squared weights and is not rounded.
++            if(mode==1) {
++                for(int y=top;y<bottom;y++)for(int x=border;x<width-border;x++) {
++                    size_t i=size_t(y-top)*width+x;double v=0,var=0;
++                    for(int k=0;k<taps;k++){int dx=2*k-border;v+=weights[k]*std::floor(value[i+dx]);var+=weights[k]*weights[k]*variance[i+dx];}
++                    first[i]=std::floor(v/denom);firstVar[i]=var/(denom*denom);
++                }
++            } else {
++                for(int y=y0;y<y1;y++)for(int x=0;x<width;x++) {
++                    size_t i=size_t(y-top)*width+x;double v=0,var=0;
++                    for(int k=0;k<taps;k++){int dy=2*k-border;size_t j=size_t(y-top+dy)*width+x;v+=weights[k]*std::floor(value[j]);var+=weights[k]*weights[k]*variance[j];}
++                    first[i]=std::floor(v/denom);firstVar[i]=var/(denom*denom);
++                }
++            }
++            for(int y=y0;y<y1;y++)for(int x=border;x<width-border;x++) {
++                size_t i=size_t(y-top)*width+x,output=size_t(y)*width+x;
++                bool safe=true;
++                for(int ky=0;ky<taps&&safe;ky++)for(int kx=0;kx<taps;kx++)
++                    if(!valid[size_t(y-top+2*ky-border)*width+x+2*kx-border]){safe=false;break;}
++                if(!safe)continue;
++                double v=0,var=0;
++                for(int k=0;k<taps;k++) {
++                    int offset=2*k-border;
++                    size_t j=mode==1?size_t(y-top+offset)*width+x:i+offset;
++                    v+=weights[k]*first[j];var+=weights[k]*weights[k]*firstVar[j];
++                }
++                double smooth=std::floor(v/denom),resVar=var/(denom*denom)+(1-2*center)*variance[i];
++                const double q=std::floor(value[i]);
++                double distance=std::abs(q-smooth),threshold=strength*std::sqrt(resVar);
++                if(distance==0||!(threshold>distance))continue;
++                double alpha=1-distance/threshold;
++                double filtered=std::floor(q+alpha*(smooth-q));
++                // Transfer only the integer noise-stage residual. Keep the
++                // original shading fraction so a no-op/flat signal cannot
++                // acquire a rounding-only change during inverse shading.
++                int c=(y&1)*2+(x&1);
++                double candidate=std::floor(src[output]+(filtered-q)/gain[i]+0.5);
++                double projected=black[c]+gain[i]*(candidate-black[c]);
++                const double margin=std::max(1.0,(gain[i]+1)*(white-black[c])/65535.0);
++                if(candidate>black[c]+margin&&candidate<white-margin
++                   &&projected>black[c]+margin&&projected<white-margin)
++                    dst[output]=uint16_t(candidate);
++            }
++        }
++    } catch(...) {return -5;}
++    return 0;
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java
+@@ -19,6 +19,7 @@
+         final Map<String, JSONObject> stages = new LinkedHashMap<>();
+         final Map<String, String> hashes = new LinkedHashMap<>();
+         JSONObject dngNoiseProfile;
++        JSONObject dngNoiseStage;
+         long imageTimestamp = -1;
+         boolean raw16Copy;
+         boolean failed;
+@@ -144,7 +145,7 @@
+ 
+     /** Optional metadata evidence on the existing owned-frame trace; never touches RAW. */
+     public static void dngNoiseProfile(ImageFrame frame, Integer cfa, double[] cameraPairs,
+-                                       double[] exportedRgb) {
++                                       double[] exportedRgb, boolean filtered) {
+         if (frame == null || frame.m9PhotonBoundary2Q == null) return;
+         Trace trace = frame.m9PhotonBoundary2Q;
+         try {
+@@ -157,9 +158,38 @@
+             put(out, "tagWrittenWhenDngSaved", exportedRgb != null);
+             put(out, "greenPolicy", "complete_pair_with_larger_S_first_CFA_position_on_tie");
+             put(out, "stackingOrSyntheticModelUsed", false);
+-            put(out, "status", exportedRgb == null ? "omitted_missing_or_invalid_calibration" : "physical_single_frame");
++            put(out, "status", filtered ? "omitted_filtered_residual_calibration_unknown"
++                    : exportedRgb == null ? "omitted_missing_or_invalid_calibration" : "physical_single_frame");
+             synchronized (trace) { trace.dngNoiseProfile = out; }
+         } catch (Exception ignored) { /* Optional diagnostics cannot fail a capture. */ }
++    }
++
++    /** Separately fingerprints the actual writer buffer; original-source hashes remain comparable. */
++    public static void dngNoiseStage(ImageFrame frame,
++            com.particlesdevs.photoncamera.processing.M9DngNoiseStage.Result stage,
++            int iso, int writtenWhite, boolean afterWriter) {
++        if (frame == null || frame.m9PhotonBoundary2Q == null || stage == null) return;
++        Trace trace=frame.m9PhotonBoundary2Q;
++        long started=System.nanoTime();
++        synchronized (trace) {
++            try {
++                if (trace.dngNoiseStage == null) trace.dngNoiseStage=new JSONObject();
++                JSONObject out=trace.dngNoiseStage;
++                put(out,"revision",com.particlesdevs.photoncamera.processing.M9DngNoiseStage.ID);
++                put(out,"applied",stage.applied); put(out,"reason",stage.reason);
++                put(out,"mode",1); put(out,"strength",1.0); put(out,"captureIso",iso);
++                put(out,"encodingScale",stage.scale); put(out,"writtenWhiteLevel",writtenWhite);
++                put(out,"elapsedMs",stage.elapsedMs);
++                put(out,"sourceNoiseCalibration", "physical_CFA_pairs_in_dngNoiseProfile");
++                put(out,"thresholdPolicy", "phone_variance_not_Leica_ISO_LUT");
++                put(out,"noiseReductionAppliedTag", "omitted_default_unknown_0_over_0");
++                put(out,"writerUsesSeparateBuffer", stage.buffer != frame.buffer);
++                String hash=hashWindow(stage.buffer,0,Math.multiplyExact(Math.multiplyExact(frame.width,frame.height),2));
++                put(out,afterWriter ? "writerReturnSha256" : "writerInputSha256",hash);
++                if (afterWriter) put(out,"writerBufferUnchanged",hash.equals(out.optString("writerInputSha256")));
++            } catch (Exception error) { put(trace.dngNoiseStage,"diagnosticError",error.toString()); }
++            finally { trace.elapsedNs+=System.nanoTime()-started; }
++        }
+     }
+ 
+     private static org.json.JSONArray finiteArray(double[] values) throws Exception {
+@@ -182,12 +212,13 @@
+         synchronized (trace) {
+             put(out, "acquisition", trace.acquisition);
+             put(out, "dngNoiseProfile", trace.dngNoiseProfile);
++            put(out, "dngNoiseStage", trace.dngNoiseStage);
+             JSONObject stages = new JSONObject();
+             for (Map.Entry<String, JSONObject> item : trace.stages.entrySet())
+                 put(stages, item.getKey(), item.getValue());
+             put(out, "stages", stages);
+             String[] required = {"cameraPlaneBeforeCopy", "photonOwnedAfterCopy", "rendererEntry",
+-                    "dngWriterInput", "dngWriterReturn"};
++                    "dngSourceBeforeExport", "dngSourceAfterExport"};
+             String first = trace.hashes.get(required[0]);
+             boolean complete = !trace.failed;
+             boolean same = first != null;
+@@ -198,7 +229,7 @@
+             }
+             boolean identitiesComplete = true;
+             boolean identitiesMatch = true;
+-            for (String name : new String[]{"rendererEntry", "dngWriterInput", "dngWriterReturn"}) {
++            for (String name : new String[]{"rendererEntry", "dngSourceBeforeExport", "dngSourceAfterExport"}) {
+                 JSONObject item = trace.stages.get(name);
+                 identitiesComplete &= item != null && !item.isNull("sensorTimestampNs");
+                 identitiesMatch &= item != null && item.optBoolean("imageTimestampMatchesFrame", false)
+@@ -215,7 +246,7 @@
+                     : !same ? "raw_bytes_changed"
+                     : !identitiesMatch ? "frame_result_timestamp_mismatch"
+                     : "buffer_handoffs_match_saved_DNG_decode_pending");
+-            put(out, "scope", "read_only_bytes_and_identity_no_pixel_correction; saved_DNG_decode_is_separate");
++            put(out, "scope", "original_source_handoffs_only; actual_writer_buffer_in_dngNoiseStage; saved_DNG_decode_is_separate");
+             return out;
+         }
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -395,6 +395,8 @@
+             Log.d(TAG, "precorr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE));
+             double[] cameraNoisePairs = null;
+             double[] singleRawNoiseProfile = null;
++            M9DngNoiseStage.Result noiseStage = null;
++            ByteBuffer dngBuffer = image.buffer;
+             if (physicalCfaAuthority) {
+                 android.util.Pair<Double, Double>[] pairs = captureResult.get(CaptureResult.SENSOR_NOISE_PROFILE);
+                 if (pairs != null && pairs.length == 4) {
+@@ -408,13 +410,51 @@
+                 }
+                 singleRawNoiseProfile = M9DngNoiseProfile.fromCfa(cameraNoisePairs,
+                         physicalCfa == null ? -1 : physicalCfa);
++                try {
++                    android.hardware.camera2.params.LensShadingMap ownedMap = captureResult.get(
++                            CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP);
++                    float[] ownedGains = ownedMap == null ? null : new float[ownedMap.getGainFactorCount()];
++                    if (ownedMap != null) ownedMap.copyGainFactors(ownedGains, 0);
++                    boolean sameMap = ownedMap != null && parameters.mapSize != null
++                            && ownedMap.getColumnCount() == parameters.mapSize.x
++                            && ownedMap.getRowCount() == parameters.mapSize.y
++                            && java.util.Arrays.equals(ownedGains, parameters.gainMap);
++                    boolean fullSize = (image.fullWidth == image.width && image.fullHeight == image.height)
++                            || (image.fullWidth == 0 && image.fullHeight == 0
++                            && image.m9SourceImageWidth == image.width && image.m9SourceImageHeight == image.height);
++                    boolean fullGeometry = image.cropOriginX == 0 && image.cropOriginY == 0 && fullSize
++                            && parameters.sensorPix != null && parameters.sensorPix.left == 0
++                            && parameters.sensorPix.top == 0 && parameters.sensorPix.right == image.width
++                            && parameters.sensorPix.bottom == image.height;
++                    M9DngNoiseStage.Calibration calibration = M9DngNoiseStage.prepare(
++                            image.width, image.height, physicalCfa == null ? -1 : physicalCfa,
++                            parameters.whiteLevel, parameters.blackLevel, cameraNoisePairs,
++                            ownedGains, ownedMap == null ? 0 : ownedMap.getColumnCount(),
++                            ownedMap == null ? 0 : ownedMap.getRowCount(), fullGeometry, sameMap);
++                    noiseStage = M9DngNoiseStage.process(image.buffer, calibration);
++                } catch (OutOfMemoryError | RuntimeException error) {
++                    noiseStage = M9DngNoiseStage.bypass(image.buffer,
++                            "calibration_fallback_" + error.getClass().getSimpleName() + ":" + error.getMessage());
++                }
++                if (noiseStage.applied) {
++                    dngBuffer = noiseStage.buffer;
++                    // These Parameters belong exclusively to this DNG export.
++                    for (int i=0;i<4;i++) parameters.blackLevel[i] *= noiseStage.scale;
++                    parameters.whiteLevel *= noiseStage.scale;
++                    singleRawNoiseProfile = null; // residual calibration is unknown
++                    // NoiseReductionApplied omitted: DNG default 0/0 (unknown).
++                }
+                 com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngNoiseProfile(
+-                        image, physicalCfa, cameraNoisePairs, singleRawNoiseProfile);
+-            }
+-            com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngWriterInput", captureResult, parameters.cameraID);
+-            boolean boundary2QSaved = saveSingleRaw(dngFilePath, image.buffer, parameters,
++                        image, physicalCfa, cameraNoisePairs, singleRawNoiseProfile, noiseStage.applied);
++                com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngNoiseStage(
++                        image, noiseStage, iso, parameters.whiteLevel, false);
++            }
++            com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngSourceBeforeExport", captureResult, parameters.cameraID);
++            boolean boundary2QSaved = saveSingleRaw(dngFilePath, dngBuffer, parameters,
+                     physicalCfaAuthority, singleRawNoiseProfile);
+-            com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngWriterReturn", captureResult, parameters.cameraID);
++            com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngSourceAfterExport", captureResult, parameters.cameraID);
++            if (physicalCfaAuthority) com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.dngNoiseStage(
++                    image, noiseStage, iso, parameters.whiteLevel, true);
+             return boundary2QSaved;
+         }
+ 
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngNoiseStage.java
+@@ -0,0 +1,118 @@
++package com.particlesdevs.photoncamera.processing;
++
++import java.nio.ByteBuffer;
++import java.nio.ByteOrder;
++
++/** DNGNOISESTAGE1A test: shade-aware same-phase RAW noise, mode 1 / k=1.
++ * Owns a separate output. Source/JPEG bytes and caller buffer state are never changed.
++ * This phone-calibrated threshold is not a recovered Leica ISO/LUT calibration.
++ */
++public final class M9DngNoiseStage {
++    public static final String ID = "M9DNGNOISESTAGE1A_SHADED_K1";
++    private M9DngNoiseStage() {}
++
++    public static final class Calibration {
++        final int width, height, white, scale, gridWidth, gridHeight;
++        final double[] black, profile;
++        final float[] phaseGrids;
++        private Calibration(int w, int h, int white, int scale, int gw, int gh,
++                            double[] black, double[] profile, float[] grids) {
++            this.width=w; this.height=h; this.white=white; this.scale=scale;
++            this.gridWidth=gw; this.gridHeight=gh; this.black=black;
++            this.profile=profile; this.phaseGrids=grids;
++        }
++    }
++
++    public static final class Result {
++        public final ByteBuffer buffer;
++        public final boolean applied;
++        public final String reason;
++        public final int scale;
++        public final double elapsedMs;
++        Result(ByteBuffer buffer, boolean applied, String reason, int scale, long start) {
++            this.buffer=buffer; this.applied=applied; this.reason=reason; this.scale=scale;
++            this.elapsedMs=(System.nanoTime()-start)/1_000_000.0;
++        }
++    }
++
++    /** The geometry must describe the full, uncropped RAW and the exact written GainMap. */
++    public static Calibration prepare(int w, int h, int cfa, int white, float[] black,
++                                      double[] profile, float[] cameraGrids, int gw, int gh,
++                                      boolean fullFrameGeometry, boolean ownedGainMap) {
++        if (!fullFrameGeometry) throw new IllegalArgumentException("unsupported_crop_or_gain_area");
++        if (!ownedGainMap) throw new IllegalArgumentException("missing_or_substituted_capture_gain_map");
++        if (w<6 || h<6 || w>32767 || h>32767 || (w&1)!=0 || (h&1)!=0
++                || (long)w*h>32_000_000L) throw new IllegalArgumentException("unsupported_raw_dimensions");
++        if (cfa<0 || cfa>3) throw new IllegalArgumentException("unsupported_physical_cfa");
++        if (white<1 || white>16383) throw new IllegalArgumentException("unsupported_white_level");
++        if (black==null || black.length!=4 || profile==null || profile.length!=8)
++            throw new IllegalArgumentException("missing_physical_calibration");
++        double[] b=new double[4];
++        for (int p=0;p<4;p++) {
++            // Existing writer stores integer black levels. Fractional calibration is
++            // deliberately bypassed, never silently reinterpreted during filtering.
++            if (!Float.isFinite(black[p]) || black[p]<0 || black[p]>=white
++                    || black[p]!=(int)black[p]) throw new IllegalArgumentException("unsupported_black_level");
++            b[p]=black[p];
++            if (!Double.isFinite(profile[2*p]) || profile[2*p]<=0 || profile[2*p]>1
++                    || !Double.isFinite(profile[2*p+1]) || profile[2*p+1]<0 || profile[2*p+1]>1)
++                throw new IllegalArgumentException("invalid_physical_noise_profile");
++        }
++        if (gw<1 || gh<1 || gw>1024 || gh>1024 || cameraGrids==null
++                || cameraGrids.length!=4L*gw*gh) throw new IllegalArgumentException("invalid_gain_grid_shape");
++        // Camera2 fixed channel order R, G-even, G-odd, B -> physical row-major CFA.
++        // Same phase table as the production DngCreator GainMap serializer.
++        int[][] channelToPhase={{0,1,2,3},{1,0,3,2},{2,0,3,1},{3,1,2,0}};
++        float[] grids=new float[cameraGrids.length];
++        int points=gw*gh;
++        for (int i=0;i<points;i++) for (int c=0;c<4;c++) {
++            float g=cameraGrids[4*i+c];
++            if (!Float.isFinite(g) || g<1f/64f || g>64f)
++                throw new IllegalArgumentException("invalid_gain_factor");
++            grids[channelToPhase[cfa][c]*points+i]=g;
++        }
++        int scale=1;
++        while ((long)white*scale*2<=16383) scale*=2;
++        return new Calibration(w,h,white,scale,gw,gh,b,profile.clone(),grids);
++    }
++
++    interface Backend { int run(ByteBuffer source, ByteBuffer destination, Calibration c); }
++    private static boolean attempted, available;
++    private static synchronized boolean loadNative() {
++        if (!attempted) {
++            attempted=true;
++            try { System.loadLibrary("m9dngnoise"); available=true; }
++            catch (UnsatisfiedLinkError | SecurityException ignored) { available=false; }
++        }
++        return available;
++    }
++    private static native int filterNative(ByteBuffer src, ByteBuffer dst, int w, int h,
++            int white, int scale, double[] black, double[] profile, float[] grids, int gw, int gh);
++
++    public static Result process(ByteBuffer source, Calibration c) {
++        return process(source,c,(src,dst,cal)->loadNative()
++                ? filterNative(src,dst,cal.width,cal.height,cal.white,cal.scale,
++                               cal.black,cal.profile,cal.phaseGrids,cal.gridWidth,cal.gridHeight) : -6);
++    }
++    static Result process(ByteBuffer source, Calibration c, Backend backend) {
++        long start=System.nanoTime();
++        try {
++            if (c==null || source==null || !source.isDirect()
++                    || source.capacity()<(long)c.width*c.height*2)
++                return new Result(source,false,"invalid_source_buffer",1,start);
++            // Match the existing native writer's base-address window, irrespective
++            // of the caller's position/limit. Read-only view prevents Java mutation.
++            ByteBuffer input=source.asReadOnlyBuffer(); input.clear();
++            ByteBuffer output=ByteBuffer.allocateDirect(c.width*c.height*2).order(ByteOrder.LITTLE_ENDIAN);
++            int status=backend.run(input,output,c);
++            if (status!=0) return new Result(source,false,"native_status_"+status,1,start);
++            output.clear();
++            return new Result(output,true,"applied",c.scale,start);
++        } catch (OutOfMemoryError | UnsatisfiedLinkError | RuntimeException error) {
++            return new Result(source,false,"fallback_"+error.getClass().getSimpleName(),1,start);
++        }
++    }
++    public static Result bypass(ByteBuffer source, String reason) {
++        return new Result(source,false,reason,1,System.nanoTime());
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseStageTest.java
+@@ -0,0 +1,97 @@
++package com.particlesdevs.photoncamera.processing;
++
++import org.junit.Test;
++import java.nio.ByteBuffer;
++import java.nio.ByteOrder;
++import static org.junit.Assert.*;
++
++public class M9DngNoiseStageTest {
++    private final double[] profile={.0004,.000001,.00038,.0000008,.00039,.0000009,.00042,.0000011};
++    private M9DngNoiseStage.Calibration calibration(int cfa, int white, float[] black,
++                                                   boolean geometry, boolean owned) {
++        return M9DngNoiseStage.prepare(16,12,cfa,white,black,profile,
++                new float[]{1,2,3,4,5,6,7,8},2,1,geometry,owned);
++    }
++    private M9DngNoiseStage.Calibration good() {
++        return calibration(0,1023,new float[]{64,65,66,67},true,true);
++    }
++    private ByteBuffer source() {
++        ByteBuffer b=ByteBuffer.allocateDirect(384).order(ByteOrder.LITTLE_ENDIAN);
++        for(int i=0;i<192;i++) b.putShort(i*2,(short)(100+i));
++        return b;
++    }
++    private void rejects(Runnable task) {
++        try {task.run();fail("expected unsupported calibration");}
++        catch (IllegalArgumentException expected) {assertNotNull(expected.getMessage());}
++    }
++
++    @Test public void mapsAllCfasIncludingBothDistinctGreens() {
++        float[][] expected={{1,5,2,6,3,7,4,8},{2,6,1,5,4,8,3,7},
++                            {2,6,4,8,1,5,3,7},{4,8,2,6,3,7,1,5}};
++        for(int cfa=0;cfa<4;cfa++) assertArrayEquals(expected[cfa],
++                calibration(cfa,1023,new float[]{64,65,66,67},true,true).phaseGrids,0);
++    }
++    @Test public void encodingScalesAreExactPowersOfTwoWithoutDiscardingSourcePrecision() {
++        for(int bits=8;bits<=14;bits++) {
++            M9DngNoiseStage.Calibration c=calibration(0,(1<<bits)-1,new float[]{64,65,66,67},true,true);
++            assertEquals(1<<(14-bits),c.scale);
++            assertTrue(c.white*c.scale<=16383);
++        }
++        rejects(()->calibration(0,65535,new float[]{64,65,66,67},true,true));
++    }
++    @Test public void rejectsCropSubstitutedMapAndFractionalBlack() {
++        rejects(()->calibration(0,1023,new float[]{64,65,66,67},false,true));
++        rejects(()->calibration(0,1023,new float[]{64,65,66,67},true,false));
++        rejects(()->calibration(0,1023,new float[]{64.25f,65,66,67},true,true));
++        rejects(()->calibration(4,1023,new float[]{64,65,66,67},true,true));
++    }
++    @Test public void rejectsBadNoiseAndGains() {
++        for(double value:new double[]{0,-1,Double.NaN,Double.POSITIVE_INFINITY,1.1}) {
++            double saved=profile[0];profile[0]=value;rejects(this::good);profile[0]=saved;
++        }
++        for(float value:new float[]{0,Float.NaN,65}) rejects(()->M9DngNoiseStage.prepare(
++                16,12,0,1023,new float[]{64,65,66,67},profile,new float[]{1,value,1,1},1,1,true,true));
++    }
++    @Test public void ownsCalibrationCopies() {
++        float[] b={64,65,66,67},g={1,2,3,4};
++        M9DngNoiseStage.Calibration c=M9DngNoiseStage.prepare(16,12,0,1023,b,profile,g,1,1,true,true);
++        b[0]=99;g[0]=99;profile[0]=.9;
++        assertEquals(64,c.black[0],0);assertEquals(1,c.phaseGrids[0],0);assertEquals(.0004,c.profile[0],0);
++    }
++    @Test public void successfulStageOwnsOutputAndPreservesSourceWindowAndState() {
++        ByteBuffer src=source();src.position(13);src.mark();src.limit(300);
++        M9DngNoiseStage.Result r=M9DngNoiseStage.process(src,good(),(in,out,c)->{
++            assertTrue(in.isReadOnly());assertEquals(0,in.position());assertEquals(384,in.limit());
++            in.order(ByteOrder.LITTLE_ENDIAN);
++            for(int i=0;i<192;i++) out.putShort(i*2,(short)((in.getShort(i*2)&65535)*c.scale));
++            return 0;
++        });
++        assertTrue(r.applied);assertNotSame(src,r.buffer);assertEquals(16,r.scale);
++        assertEquals(13,src.position());assertEquals(300,src.limit());src.reset();
++        ByteBuffer view=src.duplicate().order(ByteOrder.LITTLE_ENDIAN);view.clear();
++        for(int i=0;i<192;i++) {assertEquals(100+i,view.getShort(i*2));assertEquals((100+i)*16,r.buffer.getShort(i*2));}
++    }
++    @Test public void failedStageDiscardsPartialOutputAndPreservesOriginalEncoding() {
++        ByteBuffer src=source();
++        for(int code:new int[]{-1,-2,-3,-4,-5,-6}) {
++            M9DngNoiseStage.Result r=M9DngNoiseStage.process(src,good(),(in,out,c)->{out.putShort(0,(short)999);return code;});
++            assertFalse(r.applied);assertSame(src,r.buffer);assertEquals(1,r.scale);assertEquals(100,src.getShort(0));
++        }
++    }
++    @Test public void allocationLinkAndRuntimeFailuresBypass() {
++        for(int kind=0;kind<3;kind++) {
++            final int k=kind;ByteBuffer src=source();
++            M9DngNoiseStage.Result r=M9DngNoiseStage.process(src,good(),(in,out,c)->{
++                if(k==0)throw new OutOfMemoryError();if(k==1)throw new UnsatisfiedLinkError();
++                throw new IllegalStateException();
++            });
++            assertFalse(r.applied);assertSame(src,r.buffer);assertEquals(1,r.scale);
++        }
++    }
++    @Test public void invalidBuffersDoNotEnterNativeCode() {
++        for(ByteBuffer src:new ByteBuffer[]{null,ByteBuffer.allocate(384),ByteBuffer.allocateDirect(383)}) {
++            M9DngNoiseStage.Result r=M9DngNoiseStage.process(src,good(),(in,out,c)->{fail("native entered");return 0;});
++            assertFalse(r.applied);assertSame(src,r.buffer);
++        }
++    }
++}

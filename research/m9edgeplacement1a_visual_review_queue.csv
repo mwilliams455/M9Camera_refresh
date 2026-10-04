@@ -1,0 +1,32 @@
+source,corpus_ordinal_or_pattern,scene,placement_status,m9ness_status,priority,notes
+v2.81 evening,184927,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright-tail seed
+v2.81 evening,184937,evening bright-tail matched pair,BRIGHT_FAIL,,confirmed,Confirmed bright-tail seed
+v2.81 evening,190346,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright-tail seed
+v2.81 evening,190401,evening bright-tail highlight-guard case,BRIGHT_FAIL,,confirmed,Important BRIGHT_FAIL branch-diversity control
+v2.81 evening,190429,evening bright-tail,BRIGHT_FAIL,,confirmed,Confirmed bright-tail seed
+v2.81 evening,194307,original evening bright-tail,BRIGHT_FAIL,,confirmed,MFM approximately zero and RAW unclipped
+September 3 RENDERMETER1C,IMG_20260903_094446_1788425086751_00,dark woodland / protected openings,DARK_FAIL,,confirmed_visual,Previously judged JPEG useful-body collapse with conservative plausible RAW negative; development problem rather than capture-exposure target
+September 3 RENDERMETER1C,IMG_20260903_095258_1788425578865_00,sky-protected foreground,DARK_FAIL,,confirmed_visual,Previously judged JPEG foreground/body development failure with conservative plausible RAW negative
+v0.7ZZS 120-frame corpus,#4,fire engine / toy truck by bright window,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#40,backlit statue,DARK_FAIL,,confirmed_visual,Exact mapping reopened. Previous assignment to IMG_20260904_164019_1788536419887_00 depended on an invalid Part-3 +30 offset inference
+v0.7ZZS Part-3 recovered,IMG_20260904_164019_1788536419887_00,very dark backlit statue,REVIEW_DARK_CANDIDATE,,highest,Photographically strong DARK candidate but no longer treated as confirmed #40; exact app render global/center/middle medians 5/5/4
+v0.7ZZS Part-3 recovered,IMG_20260904_164048_1788536448208_00,sculpture/statue against bright field/sky,DARK_FAIL,,confirmed_visual_identity,Original reviewer recognizes this as likely #73; visual content matches retained #73 description. Use as exact DARK label while treating global ordinal mapping as provisional pending another anchor
+v0.7ZZS 120-frame corpus,#80,dark lane / bright background,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#98,backlit tree,DARK_FAIL,,confirmed_visual,Original full-corpus visual review judged this substantially too dense; exact IMG capture mapping still pending
+v0.7ZZS 120-frame corpus,#86-87,shaded park / backlight,REVIEW_BOUNDARY,,high,Dense boundary examples; do not force tail label; exact Part-3 mapping not asserted from chronology alone
+v0.7ZZS PARTITIONRECON1A,IMG_20260904_164458_1788536698183_00,predicted #80 dark lane / bright background,REVIEW_ORDINAL_PROBE,,highest,If visually recognized #73 is Part-3 local12 and Part-3 is contiguous then local19 predicts global #80; confirm by scene content only, never by telemetry
+v0.7ZZS PARTITIONRECON1A,IMG_20260904_164647_1788536807335_00,predicted #86 shaded park / backlight,REVIEW_ORDINAL_PROBE,,highest,Contiguous +61 hypothesis predicts local25 as global #86; retained #86/#87 are adjacent boundary scenes so this is a strong falsification probe
+v0.7ZZS PARTITIONRECON1A,IMG_20260904_164707_1788536827532_00,predicted #87 shaded park / backlight,REVIEW_ORDINAL_PROBE,,highest,Contiguous +61 hypothesis predicts local26 as global #87; current exact placement review is GOOD so ordinal identity and placement label must be assessed independently
+v0.7ZZS PARTITIONRECON1A,Part-4 local #7,predicted #98 backlit tree,REVIEW_ORDINAL_PROBE,,highest,If Part3 spans #62-91 and Part4 follows contiguously from #92 then global #98 is Part4 local7; exact filename pending archive enumeration
+v0.7ZZS 120-frame corpus,#9,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; saturation does not determine placement class
+v0.7ZZS Part-3 recovered,IMG_20260904_164035_1788536435593_00,preview-saturated statue stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 and achieved positive capture intent ~+0.070 EV; previous identification as global #41 retracted because the signature is not a unique ordinal anchor
+v0.7ZZS Part-3 recovered,IMG_20260904_164104_1788536464382_00,preview-saturated statue stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 with zero achieved intent; previous identification as global #43 retracted because the signature is not a unique ordinal anchor
+v0.7ZZS 120-frame corpus,#41,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,Exact mapping pending; do not use telemetry similarity alone as ordinal identity
+v0.7ZZS 120-frame corpus,#43,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,Exact mapping pending; do not use telemetry similarity alone as ordinal identity
+v0.7ZZS 120-frame corpus,#120,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,medium,globalQ95==255 stress control
+v0.7ZZS 120-frame corpus,#121,preview-saturated stress frame,REVIEW_SAFETY_CONTROL,,high,globalQ95==255 stress control; received positive assist
+v0.7ZZS Part-3 recovered,exact Part-3 controls,ordinary paths / trees / swan scenes,REVIEW_GOOD_POOL,REVIEW_M9NESS,highest,Same 1.61/v8/R3.8 cohort; placement labels can be retained from direct visual review but prior global ordinal numbers are withdrawn
+v0.7ZZS Part-3 recovered,exact Part-3 difficult controls,dense woodland / backlit pond / dark-background scenes,REVIEW_BOUNDARY,REVIEW_M9NESS,highest,Same-build difficult scenes; prior global ordinal numbers are withdrawn until a second independent visual-order anchor is recovered
+September 4 direct diagnostic,080247,very dark finished render,REVIEW_DARK_CANDIDATE,,high,Finished-render telemetry: global median ~17 center median ~11 >80% <=Y64 liftNeed=1 starvation=1 hold=0; still requires visual confirmation
+September 4 exact control,101204,healthy ordinary frozen result,GOOD,M9_STRONG,confirmed_visual,Prior visual review: balanced exposure; highlights held; dense shadows retain separation; restrained non-HDR rendering; reasonably strong M9 resemblance
+v0.7ZZS 120-frame corpus,ordinary controls,flowers / paths / street scenes / skies / intentional low-key,REVIEW_GOOD_POOL,REVIEW_M9NESS,highest,Populate GOOD heavily and split visually into M9_STRONG vs M9_IMPROVABLE without changing placement class

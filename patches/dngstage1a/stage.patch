@@ -1,0 +1,230 @@
+--- a/app/src/main/cpp/deps/tiny_dng_writer.h
++++ b/app/src/main/cpp/deps/tiny_dng_writer.h
+@@ -254,6 +254,7 @@
+   bool SetFrameRate(double value);
+   bool SetTimeCode(unsigned char timecode[8]);
+   bool SetExposureTime(double exposureSecs);
++  bool SetBaselineExposure(double ev);
+   bool SetFocalLength(double focalLengthMm);
+   bool SetAperture(double fNumber);
+   bool SetIso(unsigned short iso);
+@@ -1914,6 +1915,21 @@
+   return true;
+ }
+ 
++bool DNGImage::SetBaselineExposure(double ev) {
++  // DNG tag 50730 is SRATIONAL: a reader exposure default, not RAW arithmetic.
++  if (!std::isfinite(ev) || ev < -16.0 || ev > 16.0) return false;
++  double numerator, denominator;
++  if (DoubleToRational(ev, &numerator, &denominator) != 0 ||
++      numerator < -2147483648.0 || numerator > 2147483647.0 ||
++      denominator <= 0.0 || denominator > 2147483647.0) return false;
++  const int data[2] = {static_cast<int>(numerator), static_cast<int>(denominator)};
++  if (!WriteTIFFTag(50730, TIFF_SRATIONAL, 1,
++                    reinterpret_cast<const unsigned char *>(data),
++                    &ifd_tags_, &data_os_)) return false;
++  num_fields_++;
++  return true;
++}
++
+ bool DNGImage::SetExposureTime(double exposureSecs) {
+   double numerator, denominator;
+   if (DoubleToRational(exposureSecs, &numerator, &denominator) != 0) {
+--- a/app/src/main/cpp/dngCreator.cpp
++++ b/app/src/main/cpp/dngCreator.cpp
+@@ -426,6 +426,10 @@
+ 
+     void setIso(unsigned short iso) {
+         dng_image0->SetIso(iso);
++    }
++
++    bool setBaselineExposure(double ev) {
++        return dng_image0->SetBaselineExposure(ev);
+     }
+ 
+     void setExposureTime(double exposureTime) {
+@@ -1013,6 +1017,11 @@
+         }
+     }
+ 
++    JNIEXPORT jboolean JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setBaselineExposure(JNIEnv *, jobject, jlong creatorPtr, jdouble ev) {
++        DngCreator* creator = reinterpret_cast<DngCreator*>(creatorPtr);
++        return creator && creator->setBaselineExposure(ev) ? JNI_TRUE : JNI_FALSE;
++    }
++
+     JNIEXPORT void JNICALL Java_com_particlesdevs_photoncamera_processing_DngCreator_setAperture(JNIEnv *env, jobject obj, jlong creatorPtr, jdouble aperture) {
+         DngCreator* creator = reinterpret_cast<DngCreator*>(creatorPtr);
+         if (creator) {
+--- a/app/src/main/cpp/CMakeLists.txt
++++ b/app/src/main/cpp/CMakeLists.txt
+@@ -17,7 +17,7 @@
+ 
+ # M9UPSTREAM2R: pin the native header inputs used by the verified test build.
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/deps/tiny_dng_writer.h" M9_DEP_SHA)
+-if(NOT M9_DEP_SHA STREQUAL "c63ae47130e1d478335cf36982462f5baf0bb14f9ec826b6d4437c3a10b55aed")
++if(NOT M9_DEP_SHA STREQUAL "d74d44c4e072208c63f7c1b883b9cc0b1c61f2ccbe9cc5cb3f7f8daf5c472bf9")
+     message(FATAL_ERROR "Pinned dependency changed: tiny_dng_writer.h")
+ endif()
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/deps/technicallyflac.h" M9_DEP_SHA)
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
+@@ -48,6 +48,7 @@
+     private native void setSoftware(long nativePtr, String soft);
+     private native void setIso(long nativePtr, short iso);
+     private native void setExposureTime(long nativePtr, double exposureTime);
++    private native boolean setBaselineExposure(long nativePtr, double ev);
+     private native void setCFAPattern(long nativePtr, int pattern);
+     private native void setGainMap(long nativePtr, float[] gainMap, int xmin, int ymin, int xmax, int ymax, int width, int height);
+     private native void setAperture(long nativePtr, double aperture);
+@@ -461,7 +462,17 @@
+         return result;
+     }
+ 
++    public void setBaselineExposure(double ev) {
++        if (!Double.isFinite(ev) || !setBaselineExposure(nativePtr, ev)) {
++            throw new IllegalArgumentException("Invalid DNG BaselineExposure");
++        }
++    }
++
+     public void setParameters(Parameters parameters) {
++        setParameters(parameters, null);
++    }
++
++    public void setParameters(Parameters parameters, String captureDateTime) {
+         short[] blackLevel = new short[4];
+         for (int i = 0; i < 4; i++) {
+             blackLevel[i] = (short) parameters.blackLevel[i];
+@@ -469,8 +480,10 @@
+         setDescription(parameters.toString());
+         setSoftware("M9Cam v" + PhotonCamera.getVersion());
+         
+-        // Set current date and time
+-        setDateTime(DATE_FORMAT.get().format(new Date()));
++        // M9 capture stem is frozen before rendering and queueing. Unknown
++        // filenames retain the existing writer-time fallback.
++        setDateTime(captureDateTime != null ? captureDateTime
++                : DATE_FORMAT.get().format(new Date()));
+         
+         // Set noise profile from noise modeler
+         if (parameters.noiseModeler != null && parameters.noiseModeler.baseModel != null) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -389,15 +389,25 @@
+             Log.d(TAG, "activearr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE));
+             Log.d(TAG, "precorr:" + characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE));
+             com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngWriterInput", captureResult, parameters.cameraID);
+-            boolean boundary2QSaved = saveSingleRaw(dngFilePath, image.buffer, parameters);
++            boolean boundary2QSaved = saveSingleRaw(dngFilePath, image.buffer, parameters, physicalCfaAuthority);
+             com.particlesdevs.photoncamera.m9.render.M9PhotonBoundary2Q.frame(image, "dngWriterReturn", captureResult, parameters.cameraID);
+             return boundary2QSaved;
+         }
+ 
+         public static boolean saveSingleRaw(Path dngFilePath,
+                                             ByteBuffer buffer, Parameters parameters) {
++            return saveSingleRaw(dngFilePath, buffer, parameters, false);
++        }
++
++        private static boolean saveSingleRaw(Path dngFilePath, ByteBuffer buffer,
++                                             Parameters parameters, boolean m9FirmwareDefaults) {
+             DngCreator dngCreator = new DngCreator();
+-            dngCreator.setParameters(parameters);
++            String captureDateTime = m9FirmwareDefaults
++                    ? M9DngExportMetadata.captureDateTime(dngFilePath.getFileName().toString()) : null;
++            dngCreator.setParameters(parameters, captureDateTime);
++            if (m9FirmwareDefaults) {
++                dngCreator.setBaselineExposure(M9DngExportMetadata.BASELINE_EXPOSURE_EV);
++            }
+             dngCreator.setCompression(false);
+             //dngCreator.setBinning(true);
+             try {
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27212
++        versionCode 27213
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.12-m9dngexport1b'
++        versionName '2.13-m9dngstage1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.12_DNGEXPORT1B-${variant.name}.apk"
++            outputFileName = "M9Cam_2.13_DNGSTAGE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngExportMetadata.java
+@@ -0,0 +1,35 @@
++package com.particlesdevs.photoncamera.processing;
++
++import java.time.LocalDateTime;
++import java.time.format.DateTimeFormatter;
++import java.time.format.DateTimeParseException;
++import java.time.format.ResolverStyle;
++import java.util.Locale;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/** M9 DNG interpretation defaults; no sensor values or JPEG tuning. */
++public final class M9DngExportMetadata {
++    // Traced ordinary M9 firmware DNG value. Phone ISO80 does not imply the
++    // Leica pulled-ISO80 capture mode, so its -1.5 EV special case is not copied.
++    public static final double BASELINE_EXPOSURE_EV = -0.5;
++    private static final Pattern STEM = Pattern.compile("^IMG_(\\d{8})_(\\d{6})(?:_|\\.|$)");
++    private static final DateTimeFormatter INPUT = DateTimeFormatter
++            .ofPattern("uuuuMMddHHmmss", Locale.US).withResolverStyle(ResolverStyle.STRICT);
++    private static final DateTimeFormatter OUTPUT = DateTimeFormatter
++            .ofPattern("uuuu:MM:dd HH:mm:ss", Locale.US);
++
++    private M9DngExportMetadata() {}
++
++    /** Capture-local date from the same frozen stem used by JPEG EXIF. */
++    public static String captureDateTime(String fileName) {
++        if (fileName == null) return null;
++        Matcher m = STEM.matcher(fileName);
++        if (!m.find()) return null;
++        try {
++            return LocalDateTime.parse(m.group(1) + m.group(2), INPUT).format(OUTPUT);
++        } catch (DateTimeParseException invalidDate) {
++            return null;
++        }
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngExportMetadataTest.java
+@@ -0,0 +1,23 @@
++package com.particlesdevs.photoncamera.processing;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9DngExportMetadataTest {
++    @Test public void usesCaptureStemDespiteDelayedSaving() {
++        assertEquals("2026:02:03 04:05:06", M9DngExportMetadata.captureDateTime("IMG_20260203_040506_1770000000000_00.dng"));
++    }
++    @Test public void retainsCaptureLocalTimeWithoutTimezoneConversion() {
++        assertEquals("2026:10:25 01:30:00", M9DngExportMetadata.captureDateTime("IMG_20261025_013000_1790000000000_00.dng"));
++    }
++    @Test public void acceptsRealLeapDay() {
++        assertEquals("2024:02:29 23:59:59", M9DngExportMetadata.captureDateTime("IMG_20240229_235959.dng"));
++    }
++    @Test public void rejectsImpossibleOrUnknownNames() {
++        for (String name : new String[]{null,"x.dng","IMG_20260230_120000_00.dng","IMG_20260101_246000_00.dng","IMG_20260101_1200000.dng"})
++            assertNull(M9DngExportMetadata.captureDateTime(name));
++    }
++    @Test public void usesOrdinaryFirmwareDefaultWithoutPhoneIsoLookup() {
++        assertEquals(-0.5, M9DngExportMetadata.BASELINE_EXPOSURE_EV, 0.0);
++    }
++}

@@ -1,0 +1,25 @@
+{
+  "schema": "m9.detail1h.delivery.v1",
+  "run": {
+    "id": 35596508716,
+    "head_sha": "0726b579055b0ffade7f18f8a8667efdf1333df5",
+    "tree_sha": "5edb05d3cf558368c9dd8f38be247cf783b0e834",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/35596508716",
+    "created_at": "2026-09-21T11:54:06Z",
+    "updated_at": "2026-09-21T11:58:33Z"
+  },
+  "tested_merge_commit": "c75970cf532fecd5b083efe0fb85cce4575cdec0",
+  "merge_tree_equals_source_tree": true,
+  "artifact_id": 10637022614,
+  "artifact_zip_sha256": "d81be2fb17bf8cf5893f90255ca5fbf4e00ca8862b302bfe778c7b0d53ae8bc2",
+  "apk_name": "M9Cam-M9DETAIL1H-nativeguard.apk",
+  "apk_bytes": 115502572,
+  "apk_sha256": "b8ba870e3bac92d862145b271c54623196c7b9e07c261548ad794ae628b63df4",
+  "apk_matches_ci": true,
+  "zip_crc_valid": true,
+  "phone_validation": false,
+  "install_report": "APK INSTALL CHECK PASS: package=com.m9project.m9cam.photon versionName=1.61-m9detail1h-nativeguard length=27 versionCode=26681 minSdk=26 targetSdk=35 signerSHA256=255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956\n",
+  "packaged_contract_report": "M9DETAIL1H APK PROOF PASS: native entry point, capture diagnostics, exact shader/curve and exposure contracts\n"
+}

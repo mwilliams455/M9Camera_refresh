@@ -1,0 +1,825 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27229
++        versionCode 27230
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.29-m9menuorganise1a'
++        versionName '2.30-m9shootingprofiles1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.29_MENUORGANISE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.30_SHOOTINGPROFILES1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+@@ -178,6 +178,7 @@
+         private ActivityResultLauncher<String[]> lutImportLauncher;
+         /** Viewfinder background mode before the current settings change. */
+         private String viewfinderBackgroundBefore;
++        private M9ProfilesUi m9ProfilesUi;
+ 
+         @Override
+         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+@@ -257,6 +258,10 @@
+             setProTitle();
+             setThisDevice();
+             setFetchConfigurationsPref();
++            if (usesM9PhotoSettings()) {
++                m9ProfilesUi = new M9ProfilesUi(this,
++                        new com.particlesdevs.photoncamera.m9.M9ShootingProfiles(mSettingsManager.getDefaultPreferences()));
++            }
+         }
+         
+         private void generateTunablePreferences() {
+@@ -654,11 +659,15 @@
+             super.onResume();
+             // Update toolbar title when fragment resumes (e.g., after navigating back)
+             setupToolbar();
++            if (m9ProfilesUi != null) m9ProfilesUi.refresh();
+         }
+ 
+ 
+         @Override
+         public void onDestroy() {
++            if (m9ProfilesUi != null) m9ProfilesUi.close();
++            if (mSettingsManager != null)
++                mSettingsManager.getDefaultPreferences().unregisterOnSharedPreferenceChangeListener(this);
+             super.onDestroy();
+             getParentFragmentManager().beginTransaction().remove(SettingsFragment.this).commitAllowingStateLoss();
+         }
+@@ -780,6 +789,7 @@
+             }
+             
+             Log.d("SettingsFragment", "onSharedPreferenceChanged: key=" + key);
++            if (m9ProfilesUi != null) m9ProfilesUi.changed(key);
+             if (com.particlesdevs.photoncamera.m9.M9OutputSettings.DIAGNOSTICS_KEY.equals(key)) {
+                 com.particlesdevs.photoncamera.m9.M9DiagnosticBurstSpool.onDiagnosticPreferenceChanged();
+                 com.particlesdevs.photoncamera.util.Log.onDiagnosticPreferenceChanged();
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+@@ -32,6 +32,9 @@
+     private static PreferenceKeys preferenceKeys;
+ 
+     static {
++        // Named profile collections and their active marker belong to the app, not a lens.
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.LIBRARY_KEY);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY);
+         COMMON_KEYS.add(Key.CAMERA_ID.mValue);
+         COMMON_KEYS.add(Key.KEY_SAVE_PER_LENS_SETTINGS.mValue);
+         COMMON_KEYS.add(Key.KEY_PRESERVE_MANUAL_WB.mValue);
+@@ -197,6 +200,9 @@
+             if (key != null && (key.startsWith("pref_tunable_") || key.startsWith("pref_sensorconfig_"))) {
+                 continue;
+             }
++            // Also ignore profile metadata in imported/older per-lens snapshots.
++            if (com.particlesdevs.photoncamera.m9.M9ShootingProfiles.LIBRARY_KEY.equals(key)
++                    || com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY.equals(key)) continue;
+             Object value = e.getValue();
+             // Normalize boolean values to the "1"/"0" String convention used by
+             // SettingsManager/ManagedSwitchPreference. This also fixes up legacy
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -1,6 +1,12 @@
+ <?xml version='1.0' encoding='utf-8'?>
+ <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:orderingFromXml="true" android:title="@string/settings" android:key="prefscreen">
+     <PreferenceScreen android:key="pref_m9_image_screen" android:title="@string/m9_menu_image" android:summary="@string/m9_menu_image_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_saturation" android:orderingFromXml="true">
++        <PreferenceScreen android:key="pref_m9_profiles_screen" android:title="@string/m9_profiles_title" android:summary="@string/m9_profiles_summary" android:layout="@layout/preference_m9_profile" android:icon="@drawable/ic_save">
++            <Preference android:key="m9_profile_current" android:title="@string/m9_profile_custom" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
++            <Preference android:key="m9_profile_info" android:summary="@string/m9_profiles_info" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
++            <Preference android:key="m9_profile_save" android:title="@string/m9_profile_save" android:summary="@string/m9_profile_save_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_save" android:persistent="false" />
++            <PreferenceCategory android:key="m9_profile_saved" android:title="@string/m9_profile_saved" android:layout="@layout/preference_category_layout" />
++        </PreferenceScreen>
+         <ListPreference android:key="pref_m9_saturation" android:layout="@layout/preference_with_margin" android:title="@string/m9_saturation_title" android:dialogTitle="@string/m9_saturation_title" android:entries="@array/m9_saturation_entries" android:entryValues="@array/m9_saturation_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <ListPreference android:key="pref_m9_contrast" android:layout="@layout/preference_with_margin" android:title="@string/m9_contrast_title" android:dialogTitle="@string/m9_contrast_title" android:entries="@array/m9_contrast_entries" android:entryValues="@array/m9_contrast_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <ListPreference android:key="pref_m9_sharpness" android:layout="@layout/preference_with_margin" android:title="@string/m9_sharpness_title" android:dialogTitle="@string/m9_sharpness_dialog" android:entries="@array/m9_sharpness_entries" android:entryValues="@array/m9_sharpness_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" />
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
+@@ -0,0 +1,205 @@
++package com.particlesdevs.photoncamera.m9;
++
++import android.content.SharedPreferences;
++import com.particlesdevs.photoncamera.m9.render.M9SaturationSettings;
++import com.particlesdevs.photoncamera.m9.render.M9ContrastSettings;
++import com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings;
++import org.json.JSONArray;
++import org.json.JSONException;
++import org.json.JSONObject;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Locale;
++import java.util.Map;
++import java.util.UUID;
++
++/** Named snapshots of existing photographic preferences; no separate rendering path. */
++public final class M9ShootingProfiles {
++    public static final String LIBRARY_KEY = "pref_m9_shooting_profiles_v1";
++    public static final String ACTIVE_KEY = "pref_m9_shooting_profile_active";
++    public static final String EV_KEY = "pref_expocompensation_seekbar_key";
++    public static final int MAX_PROFILES = 20;
++    public static final int MAX_NAME_LENGTH = 40;
++    private final SharedPreferences preferences;
++
++    public enum Problem { NAME, DUPLICATE, LIMIT, MISSING, DATA, SETTINGS }
++    public static final class ProfileException extends RuntimeException {
++        public final Problem problem;
++        ProfileException(Problem problem) { super(problem.name()); this.problem = problem; }
++    }
++
++    public static final class Snapshot {
++        public final int saturation, contrast, sharpness;
++        /** Keep the original text so precise, off-grid EV settings survive recall. */
++        public final String ev;
++        public Snapshot(int saturation, int contrast, int sharpness, String ev) {
++            if (!level(saturation) || !level(contrast) || !level(sharpness) || ev == null)
++                throw new ProfileException(Problem.SETTINGS);
++            try {
++                double number = Double.parseDouble(ev);
++                if (!Double.isFinite(number) || number < -4 || number > 4)
++                    throw new NumberFormatException();
++            } catch (NumberFormatException invalid) { throw new ProfileException(Problem.SETTINGS); }
++            this.saturation = saturation; this.contrast = contrast;
++            this.sharpness = sharpness; this.ev = ev;
++        }
++        private static boolean level(int n) { return n >= 0 && n <= 4; }
++        public boolean sameSettings(Snapshot other) {
++            return other != null && saturation == other.saturation && contrast == other.contrast
++                    && sharpness == other.sharpness && Double.parseDouble(ev) == Double.parseDouble(other.ev);
++        }
++        JSONObject toJson() throws JSONException {
++            return new JSONObject().put("saturation",saturation).put("contrast",contrast)
++                    .put("sharpness",sharpness).put("ev",ev);
++        }
++        static Snapshot fromJson(JSONObject json) throws JSONException {
++            Object ev = json.get("ev");
++            if (!(ev instanceof String)) throw new ProfileException(Problem.DATA);
++            return new Snapshot(integer(json,"saturation"),integer(json,"contrast"),
++                    integer(json,"sharpness"),(String)ev);
++        }
++        private static int integer(JSONObject json, String key) throws JSONException {
++            Object value = json.get(key);
++            if (!(value instanceof Number)) throw new ProfileException(Problem.DATA);
++            Number number = (Number)value;
++            if (number.doubleValue() != number.intValue()) throw new ProfileException(Problem.DATA);
++            return number.intValue();
++        }
++    }
++
++    public static final class Profile {
++        public final String id, name;
++        public final Snapshot settings;
++        Profile(String id, String name, Snapshot settings) {
++            this.id = id; this.name = name; this.settings = settings;
++        }
++    }
++
++    public M9ShootingProfiles(SharedPreferences preferences) { this.preferences = preferences; }
++
++    /** One map snapshot; opening the screen never writes defaults or changes current settings. */
++    public Snapshot current() {
++        Map<String,?> all = preferences.getAll();
++        try {
++            return new Snapshot(Integer.parseInt(text(all,M9SaturationSettings.KEY,"2")),
++                    Integer.parseInt(text(all,M9ContrastSettings.KEY,"2")),
++                    Integer.parseInt(text(all,M9SharpnessSettings.KEY,"2")),text(all,EV_KEY,"0.0"));
++        } catch (RuntimeException invalid) { throw new ProfileException(Problem.SETTINGS); }
++    }
++    private static String text(Map<String,?> all, String key, String fallback) {
++        Object value = all.get(key);
++        if (value == null) return fallback;
++        if (!(value instanceof String)) throw new ProfileException(Problem.SETTINGS);
++        return (String)value;
++    }
++
++    public List<Profile> list() {
++        List<Profile> result = new ArrayList<>();
++        try {
++            String raw = preferences.getString(LIBRARY_KEY,null);
++            if (raw == null) return result;
++            JSONObject root = new JSONObject(raw);
++            Object schema = root.get("schema");
++            if (!(schema instanceof Number) || ((Number)schema).doubleValue() != 1)
++                throw new ProfileException(Problem.DATA);
++            JSONArray rows = root.getJSONArray("profiles");
++            if (rows.length() > MAX_PROFILES) throw new ProfileException(Problem.DATA);
++            for (int i = 0; i < rows.length(); i++) {
++                JSONObject row = rows.getJSONObject(i);
++                Object idValue = row.get("id"), nameValue = row.get("name");
++                if (!(idValue instanceof String) || !(nameValue instanceof String))
++                    throw new ProfileException(Problem.DATA);
++                String id = (String)idValue, name = (String)nameValue;
++                if (id.isEmpty() || id.length() > 80 || !validName(name).equals(name))
++                    throw new ProfileException(Problem.DATA);
++                for (Profile old : result)
++                    if (old.id.equals(id) || sameName(old.name,name)) throw new ProfileException(Problem.DATA);
++                result.add(new Profile(id,name,Snapshot.fromJson(row.getJSONObject("settings"))));
++            }
++            return result;
++        } catch (JSONException | RuntimeException invalid) {
++            // Never replace an unreadable collection with an empty one on a subsequent save.
++            throw new ProfileException(Problem.DATA);
++        }
++    }
++
++    public String activeId() {
++        try { return preferences.getString(ACTIVE_KEY,""); }
++        catch (ClassCastException invalid) { return ""; }
++    }
++
++    public Profile save(String proposedName) {
++        List<Profile> profiles = list();
++        if (profiles.size() >= MAX_PROFILES) throw new ProfileException(Problem.LIMIT);
++        String name = uniqueName(profiles,proposedName,null);
++        Profile profile = new Profile(UUID.randomUUID().toString(),name,current());
++        profiles.add(profile);
++        writeCollection(profiles).putString(ACTIVE_KEY,profile.id).apply();
++        return profile;
++    }
++
++    public void apply(String id) {
++        Profile profile = required(list(),id);
++        Snapshot settings = profile.settings;
++        // A single edit makes all four values visible together to the existing settings listeners.
++        // No output, diagnostic, WB, ISO, shutter, lens or display preference is written here.
++        preferences.edit().putString(M9SaturationSettings.KEY,Integer.toString(settings.saturation))
++                .putString(M9ContrastSettings.KEY,Integer.toString(settings.contrast))
++                .putString(M9SharpnessSettings.KEY,Integer.toString(settings.sharpness))
++                .putString(EV_KEY,settings.ev).putString(ACTIVE_KEY,profile.id).apply();
++    }
++
++    public void update(String id) {
++        List<Profile> profiles = list();
++        Profile profile = required(profiles,id);
++        profiles.set(profiles.indexOf(profile),new Profile(id,profile.name,current()));
++        writeCollection(profiles).putString(ACTIVE_KEY,id).apply();
++    }
++
++    public void rename(String id, String proposedName) {
++        List<Profile> profiles = list();
++        Profile profile = required(profiles,id);
++        String name = uniqueName(profiles,proposedName,id);
++        profiles.set(profiles.indexOf(profile),new Profile(id,name,profile.settings));
++        writeCollection(profiles).apply();
++    }
++
++    public void delete(String id) {
++        List<Profile> profiles = list();
++        profiles.remove(required(profiles,id));
++        SharedPreferences.Editor edit = writeCollection(profiles);
++        if (id.equals(activeId())) edit.remove(ACTIVE_KEY);
++        edit.apply();
++    }
++
++    private SharedPreferences.Editor writeCollection(List<Profile> profiles) {
++        try {
++            JSONArray rows = new JSONArray();
++            for (Profile p : profiles) rows.put(new JSONObject().put("id",p.id).put("name",p.name)
++                    .put("settings",p.settings.toJson()));
++            String json = new JSONObject().put("schema",1).put("profiles",rows).toString();
++            return preferences.edit().putString(LIBRARY_KEY,json);
++        } catch (JSONException invalid) { throw new ProfileException(Problem.DATA); }
++    }
++
++    private static Profile required(List<Profile> profiles, String id) {
++        for (Profile profile : profiles) if (profile.id.equals(id)) return profile;
++        throw new ProfileException(Problem.MISSING);
++    }
++    private static boolean sameName(String left, String right) {
++        return left.toLowerCase(Locale.ROOT).equals(right.toLowerCase(Locale.ROOT));
++    }
++    private static String uniqueName(List<Profile> profiles, String proposed, String exceptId) {
++        String name = validName(proposed);
++        for (Profile p : profiles)
++            if (!p.id.equals(exceptId) && sameName(p.name,name)) throw new ProfileException(Problem.DUPLICATE);
++        return name;
++    }
++    private static String validName(String proposed) {
++        String name = proposed == null ? "" : proposed.trim();
++        if (name.isEmpty() || name.length() > MAX_NAME_LENGTH) throw new ProfileException(Problem.NAME);
++        for (int i = 0; i < name.length(); i++)
++            if (Character.isISOControl(name.charAt(i))) throw new ProfileException(Problem.NAME);
++        return name;
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
+@@ -0,0 +1,200 @@
++package com.particlesdevs.photoncamera.ui.settings;
++
++import android.content.Context;
++import android.text.InputFilter;
++import android.text.InputType;
++import android.widget.FrameLayout;
++import android.widget.Toast;
++import androidx.appcompat.app.AlertDialog;
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceCategory;
++import androidx.preference.PreferenceFragmentCompat;
++import com.google.android.material.dialog.MaterialAlertDialogBuilder;
++import com.google.android.material.textfield.TextInputEditText;
++import com.google.android.material.textfield.TextInputLayout;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Profile;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Snapshot;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ProfileException;
++import com.particlesdevs.photoncamera.m9.render.M9SaturationSettings;
++import com.particlesdevs.photoncamera.m9.render.M9ContrastSettings;
++import com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings;
++import com.particlesdevs.photoncamera.util.BlurSupport;
++import java.util.List;
++
++/** Settings-only UI. Camera/render consumers continue to read their existing preferences. */
++final class M9ProfilesUi {
++    static final String SCREEN = "pref_m9_profiles_screen";
++    private final PreferenceFragmentCompat fragment;
++    private final Context context;
++    private final M9ShootingProfiles store;
++    private AlertDialog dialog;
++
++    M9ProfilesUi(PreferenceFragmentCompat fragment, M9ShootingProfiles store) {
++        this.fragment = fragment; this.context = fragment.requireContext(); this.store = store;
++        Preference save = fragment.findPreference("m9_profile_save");
++        if (save != null) save.setOnPreferenceClickListener(p -> { nameDialog(null); return true; });
++        refresh();
++    }
++
++    void changed(String key) {
++        if (key == null || key.equals(M9ShootingProfiles.LIBRARY_KEY) || key.equals(M9ShootingProfiles.ACTIVE_KEY)
++                || key.equals(M9ShootingProfiles.EV_KEY) || key.equals(M9SaturationSettings.KEY)
++                || key.equals(M9ContrastSettings.KEY) || key.equals(M9SharpnessSettings.KEY)) refresh();
++    }
++
++    void refresh() {
++        Preference entry = fragment.findPreference(SCREEN);
++        if (entry == null) return;
++        Preference current = fragment.findPreference("m9_profile_current");
++        Preference save = fragment.findPreference("m9_profile_save");
++        PreferenceCategory saved = fragment.findPreference("m9_profile_saved");
++        try {
++            List<Profile> profiles = store.list();
++            Snapshot settings = store.current();
++            String status = context.getString(R.string.m9_profile_custom);
++            for (Profile p : profiles) {
++                if (p.id.equals(store.activeId())) status = p.settings.sameSettings(settings)
++                        ? p.name : context.getString(R.string.m9_profile_modified,p.name);
++            }
++            entry.setSummary(context.getString(R.string.m9_profile_entry_summary,status));
++            if (current != null) {
++                current.setTitle(context.getString(R.string.m9_profile_current_title,status));
++                current.setSummary(describe(settings));
++            }
++            // Parent fragments retain ListPreference objects on the back stack. Update their
++            // cached display values after recall; persistString is a no-op for the same value.
++            syncList(M9SaturationSettings.KEY,settings.saturation);
++            syncList(M9ContrastSettings.KEY,settings.contrast);
++            syncList(M9SharpnessSettings.KEY,settings.sharpness);
++            if (save != null) {
++                boolean hasRoom = profiles.size() < M9ShootingProfiles.MAX_PROFILES;
++                save.setEnabled(hasRoom);
++                save.setSummary(hasRoom ? R.string.m9_profile_save_summary : R.string.m9_profile_error_limit);
++            }
++            if (saved != null && SCREEN.equals(fragment.getPreferenceScreen().getKey())) {
++                saved.removeAll();
++                if (profiles.isEmpty()) {
++                    Preference empty = row("m9_profile_empty",context.getString(R.string.m9_profile_empty));
++                    empty.setSummary(R.string.m9_profile_empty_summary);
++                    empty.setSelectable(false); saved.addPreference(empty);
++                }
++                for (Profile profile : profiles) {
++                    Preference p = row("m9_profile_row_"+profile.id,profile.name);
++                    p.setSummary(describe(profile.settings));
++                    p.setOnPreferenceClickListener(clicked -> { showProfile(profile); return true; });
++                    saved.addPreference(p);
++                }
++            }
++        } catch (ProfileException error) {
++            entry.setSummary(message(error));
++            if (current != null) current.setSummary(message(error));
++            if (save != null) save.setEnabled(false);
++            if (saved != null) saved.removeAll();
++        }
++    }
++
++    private void syncList(String key, int value) {
++        Preference pref = fragment.findPreference(key);
++        if (pref instanceof ListPreference) ((ListPreference)pref).setValue(Integer.toString(value));
++    }
++
++    private Preference row(String key, String title) {
++        Preference p = new Preference(context);
++        p.setKey(key); p.setTitle(title); p.setPersistent(false);
++        p.setLayoutResource(R.layout.preference_m9_profile);
++        p.setIconSpaceReserved(false);
++        return p;
++    }
++
++    private String describe(Snapshot settings) {
++        String[] saturation = context.getResources().getStringArray(R.array.m9_saturation_entries);
++        String[] contrast = context.getResources().getStringArray(R.array.m9_contrast_entries);
++        String[] sharpness = context.getResources().getStringArray(R.array.m9_sharpness_entries);
++        return context.getString(R.string.m9_profile_values,saturation[settings.saturation],
++                contrast[settings.contrast],sharpness[settings.sharpness],settings.ev);
++    }
++
++    private void showProfile(Profile profile) {
++        show(new MaterialAlertDialogBuilder(context).setTitle(profile.name).setMessage(describe(profile.settings))
++                .setPositiveButton(R.string.m9_profile_apply,(d,w) -> act(() -> store.apply(profile.id),R.string.m9_profile_applied))
++                .setNeutralButton(R.string.m9_profile_manage,(d,w) -> manage(profile))
++                .setNegativeButton(android.R.string.cancel,null).create());
++    }
++
++    private void manage(Profile profile) {
++        CharSequence[] actions = {context.getString(R.string.m9_profile_update),
++                context.getString(R.string.m9_profile_rename),context.getString(R.string.m9_profile_delete)};
++        show(new MaterialAlertDialogBuilder(context).setTitle(profile.name).setItems(actions,(d,which) -> {
++            if (which == 0) confirmUpdate(profile);
++            if (which == 1) nameDialog(profile);
++            if (which == 2) show(new MaterialAlertDialogBuilder(context)
++                    .setTitle(context.getString(R.string.m9_profile_delete_title,profile.name))
++                    .setMessage(R.string.m9_profile_delete_message)
++                    .setPositiveButton(R.string.m9_profile_delete,(delete,w) -> act(() -> store.delete(profile.id),R.string.m9_profile_deleted))
++                    .setNegativeButton(android.R.string.cancel,null).create());
++        }).setNegativeButton(android.R.string.cancel,null).create());
++    }
++
++    private void confirmUpdate(Profile profile) {
++        try {
++            String summary = describe(store.current());
++            show(new MaterialAlertDialogBuilder(context)
++                    .setTitle(context.getString(R.string.m9_profile_update_title,profile.name))
++                    .setMessage(summary)
++                    .setPositiveButton(R.string.m9_profile_update_confirm,(d,w) -> act(() -> store.update(profile.id),R.string.m9_profile_updated))
++                    .setNegativeButton(android.R.string.cancel,null).create());
++        } catch (ProfileException error) { toast(message(error)); }
++    }
++
++    private void nameDialog(Profile profile) {
++        TextInputLayout layout = new TextInputLayout(context);
++        layout.setHint(context.getString(R.string.m9_profile_name));
++        TextInputEditText input = new TextInputEditText(layout.getContext());
++        input.setSingleLine(true);
++        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
++        input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(M9ShootingProfiles.MAX_NAME_LENGTH)});
++        if (profile != null) { input.setText(profile.name); input.setSelectAllOnFocus(true); }
++        layout.addView(input);
++        FrameLayout container = new FrameLayout(context);
++        int padding = (int)(24*context.getResources().getDisplayMetrics().density);
++        container.setPadding(padding,0,padding,0); container.addView(layout);
++        AlertDialog editor = new MaterialAlertDialogBuilder(context)
++                .setTitle(profile == null ? R.string.m9_profile_save : R.string.m9_profile_rename)
++                .setView(container).setPositiveButton(R.string.m9_profile_save_button,null)
++                .setNegativeButton(android.R.string.cancel,null).create();
++        show(editor);
++        editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
++            String name = input.getText() == null ? "" : input.getText().toString();
++            try {
++                if (profile == null) store.save(name); else store.rename(profile.id,name);
++                refresh(); editor.dismiss();
++            } catch (ProfileException error) { layout.setError(context.getString(message(error))); }
++        });
++        input.requestFocus();
++    }
++
++    private void act(Runnable action, int success) {
++        try { action.run(); refresh(); toast(success); }
++        catch (ProfileException error) { toast(message(error)); }
++    }
++    private int message(ProfileException error) {
++        switch (error.problem) {
++            case NAME: return R.string.m9_profile_error_name;
++            case DUPLICATE: return R.string.m9_profile_error_duplicate;
++            case LIMIT: return R.string.m9_profile_error_limit;
++            case MISSING: return R.string.m9_profile_error_missing;
++            case SETTINGS: return R.string.m9_profile_error_settings;
++            default: return R.string.m9_profile_error_data;
++        }
++    }
++    private void toast(int resource) { Toast.makeText(context,resource,Toast.LENGTH_SHORT).show(); }
++    private void show(AlertDialog next) {
++        dialog = next;
++        next.setOnDismissListener(d -> { if (dialog == next) dialog = null; });
++        BlurSupport.show(next);
++    }
++    void close() { if (dialog != null) dialog.dismiss(); }
++}
+--- /dev/null
++++ b/app/src/main/res/layout/preference_m9_profile.xml
+@@ -0,0 +1,59 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout
++        xmlns:android="http://schemas.android.com/apk/res/android"
++        xmlns:tools="http://schemas.android.com/tools"
++        android:gravity="center_vertical"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:minHeight="@dimen/preference_row_min_height"
++        android:paddingTop="@dimen/preference_row_vertical_padding"
++        android:paddingBottom="@dimen/preference_row_vertical_padding"
++        android:paddingStart="@dimen/preference_row_horizontal_padding"
++        android:paddingEnd="@dimen/preference_row_horizontal_padding"
++        android:baselineAligned="false">
++
++    <ImageView
++            android:id="@android:id/icon"
++            android:layout_width="@dimen/preference_icon_size"
++            android:layout_height="@dimen/preference_icon_size"
++            android:layout_marginEnd="@dimen/preference_icon_margin"
++            android:layout_gravity="center_vertical"
++            android:importantForAccessibility="no"
++            android:contentDescription="@string/icon_string"
++            tools:src="@drawable/ic_focus"/>
++
++    <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:layout_gravity="center_vertical"
++            android:orientation="vertical">
++
++        <TextView
++                android:id="@android:id/title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
++                android:textColor="?attr/colorOnSurface"
++                android:ellipsize="end"
++                android:maxLines="2"
++                android:fadingEdge="horizontal"
++                tools:text="Preference Title"/>
++
++        <TextView
++                android:id="@android:id/summary"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
++                android:textColor="?attr/colorOnSurfaceVariant"
++                tools:text="Preference Description"/>
++    </LinearLayout>
++
++    <LinearLayout
++            android:id="@android:id/widget_frame"
++            android:orientation="vertical"
++            android:gravity="center_vertical"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:layout_marginStart="8dp"/>
++</LinearLayout>
+--- /dev/null
++++ b/app/src/main/res/values/m9_profiles.xml
+@@ -0,0 +1,36 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_profiles_title">Shooting profiles</string>
++    <string name="m9_profiles_summary">Save and recall your image settings</string>
++    <string name="m9_profiles_info">Profiles save saturation, contrast, sharpness and exposure compensation. Output, diagnostics and other settings stay as you set them.</string>
++    <string name="m9_profile_entry_summary">%1$s · Save and recall settings</string>
++    <string name="m9_profile_current_title">Current: %1$s</string>
++    <string name="m9_profile_custom">Custom settings</string>
++    <string name="m9_profile_modified">%1$s (modified)</string>
++    <string name="m9_profile_values">Saturation: %1$s · Contrast: %2$s\nSharpness: %3$s · EV: %4$s</string>
++    <string name="m9_profile_save">Save current settings</string>
++    <string name="m9_profile_save_summary">Create a named profile from these four settings</string>
++    <string name="m9_profile_saved">Saved profiles</string>
++    <string name="m9_profile_empty">No saved profiles yet</string>
++    <string name="m9_profile_empty_summary">Set your preferred image controls, then save them here.</string>
++    <string name="m9_profile_apply">Apply</string>
++    <string name="m9_profile_manage">Manage</string>
++    <string name="m9_profile_update">Update from current settings</string>
++    <string name="m9_profile_update_title">Update %1$s?</string>
++    <string name="m9_profile_update_confirm">Update</string>
++    <string name="m9_profile_rename">Rename</string>
++    <string name="m9_profile_delete">Delete</string>
++    <string name="m9_profile_delete_title">Delete %1$s?</string>
++    <string name="m9_profile_delete_message">This removes the saved profile. Your current image settings stay as they are.</string>
++    <string name="m9_profile_name">Profile name</string>
++    <string name="m9_profile_save_button">Save</string>
++    <string name="m9_profile_applied">Profile applied</string>
++    <string name="m9_profile_updated">Profile updated</string>
++    <string name="m9_profile_deleted">Profile deleted</string>
++    <string name="m9_profile_error_name">Enter a name of 1–40 characters.</string>
++    <string name="m9_profile_error_duplicate">A profile already uses that name.</string>
++    <string name="m9_profile_error_limit">You can save up to 20 profiles.</string>
++    <string name="m9_profile_error_missing">This profile is no longer available.</string>
++    <string name="m9_profile_error_settings">Current image settings could not be read. Check the image controls and exposure compensation.</string>
++    <string name="m9_profile_error_data">Saved profiles could not be read. Existing profile data has been kept.</string>
++</resources>
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
+@@ -0,0 +1,201 @@
++package com.particlesdevs.photoncamera.m9;
++
++import android.content.SharedPreferences;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Profile;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ProfileException;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Problem;
++import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Snapshot;
++import org.json.JSONObject;
++import org.junit.Test;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.HashMap;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++import static org.junit.Assert.*;
++import static org.mockito.ArgumentMatchers.*;
++import static org.mockito.Mockito.*;
++
++public class M9ShootingProfilesTest {
++    private static final String SAT="pref_m9_saturation", CONTRAST="pref_m9_contrast", SHARP="pref_m9_sharpness";
++    private static final String EV=M9ShootingProfiles.EV_KEY, LIB=M9ShootingProfiles.LIBRARY_KEY, ACTIVE=M9ShootingProfiles.ACTIVE_KEY;
++
++    /** Model SharedPreferences' single-editor commit-to-memory boundary, including post-edit reads. */
++    private static final class Memory {
++        final Map<String,Object> values=new HashMap<>();
++        final List<Set<String>> edits=new ArrayList<>();
++        final List<Map<String,Object>> observed=new ArrayList<>();
++        final SharedPreferences preferences=mock(SharedPreferences.class);
++        Memory() {
++            when(preferences.getAll()).thenAnswer(i -> new HashMap<>(values));
++            when(preferences.getString(anyString(),nullable(String.class))).thenAnswer(i -> {
++                String key=i.getArgument(0); Object value=values.get(key);
++                return value==null ? i.getArgument(1) : (String)value;
++            });
++            when(preferences.edit()).thenAnswer(i -> {
++                Map<String,Object> puts=new HashMap<>(); Set<String> removes=new HashSet<>();
++                SharedPreferences.Editor editor=mock(SharedPreferences.Editor.class,RETURNS_SELF);
++                when(editor.putString(anyString(),anyString())).thenAnswer(call -> {
++                    puts.put(call.getArgument(0),call.getArgument(1)); return editor;
++                });
++                when(editor.remove(anyString())).thenAnswer(call -> { removes.add(call.getArgument(0)); return editor; });
++                doAnswer(call -> {
++                    removes.forEach(values::remove); values.putAll(puts);
++                    Set<String> keys=new HashSet<>(puts.keySet()); keys.addAll(removes); edits.add(keys);
++                    observed.add(new HashMap<>(values)); return null;
++                }).when(editor).apply();
++                return editor;
++            });
++        }
++        M9ShootingProfiles store() { return new M9ShootingProfiles(preferences); }
++        void settings(int saturation,int contrast,int sharpness,String ev) {
++            values.put(SAT,""+saturation); values.put(CONTRAST,""+contrast); values.put(SHARP,""+sharpness); values.put(EV,ev);
++        }
++    }
++    private static void fails(Problem expected,Runnable action) {
++        try { action.run(); fail("Expected "+expected); }
++        catch (ProfileException failure) { assertEquals(expected,failure.problem); }
++    }
++
++    @Test public void readingFreshInstallDoesNotWriteOrInventProfiles() {
++        Memory memory=new Memory(); M9ShootingProfiles store=memory.store();
++        assertTrue(store.list().isEmpty()); assertEquals("",store.activeId());
++        assertTrue(store.current().sameSettings(new Snapshot(2,2,2,"0.0")));
++        assertTrue(memory.values.isEmpty()); assertTrue(memory.edits.isEmpty());
++    }
++
++    @Test public void savePreservesPreciseEvAndWritesOnlyProfileMetadata() {
++        Memory memory=new Memory(); memory.settings(3,1,4,"-0.680001");
++        Profile p=memory.store().save("  Evening  ");
++        assertEquals("Evening",p.name); assertEquals("-0.680001",p.settings.ev);
++        assertEquals(new HashSet<>(Arrays.asList(LIB,ACTIVE)),memory.edits.get(0));
++        assertEquals(p.id,memory.store().list().get(0).id);
++    }
++
++    @Test public void recallIsOneEditAndCannotEnableRawDiagnosticsOrChangeOtherControls() {
++        Memory memory=new Memory(); memory.settings(3,1,4,"-0.68");
++        Profile p=memory.store().save("Evening"); memory.settings(0,4,0,"1.1");
++        Map<String,Object> outside=new HashMap<>();
++        outside.put("pref_save_raw_key","0"); outside.put("pref_m9_save_diagnostic_files","0");
++        outside.put("pref_m9_save_unfiltered_dng","0"); outside.put("pref_m9_omit_auto_remosaic","0");
++        outside.put("pref_m9_full_frame_sat_audit","0"); outside.put("pref_countdown_timer_key","2");
++        outside.put("pref_show_grid_key","1"); outside.put("manual_wb","preserve-me");
++        memory.values.putAll(outside);
++        int count=memory.edits.size(); memory.store().apply(p.id);
++        assertEquals(count+1,memory.edits.size());
++        assertEquals(new HashSet<>(Arrays.asList(SAT,CONTRAST,SHARP,EV,ACTIVE)),memory.edits.get(count));
++        assertTrue(memory.store().current().sameSettings(p.settings));
++        outside.forEach((key,value) -> assertEquals(key,value,memory.values.get(key)));
++        Map<String,Object> observer=memory.observed.get(count);
++        assertEquals("3",observer.get(SAT)); assertEquals("1",observer.get(CONTRAST));
++        assertEquals("4",observer.get(SHARP)); assertEquals("-0.68",observer.get(EV));
++    }
++
++    @Test public void collectionSurvivesRestartAndBackupRestoreOfDefaultPreferences() {
++        Memory original=new Memory(); original.settings(1,2,3,"-0.7");
++        Profile a=original.store().save("Indoors"); original.settings(4,0,0,"0.3");
++        Profile b=original.store().save("Outdoors");
++        Memory restored=new Memory(); restored.values.putAll(original.values);
++        assertEquals(2,restored.store().list().size()); restored.store().apply(a.id);
++        assertTrue(restored.store().current().sameSettings(a.settings));
++        restored.store().apply(b.id); assertTrue(restored.store().current().sameSettings(b.settings));
++    }
++
++    @Test public void manualChangesDoNotSilentlyOverwriteSavedProfile() {
++        Memory memory=new Memory(); memory.settings(2,2,3,"-0.3");
++        Profile p=memory.store().save("Daily"); memory.settings(4,2,3,"-0.3");
++        assertFalse(p.settings.sameSettings(memory.store().current()));
++        assertEquals(2,memory.store().list().get(0).settings.saturation);
++        assertEquals(p.id,memory.store().activeId());
++        memory.store().apply(p.id); assertTrue(p.settings.sameSettings(memory.store().current()));
++    }
++
++    @Test public void updateAndRenameKeepStableIdentityAndDoNotApplyOtherValues() {
++        Memory memory=new Memory(); memory.settings(2,2,2,"0");
++        Profile p=memory.store().save("Daily"); memory.settings(3,1,3,"-0.15");
++        memory.store().update(p.id);
++        assertEquals(new HashSet<>(Arrays.asList(LIB,ACTIVE)),memory.edits.get(1));
++        assertTrue(memory.store().list().get(0).settings.sameSettings(memory.store().current()));
++        memory.store().rename(p.id,"  Family  ");
++        assertEquals(new HashSet<>(Arrays.asList(LIB)),memory.edits.get(2));
++        assertEquals(p.id,memory.store().list().get(0).id); assertEquals("Family",memory.store().list().get(0).name);
++        assertEquals("-0.15",memory.values.get(EV)); assertEquals(p.id,memory.store().activeId());
++    }
++
++    @Test public void deletingActiveProfileLeavesCurrentSettingsAndOtherProfilesIntact() {
++        Memory memory=new Memory(); memory.settings(2,2,2,"0");
++        Profile first=memory.store().save("First"); memory.settings(3,4,1,"-0.68");
++        Profile second=memory.store().save("Second");
++        memory.store().delete(second.id);
++        assertEquals("",memory.store().activeId()); assertTrue(second.settings.sameSettings(memory.store().current()));
++        assertEquals(first.id,memory.store().list().get(0).id);
++    }
++
++    @Test public void namesAreTrimmedUniqueAndValidatedWithoutOverwriting() {
++        Memory memory=new Memory(); memory.store().save("Family"); int count=memory.edits.size();
++        fails(Problem.DUPLICATE,() -> memory.store().save("  FAMILY  "));
++        fails(Problem.NAME,() -> memory.store().save("   "));
++        fails(Problem.NAME,() -> memory.store().save("A\nB"));
++        fails(Problem.NAME,() -> memory.store().save(new String(new char[41]).replace('\0','A')));
++        assertEquals(count,memory.edits.size());
++        assertEquals("Été 家族",memory.store().save("Été 家族").name);
++    }
++
++    @Test public void maximumAndMissingIdsNeverModifyCurrentSettings() {
++        Memory memory=new Memory();
++        for (int i=0;i<M9ShootingProfiles.MAX_PROFILES;i++) memory.store().save("Profile "+i);
++        int count=memory.edits.size();
++        fails(Problem.LIMIT,() -> memory.store().save("Extra"));
++        fails(Problem.MISSING,() -> memory.store().apply("absent"));
++        fails(Problem.MISSING,() -> memory.store().delete("absent"));
++        assertEquals(count,memory.edits.size());
++    }
++
++    @Test public void malformedOrFutureCollectionsAreKeptAndNeverPartiallyApplied() {
++        for (Object raw : Arrays.asList("broken","{\"schema\":2,\"profiles\":[]}","{\"schema\":1.5,\"profiles\":[]}",true)) {
++            Memory memory=new Memory(); memory.values.put(LIB,raw); memory.settings(2,2,3,"-0.7");
++            Map<String,Object> before=new HashMap<>(memory.values);
++            fails(Problem.DATA,() -> memory.store().list());
++            fails(Problem.DATA,() -> memory.store().save("New"));
++            fails(Problem.DATA,() -> memory.store().apply("anything"));
++            assertEquals(before,memory.values); assertTrue(memory.edits.isEmpty());
++        }
++    }
++
++    @Test public void invalidLevelsAndNonfiniteOrOutOfRangeEvCannotEnterAProfile() throws Exception {
++        for (String ev : Arrays.asList("NaN","Infinity","-4.1","4.1","bad")) {
++            Memory memory=new Memory(); memory.settings(2,2,2,ev);
++            fails(Problem.SETTINGS,() -> memory.store().save("Invalid")); assertTrue(memory.edits.isEmpty());
++        }
++        Memory memory=new Memory(); Profile p=memory.store().save("Valid");
++        for (Object level : Arrays.asList(1.5,5,-1,"2")) {
++            JSONObject root=new JSONObject((String)memory.values.get(LIB));
++            root.getJSONArray("profiles").getJSONObject(0).getJSONObject("settings").put("sharpness",level);
++            Memory altered=new Memory(); altered.values.put(LIB,root.toString());
++            fails(Problem.DATA,() -> altered.store().apply(p.id)); assertTrue(altered.edits.isEmpty());
++        }
++    }
++
++    @Test public void allLevelsAndEvLimitsRoundTripWithoutQuantization() {
++        Memory memory=new Memory();
++        for (int level=0;level<5;level++) {
++            String ev=new String[]{"-4","-0.680001","0.0","0.333333","4"}[level];
++            memory.settings(level,level,level,ev); Profile p=memory.store().save("Level "+level);
++            memory.settings(2,2,2,"0"); memory.store().apply(p.id);
++            assertTrue(p.settings.sameSettings(memory.store().current())); assertEquals(ev,memory.values.get(EV));
++        }
++        assertTrue(new Snapshot(2,2,2,"-0.0").sameSettings(new Snapshot(2,2,2,"0")));
++    }
++
++    @Test public void unrelatedFieldsInRestoredProfileCannotBecomePreferenceWrites() throws Exception {
++        Memory memory=new Memory(); Profile p=memory.store().save("Safe");
++        JSONObject json=new JSONObject((String)memory.values.get(LIB));
++        json.getJSONArray("profiles").getJSONObject(0).getJSONObject("settings")
++                .put("pref_m9_save_diagnostic_files","1").put("pref_m9_save_unfiltered_dng","1");
++        memory.values.put(LIB,json.toString()); memory.store().apply(p.id);
++        assertFalse(memory.values.containsKey("pref_m9_save_diagnostic_files"));
++        assertFalse(memory.values.containsKey("pref_m9_save_unfiltered_dng"));
++    }
++}

@@ -1,0 +1,9 @@
+ff61022c: P5 = [FP -0x40];
+ff61022e: P1 = [FP + 0xc];
+ff610230: R1 = [FP -0x10];
+ff610232: R2 = [FP -0x10];
+ff610234: R1 += 0x1;
+ff610236: R0 = W[P1 + 0x7c] (X);
+ff61023a: CC = R2 < R0;
+ff61023c: [FP -0x24] = R1;
+ff61023e: IF CC JUMP 0x0xff610242 (BP);

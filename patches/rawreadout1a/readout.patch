@@ -1,0 +1,475 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27220
++        versionCode 27221
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.20-m9capturerequest1a'
++        versionName '2.21-m9rawreadout1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.20_CAPTUREREQUEST1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.21_RAWREADOUT1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+@@ -149,6 +149,7 @@
+     testImplementation 'org.junit.jupiter:junit-jupiter:6.0.3'
+     implementation 'androidx.test.ext:junit:1.3.0'
+     testImplementation 'junit:junit:4.13.2'
++    testImplementation 'org.json:json:20250517'
+     androidTestImplementation 'org.testng:testng:7.12.0'
+     androidTestImplementation 'androidx.test:runner:1.6.2'
+     androidTestImplementation 'androidx.test:core:1.7.0'
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -3082,7 +3082,7 @@
+                     if (M9Config.isCaptureTest() && !mIsRecordingVideo) {
+                         M9CaptureRequestAudit1A.configured(cameraCaptureSession, sessionParams,
+                                 m9AuditStreamId, m9AuditSessionType, m9AuditOutputCount,
+-                                m9AuditSessionSubmission[0]);
++                                m9AuditSessionSubmission[0], mCameraManager);
+                     }
+                     try {
+                         // Auto focus should be continuous for camera preview.
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestAudit1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestAudit1A.java
+@@ -2,6 +2,7 @@
+ 
+ import android.hardware.camera2.CameraCaptureSession;
+ import android.hardware.camera2.CameraCharacteristics;
++import android.hardware.camera2.CameraManager;
+ import android.hardware.camera2.CaptureRequest;
+ import android.hardware.camera2.CaptureResult;
+ import android.hardware.camera2.TotalCaptureResult;
+@@ -74,11 +75,13 @@
+         final String cameraId;
+         final String header;
+         volatile String afterVendor;
++        volatile String rawAfterVendor;
++        final M9RawReadoutAudit1A readout;
+         final Set<String> names;
+         Start(boolean omit, String physicalId, String cameraId, String header,
+-              Set<String> names) {
++              Set<String> names, M9RawReadoutAudit1A readout) {
+             this.omitRemosaic = omit; this.physicalId = physicalId; this.cameraId = cameraId;
+-            this.header = header; this.names = names;
++            this.header = header; this.names = names; this.readout = readout;
+         }
+     }
+ 
+@@ -87,6 +90,7 @@
+             boolean dualSession, boolean maximumResolution, String declaredTargets) {
+         boolean omit = omitEnabled(PhotonCamera.getSettingsManagerStatic());
+         Set<String> names = names();
++        M9RawReadoutAudit1A readout = new M9RawReadoutAudit1A(chars);
+         String header;
+         try {
+             JSONObject d = new JSONObject();
+@@ -105,6 +109,9 @@
+             d.put("tunableConfigurationAtShutter", tunables(physicalId, names));
+             d.put("beforeAutomaticVendorHelper", builder(builder, names, physicalId));
+             d.put("characteristics", characteristics(chars));
++            d.put("rawReadoutRevision", M9RawReadoutAudit1A.REVISION);
++            d.put("rawReadoutCapabilities", M9RawReadoutAudit1A.capabilities(chars));
++            d.put("rawReadoutBeforeVendorHelper", readout.builder(builder, physicalId));
+             d.put("availableRequestKeyNames", keyNames(chars == null ? null : chars.getAvailableCaptureRequestKeys()));
+             d.put("availableSessionKeyNames", Build.VERSION.SDK_INT >= 28 && chars != null
+                     ? keyNames(chars.getAvailableSessionKeys()) : JSONObject.NULL);
+@@ -112,18 +119,20 @@
+             d.put("experimentScope", "Only automatic vendor remosaic assignments omitted in B; template defaults, clientName, pixel mode and custom tunables retained");
+             header = d.toString();
+         } catch (Throwable error) { header = error("begin", error).toString(); }
+-        return new Start(omit, physicalId, cameraId, header, names);
++        return new Start(omit, physicalId, cameraId, header, names, readout);
+     }
+ 
+     public static void afterVendor(Start start, CaptureRequest.Builder builder) {
+         if (start == null) return;
++        try { start.rawAfterVendor = start.readout.builder(builder, start.physicalId).toString(); }
++        catch (Throwable ignored) {}
+         try { start.afterVendor = builder(builder, start.names, start.physicalId).toString(); }
+         catch (Throwable e) { start.afterVendor = error("afterVendor", e).toString(); }
+     }
+ 
+     public static void configured(CameraCaptureSession session, CaptureRequest params,
+                                   String physicalId, int sessionType, int outputCount,
+-                                  String parameterSubmissionState) {
++                                  String parameterSubmissionState, CameraManager manager) {
+         try {
+             JSONObject d = new JSONObject();
+             Set<String> names = names();
+@@ -134,6 +143,14 @@
+             d.put("tunableConfigurationAtConfigure", tunables(physicalId, names));
+             d.put("sessionParametersProvided", params != null);
+             d.put("sessionParameterValues", params == null ? JSONObject.NULL : request(params, names, physicalId));
++            String deviceId = session.getDevice().getId();
++            d.put("sessionDeviceId", deviceId);
++            d.put("rawReadoutCameraInventory", M9RawReadoutAudit1A.cameraInventory(manager, deviceId, physicalId));
++            try {
++                CameraCharacteristics chars = manager == null ? null : manager.getCameraCharacteristics(deviceId);
++                d.put("rawReadoutSessionParameters", new M9RawReadoutAudit1A(chars).request(params));
++            } catch (Throwable e) { d.put("rawReadoutSessionParameters", error("session_parameter_read", e)); }
++            d.put("sessionDefaultsScope", "No parameters supplied does not mean HAL defaults are disabled or known");
+             SESSIONS.put(session, d.toString());
+         } catch (Throwable ignored) { /* Missing evidence is reported with the capture. */ }
+     }
+@@ -155,12 +172,19 @@
+             d.put("afterAutomaticVendorHelperBeforeExposureAssignment", start.afterVendor == null
+                     ? JSONObject.NULL : new JSONObject(start.afterVendor));
+             d.put("result", result(result, start.names));
++            d.put("rawReadoutRequest", start.readout.request(request));
++            d.put("rawReadoutResult", start.readout.result(result, true));
++            d.put("rawReadoutAfterVendorHelper", start.rawAfterVendor == null
++                    ? JSONObject.NULL : new JSONObject(start.rawAfterVendor));
+             String configured = SESSIONS.get(session);
+             d.put("configuredSession", configured == null ? JSONObject.NULL : new JSONObject(configured));
+             if (Build.VERSION.SDK_INT >= 28) {
+                 JSONObject physical = new JSONObject();
+-                for (Map.Entry<String, CaptureResult> entry : result.getPhysicalCameraResults().entrySet())
+-                    physical.put(entry.getKey(), result(entry.getValue(), start.names));
++                for (Map.Entry<String, CaptureResult> entry : result.getPhysicalCameraResults().entrySet()) {
++                    JSONObject member = result(entry.getValue(), start.names);
++                    member.put("rawReadoutResult", start.readout.result(entry.getValue(), false));
++                    physical.put(entry.getKey(), member);
++                }
+                 d.put("physicalResults", physical);
+             }
+             FRAMES.put(timestamp, d.toString());
+@@ -281,7 +305,7 @@
+         d.put("value", encode(v)); return d;
+     }
+ 
+-    private static Object encode(Object v) throws Exception {
++    static Object encode(Object v) throws Exception {
+         if (v == null) return JSONObject.NULL;
+         if (v instanceof Rational) {
+             Rational r = (Rational)v;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9RawReadoutAudit1A.java
+@@ -0,0 +1,218 @@
++package com.particlesdevs.photoncamera.m9.capture;
++
++import android.graphics.ImageFormat;
++import android.hardware.camera2.*;
++import android.hardware.camera2.params.StreamConfigurationMap;
++import android.os.Build;
++import android.util.Size;
++import java.util.*;
++import org.json.JSONArray;
++import org.json.JSONObject;
++
++/** Read-only public Camera2 evidence. Key names and echoed values are not HAL execution proof. */
++public final class M9RawReadoutAudit1A {
++    public static final String REVISION = "M9RAWREADOUT1A";
++    static final String[] NAMES = {
++        "com.xiaomi.control.qcfa.isSuperRemosaic",
++        "org.codeaurora.qcamera3.sessionParameters.RawCbSourceType",
++        "org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW",
++        "org.codeaurora.qcamera3.sessionParameters.EnableXCFAOptimization",
++        "android.sensor.pixelMode", "android.sensor.rawBinningFactorUsed"
++    };
++    private final Map<String, CaptureRequest.Key<?>> requests = new HashMap<>();
++    private final Map<String, CaptureResult.Key<?>> results = new HashMap<>();
++    private final Set<String> sessions = new HashSet<>();
++    private final JSONObject registry = new JSONObject();
++
++    M9RawReadoutAudit1A(CameraCharacteristics c) {
++        try {
++            if (c == null) { registry.put("status", "characteristics_unavailable"); return; }
++            List<CaptureRequest.Key<?>> rq = c.getAvailableCaptureRequestKeys();
++            if (rq != null) for (CaptureRequest.Key<?> k : rq) requests.put(k.getName(), k);
++            List<CaptureResult.Key<?>> rs = c.getAvailableCaptureResultKeys();
++            if (rs != null) for (CaptureResult.Key<?> k : rs) results.put(k.getName(), k);
++            if (Build.VERSION.SDK_INT >= 28) {
++                List<CaptureRequest.Key<?>> sk = c.getAvailableSessionKeys();
++                if (sk != null) for (CaptureRequest.Key<?> k : sk) {
++                    sessions.add(k.getName()); requests.putIfAbsent(k.getName(), k);
++                }
++            }
++            registry.put("status", "read");
++            registry.put("requestListAvailable", rq != null);
++            registry.put("resultListAvailable", rs != null);
++        } catch (Throwable e) { putError(registry, e); }
++    }
++
++    JSONObject request(CaptureRequest r) {
++        JSONObject out = new JSONObject();
++        try {
++            out.put("registry", registry);
++            if (r == null) return out.put("status", "no_request_provided");
++            Map<String, CaptureRequest.Key<?>> present = new HashMap<>();
++            List<CaptureRequest.Key<?>> list = r.getKeys();
++            if (list != null) for (CaptureRequest.Key<?> k : list) present.put(k.getName(), k);
++            JSONObject fields = new JSONObject();
++            for (String name : NAMES) {
++                CaptureRequest.Key<?> k = present.containsKey(name) ? present.get(name) : requests.get(name);
++                JSONObject f = availability(requests.containsKey(name), present.containsKey(name), sessions.contains(name));
++                try {
++                    if (k == null) f.put("status", "no_public_typed_key");
++                    else addValue(f, r.get(k));
++                } catch (Throwable e) { putError(f, e); }
++                fields.put(name, f);
++            }
++            out.put("fields", fields);
++        } catch (Throwable e) { putError(out, e); }
++        return out;
++    }
++
++    JSONObject builder(CaptureRequest.Builder b, String physicalId) {
++        JSONObject out = new JSONObject();
++        try {
++            CaptureRequest r = b.build(); out = request(r);
++            if (Build.VERSION.SDK_INT < 28 || physicalId == null) return out;
++            Map<String, CaptureRequest.Key<?>> keys = new HashMap<>(requests);
++            List<CaptureRequest.Key<?>> present = r.getKeys();
++            if (present != null) for (CaptureRequest.Key<?> k : present) keys.put(k.getName(), k);
++            JSONObject fields = new JSONObject();
++            for (String name : NAMES) {
++                JSONObject f = new JSONObject(); CaptureRequest.Key<?> k = keys.get(name);
++                try {
++                    if (k == null) f.put("status", "no_public_typed_key");
++                    else addValue(f, b.getPhysicalCameraKey(k, physicalId));
++                } catch (Throwable e) { putError(f, e); }
++                fields.put(name, f);
++            }
++            out.put("physicalId", physicalId); out.put("physicalMember", fields);
++            out.put("physicalScope", "builder_member_only_not_effective_HAL_value");
++        } catch (Throwable e) { putError(out, e); }
++        return out;
++    }
++
++    JSONObject result(CaptureResult r, boolean useSelectedRegistry) {
++        JSONObject out = new JSONObject();
++        try {
++            if (r == null) return out.put("status", "no_result_provided");
++            Map<String, CaptureResult.Key<?>> present = new HashMap<>();
++            List<CaptureResult.Key<?>> list = r.getKeys();
++            if (list != null) for (CaptureResult.Key<?> k : list) present.put(k.getName(), k);
++            for (String name : NAMES) {
++                CaptureResult.Key<?> k = present.get(name);
++                if (k == null && useSelectedRegistry) k = results.get(name);
++                JSONObject f = availability(useSelectedRegistry && results.containsKey(name), present.containsKey(name), false);
++                if (!useSelectedRegistry) f.put("advertised", JSONObject.NULL);
++                try {
++                    if (k == null) f.put("status", "no_public_typed_key");
++                    else addValue(f, r.get(k));
++                } catch (Throwable e) { putError(f, e); }
++                out.put(name, f);
++            }
++        } catch (Throwable e) { putError(out, e); }
++        return out;
++    }
++
++    private static JSONObject availability(boolean advertised, boolean listed, boolean session) throws Exception {
++        return new JSONObject().put("advertised", advertised).put("listedInMetadata", listed)
++                .put("advertisedSessionKey", session);
++    }
++    private static void addValue(JSONObject f, Object value) throws Exception {
++        f.put("status", value == null ? "null_not_reported" : "present");
++        f.put("javaValueType", value == null ? JSONObject.NULL : value.getClass().getName());
++        f.put("value", M9CaptureRequestAudit1A.encode(value));
++    }
++    private static void putError(JSONObject out, Throwable e) {
++        try { out.put("status", "read_error").put("errorType", e.getClass().getSimpleName()); }
++        catch (Exception ignored) { }
++    }
++
++    static JSONObject capabilities(CameraCharacteristics c) {
++        JSONObject out = new JSONObject();
++        if (c == null) { try { out.put("status", "characteristics_unavailable"); } catch (Exception ignored) {} return out; }
++        String[] wanted = {"android.request.availableCapabilities", "android.info.supportedHardwareLevel",
++            "android.sensor.info.pixelArraySize", "android.sensor.info.activeArraySize",
++            "android.sensor.info.preCorrectionActiveArraySize", "android.sensor.info.colorFilterArrangement",
++            "android.sensor.info.pixelArraySizeMaximumResolution", "android.sensor.info.activeArraySizeMaximumResolution",
++            "android.sensor.info.preCorrectionActiveArraySizeMaximumResolution", "android.sensor.info.binningFactor",
++            "android.sensor.info.lensShadingApplied", "android.lens.info.availableFocalLengths",
++            "android.lens.info.availableApertures", "android.logicalMultiCamera.physicalIds"};
++        try {
++            Map<String, CameraCharacteristics.Key<?>> keys = new HashMap<>();
++            List<CameraCharacteristics.Key<?>> all = c.getKeys();
++            if (all != null) for (CameraCharacteristics.Key<?> k : all) keys.put(k.getName(), k);
++            for (String name : wanted) {
++                JSONObject f = new JSONObject();
++                try {
++                    CameraCharacteristics.Key<?> k = keys.get(name);
++                    if (k == null) f.put("status", "not_listed"); else addValue(f, c.get(k));
++                } catch (Throwable e) { putError(f, e); }
++                out.put(name, f);
++            }
++            out.put("defaultRawStreams", stream(c, false));
++            out.put("maximumResolutionRawStreams", stream(c, true));
++            out.put("interpretation", "advertised_support_only_not_selected_readout_or_internal_processing_proof");
++        } catch (Throwable e) { putError(out, e); }
++        return out;
++    }
++
++    private static JSONObject stream(CameraCharacteristics c, boolean maximum) {
++        JSONObject out = new JSONObject();
++        try {
++            if (maximum && Build.VERSION.SDK_INT < 31) return out.put("status", "api_unavailable");
++            StreamConfigurationMap map = c.get(maximum ? CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION
++                    : CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
++            if (map == null) return out.put("status", "map_not_reported");
++            int[] formats = {ImageFormat.RAW_SENSOR, ImageFormat.RAW10, ImageFormat.RAW12};
++            for (int format : formats) {
++                JSONObject f = new JSONObject();
++                try {
++                    f.put("outputSizes", sizes(map.getOutputSizes(format)));
++                    f.put("highResolutionOutputSizes", sizes(map.getHighResolutionOutputSizes(format)));
++                    f.put("inputSizes", sizes(map.getInputSizes(format)));
++                } catch (Throwable e) { putError(f, e); }
++                out.put(String.valueOf(format), f);
++            }
++            out.put("status", "read");
++        } catch (Throwable e) { putError(out, e); }
++        return out;
++    }
++    private static Object sizes(Size[] sizes) throws Exception {
++        if (sizes == null) return JSONObject.NULL;
++        JSONArray values = new JSONArray();
++        for (int i = 0; i < Math.min(32, sizes.length); i++)
++            values.put(new JSONArray().put(sizes[i].getWidth()).put(sizes[i].getHeight()));
++        return new JSONObject().put("sizes", values).put("totalCount", sizes.length).put("truncated", sizes.length > 32);
++    }
++
++    /** Queried once at session configuration; never opens or reconfigures another camera. */
++    static JSONObject cameraInventory(CameraManager manager, String deviceId, String streamId) {
++        JSONObject out = new JSONObject();
++        try {
++            if (manager == null) return out.put("status", "manager_unavailable");
++            LinkedHashSet<String> ids = new LinkedHashSet<>();
++            if (deviceId != null) ids.add(deviceId);
++            if (streamId != null) ids.add(streamId);
++            String[] enumerated = manager.getCameraIdList();
++            out.put("enumeratedIds", M9CaptureRequestAudit1A.encode(enumerated));
++            if (enumerated != null) Collections.addAll(ids, enumerated);
++            JSONArray records = new JSONArray(); int index = 0; int recordChars = 0; boolean budgetReached = false;
++            // A queue also visits physical members advertised by an accessible logical camera.
++            List<String> queue = new ArrayList<>(ids);
++            while (index < queue.size() && index < 16) {
++                String id = queue.get(index++); JSONObject record = new JSONObject().put("cameraId", id);
++                try {
++                    CameraCharacteristics c = manager.getCameraCharacteristics(id);
++                    record.put("capabilities", capabilities(c));
++                    if (Build.VERSION.SDK_INT >= 28) for (String p : c.getPhysicalCameraIds())
++                        if (ids.add(p)) queue.add(p);
++                } catch (Throwable e) { putError(record, e); }
++                int length = record.toString().length();
++                if (recordChars + length > 49152) { budgetReached = true; break; }
++                recordChars += length; records.put(record);
++            }
++            out.put("cameras", records).put("discoveredCount", queue.size()).put("truncated", budgetReached || index < queue.size());
++            out.put("recordCharBudget", 49152).put("budgetReached", budgetReached);
++            out.put("scope", "public_enumeration_plus_session_ids_and_reported_physical_members_no_guessed_ids");
++        } catch (Throwable e) { putError(out, e); }
++        return out;
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/capture/M9RawReadoutAuditTest.java
+@@ -0,0 +1,92 @@
++package com.particlesdevs.photoncamera.m9.capture;
++
++import android.hardware.camera2.*;
++import java.util.*;
++import org.json.JSONObject;
++import org.junit.Test;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9RawReadoutAuditTest {
++    private final String first = M9RawReadoutAudit1A.NAMES[0];
++    @SuppressWarnings("unchecked") private <T> CaptureRequest.Key<T> requestKey(String name) {
++        CaptureRequest.Key<T> key = mock(CaptureRequest.Key.class);
++        when(key.getName()).thenReturn(name); return key;
++    }
++    @SuppressWarnings("unchecked") private <T> CaptureResult.Key<T> resultKey(String name) {
++        CaptureResult.Key<T> key = mock(CaptureResult.Key.class);
++        when(key.getName()).thenReturn(name); return key;
++    }
++    private CameraCharacteristics characteristics(CaptureRequest.Key<?>... keys) {
++        CameraCharacteristics c = mock(CameraCharacteristics.class);
++        when(c.getAvailableCaptureRequestKeys()).thenReturn(Arrays.asList(keys));
++        when(c.getAvailableCaptureResultKeys()).thenReturn(Collections.emptyList());
++        return c;
++    }
++    @Test public void advertisedTypedKeyIsReadEvenWhenRequestOmitsItFromKeyList() throws Exception {
++        CaptureRequest.Key<int[]> key = requestKey(first);
++        CaptureRequest r = mock(CaptureRequest.class);
++        when(r.getKeys()).thenReturn(Collections.emptyList());
++        when(r.get(key)).thenReturn(new int[]{7, 0});
++        JSONObject f = new M9RawReadoutAudit1A(characteristics(key)).request(r).getJSONObject("fields").getJSONObject(first);
++        assertEquals("present", f.getString("status"));
++        assertEquals("[I", f.getString("javaValueType"));
++        assertEquals(7, f.getJSONArray("value").getInt(0));
++        assertFalse(f.getBoolean("listedInMetadata"));
++        verify(r).get(same(key));
++    }
++    @Test public void presentUnadvertisedKeyIsStillReadableWithoutInventingItsType() throws Exception {
++        CaptureRequest.Key<Byte> key = requestKey(first);
++        CaptureRequest r = mock(CaptureRequest.class);
++        when(r.getKeys()).thenReturn(Collections.singletonList(key)); when(r.get(key)).thenReturn((byte)0);
++        JSONObject f = new M9RawReadoutAudit1A(characteristics()).request(r).getJSONObject("fields").getJSONObject(first);
++        assertFalse(f.getBoolean("advertised")); assertTrue(f.getBoolean("listedInMetadata"));
++        assertEquals("present", f.getString("status")); assertEquals(0, f.getInt("value"));
++    }
++    @Test public void unknownKeyIsNotProbedWithAGuessedType() throws Exception {
++        CaptureRequest r = mock(CaptureRequest.class); when(r.getKeys()).thenReturn(Collections.emptyList());
++        JSONObject f = new M9RawReadoutAudit1A(characteristics()).request(r).getJSONObject("fields").getJSONObject(first);
++        assertEquals("no_public_typed_key", f.getString("status")); assertFalse(f.has("value"));
++        verify(r, never()).get(any());
++    }
++    @Test public void missingValueIsNotFalseAndReadFailureDoesNotDiscardOtherValues() throws Exception {
++        CaptureRequest.Key<Integer> missing = requestKey(first);
++        CaptureRequest.Key<Integer> broken = requestKey(M9RawReadoutAudit1A.NAMES[1]);
++        CaptureRequest.Key<Integer> zero = requestKey(M9RawReadoutAudit1A.NAMES[2]);
++        CaptureRequest r = mock(CaptureRequest.class); when(r.getKeys()).thenReturn(Collections.emptyList());
++        when(r.get(broken)).thenThrow(new IllegalArgumentException()); when(r.get(zero)).thenReturn(0);
++        JSONObject fields = new M9RawReadoutAudit1A(characteristics(missing, broken, zero)).request(r).getJSONObject("fields");
++        assertEquals("null_not_reported", fields.getJSONObject(first).getString("status"));
++        assertTrue(fields.getJSONObject(first).isNull("value"));
++        assertEquals("read_error", fields.getJSONObject(M9RawReadoutAudit1A.NAMES[1]).getString("status"));
++        assertEquals(0, fields.getJSONObject(M9RawReadoutAudit1A.NAMES[2]).getInt("value"));
++    }
++    @Test public void physicalResultDoesNotBorrowLogicalAdvertisedKeys() throws Exception {
++        CaptureResult.Key<Integer> key = resultKey(first);
++        CameraCharacteristics c = characteristics();
++        when(c.getAvailableCaptureResultKeys()).thenReturn(Collections.singletonList(key));
++        CaptureResult result = mock(CaptureResult.class); when(result.getKeys()).thenReturn(Collections.emptyList());
++        JSONObject f = new M9RawReadoutAudit1A(c).result(result, false).getJSONObject(first);
++        assertEquals("no_public_typed_key", f.getString("status")); verify(result, never()).get(any());
++    }
++    @Test public void advertisedResultNullAndPresentFalseRemainDistinct() throws Exception {
++        CaptureResult.Key<Boolean> a = resultKey(first), b = resultKey(M9RawReadoutAudit1A.NAMES[5]);
++        CameraCharacteristics c = characteristics(); when(c.getAvailableCaptureResultKeys()).thenReturn(Arrays.asList(a, b));
++        CaptureResult r = mock(CaptureResult.class); when(r.getKeys()).thenReturn(Collections.singletonList(b));
++        when(r.get(b)).thenReturn(false);
++        JSONObject fields = new M9RawReadoutAudit1A(c).result(r, true);
++        assertEquals("null_not_reported", fields.getJSONObject(first).getString("status"));
++        assertEquals("present", fields.getJSONObject(M9RawReadoutAudit1A.NAMES[5]).getString("status"));
++        assertFalse(fields.getJSONObject(M9RawReadoutAudit1A.NAMES[5]).getBoolean("value"));
++    }
++    @Test public void absentSessionRequestDoesNotInventDefaultValues() throws Exception {
++        JSONObject record = new M9RawReadoutAudit1A(characteristics()).request(null);
++        assertEquals("no_request_provided", record.getString("status")); assertFalse(record.has("fields"));
++    }
++    @Test public void arrayValuesHaveExplicitBounds() throws Exception {
++        int[] large = new int[1000];
++        JSONObject encoded = (JSONObject) M9CaptureRequestAudit1A.encode(large);
++        assertEquals(1000, encoded.getInt("totalLength")); assertTrue(encoded.getBoolean("truncated"));
++        assertEquals(64, encoded.getJSONArray("prefix").length());
++    }
++}

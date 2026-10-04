@@ -1,0 +1,899 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -1,250 +1,78 @@
+ #extension GL_OES_EGL_image_external_essl3 : require
+ precision highp float;
+-
+-// M9LIVEGL1A_PHOTON_SHADER
+-uniform samplerExternalOES sTexture;
+-uniform sampler2D uM9Curve;
++precision highp int;
++// M9LIVEGL2A_CONTROLLEDOES: no display-domain residual fitting.
++uniform highp samplerExternalOES sTexture;
++uniform highp sampler2D uM9Curve;
++uniform highp sampler2D uM9Inverse2A;
+ uniform vec2 resolution;
+ uniform bool enablePeak;
+ uniform bool mirror;
+ uniform bool uM9Enabled;
+-uniform float uM9DisplayGain;
+ uniform float uM9ExposureScale1B;
+-// M9LIVEGL1C_APPEARANCEPARITY
+-uniform mat3 uM9SourceMatrix1C;
+-// M9LIVEGL1D_ILLUMINANTCOLOR
+-uniform mat3 uM9SourceMatrixA1D;
+-uniform float uM9IlluminantWeightA1D;
+-uniform float uM9TungstenWeight1D;
+-uniform float uM9BlackFloor1C;
+-uniform float uM9ShadowPower1C;
+-uniform float uM9HighlightShoulder1C;
+-uniform float uM9FalloffStrength1C;
+-uniform float uM9FalloffPower1C;
+-// M9LIVEGL1F_TONELUT1A
+-uniform float uM9PreviewGainEv1F;
+-uniform float uM9ShadowPlacement1F;
+-uniform float uM9MidtoneGamma1F;
+-uniform float uM9HighlightShoulder1F;
+-uniform sampler2D uM9PreviewLut1F;
+-uniform bool uM9PreviewLutEnabled1F;
++uniform bool uM9SourceReady2A;
++uniform mat3 uM9InputToSensor2A;
++uniform mat3 uM9SensorToPp2A;
++uniform mat3 uM9PpToTarget2A;
++uniform vec3 uM9ClipWhite2A;
++uniform float uM9Tungsten2A;
+ out vec4 Output;
+ in vec2 texCoord;
+ 
+ vec3 srgbToLinearM9(vec3 c) {
+-    vec3 lo = c / 12.92;
+-    vec3 hi = pow((c + vec3(0.055)) / 1.055, vec3(2.4));
+-    return mix(lo, hi, step(vec3(0.04045), c));
++    return mix(c/12.92,pow((c+vec3(.055))/1.055,vec3(2.4)),step(vec3(.04045),c));
+ }
+-
+ vec3 linearToSrgbM9(vec3 c) {
+-    c = max(c, vec3(0.0));
+-    vec3 lo = c * 12.92;
+-    vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - vec3(0.055);
+-    return mix(lo, hi, step(vec3(0.0031308), c));
++    c=max(c,vec3(0));
++    return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-.055,step(vec3(.0031308),c));
+ }
+-
+-float curve02M9(float x) {
+-    float p = clamp(x, 0.0, 1.0) * 2047.0;
+-    float u = (p + 0.5) / 2048.0;
+-    return texture(uM9Curve, vec2(u, 0.5)).r;
++float inverseChannel2A(float code,int channel) {
++    float x=(clamp(code,0.0,1.0)*1023.0+.5)/1024.0;
++    vec3 hi=texture(uM9Inverse2A,vec2(x,.25)).rgb;
++    vec3 lo=texture(uM9Inverse2A,vec2(x,.75)).rgb;
++    return (hi[channel]*256.0+lo[channel])*(255.0/65535.0);
+ }
+-
+-vec3 sourceToM9Target1D(vec3 linearSrgb) {
+-    // Recovered Leica M9 target endpoints.  Interpolate using the live scene
+-    // illuminant rather than forcing every preview through the D65 endpoint.
+-    vec3 d65 = max(uM9SourceMatrix1C * linearSrgb, vec3(0.0));
+-    vec3 a = max(uM9SourceMatrixA1D * linearSrgb, vec3(0.0));
+-    vec3 target = mix(d65, a, clamp(uM9IlluminantWeightA1D, 0.0, 1.0));
+-
+-    // Photon OES is display-rendered, not RAW sensor RGB.  Preserve luminance so
+-    // this stage changes colour only and cannot undo the GL1C exposure/tone win.
+-    const vec3 Y709 = vec3(0.2126, 0.7152, 0.0722);
+-    float yin = dot(max(linearSrgb, vec3(0.0)), Y709);
+-    float yout = dot(target, Y709);
+-    if (yin > 1.0e-7 && yout > 1.0e-7) {
+-        target *= yin / yout;
++vec3 curveSat2M9(vec3 m9) {
++    // Exact production order: 14-bit nearest-even -> branch -> signed integer SAT2 -> >>16 -> LUT.
++    ivec3 c=ivec3(clamp(roundEven(m9*16383.0),vec3(0),vec3(16383)));
++    ivec3 a;
++    if (c.r>=c.g) {
++        a=ivec3(13659*c.r-4457*c.g-1004*c.b,
++            -2244*c.r+13469*c.g-3033*c.b,-199*c.r-6014*c.g+14398*c.b);
++    } else {
++        a=ivec3(14811*c.r-5604*c.g-1004*c.b,
++            -2455*c.r+13688*c.g-3033*c.b,393*c.r-6588*c.g+14398*c.b);
+     }
+-    return max(target, vec3(0.0));
++    ivec3 index=clamp(a>>16,ivec3(0),ivec3(2047));
++    return vec3(texelFetch(uM9Curve,ivec2(index.r,0),0).r,
++        texelFetch(uM9Curve,ivec2(index.g,0),0).r,
++        texelFetch(uM9Curve,ivec2(index.b,0),0).r);
+ }
+-
+-vec3 tonePlacement1C(vec3 c) {
+-    float floor1C = clamp(uM9BlackFloor1C, 0.0, 0.05);
+-    c = max((c - vec3(floor1C)) / max(1.0 - floor1C, 0.001), vec3(0.0));
+-
+-    // Photon preview already contains ISP tone placement. A small power restores
+-    // the denser M9 lower-mid placement before the exact firmware curve02.
+-    c = pow(c, vec3(max(uM9ShadowPower1C, 0.01)));
+-
+-    // Soft knee only above 0.65 linear. curve02 remains the final authoritative
+-    // tone curve; this merely prevents vendor-preview highlights from entering
+-    // it much harder than the RAW-derived still path.
+-    float knee1C = 0.65;
+-    float shoulder1C = max(uM9HighlightShoulder1C, 0.0);
+-    vec3 over1C = max(c - vec3(knee1C), vec3(0.0));
+-    vec3 compressed1C = vec3(knee1C) + over1C / (vec3(1.0) + shoulder1C * over1C);
+-    c = mix(c, compressed1C, step(vec3(knee1C), c));
+-    return max(c, vec3(0.0));
++vec3 tungsten2A(vec3 rgb) {
++    // Same integer BT.601/TG1 for a flat pixel pair; no extra preview chroma subsampling.
++    ivec3 c=ivec3(round(rgb*255.0));
++    int y=(4899*c.r+9617*c.g+1868*c.b)>>14;
++    int cb=(-2765*c.r-5427*c.g+8192*c.b)>>14;
++    int cr=(8192*c.r-6860*c.g-1332*c.b)>>14;
++    cb=((cb+128)&255)-128; cr=((cr+128)&255)-128;
++    float b=float(cb)*(cb<0?1.0-.25*uM9Tungsten2A:1.0);
++    float r=float(cr)*(cr<0?1.0-.16*uM9Tungsten2A:1.0);
++    return floor(clamp(vec3(float(y)+1.402*r,float(y)-.344136*b-.714136*r,
++            float(y)+1.772*b),vec3(0),vec3(255))+.5)/255.0;
+ }
+-
+-vec3 tungstenGuard1D(vec3 rgb) {
+-    // M9Modern TG1, expressed directly on normalized full-range BT.601 axes.
+-    // Y is preserved; only negative Cb (yellow) and negative Cr (green) are
+-    // gently compressed under warm light.
+-    float y = dot(rgb, vec3(0.299000, 0.587000, 0.114000));
+-    float cb = dot(rgb, vec3(-0.168736, -0.331264, 0.500000));
+-    float cr = dot(rgb, vec3(0.500000, -0.418688, -0.081312));
+-
+-    float w = clamp(uM9TungstenWeight1D, 0.0, 1.0);
+-    if (cb < 0.0) cb *= (1.0 - 0.25 * w);
+-    if (cr < 0.0) cr *= (1.0 - 0.16 * w);
+-
+-    vec3 outv;
+-    outv.r = y + 1.402000 * cr;
+-    outv.g = y - 0.344136 * cb - 0.714136 * cr;
+-    outv.b = y + 1.772000 * cb;
+-    return clamp(outv, vec3(0.0), vec3(1.0));
+-}
+-
+-vec3 tonePlacement1F(vec3 c) {
+-    // Preview-only scene placement. Default uniforms reproduce GL1C exactly.
+-    c *= exp2(clamp(uM9PreviewGainEv1F, -0.50, 0.50));
+-
+-    float floor1F = clamp(uM9BlackFloor1C, 0.0, 0.05);
+-    c = max((c - vec3(floor1F)) / max(1.0 - floor1F, 0.001), vec3(0.0));
+-    c = pow(c, vec3(clamp(uM9MidtoneGamma1F, 0.90, 1.15)));
+-
+-    // Small lower-tone-only luma-preserving gain. Denominator bias prevents black
+-    // amplification from exploding; maximum model output is intentionally tiny.
+-    float y1F = dot(c, vec3(0.2126, 0.7152, 0.0722));
+-    float shadowW1F = 1.0 - smoothstep(0.12, 0.52, y1F);
+-    float shadow1F = clamp(uM9ShadowPlacement1F, 0.0, 0.12);
+-    float shadowGain1F = 1.0 + shadow1F * shadowW1F
+-            * (1.0 - clamp(y1F, 0.0, 1.0)) / max(y1F + 0.12, 0.12);
+-    c *= shadowGain1F;
+-
+-    float knee1F = 0.65;
+-    float shoulder1F = clamp(uM9HighlightShoulder1F, 0.0, 1.0);
+-    vec3 over1F = max(c - vec3(knee1F), vec3(0.0));
+-    vec3 compressed1F = vec3(knee1F) + over1F / (vec3(1.0) + shoulder1F * over1F);
+-    c = mix(c, compressed1F, step(vec3(knee1F), c));
+-    return max(c, vec3(0.0));
+-}
+-
+-vec2 m9PreviewLutUv1F(float rIndex1F, float gIndex1F, float bIndex1F) {
+-    const float lutSize1F = 17.0;
+-    const float lutWidth1F = 289.0;
+-    return vec2((bIndex1F * lutSize1F + rIndex1F + 0.5) / lutWidth1F,
+-                (gIndex1F + 0.5) / lutSize1F);
+-}
+-
+-vec3 previewLut1F(vec3 c) {
+-    if (!uM9PreviewLutEnabled1F) return c;
+-    // Hardware bilinear filtering interpolates R/G inside each blue slice. Two
+-    // samples plus this B mix give exact tiled trilinear interpolation cheaply.
+-    vec3 p1F = clamp(c, vec3(0.0), vec3(1.0)) * 16.0;
+-    float b0_1F = floor(p1F.b);
+-    float b1_1F = min(b0_1F + 1.0, 16.0);
+-    float bf1F = p1F.b - b0_1F;
+-    vec3 lo1F = texture(uM9PreviewLut1F,
+-            m9PreviewLutUv1F(p1F.r, p1F.g, b0_1F)).rgb;
+-    vec3 hi1F = texture(uM9PreviewLut1F,
+-            m9PreviewLutUv1F(p1F.r, p1F.g, b1_1F)).rgb;
+-    return mix(lo1F, hi1F, bf1F);
+-}
+-
+-float falloffGain1C(vec2 uv) {
+-    // Hook is active architecturally but strength is 0 while the frozen still
+-    // target-falloff coefficients remain uncalibrated/identity.
+-    vec2 p = uv * 2.0 - 1.0;
+-    float radius = clamp(length(p) * 0.70710678, 0.0, 1.0);
+-    float falloff = clamp(uM9FalloffStrength1C, 0.0, 0.95)
+-            * pow(radius, max(uM9FalloffPower1C, 0.1));
+-    return 1.0 - falloff;
+-}
+-
+-// M9LIVEGL1Q_PAIRCURVE1A
+-// Monotone display-domain residual measured from the 2026-09-19 17U pair.
+-// Inputs/outputs are linear-light luminance AFTER GL1O.  RGB is rescaled by the
+-// luminance ratio, so this stage cannot rotate hue.  The scene classifier controls
+-// strength separately; ordinary scenes remain near identity.
+-float m9PairCurve1Q(float y) {
+-    y = clamp(y, 0.0, 1.0);
+-    if (y <= 0.0012567) return mix(0.0, 0.0003035, y / 0.0012567);
+-    if (y <= 0.0058784) return mix(0.0003035, 0.0013435, (y - 0.0012567) / (0.0058784 - 0.0012567));
+-    if (y <= 0.0204380) return mix(0.0013435, 0.0025576, (y - 0.0058784) / (0.0204380 - 0.0058784));
+-    if (y <= 0.0503951) return mix(0.0025576, 0.0062605, (y - 0.0204380) / (0.0503951 - 0.0204380));
+-    if (y <= 0.0802604) return mix(0.0062605, 0.0097955, (y - 0.0503951) / (0.0802604 - 0.0503951));
+-    if (y <= 0.1430888) return mix(0.0097955, 0.0163085, (y - 0.0802604) / (0.1430888 - 0.0802604));
+-    if (y <= 0.2605105) return mix(0.0163085, 0.0409161, (y - 0.1430888) / (0.2605105 - 0.1430888));
+-    if (y <= 0.3543530) return mix(0.0409161, 0.0872869, (y - 0.2605105) / (0.3543530 - 0.2605105));
+-    if (y <= 0.4817492) return mix(0.0872869, 0.1800684, (y - 0.3543530) / (0.4817492 - 0.3543530));
+-    if (y <= 0.6246868) return mix(0.1800684, 0.2646380, (y - 0.4817492) / (0.6246868 - 0.4817492));
+-    if (y <= 0.8987005) return mix(0.2646380, 0.4547111, (y - 0.6246868) / (0.8987005 - 0.6246868));
+-    if (y <= 0.9665484) return mix(0.4547111, 0.6060910, (y - 0.8987005) / (0.9665484 - 0.8987005));
+-    return mix(0.6060910, 1.0, (y - 0.9665484) / (1.0 - 0.9665484));
+-}
+-
+-vec3 sat2M9(vec3 c) {
+-    vec3 outv;
+-    if (c.r >= c.g) {
+-        outv.r = dot(vec3(13659.0, -4457.0, -1004.0) / 8192.0, c);
+-        outv.g = dot(vec3(-2244.0, 13469.0, -3033.0) / 8192.0, c);
+-        outv.b = dot(vec3(-199.0, -6014.0, 14398.0) / 8192.0, c);
+-    } else {
+-        outv.r = dot(vec3(14811.0, -5604.0, -1004.0) / 8192.0, c);
+-        outv.g = dot(vec3(-2455.0, 13688.0, -3033.0) / 8192.0, c);
+-        outv.b = dot(vec3(393.0, -6588.0, 14398.0) / 8192.0, c);
+-    }
+-    return max(outv, vec3(0.0));
+-}
+-
+-vec3 m9DisplayTransform(vec3 photonSrgb, vec2 uv) {
+-    if (!uM9Enabled) return photonSrgb;
+-    vec3 linear = srgbToLinearM9(clamp(photonSrgb, vec3(0.0), vec3(1.0)));
+-
+-    // M9LIVEGL1O_TOELOCK1A
+-    // GL1N retained; toe-protected residual refinement added.
+-    // GL1M gain retained; measured low-pivot residual contrast added.
+-    // GL1J/GL1L same-scene zero-crossing slope=2.02.
+-    // GL1I/J architecture restored at the measured zero-crossing gain strength.
+-    // Photon OES is already display-rendered. GL1B remains exposure authority.
+-    // Apply only the scene-aware residual fitted from paired preview/final frames.
+-    linear *= uM9ExposureScale1B;
+-    linear *= falloffGain1C(uv);
+-    float y1I = max(dot(linear, vec3(0.2126, 0.7152, 0.0722)), 1e-6);
+-    float gamma1I = clamp(uM9MidtoneGamma1F, 1.00, 1.40);
+-    float gain1I = exp2(clamp(uM9PreviewGainEv1F, -2.40, 0.50));
+-    float y1ITarget = gain1I * pow(y1I, gamma1I);
+-
+-    // M9LIVEGL1O_TOELOCK1A
+-    // GL1N retained; toe-protected residual refinement added.
+-    // Derive scene strength from the already-smoothed GL1I/J/M gamma authority.
+-    // Strong backlight receives the measured residual contrast; ordinary scenes
+-    // remain close to identity. 0.071 linear is the measured fixed point.
+-    float scene1N = clamp((gamma1I - 1.12) / 0.26, 0.0, 1.0);
+-    float residualGamma1N = mix(1.0, 1.675, scene1N);
+-    const float pivot1N = 0.071;
+-    float y1N = pivot1N * pow(max(y1ITarget, 1e-6) / pivot1N, residualGamma1N);
+-
+-    // M9LIVEGL1O_TOELOCK1A
+-    // Second measured residual: preserve deepest toe, increase separation around
+-    // the same low pivot, and lift upper mids/highlights in strong backlight.
+-    float residualGamma1O = mix(1.0, 1.60, scene1N);
+-    float y1OCurve = pivot1N * pow(max(y1N, 1e-6) / pivot1N, residualGamma1O);
+-    float toeBlend1O = smoothstep(0.015, 0.055, y1N);
+-    float y1O = mix(y1N, y1OCurve, toeBlend1O);
+-
+-    // M9LIVEGL1Q_PAIRCURVE1A
+-    // The GL1P pair proved exposure synchronization; remaining error is the
+-    // non-linear display residual.  Apply the measured monotone curve only in
+-    // high-spread/high-bright-support scenes.  Preserve chroma by luma ratio.
+-    float pairStrength1Q = clamp(uM9HighlightShoulder1F, 0.0, 1.0);
+-    float yPair1Q = m9PairCurve1Q(y1O);
+-    float y1Q = mix(y1O, yPair1Q, pairStrength1Q);
+-
+-    linear *= y1Q / y1I;
+-    return clamp(linearToSrgbM9(linear), vec3(0.0), vec3(1.0));
++vec3 m9DisplayTransform(vec3 oes,vec2 uv) {
++    // Unsupported or incomplete input contract is explicitly an exposure-only preview.
++    // Never run RAW matrices on a vendor-rendered fallback.
++    if (!uM9Enabled || !uM9SourceReady2A)
++        return clamp(linearToSrgbM9(srgbToLinearM9(clamp(oes,0.0,1.0))*uM9ExposureScale1B),0.0,1.0);
++    vec3 linear=vec3(inverseChannel2A(oes.r,0),inverseChannel2A(oes.g,1),inverseChannel2A(oes.b,2));
++    vec3 sensor=max(uM9InputToSensor2A*linear,vec3(0));
++    // Deliberate exposure changes sensor energy before the native white and scene gamut boundaries.
++    sensor=min(sensor*uM9ExposureScale1B,uM9ClipWhite2A);
++    vec3 pp=clamp(uM9SensorToPp2A*sensor,0.0,1.0);
++    // TARGETDIRECT identity HSM; no historical Cobalt/HSM/LUT or post-EV auto-normalization.
++    vec3 m9=max(uM9PpToTarget2A*pp,vec3(0));
++    return tungsten2A(curveSat2M9(m9));
+ }
+ 
+ void main() {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -92,28 +92,11 @@
+         GLES20.glUniform1i(enablePeak, peakEnabled);
+         GLES20.glUniform1i(mirror, mMirrorPreview ? 1 : 0);
+         GLES20.glUniform1i(uM9Enabled, mM9CurveTex != 0 ? 1 : 0);
+-        GLES20.glUniform1f(uM9DisplayGain, M9_LIVE_GL1A_DISPLAY_GAIN);
+         GLES20.glUniform1f(uM9ExposureScale1B, frame1W.exposureScale);
+-        GLES20.glUniformMatrix3fv(uM9SourceMatrix1C, 1, false, M9_LIVE_GL1C_SOURCE_D65, 0);
+-        GLES20.glUniform1f(uM9BlackFloor1C, M9_LIVE_GL1C_BLACK_FLOOR);
+-        GLES20.glUniform1f(uM9ShadowPower1C, M9_LIVE_GL1C_SHADOW_POWER);
+-        GLES20.glUniform1f(uM9HighlightShoulder1C, M9_LIVE_GL1C_HIGHLIGHT_SHOULDER);
+-        GLES20.glUniform1f(uM9FalloffStrength1C, M9_LIVE_GL1C_FALLOFF_STRENGTH);
+-        GLES20.glUniform1f(uM9FalloffPower1C, M9_LIVE_GL1C_FALLOFF_POWER);
+-        GLES20.glUniformMatrix3fv(uM9SourceMatrixA1D, 1, false, M9_LIVE_GL1D_SOURCE_A, 0);
+-        GLES20.glUniform1f(uM9IlluminantWeightA1D, frame1W.weightA);
+-        GLES20.glUniform1f(uM9TungstenWeight1D, frame1W.tungstenWeight);
+-        GLES20.glUniform1f(uM9PreviewGainEv1F, frame1W.gainEv);
+-        GLES20.glUniform1f(uM9ShadowPlacement1F, frame1W.shadowPlacement);
+-        GLES20.glUniform1f(uM9MidtoneGamma1F, frame1W.gamma);
+-        GLES20.glUniform1f(uM9HighlightShoulder1F, frame1W.pairStrength);
+-        GLES20.glUniform1i(uM9PreviewLutEnabled1F, mM9PreviewLutTex1F != 0 ? 1 : 0);
++        bindSource2A(frame1W.source2A);
+         GLES20.glUniform1i(uM9Curve, 1);
+-        GLES20.glUniform1i(uM9PreviewLut1F, 2);
+         GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mM9CurveTex);
+-        GLES20.glActiveTexture(GLES20.GL_TEXTURE2);
+-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mM9PreviewLutTex1F);
+         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, hTex[0]);
+ 
+@@ -131,93 +114,50 @@
+     private int enablePeak;
+     private int mirror;
+ 
+-    // M9LIVEGL1A_PHOTON_SHADER
+-    private static final String M9_LIVE_GL1A_MODE =
+-            "PHOTON_OES_PREVIEW_M9_DISPLAY_TRANSFORM";
+-    // Initial display-domain calibration from the controller/window
+-    // Photon -> validated full M9 preview transition.
+-    private static final float M9_LIVE_GL1A_DISPLAY_GAIN = 0.40f;
+-    private int mM9CurveTex;
+-    private int uM9Enabled;
+-    private int uM9DisplayGain;
+-    private int uM9Curve;
+-    // M9LIVEGL1B_EXPOSUREINTENT
+-    private int uM9ExposureScale1B;
+-    // M9LIVEGL1C_APPEARANCEPARITY
+-    private static final float[] M9_LIVE_GL1C_SOURCE_D65 = {
+-            0.53316906f, 0.09333790f, 0.01986253f,
+-            0.32894386f, 0.70803917f, 0.28021240f,
+-            0.13788708f, 0.19862293f, 0.69992507f
+-    };
+-    // M9LIVEGL1D_ILLUMINANTCOLOR
+-    private static final float[] M9_LIVE_GL1D_SOURCE_A = {
+-            0.53755093f, 0.12914680f, 0.05817552f,
+-            0.38280546f, 0.76276908f, 0.38316200f,
+-            0.07964361f, 0.10808411f, 0.55866248f
+-    };
+-    private static final float M9_LIVE_GL1C_BLACK_FLOOR = 0.0030f;
+-    private static final float M9_LIVE_GL1C_SHADOW_POWER = 1.040f;
+-    private static final float M9_LIVE_GL1C_HIGHLIGHT_SHOULDER = 0.20f;
+-    private static final float M9_LIVE_GL1C_FALLOFF_STRENGTH = 0.0f;
+-    private static final float M9_LIVE_GL1C_FALLOFF_POWER = 2.0f;
+-    private int uM9SourceMatrix1C;
+-    private int uM9BlackFloor1C;
+-    private int uM9ShadowPower1C;
+-    private int uM9HighlightShoulder1C;
+-    private int uM9FalloffStrength1C;
+-    private int uM9FalloffPower1C;
+-    // M9LIVEGL1F_TONELUT1A
+-    private static final int M9_LIVE_GL1F_LUT_SIZE = 17;
+-    private int mM9PreviewLutTex1F;
+-    private int uM9PreviewGainEv1F;
+-    private int uM9ShadowPlacement1F;
+-    private int uM9MidtoneGamma1F;
+-    private int uM9HighlightShoulder1F;
+-    private int uM9PreviewLut1F;
+-    private int uM9PreviewLutEnabled1F;
+-    private int uM9SourceMatrixA1D;
+-    private int uM9IlluminantWeightA1D;
+-    private int uM9TungstenWeight1D;
++    private int mM9CurveTex, uM9Enabled, uM9Curve, uM9ExposureScale1B;
++    private int mInverseTex2A, uSourceReady2A, uInputToSensor2A, uSensorToPp2A, uPpToTarget2A;
++    private int uClipWhite2A, uTungsten2A;
++    private com.particlesdevs.photoncamera.m9.preview.M9GpuPreview2A.Frame boundSource2A;
++
++    private void bindSource2A(com.particlesdevs.photoncamera.m9.preview.M9GpuPreview2A.Frame source) {
++        GLES20.glUniform1i(uSourceReady2A, source.ready ? 1 : 0);
++        GLES20.glActiveTexture(GLES20.GL_TEXTURE2);
++        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mInverseTex2A);
++        if (!source.ready || source == boundSource2A) return;
++        byte[] inverse = source.inverseTexture();
++        ByteBuffer bytes = ByteBuffer.allocateDirect(inverse.length);
++        bytes.put(inverse).position(0);
++        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 1024, 2, 0,
++                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, bytes);
++        GLES20.glUniformMatrix3fv(uInputToSensor2A, 1, false, source.matrix(0), 0);
++        GLES20.glUniformMatrix3fv(uSensorToPp2A, 1, false, source.matrix(1), 0);
++        GLES20.glUniformMatrix3fv(uPpToTarget2A, 1, false, source.matrix(2), 0);
++        GLES20.glUniform3fv(uClipWhite2A, 1, source.white(), 0);
++        GLES20.glUniform1f(uTungsten2A, source.tungstenWeight);
++        boundSource2A = source;
++    }
+ 
+     @Override
+     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+         mM9LastDraw1W = null;
+         mM9FrameState1W = M9PreviewFrameState1W.defaults();
+         mM9DrawSequence1W = 0;
++        GLES20.glDisable(GLES20.GL_DITHER);
+         initTex();
+         initM9CurveTexture1A();
+-        initM9PreviewLutTexture1F();
+-        Log.d("M9LiveGL1A", "M9LIVEGL1A_PHOTON_SHADER mode=" + M9_LIVE_GL1A_MODE
+-                + " gain=" + M9_LIVE_GL1A_DISPLAY_GAIN
+-                + " RAW_LIVE_OVERLAY_DISABLED");
+-        Log.d("M9LiveGL1C", "M9LIVEGL1C_APPEARANCEPARITY"
+-                + " source=M9_D65_NORMALIZED"
+-                + " blackFloor=" + M9_LIVE_GL1C_BLACK_FLOOR
+-                + " shadowPower=" + M9_LIVE_GL1C_SHADOW_POWER
+-                + " highlightShoulder=" + M9_LIVE_GL1C_HIGHLIGHT_SHOULDER
+-                + " falloffStrength=" + M9_LIVE_GL1C_FALLOFF_STRENGTH
+-                + " GL1B_EXPOSURE_FROZEN");
+-        Log.d("M9LiveGL1D", "M9LIVEGL1D_ILLUMINANTCOLOR"
+-                + " source=M9_A_D65_DYNAMIC"
+-                + " lumaPreservingColor=true"
+-                + " tg1=true"
+-                + " GL1C_TONE_FROZEN"
+-                + " GL1B_EXPOSURE_FROZEN");
+-        Log.d("M9LiveGL1F", "M9LIVEGL1F_TONELUT1A"
+-                + " toneSource=existing_96x72_Y_plane"
+-                + " sceneAwareTone=true"
+-                + " lut=STANDARD_PROTOTYPE_17"
+-                + " lutDomain=display_after_curve02"
+-                + " GL1B_EXPOSURE_FROZEN"
+-                + " GL1E_COLOR_BOUNDARY_FROZEN");
+-        Log.d("M9LiveGL1E", "M9LIVEGL1E_COLORISOLATE"
+-                + " oesColor=Photon_display_rendered"
+-                + " m9TargetMatrix=false"
+-                + " sat2=false"
+-                + " tg1=false"
+-                + " curve02=true"
+-                + " GL1C_TONE_FROZEN"
+-                + " GL1B_EXPOSURE_FROZEN");
++        boundSource2A = null;
++        int[] inverseTex = new int[1];
++        GLES20.glGenTextures(1, inverseTex, 0);
++        mInverseTex2A = inverseTex[0];
++        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mInverseTex2A);
++        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
++        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
++        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
++        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
++        // Complete fallback sampler before the first metadata callback.
++        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, 1, 1, 0,
++                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, ByteBuffer.allocateDirect(4));
++        Log.d("M9LiveGL2A", "M9LIVEGL2A_CONTROLLEDOES native_source_SAT2_curve02 no_fitted_residuals");
+         mSTexture = new SurfaceTexture(hTex[0]);
+         mSTexture.setOnFrameAvailableListener(this);
+ 
+@@ -232,26 +172,16 @@
+         enablePeak = GLES20.glGetUniformLocation(hProgram, "enablePeak");
+         mirror = GLES20.glGetUniformLocation(hProgram, "mirror");
+         uM9Enabled = GLES20.glGetUniformLocation(hProgram, "uM9Enabled");
+-        uM9DisplayGain = GLES20.glGetUniformLocation(hProgram, "uM9DisplayGain");
+         uM9Curve = GLES20.glGetUniformLocation(hProgram, "uM9Curve");
+         uM9ExposureScale1B = GLES20.glGetUniformLocation(hProgram, "uM9ExposureScale1B");
+-        uM9SourceMatrix1C = GLES20.glGetUniformLocation(hProgram, "uM9SourceMatrix1C");
+-        uM9BlackFloor1C = GLES20.glGetUniformLocation(hProgram, "uM9BlackFloor1C");
+-        uM9ShadowPower1C = GLES20.glGetUniformLocation(hProgram, "uM9ShadowPower1C");
+-        uM9HighlightShoulder1C = GLES20.glGetUniformLocation(hProgram, "uM9HighlightShoulder1C");
+-        uM9FalloffStrength1C = GLES20.glGetUniformLocation(hProgram, "uM9FalloffStrength1C");
+-        uM9FalloffPower1C = GLES20.glGetUniformLocation(hProgram, "uM9FalloffPower1C");
+-        uM9SourceMatrixA1D = GLES20.glGetUniformLocation(hProgram, "uM9SourceMatrixA1D");
+-        uM9IlluminantWeightA1D = GLES20.glGetUniformLocation(hProgram, "uM9IlluminantWeightA1D");
+-        uM9TungstenWeight1D = GLES20.glGetUniformLocation(hProgram, "uM9TungstenWeight1D");
+-        uM9PreviewGainEv1F = GLES20.glGetUniformLocation(hProgram, "uM9PreviewGainEv1F");
+-        uM9ShadowPlacement1F = GLES20.glGetUniformLocation(hProgram, "uM9ShadowPlacement1F");
+-        uM9MidtoneGamma1F = GLES20.glGetUniformLocation(hProgram, "uM9MidtoneGamma1F");
+-        uM9HighlightShoulder1F = GLES20.glGetUniformLocation(hProgram, "uM9HighlightShoulder1F");
+-        uM9PreviewLut1F = GLES20.glGetUniformLocation(hProgram, "uM9PreviewLut1F");
+-        uM9PreviewLutEnabled1F = GLES20.glGetUniformLocation(hProgram, "uM9PreviewLutEnabled1F");
++        uSourceReady2A = GLES20.glGetUniformLocation(hProgram, "uM9SourceReady2A");
++        uInputToSensor2A = GLES20.glGetUniformLocation(hProgram, "uM9InputToSensor2A");
++        uSensorToPp2A = GLES20.glGetUniformLocation(hProgram, "uM9SensorToPp2A");
++        uPpToTarget2A = GLES20.glGetUniformLocation(hProgram, "uM9PpToTarget2A");
++        uClipWhite2A = GLES20.glGetUniformLocation(hProgram, "uM9ClipWhite2A");
++        uTungsten2A = GLES20.glGetUniformLocation(hProgram, "uM9Tungsten2A");
+         GLES20.glUniform1i(uM9Curve, 1);
+-        GLES20.glUniform1i(uM9PreviewLut1F, 2);
++        GLES20.glUniform1i(GLES20.glGetUniformLocation(hProgram, "uM9Inverse2A"), 2);
+         GLES20.glVertexAttribPointer(vPosition, 2, GLES20.GL_FLOAT, false, 4 * 2, pVertex);
+         GLES20.glVertexAttribPointer(vTexCoord, 2, GLES20.GL_FLOAT, false, 4 * 2, pTexCoord);
+         GLES20.glEnableVertexAttribArray(vPosition);
+@@ -307,69 +237,6 @@
+         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+     }
+ 
+-    private void initM9PreviewLutTexture1F() {
+-        mM9PreviewLutTex1F = 0;
+-        final int byteCount = M9_LIVE_GL1F_LUT_SIZE * M9_LIVE_GL1F_LUT_SIZE
+-                * M9_LIVE_GL1F_LUT_SIZE * 3;
+-        final byte[] lut = new byte[byteCount];
+-        try (java.io.InputStream in = mView.getContext().getAssets()
+-                .open("m9/m9_preview_standard_gl1f_17.rgb")) {
+-            int off = 0;
+-            while (off < lut.length) {
+-                int n = in.read(lut, off, lut.length - off);
+-                if (n < 0) break;
+-                off += n;
+-            }
+-            if (off != lut.length || in.read() != -1) {
+-                Log.e("M9LiveGL1F", "preview LUT size=" + off + " expected=" + lut.length);
+-                return;
+-            }
+-        } catch (java.io.IOException e) {
+-            Log.e("M9LiveGL1F", "preview LUT load failed " + e);
+-            return;
+-        }
+-
+-        ByteBuffer data = ByteBuffer.allocateDirect(lut.length).order(ByteOrder.nativeOrder());
+-        data.put(lut);
+-        data.position(0);
+-        int[] tex = new int[1];
+-        GLES20.glGenTextures(1, tex, 0);
+-        if (tex[0] == 0) return;
+-        mM9PreviewLutTex1F = tex[0];
+-        GLES20.glActiveTexture(GLES20.GL_TEXTURE2);
+-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mM9PreviewLutTex1F);
+-        // M9LIVEGL1F_UNPACK1
+-        // 289x17 RGB8 => 867 bytes/row. Default GL_UNPACK_ALIGNMENT=4 would
+-        // advance rows as if padded to 868 bytes, corrupting RGB after row 0.
+-        GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1);
+-        // 17 blue slices are tiled horizontally; R varies within a tile, G vertically.
+-        GLES30.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES30.GL_RGB8,
+-                M9_LIVE_GL1F_LUT_SIZE * M9_LIVE_GL1F_LUT_SIZE,
+-                M9_LIVE_GL1F_LUT_SIZE, 0,
+-                GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, data);
+-        GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4);
+-        Log.d("M9LiveGL1F", "M9LIVEGL1F_UNPACK1 rowBytes=867 unpackAlignment=1");
+-        Log.d("M9LiveGL1F", "M9LIVEGL1F_LUTPACK1 layout=G_rows_B_tiles_R_inner");
+-        Log.d("M9LiveGL1G", "M9LIVEGL1G_DISPLAYDELTA1A active=EXPOSURE_ONLY curve02_live=false lut_live=false displayGain040_live=false");
+-        Log.d("M9LiveGL1H", "M9LIVEGL1H_LUMAGAMMA1A gamma=1.22 chromaPreserving=true curve02_live=false lut_live=false");
+-        Log.d("M9LiveGL1I", "M9LIVEGL1I_SCENEKEY1A gain=[-2.50,-0.25] gamma=[1.10,1.32] displayDeltaOnly=true");
+-        Log.d("M9LiveGL1J", "M9LIVEGL1J_DUALDEVICE1A gain=[-1.50,-0.25] sceneKeySlope=1.40 calibrated15U17U=true");
+-        Log.d("M9LiveGL1K", "M9LIVEGL1K_PIVOTGAMMA1A pivot=0.50 gamma=[1.18,2.30] gainEv=gammaMinus1 chromaPreserving=true");
+-        Log.d("M9LiveGL1L", "M9LIVEGL1L_BRACKETFIT1A sceneKeySlope=2.37 gain=[-2.40,-0.25] gamma=[1.10,1.32] bracket17U=true");
+-        Log.d("M9LiveGL1M", "M9LIVEGL1M_BRACKETREFINE1A sceneKeySlope=2.02 sameScene17U=true");
+-        Log.d("M9LiveGL1N", "M9LIVEGL1N_LOWPIVOT1A pivotLinear=0.071 residualGammaMax=1.675 sceneWeighted=true chromaPreserving=true");
+-        Log.d("M9LiveGL1O", "M9LIVEGL1O_TOELOCK1A pivotLinear=0.071 extraGammaMax=1.60 toe=[0.015,0.055] sceneWeighted=true");
+-        Log.d("M9LiveGL1Q", "M9LIVEGL1Q_PAIRCURVE1A sameExposurePair=true monotoneLumaKnots=13 chromaPreserving=true");
+-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+-        // Bilinear R/G interpolation + one shader mix between adjacent B slices = trilinear.
+-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+-        Log.d("M9LiveGL1F", "M9LIVEGL1F_TONELUT1A LUT=STANDARD_PROTOTYPE_17"
+-                + " domain=display_after_curve02 tone=dynamic twoSampleTrilinear=true");
+-    }
+-
+     private void initTex() {
+         hTex = new int[1];
+         GLES20.glGenTextures(1, hTex, 0);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -570,8 +570,6 @@
+                 // No RAW/JPEG feedback is used.
+                 boolean statsReady1F = com.particlesdevs.photoncamera.m9.M9SubjectMotionAnalyzer
+                         .fillLiveToneStats1R(mM9LiveReferenceScale1A, mM9LiveToneStats1F);
+-                boolean toneReady1F = com.particlesdevs.photoncamera.m9.preview.M9LiveToneModel1F
+-                        .fill(statsReady1F ? mM9LiveToneStats1F : null, mM9LiveToneParams1F);
+                 Long timestamp1W = result != null ? result.get(CaptureResult.SENSOR_TIMESTAMP) : null;
+                 textureView.setM9FrameState1W(new M9PreviewFrameState1W(
+                         framePlan1W, timestamp1W != null ? timestamp1W : -1L,
+@@ -579,12 +577,12 @@
+                         mM9LiveExposureScale1R, mM9WeightA1W, mM9TungstenWeight1W,
+                         mM9LiveToneParams1F[0], mM9LiveToneParams1F[1],
+                         mM9LiveToneParams1F[2], mM9LiveToneParams1F[3],
+-                        statsReady1F ? mM9LiveToneStats1F : null));
++                        statsReady1F ? mM9LiveToneStats1F : null,
++                        com.particlesdevs.photoncamera.m9.preview.M9GpuPreview2A.from(
++                                CaptureController.mCameraCharacteristics, result,
++                                PhotonCamera.getSettings().mCameraID)));
+                 if (captureController != null && framePlan1W != null)
+                     captureController.updateM9ExposurePlan1A(framePlan1W);
+-                if (!toneReady1F && mM9LiveToneStats1F[0] < 3.0f) {
+-                    // Defaults intentionally equal GL1C while the analyzer warms up.
+-                }
+             } catch (Throwable t) {
+                 Log.w(TAG, "M9LIVEGL1F tone state update failed: " + t);
+             }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -1911,6 +1911,9 @@
+             mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+         }
+ 
++        if (M9Config.isCaptureTest() && !mIsRecordingVideo)
++            com.particlesdevs.photoncamera.m9.preview.M9GpuPreview2A.configure(
++                    mPreviewRequestBuilder, mCameraCharacteristics);
+         mPreviewRequestBuilder.addTarget(surface);
+         // M9 recovery repeating analysis target
+         if (M9Config.isCaptureTest() && mImageReaderPreview != null) mPreviewRequestBuilder.addTarget(mImageReaderPreview.getSurface());
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+@@ -12,10 +12,21 @@
+     public final float exposureScale, weightA, tungstenWeight;
+     public final float gainEv, shadowPlacement, gamma, pairStrength;
+     private final float[] stats;
++    public final M9GpuPreview2A.Frame source2A;
+ 
+     public M9PreviewFrameState1W(M9ExposurePlan1A plan, long resultTimestampNs,
+             long analyzerElapsedNs, float exposureScale, float weightA, float tungstenWeight,
+             float gainEv, float shadowPlacement, float gamma, float pairStrength, float[] stats) {
++        this(plan, resultTimestampNs, analyzerElapsedNs, exposureScale, weightA, tungstenWeight,
++                gainEv, shadowPlacement, gamma, pairStrength, stats,
++                M9GpuPreview2A.Frame.fallback("no_source_contract"));
++    }
++
++    public M9PreviewFrameState1W(M9ExposurePlan1A plan, long resultTimestampNs,
++            long analyzerElapsedNs, float exposureScale, float weightA, float tungstenWeight,
++            float gainEv, float shadowPlacement, float gamma, float pairStrength, float[] stats,
++            M9GpuPreview2A.Frame source) {
++        source2A = source != null ? source : M9GpuPreview2A.Frame.fallback("no_source_contract");
+         this.plan = plan;
+         this.resultTimestampNs = resultTimestampNs;
+         this.analyzerElapsedNs = analyzerElapsedNs;
+@@ -74,16 +85,14 @@
+                 o.put("analyzerElapsedNs", state.analyzerElapsedNs);
+                 o.put("transformEnabled", transformEnabled);
+                 o.put("uniformExposureScale", state.exposureScale);
+-                o.put("uniformGainEv", state.gainEv);
+-                o.put("uniformShadowPlacement", state.shadowPlacement);
+-                o.put("uniformGamma", state.gamma);
+-                o.put("uniformPairStrength", state.pairStrength);
+-                o.put("uniformWeightA", state.weightA);
+-                o.put("uniformTungstenWeight", state.tungstenWeight);
+-                o.put("toneModel", "M9LIVEGL1V_SPATIALGATE1A");
+-                o.put("colourPath", "processed_OES_chroma_with_luma_rescaling");
+-                o.put("curve02Live", false);
+-                o.put("sat2Live", false);
++                o.put("toneModel", "M9LIVEGL2A_CONTROLLEDOES");
++                o.put("source2A", state.source2A.diagnostics());
++                o.put("colourPath", state.source2A.ready && transformEnabled
++                        ? "reconstructed_sensor_native_M9_SAT2_curve02"
++                        : "processed_OES_exposure_only_fallback");
++                o.put("curve02Live", transformEnabled && state.source2A.ready);
++                o.put("sat2Live", transformEnabled && state.source2A.ready);
++                o.put("fittedResidualStack", false);
+                 o.put("statePlanId", state.plan != null ? state.plan.id : JSONObject.NULL);
+                 o.put("capturePlanId", capturePlan != null ? capturePlan.id : JSONObject.NULL);
+                 o.put("samePlanId", state.plan != null && capturePlan != null
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java
+@@ -84,7 +84,8 @@
+             o.put("previewExposureAuthority", exposure);
+ 
+             o.put("previewAnalyzer", M9SubjectMotionAnalyzer.snapshotJson(cameraRotationDegrees));
+-            o.put("previewTone", M9LiveToneModel1F.snapshotDiagnostics1P());
++            o.put("previewTone", new JSONObject().put("revision", M9GpuPreview2A.REVISION)
++                    .put("fittedResidualStack", false).put("details", "shutterPreview1W.source2A"));
+         } catch (Throwable t) {
+             try { o.put("snapshotError", t.toString()); } catch (Exception ignored) {}
+         }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -5821,6 +5821,16 @@
+         return max;
+     }
+ 
++    // M9LIVEGL2A_EXPORT_BEGIN -- no still call site or arithmetic changes.
++    public static double[][] exportPreviewContext2A(CameraCharacteristics chars, CaptureResult result)
++            throws Exception {
++        ColorContext c = buildNativeProspectiveSource(chars, result).ctx;
++        double x = clamp((TG_START_K - c.cct) / (TG_START_K - TG_FULL_K), 0.0, 1.0);
++        return new double[][]{c.camToPp.clone(), c.ppToM9.clone(), c.cw.clone(),
++                new double[]{x*x*(3.0-2.0*x)}};
++    }
++    // M9LIVEGL2A_EXPORT_END
++
+     private static final class NativeProspectiveSource {
+         final ColorContext ctx;
+         final float[] sensorToXyzD50;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMath2A.java
+@@ -0,0 +1,60 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++/** Domain math only: no camera-ID fits, scene residuals or exposure feedback. */
++public final class M9PreviewMath2A {
++    private M9PreviewMath2A() {}
++    public static double decode(double v) {
++        return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4);
++    }
++    public static float[] srgbCurve(int points) {
++        int n = Math.max(2, Math.min(64, points));
++        float[] c = new float[2*n];
++        for (int i=0;i<n;i++) { double y=(double)i/(n-1); c[2*i]=(float)decode(y); c[2*i+1]=(float)y; }
++        return c;
++    }
++    public static boolean validCurve(float[] c) {
++        if (c==null || c.length<4 || (c.length&1)!=0) return false;
++        if (Math.abs(c[0])>1e-6 || Math.abs(c[1])>1e-6
++                || Math.abs(c[c.length-2]-1)>1e-6 || Math.abs(c[c.length-1]-1)>1e-6) return false;
++        for (int i=0;i<c.length;i++) if (!Float.isFinite(c[i]) || c[i]<0 || c[i]>1) return false;
++        for (int i=2;i<c.length;i+=2) if (c[i]<=c[i-2] || c[i+1]<=c[i-1]) return false;
++        return true;
++    }
++    public static double invertCurve(float[] c, double y) {
++        if (y<=0) return 0; if (y>=1) return 1;
++        for (int i=2;i<c.length;i+=2) if (y<=c[i+1])
++            return c[i-2]+(c[i]-c[i-2])*(y-c[i-1])/(c[i+1]-c[i-1]);
++        return 1;
++    }
++    /** Two RGBA8 rows hold high/low bytes of linear RGB; linear filtering remains linear. */
++    public static byte[] inverseTexture(float[][] curves) {
++        byte[] b=new byte[1024*2*4];
++        for (int c=0;c<3;c++) {
++            if (!validCurve(curves[c])) throw new IllegalArgumentException("noninvertible_tonemap_curve");
++            for (int i=0;i<1024;i++) {
++                int q=(int)Math.round(65535*invertCurve(curves[c],i/1023.0));
++                b[4*i+c]=(byte)(q>>>8); b[4096+4*i+c]=(byte)q;
++            }
++        }
++        return b;
++    }
++    public static double[] inverse(double[] a) {
++        if (a==null || a.length!=9) throw new IllegalArgumentException("missing_matrix");
++        for (double v:a) if (!Double.isFinite(v)) throw new IllegalArgumentException("invalid_matrix");
++        double d=a[0]*(a[4]*a[8]-a[5]*a[7])-a[1]*(a[3]*a[8]-a[5]*a[6])+a[2]*(a[3]*a[7]-a[4]*a[6]);
++        if (Math.abs(d)<1e-5) throw new IllegalArgumentException("singular_camera_transform");
++        double[] b={a[4]*a[8]-a[5]*a[7],a[2]*a[7]-a[1]*a[8],a[1]*a[5]-a[2]*a[4],
++            a[5]*a[6]-a[3]*a[8],a[0]*a[8]-a[2]*a[6],a[2]*a[3]-a[0]*a[5],
++            a[3]*a[7]-a[4]*a[6],a[1]*a[6]-a[0]*a[7],a[0]*a[4]-a[1]*a[3]};
++        for (int i=0;i<9;i++) { b[i]/=d; if (Math.abs(b[i])>32) throw new IllegalArgumentException("ill_conditioned_camera_transform"); }
++        return b;
++    }
++    public static float[] columnMajor(double[] a) {
++        float[] b=new float[9];
++        for (int y=0;y<3;y++) for (int x=0;x<3;x++) {
++            if (!Double.isFinite(a[y*3+x])) throw new IllegalArgumentException("invalid_colour_context");
++            b[x*3+y]=(float)a[y*3+x];
++        }
++        return b;
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
+@@ -0,0 +1,126 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import android.hardware.camera2.CameraCharacteristics;
++import android.hardware.camera2.CaptureRequest;
++import android.hardware.camera2.CaptureResult;
++import android.hardware.camera2.TotalCaptureResult;
++import android.hardware.camera2.params.ColorSpaceTransform;
++import android.hardware.camera2.params.RggbChannelVector;
++import android.hardware.camera2.params.TonemapCurve;
++import android.os.Build;
++import com.particlesdevs.photoncamera.m9.render.M9R35Renderer;
++import org.json.JSONArray;
++import org.json.JSONObject;
++import java.util.Arrays;
++
++/** Controlled OES reconstruction. This is not RAW: clipping and ISP demosaic are irreversible. */
++public final class M9GpuPreview2A {
++    public static final String REVISION="M9LIVEGL2A_CONTROLLEDOES";
++    private M9GpuPreview2A() {}
++    private static String cachedKey;
++    private static Frame cachedFrame;
++
++    public static void configure(CaptureRequest.Builder builder, CameraCharacteristics chars) {
++        if (chars==null) return;
++        int[] modes=chars.get(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES);
++        boolean supported=false;
++        if (modes!=null) for (int mode:modes) if (mode==CaptureRequest.TONEMAP_MODE_CONTRAST_CURVE) supported=true;
++        Integer max=chars.get(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS);
++        if (!supported || max==null || max<16) return;
++        float[] curve=M9PreviewMath2A.srgbCurve(max);
++        builder.set(CaptureRequest.TONEMAP_MODE,CaptureRequest.TONEMAP_MODE_CONTRAST_CURVE);
++        builder.set(CaptureRequest.TONEMAP_CURVE,new TonemapCurve(curve,curve,curve));
++    }
++
++    public static synchronized Frame from(CameraCharacteristics chars, CaptureResult logical,
++            String cameraId) {
++        try {
++            if (logical==null || chars==null || cameraId==null) return Frame.fallback("missing_camera_metadata");
++            CaptureResult result=logical;
++            String[] ids=cameraId.split("-");
++            if (ids.length==2 && !ids[0].equals(ids[1])) {
++                if (Build.VERSION.SDK_INT<28 || !(logical instanceof TotalCaptureResult))
++                    return Frame.fallback("physical_result_unavailable");
++                result=((TotalCaptureResult)logical).getPhysicalCameraResults().get(ids[1]);
++                if (result==null) return Frame.fallback("physical_result_unavailable");
++            }
++            Integer mode=result.get(CaptureResult.TONEMAP_MODE);
++            if (mode==null || mode!=CaptureResult.TONEMAP_MODE_CONTRAST_CURVE)
++                return Frame.fallback("controlled_curve_not_reported");
++            TonemapCurve curve=result.get(CaptureResult.TONEMAP_CURVE);
++            ColorSpaceTransform transform=result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM);
++            RggbChannelVector gains=result.get(CaptureResult.COLOR_CORRECTION_GAINS);
++            android.util.Rational[] neutral=result.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
++            Integer boost=result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
++            if (curve==null || transform==null || gains==null || neutral==null || boost==null || boost<=0)
++                return Frame.fallback("incomplete_source_contract");
++            // Both greens are merged by demosaic. A materially different gain cannot be inverted from RGB.
++            if (Math.abs(gains.getGreenEven()-gains.getGreenOdd())>.01f)
++                return Frame.fallback("unequal_green_gains");
++            String key=cameraId+"|"+System.identityHashCode(chars)+"|"+curve+"|"+transform+"|"+gains+"|"+Arrays.toString(neutral)+"|"+boost;
++            if (key.equals(cachedKey)) return cachedFrame;
++            float[][] curves=new float[3][];
++            for (int c=0;c<3;c++) {
++                curves[c]=new float[2*curve.getPointCount(c)]; curve.copyColorCurve(c,curves[c],0);
++                if (!M9PreviewMath2A.validCurve(curves[c])) return Frame.fallback("noninvertible_tonemap_curve");
++            }
++            double[] ccm=new double[9];
++            for (int y=0;y<3;y++) for (int x=0;x<3;x++) ccm[y*3+x]=transform.getElement(x,y).doubleValue();
++            double[] undo=M9PreviewMath2A.inverse(ccm);
++            double[] wb={gains.getRed(),(gains.getGreenEven()+gains.getGreenOdd())*.5,gains.getBlue()};
++            for (int y=0;y<3;y++) {
++                if (!Double.isFinite(wb[y]) || wb[y]<=0) return Frame.fallback("invalid_WB_gain");
++                for (int x=0;x<3;x++) undo[y*3+x]/=wb[y]*(boost/100.0);
++            }
++            // Read-only export uses the exact production native physical-sensor context builder.
++            double[][] nativeContext=M9R35Renderer.exportPreviewContext2A(chars,result);
++            Frame frame=new Frame(cameraId,M9PreviewMath2A.columnMajor(undo),
++                    M9PreviewMath2A.columnMajor(nativeContext[0]),M9PreviewMath2A.columnMajor(nativeContext[1]),
++                    nativeContext[2],(float)nativeContext[3][0],M9PreviewMath2A.inverseTexture(curves),boost);
++            cachedKey=key; cachedFrame=frame; return frame;
++        } catch (Exception e) { return Frame.fallback("source_contract_error:"+e.getClass().getSimpleName()); }
++    }
++
++    public static final class Frame {
++        public final boolean ready;
++        public final String reason, cameraId;
++        public final float tungstenWeight;
++        public final int postRawBoost;
++        private final float[] undo, source, target, white;
++        private final byte[] inverse;
++        private Frame(String reason) {
++            ready=false; this.reason=reason; cameraId=""; tungstenWeight=0; postRawBoost=100;
++            undo=source=target=new float[]{1,0,0,0,1,0,0,0,1}; white=new float[]{1,1,1}; inverse=new byte[0];
++        }
++        private Frame(String id,float[] undo,float[] source,float[] target,double[] white,
++                float tungsten,byte[] inverse,int boost) {
++            ready=true; reason="controlled_curve_reported_not_pixel_verified"; cameraId=id;
++            this.undo=undo.clone(); this.source=source.clone(); this.target=target.clone();
++            this.white=new float[]{(float)white[0],(float)white[1],(float)white[2]};
++            tungstenWeight=tungsten; this.inverse=inverse.clone(); postRawBoost=boost;
++        }
++        public static Frame fallback(String reason) { return new Frame(reason); }
++        public float[] matrix(int index) { return (index==0?undo:index==1?source:target).clone(); }
++        public float[] white() { return white.clone(); }
++        public byte[] inverseTexture() { return inverse.clone(); }
++        public JSONObject diagnostics() {
++            JSONObject o=new JSONObject();
++            try {
++                o.put("revision",REVISION).put("ready",ready).put("reason",reason).put("cameraId",cameraId);
++                o.put("inputDomain",ready?"reported_contrast_curve_OES_reconstructed_sensor_RGB":"processed_OES_exposure_only_fallback");
++                o.put("sourceToTarget",ready?"native_physical_sensor_ProPhoto_D50_M9":"bypassed");
++                o.put("postRawBoostRemoved",ready?postRawBoost:JSONObject.NULL);
++                o.put("sourceReconstructionExact",false);
++                o.put("limitations","ISP_CCM_approximation_demosaic_shading_and_preexisting_clipping;_no_RAW_recovery");
++                o.put("toneNormalization","unity_pending_live_linear_TC20_meter");
++                o.put("rawCpuPreview",false).put("fittedResidualStack",false);
++                o.put("sat2",ready).put("curve02",ready).put("tungstenWeight",tungstenWeight);
++                o.put("inputToSensorGL",new JSONArray(undo));
++                o.put("sensorToProPhotoGL",new JSONArray(source));
++                o.put("proPhotoToM9GL",new JSONArray(target));
++                o.put("clipWhite",new JSONArray(white));
++            } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
++            return o;
++        }
++    }
++}

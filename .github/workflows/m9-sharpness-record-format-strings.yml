@@ -1,0 +1,120 @@
+name: M9 Sharpness Record Format Strings
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-record-format-strings.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  strings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Decode BF547 processing-record strings and tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, os, pathlib, sys, hashlib, json, string, struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          spec=importlib.util.spec_from_file_location('gateb', pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          fw=(root/'m9.dec').read_bytes(); bf=m.get_bf547(fw)
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('canonical BF547 hash mismatch')
+          BASE=0x20000
+          exact=[
+            0xF5254,0xF5260,0xF5264,0xF5270,0xF5274,0xF5278,
+            0xF5294,0xF52A8,0xF52C0,0xF52D0,0xF52E8,0xF52F0,
+            0xF52FC,0xF530C,0xF5314,0xF5320,0xF532C,0xF5334,0xF5340,
+            0xF3164,0xF8C0C,0xF2C38
+          ]
+          def off(addr): return addr-BASE
+          def cstr(addr,limit=256):
+              o=off(addr)
+              if o<0 or o>=len(bf): return None
+              out=[]
+              for b in bf[o:o+limit]:
+                  if b==0: break
+                  if 32<=b<127 or b in (9,10,13): out.append(chr(b))
+                  else: return None if not out else ''.join(out)
+              return ''.join(out)
+          def win(addr,r=64):
+              o=off(addr); a=max(0,o-r); z=min(len(bf),o+r)
+              dat=bf[a:z]
+              asc=''.join(chr(x) if 32<=x<127 else '.' for x in dat)
+              return {'runtime_start':hex(BASE+a),'runtime_end':hex(BASE+z),'hex':dat.hex(' '),'ascii':asc}
+          rows=[]
+          for a in exact:
+              rows.append({'addr':hex(a),'string':cstr(a),'window':win(a)})
+          # Recover every printable NUL-terminated string in the diagnostic cluster.
+          ranges=[(0xF5100,0xF5450),(0xF3000,0xF3400),(0xF8B00,0xF8D80),(0xF2B80,0xF2D00)]
+          scans=[]
+          for lo,hi in ranges:
+              o0=max(0,off(lo)); o1=min(len(bf),off(hi)); i=o0
+              while i<o1:
+                  if 32<=bf[i]<127:
+                      j=i
+                      while j<o1 and 32<=bf[j]<127: j+=1
+                      if j-i>=3 and (j>=len(bf) or bf[j]==0):
+                          scans.append({'addr':hex(BASE+i),'text':bf[i:j].decode('ascii','replace')})
+                      i=max(j+1,i+1)
+                  else: i+=1
+          # Decode likely four-entry table both as inline exact strings and as u32 pointer values.
+          table_addrs=[0xF5260,0xF5264,0xF5270,0xF5274]
+          table=[]
+          for a in table_addrs:
+              o=off(a); raw=bf[o:o+4]
+              val=struct.unpack('<I',raw)[0] if len(raw)==4 else None
+              table.append({'slot_addr':hex(a),'inline_string':cstr(a),'u32_le':hex(val) if val is not None else None,
+                            'u32_target_string':cstr(val) if val is not None and BASE<=val<BASE+len(bf) else None})
+          out={'schema':'m9.sharpness.record-format-strings.v1','bf547_sha256':hashlib.sha256(bf).hexdigest(),
+               'exact':rows,'printable_scan':scans,'record_plus4_candidate_table':table,
+               'hypothesis_boundary':'Routine 0x6c940 indexes four entries using record byte +4; strings are evidence for labels only until control flow is fully matched.'}
+          (root/'record_format_strings.json').write_text(json.dumps(out,indent=2)+'\n')
+          with open(root/'record_format_strings.txt','w') as f:
+              f.write('EXACT ADDRESSES\n')
+              for r in rows: f.write(f"{r['addr']}  {r['string']!r}\n")
+              f.write('\nFOUR-ENTRY +4 TABLE\n')
+              for r in table: f.write(json.dumps(r)+'\n')
+              f.write('\nPRINTABLE CLUSTER STRINGS\n')
+              for r in scans: f.write(f"{r['addr']}  {r['text']}\n")
+          print(json.dumps({'exact':[(r['addr'],r['string']) for r in rows],'table':table,'scan_count':len(scans)},indent=2))
+          PY
+
+      - name: Publish text evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-RECORD-FORMAT-STRINGS
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/record_format_strings.json
+            ${{ runner.temp }}/m9sharp/record_format_strings.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"

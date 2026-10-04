@@ -1,0 +1,147 @@
+{
+  "status": "passed",
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9AutoIsoTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9DisplayAidsTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9LeicaEvTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9PreviewBrightnessTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9ShootingProfilesTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestPolicyTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.capture.M9RawReadoutAuditTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9ContrastSettingsTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9RenderDiagnosticsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9SaturationSettingsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9SharpnessDiagnosticsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9SharpnessSettingsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.processing.M9DngColorMetadataTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.processing.M9DngExportMetadataTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.processing.M9DngNoiseProfileTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.processing.M9DngNoiseStageTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.processing.M9Upstream2RRawPackingTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    }
+  ],
+  "totals": {
+    "tests": 147,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "automaticExposureEnergyCases": 7800,
+  "evThirdStopCases": 19,
+  "phoneValidationPending": true
+}

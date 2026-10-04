@@ -1,0 +1,124 @@
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
+@@ -15,7 +15,9 @@
+ 
+ /** Controlled OES reconstruction. This is not RAW: clipping and ISP demosaic are irreversible. */
+ public final class M9GpuPreview2A {
+-    public static final String REVISION="M9LIVEGL2C_INVERSEPRECISION";
++    public static final String REVISION="M9LIVEGL2F_CURVECONTRACT";
++    // Allow LUT quantization/resampling, but never accept linear instead of sRGB.
++    private static final double MAX_CURVE_ERROR=3.0/255.0;
+     private M9GpuPreview2A() {}
+     private static String cachedKey;
+     private static Frame cachedFrame;
+@@ -64,6 +66,16 @@
+                 curves[c]=new float[2*curve.getPointCount(c)]; curve.copyColorCurve(c,curves[c],0);
+                 if (!M9PreviewMath2A.validCurve(curves[c])) return Frame.fallback("noninvertible_tonemap_curve");
+             }
++            Integer maxPoints=chars.get(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS);
++            if (maxPoints==null || maxPoints<16) return Frame.fallback("controlled_curve_request_unavailable");
++            float[] requested=M9PreviewMath2A.srgbCurve(maxPoints);
++            double curveError=0;
++            for (float[] reported:curves)
++                curveError=Math.max(curveError,M9PreviewMath2A.curveOutputError(requested,reported));
++            if (curveError>MAX_CURVE_ERROR) {
++                Frame frame=new Frame("reported_curve_disagrees_with_request",cameraId,requested,curves,curveError);
++                cachedKey=key; cachedFrame=frame; return frame;
++            }
+             double[] ccm=new double[9];
+             for (int y=0;y<3;y++) for (int x=0;x<3;x++) ccm[y*3+x]=transform.getElement(x,y).doubleValue();
+             double[] undo=M9PreviewMath2A.inverse(ccm);
+@@ -76,7 +88,7 @@
+             double[][] nativeContext=M9R35Renderer.exportPreviewContext2A(chars,result);
+             Frame frame=new Frame(cameraId,M9PreviewMath2A.columnMajor(undo),
+                     M9PreviewMath2A.columnMajor(nativeContext[0]),M9PreviewMath2A.columnMajor(nativeContext[1]),
+-                    nativeContext[2],(float)nativeContext[3][0],M9PreviewMath2A.inverseTexture(curves),boost,curves);
++                    nativeContext[2],(float)nativeContext[3][0],M9PreviewMath2A.inverseTexture(curves),boost,curves,requested,curveError);
+             cachedKey=key; cachedFrame=frame; return frame;
+         } catch (Exception e) { return Frame.fallback("source_contract_error:"+e.getClass().getSimpleName()); }
+     }
+@@ -89,17 +101,26 @@
+         private final float[] undo, source, target, white;
+         private final byte[] inverse;
+         private final float[][] reportedCurves;
++        private final float[] requestedCurve;
++        private final double curveError;
+         private Frame(String reason) {
+-            ready=false; this.reason=reason; cameraId=""; tungstenWeight=0; postRawBoost=100;
+-            undo=source=target=new float[]{1,0,0,0,1,0,0,0,1}; white=new float[]{1,1,1}; inverse=new byte[0]; reportedCurves=new float[0][];
++            this(reason,"",new float[0],new float[0][],Double.NaN);
++        }
++        private Frame(String reason,String id,float[] requested,float[][] curves,double error) {
++            ready=false; this.reason=reason; cameraId=id; tungstenWeight=0; postRawBoost=100;
++            undo=source=target=new float[]{1,0,0,0,1,0,0,0,1}; white=new float[]{1,1,1}; inverse=new byte[0];
++            requestedCurve=requested.clone(); curveError=error;
++            reportedCurves=new float[curves.length][];
++            for(int i=0;i<curves.length;i++)reportedCurves[i]=curves[i].clone();
+         }
+         private Frame(String id,float[] undo,float[] source,float[] target,double[] white,
+-                float tungsten,byte[] inverse,int boost,float[][] curves) {
+-            ready=true; reason="controlled_curve_reported_not_pixel_verified"; cameraId=id;
++                float tungsten,byte[] inverse,int boost,float[][] curves,float[] requested,double error) {
++            ready=true; reason="controlled_curve_agrees_with_request_not_pixel_verified"; cameraId=id;
+             this.undo=undo.clone(); this.source=source.clone(); this.target=target.clone();
+             this.white=new float[]{(float)white[0],(float)white[1],(float)white[2]};
+             tungstenWeight=tungsten; this.inverse=inverse.clone(); postRawBoost=boost;
+             reportedCurves=new float[][]{curves[0].clone(),curves[1].clone(),curves[2].clone()};
++            requestedCurve=requested.clone(); curveError=error;
+         }
+         public static Frame fallback(String reason) { return new Frame(reason); }
+         public float[] matrix(int index) { return (index==0?undo:index==1?source:target).clone(); }
+@@ -114,6 +135,7 @@
+                 o.put("postRawBoostRemoved",ready?postRawBoost:JSONObject.NULL);
+                 o.put("sourceReconstructionExact",false);
+                 o.put("inverseToneSampling",ready?"decode_16bit_texels_before_float_interpolation":"bypassed");
++                o.put("inverseToneRevision","M9LIVEGL2C_INVERSEPRECISION");
+                 o.put("limitations","ISP_CCM_approximation_demosaic_shading_and_preexisting_clipping;_no_RAW_recovery");
+                 o.put("toneNormalization","unity_pending_live_linear_TC20_meter");
+                 o.put("rawCpuPreview",false).put("fittedResidualStack",false);
+@@ -125,6 +147,12 @@
+                 JSONArray curves=new JSONArray();
+                 for(float[] c:reportedCurves)curves.put(new JSONArray(c));
+                 o.put("reportedToneCurveRgb2E",curves);
++                o.put("requestedToneCurve2F",new JSONArray(requestedCurve));
++                o.put("toneCurveRequestSampling2F","uniform_linear_input_srgb_output");
++                o.put("toneCurveMaxOutputError2F",Double.isFinite(curveError)?curveError:JSONObject.NULL);
++                o.put("toneCurveAllowedOutputError2F",MAX_CURVE_ERROR);
++                o.put("toneCurveAgreement2F",ready);
++                o.put("toneCurveMismatchPolicy2F","processed_OES_exposure_only_until_contract_recovers");
+             } catch (org.json.JSONException e) { throw new IllegalStateException(e); }
+             return o;
+         }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMath2A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMath2A.java
+@@ -9,8 +9,29 @@
+     public static float[] srgbCurve(int points) {
+         int n = Math.max(2, Math.min(64, points));
+         float[] c = new float[2*n];
+-        for (int i=0;i<n;i++) { double y=(double)i/(n-1); c[2*i]=(float)decode(y); c[2*i+1]=(float)y; }
++        // GL2F: uniform INPUT knots also work with an index-addressed HAL LUT.
++        // The GL2E telephoto returned almost-linear values at uniform input
++        // positions, consistent with reinterpreting our old uniform-output knots.
++        for (int i=0;i<n;i++) {
++            double x=(double)i/(n-1);
++            c[2*i]=(float)x;
++            c[2*i+1]=(float)(x<=.0031308?12.92*x:1.055*Math.pow(x,1/2.4)-.055);
++        }
+         return c;
++    }
++    /** Maximum vertical error between two piecewise-linear curves, at their union of knots. */
++    public static double curveOutputError(float[] requested, float[] reported) {
++        if (!validCurve(requested) || !validCurve(reported)) return Double.POSITIVE_INFINITY;
++        double error=0;
++        for (float[] knots:new float[][]{requested,reported}) for (int i=0;i<knots.length;i+=2)
++            error=Math.max(error,Math.abs(curveOutput(requested,knots[i])-curveOutput(reported,knots[i])));
++        return error;
++    }
++    public static double curveOutput(float[] c,double x) {
++        if (x<=0) return 0; if (x>=1) return 1;
++        for (int i=2;i<c.length;i+=2) if (x<=c[i])
++            return c[i-1]+(c[i+1]-c[i-1])*(x-c[i-2])/(c[i]-c[i-2]);
++        return 1;
+     }
+     public static boolean validCurve(float[] c) {
+         if (c==null || c.length<4 || (c.length&1)!=0) return false;

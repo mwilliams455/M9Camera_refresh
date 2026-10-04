@@ -1,0 +1,112 @@
+name: Build M9Cam 2.04 TAPMETER1A
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-tapmeter1a]
+    paths:
+      - patches/tapmeter1a/**
+      - .github/workflows/build-m9cam-m9tapmeter1a.yml
+permissions:
+  contents: read
+concurrency:
+  group: m9-tapmeter1a
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify transport checksum before source replay
+        run: python3 patches/tapmeter1a/apply.py --check-payload
+      - name: Replay pinned FINISH1M source and inherited validation
+        run: python3 patches/autoexposurefinish1n/ci.py source
+      - name: Assemble exact FINISH1N parent then TAPMETER1A
+        run: |
+          set -euo pipefail
+          python3 patches/autoexposurefinish1n/apply.py PhotonCamera > M9AUTOEXPOSUREFINISH1N_VERIFY.json
+          python3 patches/tapmeter1a/apply.py PhotonCamera | tee M9TAPMETER1A_APPLY.json
+          python3 patches/tapmeter1a/apply.py PhotonCamera > M9TAPMETER1A_VERIFY.json
+          python3 patches/tapmeter1a/test.py TAPMETER1A_TESTS PhotonCamera | tee M9TAPMETER1A_TESTS.txt
+          python3 patches/tapmeter1a/apply.py --decode TAPMETER1A_READABLE
+          python3 - <<'PY'
+          import json,shutil
+          from pathlib import Path
+          m=json.loads(Path('TAPMETER1A_READABLE/manifest.json').read_text())
+          for name in m:
+              dst=Path('TAPMETER1A_SOURCE')/name
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copyfile(Path('PhotonCamera')/name,dst)
+          PY
+      - name: Build TAPMETER1A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9TAPMETER1A_GRADLE.log"
+      - name: Verify inherited APK contracts signing and installation identity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('patches/autoexposurefinish1n/ci.py')
+          s=p.read_text()
+          old='2.03-m9ae1n-bodyqual1a-subjecthl1a-perf3i'
+          assert s.count(old)==1
+          p.with_name('tapmeter_checks.py').write_text(s.replace(old,'2.04-m9tapmeter1a-ae1n-perf3i'))
+          PY
+          python3 patches/autoexposurefinish1n/tapmeter_checks.py checks
+      - name: Verify tap contracts and record hashes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee M9TAPMETER1A_APK_PROOF.txt
+          import zipfile,hashlib
+          from pathlib import Path
+          apk=next(Path('PhotonCamera/app/build/outputs/apk/debug').glob('*.apk'))
+          with zipfile.ZipFile(apk) as z:
+              dex=b''.join(z.read(n) for n in z.namelist() if n.endswith('.dex'))
+              for token in (b'M9TAPMETER1A',b'explicit_tap_patch',b'probePixelRect',b'tapBracket',b'Tap box: Auto'):
+                  assert token in dex, token
+              print('TAPMETER1A packaged markers passed')
+          out=Path('M9Cam_2.04_TAPMETER1A.apk')
+          out.write_bytes(apk.read_bytes())
+          print(hashlib.sha256(out.read_bytes()).hexdigest(),out)
+          Path('M9TAPMETER1A_SHA256.txt').write_text(hashlib.sha256(out.read_bytes()).hexdigest()+'  '+str(out)+'\n')
+          PY
+      - name: Upload verified candidate and readable source
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.04-TAPMETER1A
+          path: |
+            M9Cam_2.04_TAPMETER1A.apk
+            M9TAPMETER1A_SHA256.txt
+            M9TAPMETER1A_APPLY.json
+            M9TAPMETER1A_VERIFY.json
+            M9TAPMETER1A_TESTS.txt
+            M9TAPMETER1A_APK_PROOF.txt
+            TAPMETER1A_TESTS/full_class_tests.json
+            TAPMETER1A_SOURCE/
+            TAPMETER1A_READABLE/
+            PhotonCamera/M9TAPMETER1A_SOURCE_PROOF.json
+            M9AE1N_PARENT_SOURCE_REPLAY.json
+            M9AE1N_PARENT_CHECKS_REPLAY.json
+            M9LIVEGL2G_APK_PROOF.txt
+            M9LIVEGL2G_INSTALL_CHECK.txt
+          if-no-files-found: error
+      - name: Upload failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-TAPMETER1A-BUILDLOG
+          path: |
+            M9TAPMETER1A_GRADLE.log
+            M9AE1N_PARENT_SOURCE_REPLAY.json
+            M9AE1N_PARENT_CHECKS_REPLAY.json
+            M9TAPMETER1A_TESTS.txt
+          if-no-files-found: ignore

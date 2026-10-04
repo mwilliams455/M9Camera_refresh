@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "version": "2.41-m9uioverlay1c",
+  "reference": "2.40 UIOVERLAY1B, with 2.38 photographic baseline",
+  "exactParentFiles": 1229,
+  "onlyChangedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualLifecycleTest.java"
+  ],
+  "patchRoundTrip": true,
+  "allPhotographicAndCaptureCodeExact240": true,
+  "allAssetsShadersNativeSourcesAndLibrariesExact240": true,
+  "previewGeometryAndOrientationCodeExact240": true,
+  "manualConsoleAndPhysicalExposureMathExact240": true,
+  "allCaptureAndOutputPreferencesPreserved": true,
+  "photoThenMotion": true,
+  "originalModeOrdinalsPreserved": true,
+  "realManualControlDelegation": true,
+  "originalSettingsAndTimerDelegation": true,
+  "renderPickerM9Only": true,
+  "newControlsCheckTimerBracketProcessingAndFinalSaves": true,
+  "flatManualRuler": true,
+  "noCircularDrawingInNewRuler": true,
+  "retainedOriginalKnobItemValuesAndCallbacks": true,
+  "noLegacyLensBlurFootprint": true,
+  "hiddenOptionCellsReserveNoSpace": true,
+  "phoneValidationPending": true
+}

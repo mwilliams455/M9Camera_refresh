@@ -1,0 +1,138 @@
+{
+  "schema": "m9.wb_mapping.replay.v1",
+  "raw_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "script_sha256": "5359a490036d6450d7fd946fd52afda135c4f4d780fa93b543da1d3f265f7825",
+  "gains_q14": [
+    39199,
+    16384,
+    25458
+  ],
+  "metadata": {
+    "name": "IMG_20260921_164710_1790005630040_00.dng",
+    "model": "25128PNA1C",
+    "iso": 50,
+    "exposure_seconds": 0.009616968221962452,
+    "cfa": 3,
+    "cfa_pattern": [
+      2,
+      1,
+      1,
+      0
+    ],
+    "neutral": [
+      0.41796875,
+      1.0,
+      0.6435546875
+    ],
+    "white": 1023,
+    "black": [
+      64.0,
+      64.0,
+      64.0,
+      64.0
+    ],
+    "shape": [
+      3072,
+      4096
+    ],
+    "focal_length_mm": 8.710000038146973,
+    "noise_profile": [
+      2.917632891202222e-05,
+      4.945284597326194e-07,
+      3.472056504539444e-05,
+      4.0775853931925274e-07,
+      2.9567403268055556e-05,
+      4.834904956268195e-07
+    ],
+    "gainmap_shape": [
+      13,
+      17,
+      4
+    ],
+    "gainmap_max": 5.2509765625,
+    "norm030_alpha": 0.2516146769823271,
+    "norm030_outside_ev": 1.19229928714004,
+    "representation_scale": 1.6105431518598052
+  },
+  "actual_render_gain": 1.4142135623730951,
+  "variants": {
+    "H": {
+      "pink_pixels": 174776,
+      "changed_green_samples": 0,
+      "guard": true
+    },
+    "stored": {
+      "pink_pixels": 147320,
+      "changed_green_samples": 94703,
+      "guard": false
+    },
+    "physical": {
+      "pink_pixels": 54096,
+      "changed_green_samples": 11686417,
+      "guard": false
+    }
+  },
+  "H_stats": {
+    "status": 1.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 1158767.0,
+    "max_abs_correction": 7.0,
+    "censored_samples": 325092.0,
+    "mean_confidence": 0.11420202918960681,
+    "mean_residual_variance14": 82.36768180924791,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 1767.353581
+  },
+  "synthetic_summary": {
+    "stored": {
+      "scene_rgb_rms": {
+        "cases_worse_than_D": 313,
+        "max_rms_increase": 1.850058907029717e-05,
+        "mean_rms_change": -0.003380588349943675
+      },
+      "scene_rb_rms": {
+        "cases_worse_than_D": 317,
+        "max_rms_increase": 2.271947205412239e-05,
+        "mean_rms_change": -0.004480557188963555
+      },
+      "original_fixed_green_rb_rms": {
+        "cases_worse_than_D": 274,
+        "max_rms_increase": 2.245223349309905e-05,
+        "mean_rms_change": -0.004681933655152871
+      }
+    },
+    "physical": {
+      "scene_rgb_rms": {
+        "cases_worse_than_D": 838,
+        "max_rms_increase": 0.09394100366649351,
+        "mean_rms_change": 0.0015548668420022084
+      },
+      "scene_rb_rms": {
+        "cases_worse_than_D": 834,
+        "max_rms_increase": 0.15040287757827023,
+        "mean_rms_change": 0.002674693507315513
+      },
+      "original_fixed_green_rb_rms": {
+        "cases_worse_than_D": 826,
+        "max_rms_increase": 0.09919629603530741,
+        "mean_rms_change": -0.004036714518441674
+      }
+    }
+  },
+  "synthetic_case_count": 1536,
+  "spatial_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "colour_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "photographic_acceptance_passed": false,
+  "android_implementation_changed": false,
+  "auto_exposure_changed": false,
+  "scope": "Physical-white mapping is an explicit phone adaptation, not recovered M9 sensor calibration. Green/Sharp algorithm and ISO slot unchanged but input domain changes. Probes have guard off; existing H variance model is not transplanted."
+}

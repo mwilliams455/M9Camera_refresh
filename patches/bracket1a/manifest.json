@@ -1,0 +1,51 @@
+{
+  "parentCommit": "f7e0a749059ddd00ccb394457dd052278c4bfbd3",
+  "version": "2.38-m9bracket1a",
+  "parentFiles": {
+    "app/build.gradle": "2ce0e7f11eb5212b68d3f21d6f64a4f9f3b5c749fdb6adeef1e9ea00b5cd1ba0",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "d26eb485bc0130be2b5f96dedf8eb2dd084d22c6bb7b612e6fe96d22a98eef2b",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": "87232d5025b94af570e74b5649e4d3995846fc3427a5115170c95a51c83177fc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "57e328c13f1a448fd9b873945b178d392690975e6898a8606aab570ba1f3cf20",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java": "664f3593a9281e6bfea36c622f52770f5071df5cb4d8d535d58922ee3db0f41d",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "eed5f25c48a142ca4173b2289dc00aa920af867c694245de598cba643ae5f254",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "c5d1bfe37fa22d5eaf8eedf8b13c438640746b1aee50004ef1d2f58f2affef02",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DefaultSaver.java": "450defc2e49e0a15404b9bb03a9e7aa6d5a7eb4668074acdf23dc3606f347e67",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "fff9ca020c248c1932b9f032a76993d830e13ba9683f917c2f744d2925fc731e",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "dbc943994c5aa0422d359a2a2afff3872ea4d12868a2523553c6a4940bf5b8cd",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java": "082e46f4c2bccd5e75f4d30aab6a616590543dba52c6cbefd11b90f13589aded",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java": "9995bb9593c887f3c805b15f98f9ab5a9a5b2dddc77db031cfa12dc4414712c9",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "ec2d874b8e6771934f4df8c2ac00efb139d75822da919b475996a4957501a0ad",
+    "app/src/main/res/values/arrays.xml": "d752c410d68f72f5b803c6e27962f1301926d21c5169e73f22444323b3f9dc83",
+    "app/src/main/res/values/strings.xml": "b5d32aeddf9397338f7229d39741092e5221e11ac91003ca52faa2ca606f6a77",
+    "app/src/main/res/xml/preferences_m9.xml": "0db6991dbb1f2e33deea4dbb41394a5174e77f3d9749ce87cfe1cc42049d1286"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "10a7a1d060aeb7c33004a5ee33948e99bfdc788a701c8c4fa2000c781d513d6c",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "a90971bf0c39835cc7b53cdb88f075b4ba6240206d931cce6bf6a8331a93c116",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java": "6144d7c2efd73b2edd60189fb14419cff64d99341a28f0d79038008498244e95",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9BracketRuntime.java": "b657b4e2cef1f78b467229c410a6253d839c9b69dfdd86c244eb3f821de538fa",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": "53571789d3cc84b05e56ebf471e4b292d9441c6c8b1454df7e3cf6621c55861c",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "1b4f86e377eaf00d39884433bcc7c647ae1f3ccedd622728e95261b3513f7331",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java": "1d893199a543d22fab00aa66e4646545e3ac439100f4d1f578a33a7d024be9ca",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "2fd2109c8f06eefe27e45c2a3fbb8f49bda0b238f6f04870bf1e1c88ac5d7c80",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "9c9adadad32fe4612420bf93e4262b7f0e9e23d8b8113c3a2e6fa9de1b886a89",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DefaultSaver.java": "93cf5ffaeafeb75e3f8904474b748510f9999c58ba51de50bf98e38bb3d328e0",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "bd6fea3d1877e0d7a894a2f1893b7e98ef0dc027b70ab19abfd382173ef19e56",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "ae3f5c57ab1f5295f050d42b66dbbfc884acaadc00d896ec0241b45441489c57",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java": "5911d3a3503f8c926813e55c9b9d9cc8c161912b780bfd060f985548a76cc5ad",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java": "2283fdd40e2346c5617c5bf8dc37008b3f2164f3e205a8b128a074e19cc4c76a",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9BracketUi.java": "d7bfe6f01b86a4b666a5107554dfbffd13f2ce24c55e0d09635339e052b87378",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "15b7ed70119695053081405e6cd111f9973a6bfdf422202ec32e16122f88fc43",
+    "app/src/main/res/values/arrays.xml": "49153ca396c175dafc07b30f88fdd248389b847eb616fb33c2f6a45e4322961f",
+    "app/src/main/res/values/strings.xml": "182207642acf5ff06ce8c21b3d805e87a6e98ea495a1a2de79146a92dd21fa1a",
+    "app/src/main/res/xml/preferences_m9.xml": "9899a76f1a11b747c1031d748430d75977c4b885965ac750a901801209df1a54",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java": "87bf40a780419b0fc14a5e6e41cbc666cb7933feff7f1ee409518f4edf71c240"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9BracketRuntime.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9BracketUi.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java"
+  ],
+  "patchSha256": "16ae01e943b412a6bc4c4c7d0621f928675d713a19c623af48fbde61ef9f398e"
+}

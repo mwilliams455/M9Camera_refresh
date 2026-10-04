@@ -1,0 +1,168 @@
+name: Build M9Cam M9EXPOSUREPLAN1C
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9exposureplan1c-evfloor]
+    paths:
+      - 'patches/*m9exposureplan1c*'
+      - 'patches/tests/m9exposureplan1c/**'
+      - '.github/workflows/build-m9cam-m9exposureplan1c.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9LIVEGL1W source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9livegl1w.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected exposure-plan parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No exposure-plan parent source blocks found')
+          for idx,body in enumerate(blocks):
+              script=Path('/tmp/m9exposureplan1c-gl1u-'+str(idx)+'.sh')
+              script.write_text(body+'\n')
+              subprocess.run(['bash',str(script)],check=True)
+          PYREPLAY
+
+      - name: Apply and verify EV energy allocation at the ISO floor
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9exposureplan1c.py PhotonCamera | tee M9EXPOSUREPLAN1C_VERIFY.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.."; pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Test exposure regression and EV energy allocation at the ISO floor
+        run: |
+          set -euo pipefail
+          python3 patches/tests/m9exposureplan1b/run.py PhotonCamera | tee M9EXPOSUREPLAN1C_EXPOSURE_TESTS.txt
+          python3 patches/tests/m9livegl1v/run.py PhotonCamera | tee M9EXPOSUREPLAN1C_SPATIAL_TESTS.txt
+          python3 patches/tests/m9livegl1w/run.py PhotonCamera | tee M9EXPOSUREPLAN1C_ATOMIC_TESTS.txt
+          python3 patches/tests/m9exposureplan1c/run.py PhotonCamera | tee M9EXPOSUREPLAN1C_HOST_TESTS.txt
+
+      - name: Build M9EXPOSUREPLAN1C APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9EXPOSUREPLAN1C_GRADLE.log"
+
+      - name: Verify packaged preview and exposure contracts
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9exposureplan1c-apk && mkdir -p /tmp/m9exposureplan1c-apk
+          unzip -q "$APK" -d /tmp/m9exposureplan1c-apk
+          python3 - <<'PY' | tee M9EXPOSUREPLAN1C_APK_PROOF.txt
+          from pathlib import Path
+          root=Path('/tmp/m9exposureplan1c-apk')
+          shader=root/'assets/shaders/preview/main_fs.glsl'
+          if not shader.exists(): raise SystemExit('packaged preview shader missing')
+          s=shader.read_text()
+          for marker in ('M9LIVEGL1Q_PAIRCURVE1A','linear *= uM9ExposureScale1B','linear *= y1Q / y1I'):
+              if marker not in s: raise SystemExit('frozen shader marker missing '+marker)
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in (
+              b'M9LIVEGL1U_SIDECARTRANSPORT1A',
+              b'M9EXPOSUREPLAN1C',
+              b'M9LIVEGL1V_SPATIALGATE1A',
+              b'M9LIVEGL1W_ATOMICSTATE1A',
+              b'shutterPreview1W',
+              b'textureMatchesStateResult',
+              b'GL_draw_commands_submitted_not_display_presentation_verified',
+              b'spatialPairStrength1V',
+              b'planned_single_RAW_request',
+              b'zeroShutterLagBufferUsed',
+              b'm9cam.exposureplan.v1a',
+              b'neutral_plan_without_auto_assist_or_user_offset',
+              b'shared_exposure_plan_no_post_render_replacement',
+              b'live_pair_spool_fallback',
+              b'm9cam.sidecarspool.v1.privatebundle1b',
+              b'primary_timing',
+              b'M9LIVEGL1T_CONTINUOUSPREVIEW1A',
+              b'Photon_GL_IsoExpoSelector_intended_pair',
+          ):
+              ok=marker in dex
+              print(marker.decode('ascii'),ok)
+              if not ok: raise SystemExit('DEX marker missing '+marker.decode('ascii'))
+          print('M9EXPOSUREPLAN1C APK PROOF PASS')
+          PY
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          cp "$APK" M9Cam-M9EXPOSUREPLAN1C-debug.apk
+          sha256sum M9Cam-M9EXPOSUREPLAN1C-debug.apk | tee M9EXPOSUREPLAN1C_APK_SHA256.txt
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9EXPOSUREPLAN1C
+          path: |
+            M9Cam-M9EXPOSUREPLAN1C-debug.apk
+            M9EXPOSUREPLAN1C_APK_SHA256.txt
+            M9EXPOSUREPLAN1C_VERIFY.txt
+            M9EXPOSUREPLAN1C_APK_PROOF.txt
+            M9EXPOSUREPLAN1C_HOST_TESTS.txt
+            M9EXPOSUREPLAN1C_SPATIAL_TESTS.txt
+            M9EXPOSUREPLAN1C_ATOMIC_TESTS.txt
+            M9EXPOSUREPLAN1C_EXPOSURE_TESTS.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9EXPOSUREPLAN1C-BUILDLOG
+          path: M9EXPOSUREPLAN1C_GRADLE.log
+          if-no-files-found: ignore

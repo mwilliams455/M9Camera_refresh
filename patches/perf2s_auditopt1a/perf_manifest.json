@@ -1,0 +1,17 @@
+{
+  "revision": "M9PERF2S_AUDITOPT1A",
+  "baseSourceCommit": "188ab711c998464aec89d9a63297680e932a02b8",
+  "sourceCommit": "eeaedb07dc6fccf553646e313a49b3eb2aae6f1d",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "baseManifestSha256": "36ebc417fd445edabff4422cbec9258a10bc333a452858db6f4ba2e8c25d1e03",
+  "patchSha256": "0d19d04acccc6b6f2292ca3b688c18f15e38d076d7a2179226488fd3257a28ac",
+  "fileOverrides": {
+    "app/build.gradle": "1d20cd314b9dfff44e3b0c72f50b37a3ef7ef70298655fee4dd4c58cc7cb9d6f",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "34c1b9c775159797ccb61735a2b93a7c24e45c51e95fdd7f2ac5bab20f510cfb",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnostics.java": "3f9d2d089aaf09ec3571b6d073c0dce93b476d472ca1ed3bfb90ac49a15de314",
+    "app/src/main/res/values/m9_diagnostics.xml": "24fefc6ca3b7f1229d44426aa4e45072054b3d6c8ad1e2ce71285cc285f470b8",
+    "app/src/main/res/xml/preferences.xml": "fae7405a3c4e5fcc0a951ee35cc500aa01e9d9c67a85d5945838556f6b0f17cd",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9RenderDiagnosticsTest.java": "cf64fe596c5eaea03b5a7c2cd1fe6aaf017879da7c58869d032a289cdd4eee6a",
+    "app/version.properties": "00c4f907fb985dff66010b0e801beb998503fb9ff64faaa375d85b2c792f6ace"
+  }
+}

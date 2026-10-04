@@ -1,0 +1,32 @@
+{
+  "revision": "M9OUTPUTMENU1A",
+  "parentCommit": "c1e56f22b93447d57741278e468df2f4fa99d265",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "7b3bf1abb79f882d8611afc9c032ae3940f9815a85eda4d4f22ee273091f87f1",
+  "fileOverrides": {
+    "app/build.gradle": "2575024a899ec08f2103977b66df3dd7a83ba65ae5c9e518326b9e0a18b71de9",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DeferredMetadataStore.java": "fde9b44ddb6631ec65b364ae5ee37509e3fa25f67cc6b3ae409463e5980dc685",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "31a6c93f2bce05b169ae7054dd4b9c645c5d84d6e8df4899b30c5e79fc69a8a5",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticSidecarIO.java": "2aa1809fa08b6c3b3795113c6d91fce3e7e74477a2a75bc8be166a91557e2fee",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9OutputSettings.java": "62fcc8e23e707749ce2b0f41d6c204c3fa15676feccc2e916b80a90ca7ae7d73",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "92ee3668c719d7cd3f382556532c5226e2b412a02502fdad0ac9674b714f5c66",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java": "7571104aa206fc3bedc1002de87333c06f083ae4876f253bef3747da29a05cbe",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "cd69619570c0184789f52e945f6a212d3432866613420375c943da02451d766a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "0f4c20ccb9b32c1607af9fb2b76aa905f7386ce78fd3a6d4d5428892bc2cc952",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngRawPair.java": "973bab606995ed1f3d02a84d18e21fc9758cc23985a160807cf984ee99ba0ba9",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "5d1f2cf2f8c4731326de7160892ff67ed18e20614fc61d1e55b8181f7fc32495",
+    "app/src/main/java/com/particlesdevs/photoncamera/util/Log.java": "2c7b1bc70a12ce82db2b79c2e0ff9da23d4089123434f5ecd03d0700af2c0d7f",
+    "app/src/main/res/values/m9_output.xml": "769635709c38051f6468c4dc9e78bd0c2c47be0b6b65a364bf8b4cd43f637b29",
+    "app/src/main/res/xml/preferences.xml": "62f11ca126a9d2cba251014d99668f577c3171143f981e1ae0955ce35cd18d02",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9OutputSettingsTest.java": "4908478ec403362cee040a2bcd99ffb52be3235234861615935188c3b1f8d532"
+  },
+  "unfilteredDngDefault": false,
+  "diagnosticFilesDefault": false,
+  "rawSelectionBoundary": "RAW_enqueue",
+  "diagnosticsGate": "current_preference_at_export",
+  "renderMetadataPreserved": true,
+  "capturePolicyUnchanged": true,
+  "rawSampleProcessingUnchanged": true,
+  "normalContrastCurveUnchanged": true,
+  "preSaturationMeteringUnchanged": true
+}

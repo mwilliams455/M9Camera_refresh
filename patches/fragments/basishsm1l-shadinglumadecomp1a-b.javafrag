@@ -1,0 +1,15 @@
+    private static NativeProspectiveShadingStats applyNativeProspectiveGainMapLumaDecomp1A(
+            short[] norm16, int width, int height, LensShadingMap map, double alpha) {
+        if (map == null) throw new IllegalStateException("SHADINGLUMADECOMP1A render requires physical LensShadingMap");
+        if (!Double.isFinite(alpha) || alpha < 0.0 || alpha > 1.0) throw new IllegalArgumentException("SHADINGLUMADECOMP1A alpha out of range: " + alpha);
+        final int mapW=map.getColumnCount(), mapH=map.getRowCount(), cells=mapW*mapH; float[] src=new float[map.getGainFactorCount()]; map.copyGainFactors(src,0);
+        if(mapW<1||mapH<1||src.length!=cells*4) throw new IllegalStateException("SHADINGLUMADECOMP1A invalid map dimensions");
+        double[] gains=new double[src.length]; double minGain=Double.POSITIVE_INFINITY,maxGain=Double.NEGATIVE_INFINITY;
+        for(int cell=0;cell<cells;cell++) { int base=cell*4; double ls=0.0; for(int p=0;p<4;p++){double g=src[base+p]; if(!Double.isFinite(g)||g<=0.0)throw new IllegalStateException("SHADINGLUMADECOMP1A invalid gain"); ls+=Math.log(g);} double gc=Math.exp(0.25*ls), ca=Math.exp(alpha*Math.log(gc)); for(int p=0;p<4;p++){double g=(src[base+p]/gc)*ca; gains[base+p]=g; minGain=Math.min(minGain,g); maxGain=Math.max(maxGain,g);} }
+        final double representationScale=maxGain; if(!Double.isFinite(representationScale)||representationScale<=0.0)throw new IllegalStateException("SHADINGLUMADECOMP1A invalid representation scale");
+        final double xScale=width>1?(mapW-1.0)/(width-1.0):0.0, yScale=height>1?(mapH-1.0)/(height-1.0):0.0; long corrected=0,aboveNominal=0,postClip=0;
+        for(int y=0;y<height;y++){double gy=y*yScale;int y0=(int)Math.floor(gy),y1=Math.min(mapH-1,y0+1);double fy=gy-y0;int row=y*width,planeBase=(y&1)*2;for(int x=0;x<width;x++){double gx=x*xScale;int x0=(int)Math.floor(gx),x1=Math.min(mapW-1,x0+1);double fx=gx-x0;int plane=planeBase+(x&1);int i00=((y0*mapW+x0)*4)+plane,i01=((y0*mapW+x1)*4)+plane,i10=((y1*mapW+x0)*4)+plane,i11=((y1*mapW+x1)*4)+plane;double g0=gains[i00]+fx*(gains[i01]-gains[i00]),g1=gains[i10]+fx*(gains[i11]-gains[i10]),gain=g0+fy*(g1-g0);int index=row+x;double normalized=(norm16[index]&0xffff)/65535.0,correctedLinear=normalized*gain;if(correctedLinear>1.0)aboveNominal++;double represented=correctedLinear/representationScale;if(represented<-1e-12||represented>1.0+1e-12)postClip++;represented=Math.max(0.0,Math.min(1.0,represented));int q=(int)Math.floor(represented*65535.0+0.5);norm16[index]=(short)(q&0xffff);corrected++;}}
+        if(postClip!=0)throw new IllegalStateException("SHADINGLUMADECOMP1A representation scaling clipped: "+postClip);
+        return new NativeProspectiveShadingStats(true,mapW,mapH,minGain,maxGain,corrected,representationScale,aboveNominal,postClip);
+    }
+

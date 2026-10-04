@@ -1,0 +1,157 @@
+name: Build M9Cam SHARPNESS CLOSURETEST1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-closuretest1a]
+    paths:
+      - 'patches/apply-m9cam-sharpness-closuretest1a.py'
+      - 'patches/verify-m9cam-sharpness-closuretest1a.py'
+      - '.github/workflows/build-m9cam-sharpness-closuretest1a.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicmhc1a.py
+          python3 -m py_compile patches/fix-m9cam-basishsm1p-demosaicmhc1a-lifetime1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhc1a.py
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicab1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicab1a.py
+          python3 -m py_compile patches/apply-m9cam-basishsm1p-demosaicmhcneutral1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a.py
+          python3 -m py_compile patches/promote-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py
+          python3 -m py_compile patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-splitdemosaic1a.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-splitdemosaic1a.py
+          python3 -m py_compile patches/apply-m9cam-sharpness-closuretest1a.py
+          python3 -m py_compile patches/verify-m9cam-sharpness-closuretest1a.py
+
+      - name: Replay exact UPSTREAMAXIS1A parent assembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/build-m9cam-basishsm1p-curvedomain1c-upstreamaxis1a.yml')
+          lines=wf.read_text().splitlines()
+          names=['Replay exact CURVEDOMAIN1B parent assembly','Apply CURVEDOMAIN1C UPSTREAMAXIS1A read-only extension']
+          for idx,name in enumerate(names):
+              target='      - name: '+name
+              i=lines.index(target)
+              while i<len(lines) and lines[i].strip()!='run: |': i+=1
+              if i>=len(lines): raise SystemExit('parent run block missing: '+name)
+              i+=1; out=[]
+              while i<len(lines):
+                  line=lines[i]
+                  if line.startswith('      - name:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected parent indentation: '+line)
+                  i+=1
+              Path(f'/tmp/upstreamaxis_parent_{idx}.sh').write_text('\n'.join(out)+'\n')
+          PY
+          for s in /tmp/upstreamaxis_parent_*.sh; do bash "$s"; done
+
+      - name: Assemble frozen neutral MHC parent
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+          python3 patches/fix-m9cam-basishsm1p-demosaicmhc1a-lifetime1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhc1a.py "$ROOT"
+          python3 patches/apply-m9cam-basishsm1p-demosaicab1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicab1a.py "$ROOT"
+          python3 patches/apply-m9cam-basishsm1p-demosaicmhcneutral1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a.py "$ROOT"
+          python3 patches/promote-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py "$ROOT"
+          python3 patches/verify-m9cam-basishsm1p-demosaicmhcneutral1a-frozen1a.py "$ROOT"
+
+      - name: Apply split seam then closure probe
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-sharpness-splitdemosaic1a.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-splitdemosaic1a.py "$ROOT"
+          python3 patches/apply-m9cam-sharpness-closuretest1a.py "$ROOT"
+          python3 patches/verify-m9cam-sharpness-closuretest1a.py "$ROOT" | tee CLOSURETEST1A_VERIFY.txt
+
+      - name: Snapshot research source
+        run: |
+          set -euo pipefail
+          mkdir -p assembled-closuretest1a
+          cp PhotonCamera/app/src/main/cpp/m9color_jni.cpp assembled-closuretest1a/
+          cp CLOSURETEST1A_VERIFY.txt assembled-closuretest1a/
+          grep -n 'SHARPNESS_CLOSURETEST1A\|m9ClosureQ14\|m9ClosureSlot0Coeff\|closureSharp14\|const int dr=\|const int db=' PhotonCamera/app/src/main/cpp/m9color_jni.cpp > assembled-closuretest1a/CLOSURE_ANCHORS.txt
+          sha256sum assembled-closuretest1a/* | tee assembled-closuretest1a/SHA256SUMS.txt
+
+      - name: Compile isolated closure arithmetic smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          # Independent arithmetic checks for endpoint mapping and canonical slot0.
+          import hashlib, struct
+          q14=lambda v:(v*16383+32767)//65535
+          q16=lambda v:(v*65535+8191)//16383
+          assert q14(0)==0 and q14(65535)==16383
+          assert q16(0)==0 and q16(16383)==65535
+          assert all(abs(q16(q14(v))-v)<=3 for v in [0,1,511,4096,16384,32768,49152,65534,65535])
+          lut=[i-1024 for i in range(2050)]
+          exc={997:-26,998:-25,999:-24,1000:-23,1001:-21,1002:-20,1003:-19,1004:-17,1005:-16,1006:-15,1007:-13,1008:-12,1009:-11,1010:-10,1011:-9,1012:-8,1013:-7,1014:-6,1015:-5,1016:-4,1017:-3,1018:-2,1019:-2,1020:-1,1021:-1,1022:0,1023:0,1025:0,1026:0,1027:1,1028:1,1029:2,1030:2,1031:3,1032:4,1033:5,1034:6,1035:7,1036:8,1037:9,1038:10,1039:11,1040:12,1041:13,1042:15,1043:16,1044:17,1045:19,1046:20,1047:21,1048:23,1049:24,1050:25,1051:26}
+          for i,v in exc.items(): lut[i]=v
+          h=hashlib.sha256(struct.pack('<2050h',*lut)).hexdigest()
+          assert h=='2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9'
+          assert lut[1024]==0
+          print('CLOSURETEST1A arithmetic smoke PASS slot0_sha256='+h)
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/CLOSURETEST1A_GRADLE.log"
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee CLOSURETEST1A_APK_SHA256.txt
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-CLOSURETEST1A-ASSEMBLED-SOURCE
+          path: assembled-closuretest1a/
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-CLOSURETEST1A-BUILDLOG
+          path: CLOSURETEST1A_GRADLE.log
+          if-no-files-found: ignore
+      - name: Upload research APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-SHARPNESS-CLOSURETEST1A-ISO160-STANDARD
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            CLOSURETEST1A_APK_SHA256.txt
+            CLOSURETEST1A_VERIFY.txt

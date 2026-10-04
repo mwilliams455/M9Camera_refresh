@@ -1,0 +1,54 @@
+name: Build M9Cam 2.11 PERF2S
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-perf2s-auditopt1a]
+    paths:
+      - patches/perf2s_auditopt1a/**
+      - .github/workflows/build-m9cam-perf2s.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: m9-perf2s
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Assemble pinned Photon plus reviewed M9 overlays
+        run: python3 patches/perf2s_auditopt1a/assemble.py PhotonCamera
+      - name: Verify audit leaves native pixels unchanged
+        run: python3 patches/perf2s_auditopt1a/parity.py PhotonCamera NATIVE_PARITY
+      - name: Build and test diagnostic policy and RAW16 preservation
+        working-directory: PhotonCamera
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*M9RenderDiagnosticsTest' --tests '*M9Upstream2RRawPackingTest' --stacktrace
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.07-CAPTURECOLOR1A
+          run-id: 36559297780
+          github-token: ${{ github.token }}
+          path: CONTROL
+      - name: Preserve exact accepted M9 native colour and verify APK
+        run: |
+          python3 patches/perf2s_auditopt1a/package.py PhotonCamera CONTROL/M9Cam_2.07_CAPTURECOLOR1A.apk "$ANDROID_HOME/build-tools/35.0.0" M9_PERF2S_DELIVERY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.11-PERF2S
+          path: M9_PERF2S_DELIVERY/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: M9-PERF2S-TEST-RESULTS
+          path: |
+            PhotonCamera/app/build/test-results/testDebugUnitTest/
+            NATIVE_PARITY/NATIVE_AUDIT_PARITY.json

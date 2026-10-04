@@ -1,0 +1,967 @@
+{
+  "cases": [
+    {
+      "cfa": 0,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 0,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 1,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 2,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        24,
+        25
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 1800
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        65,
+        67
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 13065
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        127,
+        129
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 49149
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 32,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 64,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 0,
+      "rgb_samples": 199689
+    },
+    {
+      "cfa": 3,
+      "shape": [
+        259,
+        257
+      ],
+      "tile": 256,
+      "origin_y": 1,
+      "rgb_samples": 199689
+    }
+  ],
+  "exact_guard_and_D_rgb_samples": 6328872,
+  "green_unchanged": true,
+  "injected_partial_frame_guard_failure_exact_D_all_cfa": true
+}

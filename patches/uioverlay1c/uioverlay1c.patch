@@ -1,0 +1,159 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27240
++        versionCode 27241
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.40-m9uioverlay1b'
++        versionName '2.41-m9uioverlay1c'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,11 +96,12 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.40_UIOVERLAY1B-${variant.name}.apk"
++            outputFileName = "M9Cam_2.41_UIOVERLAY1C-${variant.name}.apk"
+         }
+     }
+     testOptions {
+         unitTests.returnDefaultValues = true
++        unitTests.includeAndroidResources = true
+     }
+ }
+ 
+@@ -149,6 +150,7 @@
+     testImplementation 'org.junit.jupiter:junit-jupiter:6.0.3'
+     implementation 'androidx.test.ext:junit:1.3.0'
+     testImplementation 'junit:junit:4.13.2'
++    testImplementation 'org.robolectric:robolectric:4.16.1'
+     testImplementation 'org.json:json:20250517'
+     androidTestImplementation 'org.testng:testng:7.12.0'
+     androidTestImplementation 'androidx.test:runner:1.6.2'
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java
+@@ -159,7 +159,12 @@
+         invalidate();
+     }
+ 
+-    @Override public void onCancelPendingInputEvents() { cancelTouchEvent(); }
++    @Override public void onCancelPendingInputEvents() {
++        // View.setEnabled(false) dispatches this during the first overlay refresh.
++        // Android requires its cleanup/dispatch bookkeeping before our gesture cleanup.
++        super.onCancelPendingInputEvents();
++        cancelTouchEvent();
++    }
+     @Override protected void onDetachedFromWindow() { cancelTouchEvent(); super.onDetachedFromWindow(); }
+     @Override public boolean performClick() { super.performClick(); return true; }
+ 
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualLifecycleTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualLifecycleTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualLifecycleTest.java
+@@ -0,0 +1,96 @@
++package com.particlesdevs.photoncamera.ui.camera.views;
++
++import static org.junit.Assert.*;
++
++import android.app.Activity;
++import android.app.Application;
++import android.view.MotionEvent;
++import android.view.View;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobViewChangedListener;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.List;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.Robolectric;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.android.controller.ActivityController;
++import org.robolectric.annotation.Config;
++
++/** Uses real Android View lifecycle dispatch, not the default-return Android stubs. */
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 35, application = Application.class)
++public class M9LinearManualLifecycleTest {
++    @Test public void inflateDisableAndCancelThroughParent() {
++        try (ActivityController<Activity> controller = Robolectric.buildActivity(Activity.class).setup()) {
++            Activity activity = controller.get();
++            activity.setTheme(R.style.Theme_Photon_BaseApp);
++            View root = activity.getLayoutInflater().inflate(R.layout.layout_m9_linear_manual, null);
++            activity.setContentView(root);
++            M9LinearManualView ruler = root.findViewById(R.id.knobView);
++            assertNotNull(ruler);
++            // Overlay refresh disables the control while the camera is starting.
++            ruler.setEnabled(false);
++            root.cancelPendingInputEvents();
++            ruler.setEnabled(true);
++            root.setVisibility(View.VISIBLE);
++            ruler.setVisibility(View.VISIBLE);
++            root.cancelPendingInputEvents();
++            controller.pause().stop();
++        }
++    }
++
++    @Test public void captureLockCancelsDragAndResumeAcceptsFreshGesture() {
++        try (ActivityController<Activity> controller = Robolectric.buildActivity(Activity.class).setup()) {
++            Activity activity = controller.get();
++            activity.setTheme(R.style.Theme_Photon_BaseApp);
++            View root = activity.getLayoutInflater().inflate(R.layout.layout_m9_linear_manual, null);
++            activity.setContentView(root);
++            root.setVisibility(View.VISIBLE);
++            M9LinearManualView ruler = root.findViewById(R.id.knobView);
++            ruler.setVisibility(View.VISIBLE);
++            ruler.setInteractionAllowed(() -> true);
++            List<KnobView.RotationState> states = new ArrayList<>();
++            List<KnobItemInfo> selected = new ArrayList<>();
++            KnobItemInfo last = new KnobItemInfo(null, "200", 2, 200);
++            ruler.setPrimaryWheel(null, Arrays.asList(
++                    new KnobItemInfo(null, "A", 0, 0),
++                    new KnobItemInfo(null, "100", 1, 100), last), 0,
++                    new KnobViewChangedListener() {
++                        public void onRotationStateChanged(KnobView view, KnobView.RotationState state) {
++                            states.add(state);
++                        }
++                        public void onSelectedKnobItemChanged(KnobView view, KnobItemInfo old, KnobItemInfo value) {
++                            selected.add(value);
++                        }
++                    });
++            assertTrue(touch(ruler, MotionEvent.ACTION_DOWN, 200));
++            assertTrue(touch(ruler, MotionEvent.ACTION_MOVE, -200));
++            assertEquals(Arrays.asList(last), selected);
++            ruler.setEnabled(false);
++            root.cancelPendingInputEvents();
++            assertEquals(Arrays.asList(KnobView.RotationState.STARTING, KnobView.RotationState.ROTATING,
++                    KnobView.RotationState.STOPPING, KnobView.RotationState.IDLE), states);
++            assertFalse(touch(ruler, MotionEvent.ACTION_UP, 200));
++            assertEquals(Arrays.asList(last), selected);
++
++            controller.pause().stop().start().resume();
++            ruler.setEnabled(true);
++            states.clear();
++            assertTrue(touch(ruler, MotionEvent.ACTION_DOWN, 200));
++            root.cancelPendingInputEvents();
++            assertEquals(Arrays.asList(KnobView.RotationState.STARTING,
++                    KnobView.RotationState.STOPPING, KnobView.RotationState.IDLE), states);
++            assertEquals(Arrays.asList(last), selected);
++        }
++    }
++
++    private static boolean touch(M9LinearManualView ruler, int action, float x) {
++        MotionEvent event = MotionEvent.obtain(0, 0, action, x, 50, 0);
++        try { return ruler.onTouchEvent(event); }
++        finally { event.recycle(); }
++    }
++}

@@ -1,0 +1,147 @@
+name: M9 Sharpness GNU Blackfin Forensics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-binutils-forensics.yml'
+      - 'tools/m9_sharpnessforensics1a.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpness_deep_targets.py'
+      - 'tools/m9_iso_sharp_consumer_probe.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  disasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            echo "Packaged objdump has Blackfin support: $OBJDUMP"
+          else
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          "$OBJDUMP" --version | head -1
+          "$OBJDUMP" -i > "$RUNNER_TEMP/objdump-targets.txt"
+          grep -Ei 'bfin|blackfin' "$RUNNER_TEMP/objdump-targets.txt"
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Extract coherent imaging overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+          mkdir -p "$RUNNER_TEMP/m9sharp/evidence"
+          cp "$RUNNER_TEMP/m9sharp/pass/report.json" "$RUNNER_TEMP/m9sharp/evidence/firmwarepass_report.json"
+          cp "$RUNNER_TEMP/objdump-targets.txt" "$RUNNER_TEMP/m9sharp/evidence/objdump-targets.txt"
+          python3 - <<'PY'
+          import json, os, pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/pass/report.json'
+          d=json.load(open(p)); candidates=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              targets=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              score=sum(k in targets for k in ('Run','Process_Sharpness','Process_Noise','SetStructParameter'))
+              candidates.append((score,x.get('covered',0),i))
+          candidates.sort(reverse=True)
+          if not candidates or candidates[0][0] == 0: raise SystemExit(candidates)
+          best=candidates[0][2]
+          e=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp/evidence'
+          (e/'best_pair.txt').write_text(str(best)+'\n')
+          print('selected',best,'from',candidates[:8])
+          PY
+
+      - name: Extract deep sharpness helpers and reverse ISO callgraph
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"; P="$RUNNER_TEMP/m9sharp/pass"
+          PAIR=$(cat "$E/best_pair.txt"); ROOT="$P/bf561_pair_$(printf '%02d' "$PAIR")"
+          python3 tools/m9_sharpness_deep_targets.py --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" --out "$ROOT/deep_helpers"
+          cp "$ROOT/deep_helpers/deep_targets.json" "$E/deep_targets.json"
+          python3 tools/m9_iso_sharp_consumer_probe.py --ldr "$ROOT/bf0.bin" --map "$ROOT/bf0.map" --out "$E/iso_sharp_consumer_probe.json"
+
+      - name: Disassemble selected BF561 functions with GNU bfin decoder
+        shell: bash
+        run: |
+          set -u
+          E="$RUNNER_TEMP/m9sharp/evidence"; P="$RUNNER_TEMP/m9sharp/pass"
+          PAIR=$(cat "$E/best_pair.txt"); ROOT="$P/bf561_pair_$(printf '%02d' "$PAIR")"
+          : > "$E/disassembly_failures.txt"
+          for FDIR in "$ROOT/bf561_functions" "$ROOT/deep_helpers"; do
+            [ -d "$FDIR" ] || continue
+            for f in "$FDIR"/*.bin; do
+              [ -e "$f" ] || continue
+              bn=$(basename "$f" .bin)
+              base=$(printf '%s' "$bn" | sed -nE 's/^.*_([0-9a-fA-F]{8})$/\1/p')
+              if [ -z "$base" ]; then echo "NO_BASE $f" >> "$E/disassembly_failures.txt"; continue; fi
+              out="$E/${bn}.gnu.dis.txt"
+              if ! "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$out" 2>&1; then
+                echo "OBJDUMP_FAIL $f" >> "$E/disassembly_failures.txt"
+              fi
+            done
+          done
+          ls -lh "$E"/*.gnu.dis.txt 2>/dev/null || true
+          cat "$E/disassembly_failures.txt"
+
+      - name: Recreate historical BF547 disassembly windows with GNU bfin decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          E="$RUNNER_TEMP/m9sharp/evidence"
+          BF=$(find "$RUNNER_TEMP/m9sharp/pass" -path '*/bf547_00/BF547.bin' -print -quit)
+          test -n "$BF"
+          for off in 0x494b0 0x4c800; do
+            len=$((0x1000)); name=$(printf '%x' $off)
+            dd if="$BF" of="$RUNNER_TEMP/m9sharp/bf547_${name}.bin" bs=1 skip=$((off)) count=$len status=none
+            addr=$((off + 0x20000))
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="$addr" "$RUNNER_TEMP/m9sharp/bf547_${name}.bin" > "$E/bf547_${name}.gnu.dis.txt"
+          done
+
+      - name: Publish derived text evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-GNU-BLACKFIN-FORENSICS
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+
+      - name: Remove firmware and extracted binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp"/m9.upd "$RUNNER_TEMP/m9sharp"/mm.upm "$RUNNER_TEMP/m9sharp"/m9.dec "$RUNNER_TEMP/m9sharp"/*.bin

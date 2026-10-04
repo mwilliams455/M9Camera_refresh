@@ -1,0 +1,234 @@
+{
+  "source": {
+    "status": "passed",
+    "version": "2.36-m9autoiso1a",
+    "reference": "phone-accepted 2.35",
+    "exactParentFiles": 1188,
+    "onlyChangedFiles": [
+      "app/build.gradle",
+      "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java",
+      "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java",
+      "app/src/main/res/values/m9_auto_iso.xml",
+      "app/src/main/res/values/m9_profiles.xml",
+      "app/src/main/res/xml/preferences_m9.xml",
+      "app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java",
+      "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java"
+    ],
+    "patchRoundTrip": true,
+    "previewOrientationExactlyMatches235": true,
+    "savedRendererAndShaderAssetsExactlyMatch235": true,
+    "sharedAtomicAutoIsoSnapshot": true,
+    "bothCapturePlanAccessorsRejectChangedControls": true,
+    "globalAcrossLenses": true,
+    "menuValuesAndDefaultsVerified": true,
+    "phoneValidationPending": true
+  },
+  "tests": {
+    "status": "passed",
+    "suites": [
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9AutoIsoTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9DisplayAidsTest",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9LeicaEvTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9PreviewBrightnessTest",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.M9ShootingProfilesTest",
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestPolicyTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.capture.M9RawReadoutAuditTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.render.M9ContrastSettingsTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.render.M9RenderDiagnosticsTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.render.M9SaturationSettingsTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.render.M9SharpnessDiagnosticsTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.m9.render.M9SharpnessSettingsTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.processing.M9DngColorMetadataTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.processing.M9DngExportMetadataTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.processing.M9DngNoiseProfileTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.processing.M9DngNoiseStageTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "name": "com.particlesdevs.photoncamera.processing.M9Upstream2RRawPackingTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      }
+    ],
+    "totals": {
+      "tests": 147,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "automaticExposureEnergyCases": 7800,
+    "evThirdStopCases": 19,
+    "phoneValidationPending": true
+  },
+  "package": {
+    "status": "passed",
+    "version": "2.36-m9autoiso1a",
+    "bytes": 116925100,
+    "sha256": "47e2e9a4444c62aee840e2b4cddb9ad29def80aa450eb03ec0844d36accc4d75",
+    "originalNativeLibrariesPreserved": [
+      "lib/arm64-v8a/liballocator.so",
+      "lib/arm64-v8a/libarchive-jni.so",
+      "lib/arm64-v8a/libc++_shared.so",
+      "lib/arm64-v8a/libcamera2native.so",
+      "lib/arm64-v8a/libdngCreator.so",
+      "lib/arm64-v8a/libflacRecorder.so",
+      "lib/arm64-v8a/libhalidealign.so",
+      "lib/arm64-v8a/libm9color.so",
+      "lib/arm64-v8a/libm9dngnoise.so",
+      "lib/arm64-v8a/libm9sharpness.so",
+      "lib/arm64-v8a/libmcraw.so",
+      "lib/arm64-v8a/libncnnMl.so",
+      "lib/arm64-v8a/libopencv_java4.so",
+      "lib/armeabi-v7a/liballocator.so",
+      "lib/armeabi-v7a/libarchive-jni.so",
+      "lib/armeabi-v7a/libc++_shared.so",
+      "lib/armeabi-v7a/libcamera2native.so",
+      "lib/armeabi-v7a/libdngCreator.so",
+      "lib/armeabi-v7a/libflacRecorder.so",
+      "lib/armeabi-v7a/libm9color.so",
+      "lib/armeabi-v7a/libm9dngnoise.so",
+      "lib/armeabi-v7a/libm9sharpness.so",
+      "lib/armeabi-v7a/libmcraw.so",
+      "lib/armeabi-v7a/libncnnMl.so",
+      "lib/armeabi-v7a/libopencv_java4.so"
+    ],
+    "addedNativeLibraries": [],
+    "allAssetsExactlyMatchAccepted235": true,
+    "changedAssets": [],
+    "signatureMatches235": true,
+    "alignment16KiB": true,
+    "compiledM9MenuPresent": true,
+    "compiledProfileScreenPresent": true,
+    "compiledClippingControlsPresent": true,
+    "compiledAutoIsoControlsAndDefaults": true,
+    "phoneValidationPending": true
+  },
+  "status": "passed",
+  "version": "2.36-m9autoiso1a",
+  "acceptedParent": "2.35 ORIENTATIONFIX1A",
+  "phoneValidationPending": true,
+  "next": [
+    "AE lock",
+    "self-timer",
+    "remaining colour/framing review",
+    "M9 Colour / M Monochrom single-app architecture"
+  ]
+}

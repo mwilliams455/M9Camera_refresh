@@ -1,0 +1,365 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27234
++        versionCode 27235
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.34-m9previewcolourframe1a'
++        versionName '2.35-m9orientationfix1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.34_PREVIEWCOLOURFRAME1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.35_ORIENTATIONFIX1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/assets/shaders/preview/blur_oes_fs.glsl
++++ b/app/src/main/assets/shaders/preview/blur_oes_fs.glsl
+@@ -1,7 +1,6 @@
+ #extension GL_OES_EGL_image_external_essl3 : require
+ precision mediump float;
+ uniform samplerExternalOES sTexture;
+-uniform highp mat4 uCameraSamplingMatrix;
+ uniform vec2 uViewSize;
+ uniform vec2 uFboSize;
+ // Sharp (viewfinder) rect in surface pixels. The blurred copy places the camera
+@@ -28,9 +27,7 @@
+         if (mirror)
+             uv.y = 1.0 - uv.y;
+         float w = exp(-0.5 * float(i * i) / 18.0);
+-        uv=clamp(uv,vec2(0.0),vec2(1.0));
+-        vec2 cameraUv=(uCameraSamplingMatrix*vec4(uv,0,1)).xy;
+-        sum += texture(sTexture, cameraUv).rgb * w;
++        sum += texture(sTexture, clamp(uv, vec2(0.0), vec2(1.0))).rgb * w;
+         wsum += w;
+     }
+     Output = vec4(sum / wsum, 1.0);
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -3,14 +3,6 @@
+ precision highp int;
+ // M9LIVEGL2C_INVERSEPRECISION: no display-domain residual fitting.
+ uniform highp samplerExternalOES sTexture;
+-// M9PREVIEWCOLOURFRAME1A: latched with the camera texture, shared by all probes.
+-uniform mat4 uCameraSamplingMatrix;
+-vec2 cameraUv1A(vec2 legacyUv) {
+-    // Producer matrix is composed with the legacy-to-GL conversion once per latch.
+-    // A normal producer flip therefore gives an exact identity mapping.
+-    vec2 p=clamp(legacyUv,vec2(0),vec2(1));
+-    return (uCameraSamplingMatrix*vec4(p,0,1)).xy;
+-}
+ uniform highp sampler2D uM9Curve;
+ uniform int uM9ContrastLevel;
+ uniform highp sampler2D uM9Inverse2A;
+@@ -176,7 +168,7 @@
+     if (mirror)
+         uv.y = 1.0 - uv.y;
+ 
+-    vec4 photonColor = texture(sTexture, cameraUv1A(uv));
++    vec4 photonColor = texture(sTexture, uv);
+     if (uM9EvidenceStage2E == 1) { Output = vec4(photonColor.rgb, 1.0); return; }
+     if (uM9EvidenceStage2E == 2) { Output = previewTc20Probe1A(photonColor.rgb); return; }
+     vec4 color = vec4(m9DisplayTransform(photonColor.rgb, uv), 1.0);
+@@ -187,7 +179,7 @@
+         vec4 avg = vec4(0.0);
+         for (int i = -1; i <= 1; i++) {
+             for (int j = -1; j <= 1; j++) {
+-                avg += texture(sTexture, cameraUv1A(uv + vec2(i * 2, j * 2) / size));
++                avg += texture(sTexture, uv + vec2(i * 2, j * 2) / size);
+             }
+         }
+         avg /= 9.0;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java
+@@ -27,7 +27,6 @@
+     private int framebuffer,texture,pbo;
+     private long fence,lastProbeNs,pendingNs,pendingTextureNs;
+     private M9PreviewFrameState1W pending;
+-    private float[] pendingTextureMatrix;
+     private boolean disabled;
+     private int pendingDataSpace=-1;
+     private float pendingReferenceScale,pendingDisplayGain;
+@@ -129,8 +128,6 @@
+             if(fence==0||GLES30.glGetError()!=GLES30.GL_NO_ERROR)
+                 throw new IllegalStateException("meter readback failed");
+             pending=frame;pendingNs=now;pendingTextureNs=textureNs;
+-            pendingTextureMatrix=new float[16];
+-            if(surface!=null)surface.getTransformMatrix(pendingTextureMatrix);
+             pendingReferenceScale=referenceScale;pendingDisplayGain=displayTc20Gain;pendingDataSpace=-1;
+             if(android.os.Build.VERSION.SDK_INT>=33&&surface!=null){
+                 try{pendingDataSpace=surface.getDataSpace();}catch(RuntimeException ignored){}
+@@ -192,7 +189,7 @@
+                 M9PreviewTc20Math1A.Result tc20=M9PreviewTc20Math1A.analyzePackedPanel(
+                         pixels,W,H,STEPS,TC20_PANEL);
+                 latest=new Evidence(pending,pendingNs,pendingTextureNs,pendingDataSpace,
+-                        pendingReferenceScale,pendingDisplayGain,pixels,tc20,pendingTextureMatrix);
++                        pendingReferenceScale,pendingDisplayGain,pixels,tc20);
+             }
+         }catch(RuntimeException e){fail(e);}
+         finally{
+@@ -217,11 +214,9 @@
+         final int dataSpace;
+         final float referenceScale,displayGain;
+         final byte[] rgba;
+-        final float[] textureMatrix;
+         final M9PreviewTc20Math1A.Result tc20;
+         Evidence(M9PreviewFrameState1W state,long submitted,long texture,int space,
+-                float reference,float displayGain,byte[] pixels,M9PreviewTc20Math1A.Result tc20,float[] textureMatrix){
+-            this.textureMatrix=textureMatrix.clone();
++                float reference,float displayGain,byte[] pixels,M9PreviewTc20Math1A.Result tc20){
+             this.state=state;submittedNs=submitted;textureNs=texture;dataSpace=space;
+             referenceScale=reference;this.displayGain=displayGain;rgba=pixels.clone();this.tc20=tc20;
+         }
+@@ -253,8 +248,6 @@
+             o.put("textureMatchesResult",e.textureNs==e.state.resultTimestampNs);
+             o.put("textureMinusResultNs",e.textureNs-e.state.resultTimestampNs);
+             o.put("textureDataSpace",e.dataSpace);
+-            o.put("framingRevision","M9PREVIEWCOLOURFRAME1A");
+-            o.put("cameraTextureMatrix",new org.json.JSONArray(e.textureMatrix));
+             o.put("displayExposureScale",e.state.exposureScale).put("referenceExposureScale",e.referenceScale);
+             o.put("observedIso",p.observedIso).put("observedExposureNs",p.observedExposureNs);
+             o.put("referenceIso",p.referenceIso).put("referenceExposureNs",p.referenceExposureNs);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+@@ -55,9 +55,6 @@
+         public final long textureTimestampNs, submittedElapsedNs, sequence;
+         public final boolean transformEnabled;
+         public final float previewToneGain;
+-        private final float[] textureMatrix, rotationMatrix;
+-        private final int[] viewport;
+-        private final boolean mirror;
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+                 long submittedElapsedNs, long sequence, boolean transformEnabled) {
+@@ -66,17 +63,6 @@
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+                 long submittedElapsedNs, long sequence, boolean transformEnabled, float previewToneGain) {
+-            this(state,textureTimestampNs,submittedElapsedNs,sequence,transformEnabled,previewToneGain,
+-                    null,null,false,null);
+-        }
+-
+-        public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+-                long submittedElapsedNs, long sequence, boolean transformEnabled, float previewToneGain,
+-                float[] textureMatrix, float[] rotationMatrix, boolean mirror, int[] viewport) {
+-            this.textureMatrix=textureMatrix==null?null:textureMatrix.clone();
+-            this.rotationMatrix=rotationMatrix==null?null:rotationMatrix.clone();
+-            this.viewport=viewport==null?null:viewport.clone();
+-            this.mirror=mirror;
+             this.previewToneGain=bounded(previewToneGain,1,.70710678f,1.41421356f);
+             this.state = state;
+             this.textureTimestampNs = textureTimestampNs;
+@@ -92,14 +78,6 @@
+                 o.put("available", true);
+                 o.put("stage", "GL_draw_commands_submitted_not_display_presentation_verified");
+                 o.put("sequence", sequence);
+-                if(textureMatrix!=null) {
+-                    o.put("framingRevision","M9PREVIEWCOLOURFRAME1A");
+-                    o.put("cameraTextureMatrix",new JSONArray(textureMatrix));
+-                    o.put("textureRotationMatrix",new JSONArray(rotationMatrix));
+-                    o.put("sharpViewport",new JSONArray(viewport));
+-                    o.put("mirror",mirror);
+-                    o.put("cameraTextureCoordinates","producer_matrix_after_legacy_top_origin_to_GL_conversion");
+-                }
+                 o.put("submittedElapsedNs", submittedElapsedNs);
+                 o.put("shutterElapsedNs", shutterElapsedNs);
+                 double age = (shutterElapsedNs - submittedElapsedNs) / 1e6;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java
+@@ -15,7 +15,6 @@
+     private int framebuffer,texture,pbo;
+     private long fence,lastProbeNs,pendingNs,pendingTextureNs;
+     private M9PreviewFrameState1W pending;
+-    private float[] pendingTextureMatrix;
+     private boolean disabled;
+     private int pendingDataSpace=-1;
+     private float pendingReferenceScale;
+@@ -72,8 +71,6 @@
+             fence=GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+             if(fence==0 || GLES30.glGetError()!=GLES30.GL_NO_ERROR)throw new IllegalStateException("meter readback failed");
+             pending=frame;pendingNs=now;pendingTextureNs=textureNs;
+-            pendingTextureMatrix=new float[16];
+-            if(surface!=null)surface.getTransformMatrix(pendingTextureMatrix);
+             pendingViewport=viewport.clone();pendingTransform=transform.clone();pendingMirror=mirror;pendingEnabled=enabled;
+             pendingReferenceScale=referenceScale;
+             pendingDataSpace=-1;
+@@ -133,7 +130,7 @@
+             if(!intact)throw new IllegalStateException("meter mapping invalid");
+             if(now-pendingNs<=2500000000L) {
+                 latest=new Evidence(pending,pendingNs,pendingTextureNs,pendingDataSpace,
+-                        pendingReferenceScale,pixels,pendingViewport,pendingTransform,pendingMirror,pendingEnabled,pendingTextureMatrix);
++                        pendingReferenceScale,pixels,pendingViewport,pendingTransform,pendingMirror,pendingEnabled);
+                 synchronized(history) {
+                     while(!history.isEmpty()&&(history.size()>=48||now-history.peekFirst().submittedNs>30000000000L))history.removeFirst();
+                     history.addLast(latest);
+@@ -159,11 +156,9 @@
+         final long submittedNs,textureNs;
+         final int dataSpace;
+         final float referenceScale;
+-        final float[] textureMatrix;
+         final byte[] rgba; final int[] viewport;final float[] transform;final boolean mirror,enabled;
+         Evidence(M9PreviewFrameState1W state,long submitted,long texture,int space,
+-                float reference,byte[] pixels,int[] viewport,float[] transform,boolean mirror,boolean enabled,float[] textureMatrix) {
+-            this.textureMatrix=textureMatrix.clone();
++                float reference,byte[] pixels,int[] viewport,float[] transform,boolean mirror,boolean enabled) {
+             this.state=state;submittedNs=submitted;textureNs=texture;dataSpace=space;
+             referenceScale=reference;rgba=pixels.clone();this.viewport=viewport.clone();this.transform=transform.clone();this.mirror=mirror;this.enabled=enabled;
+         }
+@@ -187,8 +182,6 @@
+                 org.json.JSONObject f=new org.json.JSONObject();
+                 f.put("appliedState",new org.json.JSONObject(new M9PreviewFrameState1W.Draw(e.state,e.textureNs,e.submittedNs,0,e.enabled).snapshot(e.submittedNs,e.state.plan)))
+                  .put("textureRotationMatrix",new org.json.JSONArray(e.transform)).put("mirror",e.mirror)
+-                 .put("cameraTextureMatrix",new org.json.JSONArray(e.textureMatrix))
+-                 .put("framingRevision","M9PREVIEWCOLOURFRAME1A")
+                  .put("submittedElapsedNs",e.submittedNs).put("textureTimestampNs",e.textureNs)
+                  .put("stateResultTimestampNs",e.state.resultTimestampNs).put("textureMatchesResult",e.textureNs==e.state.resultTimestampNs)
+                  .put("displayExposureScale",e.state.exposureScale).put("referenceExposureScale",e.referenceScale)
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -72,11 +72,6 @@
+     private final FloatBuffer pTexCoord;
+     private final float[] mTexRotateMatrix = new float[] { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+ 
+-    // Default producer flip preserves legacy sampling before the first buffer arrives.
+-    private final float[] mCameraTextureMatrix = {1,0,0,0, 0,-1,0,0, 0,0,1,0, 0,1,0,1};
+-    private static final float[] LEGACY_TO_GL = {1,0,0,0, 0,-1,0,0, 0,0,1,0, 0,1,0,1};
+-    private final float[] mCameraSamplingMatrix = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+-    private final float[] mTapGeometryTransforms = new float[32];
+     private SurfaceTexture mSTexture;
+ 
+     private boolean mGLInit = false;
+@@ -298,7 +293,6 @@
+         synchronized (this) {
+             if (mUpdateST) {
+                 mSTexture.updateTexImage();
+-                latchTextureTransform(mSTexture);
+                 mUpdateST = false;
+             }
+         }
+@@ -355,7 +349,6 @@
+         GLES20.glDisable(GLES20.GL_BLEND);
+         GLES20.glUseProgram(mSharpProgram);
+         GLES20.glUniformMatrix4fv(uTexRotateMatrix, 1, false, mTexRotateMatrix, 0);
+-        GLES20.glUniformMatrix4fv(uCameraSamplingMatrix, 1, false, mCameraSamplingMatrix, 0);
+         GLES20.glUniform1i(enablePeak, getPeakEnabled());
+         GLES20.glUniform1i(mirror, mMirrorPreview ? 1 : 0);
+         GLES20.glUniform1i(uM9Enabled, mM9CurveTex != 0 ? 1 : 0);
+@@ -389,16 +382,12 @@
+         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+         if(frame1W.plan!=null && mM9CurveTex!=0 && frame1W.source2A.ready) {
+             GLES30.glGetIntegerv(GLES30.GL_VIEWPORT,m9TapViewport1A,0);
+-            System.arraycopy(mTexRotateMatrix,0,mTapGeometryTransforms,0,16);
+-            System.arraycopy(mCameraTextureMatrix,0,mTapGeometryTransforms,16,16);
+             com.particlesdevs.photoncamera.m9.preview.M9TapMeter1A.configure(
+                 frame1W.plan.cameraId,frame1W.plan.mode,android.os.SystemClock.elapsedRealtimeNanos(),
+-                mView.getWidth(),mView.getHeight(),m9TapViewport1A,mTapGeometryTransforms,mMirrorPreview);
++                mView.getWidth(),mView.getHeight(),m9TapViewport1A,mTexRotateMatrix,mMirrorPreview);
+         }
+         mM9LastDraw1W = new M9PreviewFrameState1W.Draw(frame1W, textureTimestamp1W,
+-                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A,
+-                mCameraTextureMatrix, mTexRotateMatrix, mMirrorPreview,
+-                new int[]{sharpLeft,sharpBottom,sharpWidth,sharpHeight});
++                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A);
+         // Rounded screen corners do not apply to offscreen meter/probe tiles.
+         GLES20.glUniform1f(uCornerRadius, 0f);
+         try {
+@@ -489,8 +478,6 @@
+                 Math.round(sharpWidth * fboScaleX), Math.round(sharpHeight * fboScaleY),
+                 mBlurW, mBlurH);
+         GLES20.glUseProgram(mBlurOesProgram);
+-        GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(mBlurOesProgram, "uCameraSamplingMatrix"),
+-                1, false, mCameraSamplingMatrix, 0);
+         GLES20.glUniform2f(GLES20.glGetUniformLocation(mBlurOesProgram, "uViewSize"), mViewW, mViewH);
+         GLES20.glUniform2f(GLES20.glGetUniformLocation(mBlurOesProgram, "uFboSize"), mBlurW, mBlurH);
+         GLES20.glUniform2f(GLES20.glGetUniformLocation(mBlurOesProgram, "uOffsetPx"), blurRadius, 0f);
+@@ -612,7 +599,6 @@
+     }
+ 
+     private int uTexRotateMatrix;
+-    private int uCameraSamplingMatrix;
+     private int vPosition;
+     private int vTexCoord;
+     private int enablePeak;
+@@ -706,7 +692,6 @@
+             if (mSharpProgram != 0) {
+                 GLES20.glUseProgram(mSharpProgram);
+                 uTexRotateMatrix = GLES20.glGetUniformLocation(mSharpProgram, "uTexRotateMatrix");
+-                uCameraSamplingMatrix = GLES20.glGetUniformLocation(mSharpProgram, "uCameraSamplingMatrix");
+                 GLES20.glUniformMatrix4fv(uTexRotateMatrix, 1, false, mTexRotateMatrix, 0);
+                 vPosition = GLES20.glGetAttribLocation(mSharpProgram, "vPosition");
+                 vTexCoord = GLES20.glGetAttribLocation(mSharpProgram, "vTexCoord");
+@@ -896,11 +881,6 @@
+         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+     }
+ 
+-    private void latchTextureTransform(SurfaceTexture surface) {
+-        surface.getTransformMatrix(mCameraTextureMatrix);
+-        android.opengl.Matrix.multiplyMM(mCameraSamplingMatrix,0,mCameraTextureMatrix,0,LEGACY_TO_GL,0);
+-    }
+-
+     private void initTex() {
+         hTex = new int[1];
+         GLES20.glGenTextures(1, hTex, 0);
+@@ -924,10 +904,7 @@
+                 // the frozen pre-switch frame stays on screen.
+                 mView.queueEvent(() -> {
+                     try {
+-                        if (mSettleTracking) {
+-                            st.updateTexImage();
+-                            latchTextureTransform(st);
+-                        }
++                        if (mSettleTracking) st.updateTexImage();
+                     } catch (Exception ignored) {
+                         // Surface gone mid-transition (e.g. paused): drop it.
+                     }
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9PreviewFramingTest.java
++++ /dev/null
+@@ -1,36 +0,0 @@
+-package com.particlesdevs.photoncamera.m9;
+-
+-import com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W;
+-import com.particlesdevs.photoncamera.m9.preview.M9TapMeter1A;
+-import org.json.JSONObject;
+-import org.junit.Test;
+-import static org.junit.Assert.*;
+-
+-public class M9PreviewFramingTest {
+-    @Test public void drawFreezesGeometryUntilItsDiagnosticIsExported() throws Exception {
+-        float[] texture={1,0,0,0,0,-1,0,0,0,0,1,0,0,1,0,1};
+-        float[] rotation=texture.clone(); int[] viewport={0,100,900,1200};
+-        M9PreviewFrameState1W.Draw draw=new M9PreviewFrameState1W.Draw(
+-                M9PreviewFrameState1W.defaults(),100,200,1,true,1,texture,rotation,true,viewport);
+-        texture[0]=.5f;rotation[0]=0;viewport[2]=400;
+-        JSONObject out=new JSONObject(draw.snapshot(201,null));
+-        assertEquals(1,out.getJSONArray("cameraTextureMatrix").getDouble(0),0);
+-        assertEquals(1,out.getJSONArray("textureRotationMatrix").getDouble(0),0);
+-        assertEquals(900,out.getJSONArray("sharpViewport").getInt(2));
+-        assertTrue(out.getBoolean("mirror"));
+-    }
+-    @Test public void changedProducerCropInvalidatesTheOldTapPatch() {
+-        float[] combined=new float[32];combined[0]=combined[16]=1;
+-        int[] viewport={0,0,900,1200};
+-        M9TapMeter1A.configure("0","PHOTO",100,900,1200,viewport,combined,false);
+-        assertTrue(M9TapMeter1A.choose(450,600,100));
+-        M9TapMeter1A.Geometry first=M9TapMeter1A.currentGeometry(100);
+-        M9TapMeter1A.configure("0","PHOTO",101,900,1200,viewport,combined,false);
+-        assertSame(first,M9TapMeter1A.currentGeometry(101));
+-        assertNotNull(M9TapMeter1A.selection(101));
+-        combined[16]=.75f;
+-        M9TapMeter1A.configure("0","PHOTO",102,900,1200,viewport,combined,false);
+-        assertNotSame(first,M9TapMeter1A.currentGeometry(102));
+-        assertNull(M9TapMeter1A.selection(102));
+-    }
+-}

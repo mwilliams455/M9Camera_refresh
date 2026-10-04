@@ -1,0 +1,17 @@
+{
+  "revision": "M9DNGRAWPAIR1A",
+  "parentCommit": "e9e7a986f90ef956af9d5532c28be3b8292ae59a",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "b2dd8e00a20c68d09a1396ddf04d5ea67379c1e9fb6f35eee06f93c5069c26cc",
+  "fileOverrides": {
+    "app/build.gradle": "1c04991700b6811b88e41d5f31b92130dd8159d023fb69f430f0d82fea90d4ce",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "f87760590a84d5f83f5bd92b16e834fb521a8fc2ffee66a95ff18447868b0297",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java": "5dca9bb48c09e9792e356e7baba45c9cc03e4239a222faa0f5fba6635824cc3d",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "01b71d64827d6d74736b7d6c3202a51d820e7889908c1c9817054b21ba1ad303",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngRawPair.java": "3e559f52fdeebc02d8e02b9ac4a8c37fe094f20437ef60b9cc9fdf8e8a5ce923"
+  },
+  "jpegRendererUnchanged": true,
+  "normalDngFilterUnchanged": true,
+  "normalM9ProfileUnchanged": true,
+  "controlSource": "same_owned_RAW16_no_scale_no_filter"
+}

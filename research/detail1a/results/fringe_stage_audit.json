@@ -1,0 +1,364 @@
+{
+  "schema": "m9.fringe_stage_audit.v1",
+  "raw_sha256": "1103f6047dd1e11fcd5defa3ddbb4e24ca5f00221e5672ffd67d5d69a5592903",
+  "H_stats": {
+    "status": 1.0,
+    "tiles": 192.0,
+    "supported_rb_samples": 6219976.0,
+    "changed_carrier_samples": 1158767.0,
+    "max_abs_correction": 7.0,
+    "censored_samples": 325092.0,
+    "mean_confidence": 0.11420202918960681,
+    "mean_residual_variance14": 82.36768180924791,
+    "scratch_budget_bytes": 8565760.0,
+    "elapsed_ms": 1789.557072
+  },
+  "H_phone_statistics_exact": 8,
+  "spatial_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6"
+  },
+  "colour_source_hashes": {
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "40c6314134e59217059018153b71a78d12f02ee34b3f6a564884618dd0c180b6",
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Converter.java": "b1e0cd5262022991edcf164ae44412c1348129a53157245debe18745ab917245"
+  },
+  "actual_render_gain": 1.4142135623730951,
+  "context": {
+    "cw": [
+      0.41796875,
+      1.0,
+      0.6435546875
+    ],
+    "cam_to_pp": [
+      1.868111506405015,
+      -0.005224394725313764,
+      0.34870498327665184,
+      -0.12558882688665007,
+      1.0776574287714271,
+      -0.03910247547990275,
+      -0.11281545439521795,
+      -0.5469786148866258,
+      2.476529852152716
+    ],
+    "pp_to_m9": [
+      1.0535553159572222,
+      -0.04780196750777665,
+      -0.0057533484494456605,
+      0.016977175321345798,
+      0.7976850613214628,
+      0.1853377633571912,
+      -0.03193012876978898,
+      0.24835993099812528,
+      0.7835701977716636
+    ],
+    "adapt50_to65": [
+      0.9555405420567473,
+      -0.023059579934744945,
+      0.06319100074897568,
+      -0.028317599279972558,
+      1.009960693228985,
+      0.021017598014119752,
+      0.012302324087896332,
+      -0.02048920100722497,
+      1.3300328469889997
+    ],
+    "pp_to_xyz": [
+      0.7977099232003638,
+      0.13520168185619805,
+      0.03130038936463757,
+      0.288,
+      0.7119,
+      0.0001,
+      0.0,
+      0.0,
+      0.8251882845188288
+    ],
+    "xyz_to_srgb": [
+      3.2404542,
+      -1.5371385,
+      -0.4985314,
+      -0.969266,
+      1.8760108,
+      0.041556,
+      0.0556434,
+      -0.2040259,
+      1.0572252
+    ],
+    "interpolation_factor": 6.63523350604309e-05,
+    "cct": 6896.975032036883,
+    "weight_a": 0.0,
+    "scene_xy": [
+      0.30285565610690196,
+      0.3442967240181355
+    ],
+    "tg_cb": 1.0,
+    "tg_cr": 1.0,
+    "sensor_to_xyz_d50": [
+      1.4697000980377197,
+      0.124412901699543,
+      0.3503950536251068,
+      0.44859814643859863,
+      0.765625,
+      0.07283763587474823,
+      -0.09309399127960205,
+      -0.4513603448867798,
+      2.0436034202575684
+    ]
+  },
+  "variants": {
+    "H": {
+      "final_pink": 174776,
+      "curve_pink": 180981,
+      "both": 141728,
+      "introduced_after_curve": 33048,
+      "removed_after_curve": 39253,
+      "native_green_changed_pixels": 0,
+      "border10_exact": true,
+      "H_exact_at_distance8_or_more": true,
+      "pair_decoder_rgb_samples_exact": 37748736,
+      "stages": {
+        "camera_WB": {
+          "positive_fraction": 0.9271295830091087,
+          "above_002_fraction": 0.8336499290520437,
+          "median": 0.09934443248916715,
+          "p95": 0.3560364192794847
+        },
+        "camera_WB_capped": {
+          "positive_fraction": 0.9263228360873347,
+          "above_002_fraction": 0.8324998855678125,
+          "median": 0.09852792485240847,
+          "p95": 0.3320432513386666
+        },
+        "PP": {
+          "positive_fraction": 0.96395958255138,
+          "above_002_fraction": 0.9072183823865977,
+          "median": 0.14362066451687439,
+          "p95": 0.4314651667408703
+        },
+        "M9": {
+          "positive_fraction": 0.8990364809813705,
+          "above_002_fraction": 0.7895420423856823,
+          "median": 0.08109353707482307,
+          "p95": 0.27790560077692006
+        },
+        "M9_gain_limit": {
+          "positive_fraction": 0.8629788987046276,
+          "above_002_fraction": 0.784455531651943,
+          "median": 0.09865542380844053,
+          "p95": 0.34266661984902724
+        },
+        "curve": {
+          "positive_fraction": 0.9200862818693643,
+          "above_002_fraction": 0.8877820753421523,
+          "median": 0.180392156862745,
+          "p95": 0.7215686274509804
+        }
+      }
+    },
+    "fixed_green": {
+      "final_pink": 66712,
+      "curve_pink": 86680,
+      "both": 52412,
+      "introduced_after_curve": 14300,
+      "removed_after_curve": 34268,
+      "native_green_changed_pixels": 0,
+      "border10_exact": true,
+      "H_exact_at_distance8_or_more": true,
+      "pair_decoder_rgb_samples_exact": 37748736,
+      "stages": {
+        "camera_WB": {
+          "positive_fraction": 0.9157422952392373,
+          "above_002_fraction": 0.7441689651037294,
+          "median": 0.05529314512326451,
+          "p95": 0.3693626626090171
+        },
+        "camera_WB_capped": {
+          "positive_fraction": 0.9148279170164288,
+          "above_002_fraction": 0.7429547907422952,
+          "median": 0.05486973144834499,
+          "p95": 0.3314384908114301
+        },
+        "PP": {
+          "positive_fraction": 0.9489746972059,
+          "above_002_fraction": 0.8653615541431826,
+          "median": 0.09439704027077592,
+          "p95": 0.4345972098209761
+        },
+        "M9": {
+          "positive_fraction": 0.8706529559899269,
+          "above_002_fraction": 0.6659671423432066,
+          "median": 0.041662715687146815,
+          "p95": 0.27204647485458905
+        },
+        "M9_gain_limit": {
+          "positive_fraction": 0.8392043410480873,
+          "above_002_fraction": 0.6929937642403166,
+          "median": 0.05107613188332796,
+          "p95": 0.3208554044063085
+        },
+        "curve": {
+          "positive_fraction": 0.9120548027341407,
+          "above_002_fraction": 0.883259383619139,
+          "median": 0.13725490196078427,
+          "p95": 0.46666666666666673
+        }
+      }
+    },
+    "coherent": {
+      "final_pink": 82377,
+      "curve_pink": 102521,
+      "both": 63921,
+      "introduced_after_curve": 18456,
+      "removed_after_curve": 38600,
+      "native_green_changed_pixels": 2822361,
+      "border10_exact": true,
+      "H_exact_at_distance8_or_more": true,
+      "pair_decoder_rgb_samples_exact": 37748736,
+      "stages": {
+        "camera_WB": {
+          "positive_fraction": 0.8951649125362662,
+          "above_002_fraction": 0.6984352428469112,
+          "median": 0.048617628708634064,
+          "p95": 0.36678525404245393
+        },
+        "camera_WB_capped": {
+          "positive_fraction": 0.8834140597496875,
+          "above_002_fraction": 0.6859196134843464,
+          "median": 0.04606330549082821,
+          "p95": 0.3199654889411308
+        },
+        "PP": {
+          "positive_fraction": 0.9248576665816914,
+          "above_002_fraction": 0.8182987969943066,
+          "median": 0.081418095153895,
+          "p95": 0.42198628784664893
+        },
+        "M9": {
+          "positive_fraction": 0.835512339609357,
+          "above_002_fraction": 0.6107165835123881,
+          "median": 0.03413334102163704,
+          "p95": 0.2644896749283934
+        },
+        "M9_gain_limit": {
+          "positive_fraction": 0.8177403887007296,
+          "above_002_fraction": 0.6521723296551222,
+          "median": 0.043788575816639475,
+          "p95": 0.32053551195919244
+        },
+        "curve": {
+          "positive_fraction": 0.8990980492127657,
+          "above_002_fraction": 0.8670988261286524,
+          "median": 0.13333333333333341,
+          "p95": 0.4117647058823529
+        }
+      }
+    },
+    "coherent_sharp": {
+      "final_pink": 106720,
+      "curve_pink": 105172,
+      "both": 73641,
+      "introduced_after_curve": 33079,
+      "removed_after_curve": 31531,
+      "native_green_changed_pixels": 2793010,
+      "border10_exact": true,
+      "H_exact_at_distance8_or_more": true,
+      "pair_decoder_rgb_samples_exact": 37748736,
+      "stages": {
+        "camera_WB": {
+          "positive_fraction": 0.8761431784107946,
+          "above_002_fraction": 0.7489880059970015,
+          "median": 0.07715499820376537,
+          "p95": 0.5538694992412747
+        },
+        "camera_WB_capped": {
+          "positive_fraction": 0.8142616191904049,
+          "above_002_fraction": 0.6856915292353823,
+          "median": 0.058563415056915646,
+          "p95": 0.3550575428540055
+        },
+        "PP": {
+          "positive_fraction": 0.8592766116941529,
+          "above_002_fraction": 0.7892803598200899,
+          "median": 0.10298404046642631,
+          "p95": 0.48010268144600077
+        },
+        "M9": {
+          "positive_fraction": 0.7750187406296851,
+          "above_002_fraction": 0.6251592953523238,
+          "median": 0.0422116006089102,
+          "p95": 0.2981842836159631
+        },
+        "M9_gain_limit": {
+          "positive_fraction": 0.7143365817091454,
+          "above_002_fraction": 0.6062312593703149,
+          "median": 0.042705309860697,
+          "p95": 0.3809722204253214
+        },
+        "curve": {
+          "positive_fraction": 0.7806315592203898,
+          "above_002_fraction": 0.755181784107946,
+          "median": 0.17254901960784308,
+          "p95": 0.8705882352941177
+        }
+      }
+    },
+    "coherent_native_detail": {
+      "final_pink": 87421,
+      "curve_pink": 97989,
+      "both": 65613,
+      "introduced_after_curve": 21808,
+      "removed_after_curve": 32376,
+      "native_green_changed_pixels": 2745773,
+      "border10_exact": true,
+      "H_exact_at_distance8_or_more": true,
+      "pair_decoder_rgb_samples_exact": 37748736,
+      "stages": {
+        "camera_WB": {
+          "positive_fraction": 0.9063154162043445,
+          "above_002_fraction": 0.773887281088068,
+          "median": 0.07179455367004434,
+          "p95": 0.48413354068490194
+        },
+        "camera_WB_capped": {
+          "positive_fraction": 0.8748470047242654,
+          "above_002_fraction": 0.7413321741915558,
+          "median": 0.06296613994519587,
+          "p95": 0.35037381709295257
+        },
+        "PP": {
+          "positive_fraction": 0.912927099895906,
+          "above_002_fraction": 0.8483888310588988,
+          "median": 0.10929190336859623,
+          "p95": 0.4689632607255711
+        },
+        "M9": {
+          "positive_fraction": 0.8343876185355922,
+          "above_002_fraction": 0.672801729561547,
+          "median": 0.04726615567427145,
+          "p95": 0.292349826334114
+        },
+        "M9_gain_limit": {
+          "positive_fraction": 0.776506788986628,
+          "above_002_fraction": 0.6619233364980954,
+          "median": 0.0514131683884089,
+          "p95": 0.36172525406973394
+        },
+        "curve": {
+          "positive_fraction": 0.844453849761499,
+          "above_002_fraction": 0.8186248155477517,
+          "median": 0.16470588235294126,
+          "p95": 0.7490196078431373
+        }
+      }
+    }
+  },
+  "stage_condition": "Each stage statistic selects final pink-mask pixels for that same variant. Stage channel bases differ, so these are not common-unit error scores. M9_gain_limit is a float pre-rounding diagnostic. No per-stage hue correction is applied.",
+  "script_sha256": "0a4a28d6f019e1b0e5252c0f3e319c8d6dc0795d59b72dcfbdf70985df7ace8f",
+  "coherent_script_sha256": "19ba6bedb08fb705c20fc052a966d772b0e6a8c8eaa74400d7d12dff38e4bcf7",
+  "scope": "Same-RAW offline controls only; coherent modes change green. No diagnostic context switch, SAT2 throughout. No new noise calibration, APK or accepted correction.",
+  "accepted": false,
+  "android_implementation_changed": false,
+  "auto_exposure_changed": false
+}

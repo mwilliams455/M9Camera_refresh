@@ -1,0 +1,145 @@
+--- a/app/src/main/cpp/deps/tiny_dng_writer.h
++++ b/app/src/main/cpp/deps/tiny_dng_writer.h
+@@ -1325,6 +1325,9 @@
+       return false;
+     }
+ 
++    // M9DNGEXPORT1B: TIFF out-of-line values begin on a word boundary.
++    if (static_cast<size_t>(data_out->tellp()) & 1u) data_out->put(0);
++
+     // Store offset value.
+ 
+     unsigned int offset =
+@@ -1333,6 +1336,7 @@
+ 
+     data_out->write(reinterpret_cast<const char *>(data),
+                     static_cast<std::streamsize>(len));
++    if (len & 1u) data_out->put(0);
+ 
+   } else {
+     ifd.offset_or_value = 0;
+@@ -1786,37 +1790,20 @@
+ 
+ bool DNGImage::SetWhiteLevelRational(unsigned int num_samples,
+                                      const double *values) {
+-  // `SetSamplesPerPixel()` must be called in advance and SPP shoud be equal to
+-  // `num_samples`.
+-  if ((num_samples > 0) && (num_samples == samples_per_pixels_)) {
+-    // OK
+-  } else {
+-    return false;
+-  }
+-
+-  std::vector<unsigned int> vs(num_samples * 2);
+-  for (size_t i = 0; i * 2 < vs.size(); i++) {
+-    double numerator, denominator;
+-    if (DoubleToRational(values[i], &numerator, &denominator) != 0) {
+-      // Couldn't represent fp value as integer rational value.
+-      return false;
+-    }
+-
+-    vs[2 * i + 0] = static_cast<unsigned int>(numerator);
+-    vs[2 * i + 1] = static_cast<unsigned int>(denominator);
+-  }
+-
+-  unsigned int count = num_samples;
+-
+-  bool ret = WriteTIFFTag(static_cast<unsigned short>(TIFFTAG_WHITE_LEVEL),
+-                          TIFF_RATIONAL, count,
+-                          reinterpret_cast<const unsigned char *>(vs.data()),
+-                          &ifd_tags_, &data_os_);
+-
+-  if (!ret) {
+-    return false;
+-  }
+-
++  // M9DNGEXPORT1B: retain the API for callers, but DNG WhiteLevel permits
++  // SHORT or LONG, never RATIONAL. Reject non-integral/out-of-range input.
++  if (!values || num_samples == 0 || num_samples != samples_per_pixels_) return false;
++  std::vector<unsigned int> vs(num_samples);
++  for (size_t i = 0; i < vs.size(); i++) {
++    if (!std::isfinite(values[i]) || values[i] < 0.0 ||
++        values[i] > static_cast<double>(std::numeric_limits<unsigned int>::max()) ||
++        std::floor(values[i]) != values[i]) return false;
++    vs[i] = static_cast<unsigned int>(values[i]);
++  }
++  if (!WriteTIFFTag(static_cast<unsigned short>(TIFFTAG_WHITE_LEVEL),
++                    TIFF_LONG, num_samples,
++                    reinterpret_cast<const unsigned char *>(vs.data()),
++                    &ifd_tags_, &data_os_)) return false;
+   num_fields_++;
+   return true;
+ }
+@@ -2704,11 +2691,14 @@
+     return false;
+   }
+ 
++  // Keep RAW storage aligned without adding padding to StripByteCounts.
++  if (static_cast<size_t>(data_os_.tellp()) & 1u) data_os_.put(0);
+   data_strip_offset_ = size_t(data_os_.tellp());
+   data_strip_bytes_ = data_len;
+ 
+   data_os_.write(reinterpret_cast<const char *>(data),
+                  static_cast<std::streamsize>(data_len));
++  if (data_len & 1u) data_os_.put(0);
+ 
+   // NOTE: STRIP_OFFSET tag will be written at `WriteIFDToStream()`.
+ 
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java
+@@ -11,7 +11,7 @@
+ import java.util.Date;
+ import java.util.Locale;
+ 
+-import de.hdodenhof.circleimageview.BuildConfig;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
+ 
+ public class DngCreator {
+     private long nativePtr;
+@@ -467,7 +467,7 @@
+             blackLevel[i] = (short) parameters.blackLevel[i];
+         }
+         setDescription(parameters.toString());
+-        setSoftware("PhotonCamera v" + BuildConfig.VERSION_NAME+BuildConfig.VERSION_CODE);
++        setSoftware("M9Cam v" + PhotonCamera.getVersion());
+         
+         // Set current date and time
+         setDateTime(DATE_FORMAT.get().format(new Date()));
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27211
++        versionCode 27212
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.11-m9perf2s-auditopt1a'
++        versionName '2.12-m9dngexport1b'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.11_PERF2S-${variant.name}.apk"
++            outputFileName = "M9Cam_2.12_DNGEXPORT1B-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/cpp/CMakeLists.txt
++++ b/app/src/main/cpp/CMakeLists.txt
+@@ -17,7 +17,7 @@
+ 
+ # M9UPSTREAM2R: pin the native header inputs used by the verified test build.
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/deps/tiny_dng_writer.h" M9_DEP_SHA)
+-if(NOT M9_DEP_SHA STREQUAL "0c68ee68914b949eaf194a20d83505d4debee9272d991e68e538e25611f289cc")
++if(NOT M9_DEP_SHA STREQUAL "c63ae47130e1d478335cf36982462f5baf0bb14f9ec826b6d4437c3a10b55aed")
+     message(FATAL_ERROR "Pinned dependency changed: tiny_dng_writer.h")
+ endif()
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/deps/technicallyflac.h" M9_DEP_SHA)

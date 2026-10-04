@@ -1,0 +1,17 @@
+{
+  "parentCommit": "ced9b4171bdb510fbbf48b8e62ca2b96ab48428c",
+  "version": "2.41-m9uioverlay1c",
+  "parentFiles": {
+    "app/build.gradle": "464031ce6d1eaed3b0d11b6d380d7f0d26be79fa90de1450302368d4f9419df3",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java": "66e636c1139ec8c90e5134dca517879412b3bbdae1624b6a9529f03f04ceae0f"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "b3c8ccaec35c73b22392030d85c103776b2121e3df976b5e8153983d5d1a0e72",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java": "72b7f893d9c8517dbc0c81d0d5d8b8241fd344b20417ab1a9129ba139620279c",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualLifecycleTest.java": "ddd17a40ef167d57f20a5f35b09fe57412bc9f3c8b44d75bfc3a5b6e9173ee6a"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualLifecycleTest.java"
+  ],
+  "patchSha256": "4f13e66409bce8b57d354136da7574df3fa45728fa6714fa3e456a20c57366cd"
+}

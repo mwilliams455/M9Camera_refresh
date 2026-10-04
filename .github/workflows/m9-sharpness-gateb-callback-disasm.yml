@@ -1,0 +1,98 @@
+name: M9 Sharpness Gate-B Callback Disassembly
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-gateb-callback-disasm.yml'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  disasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            :
+          else
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Derive Sharpening registration and extract BF547 callback window
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/m9_sharpness_gateb_control_trace.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/control_trace.json"
+          python3 - <<'PY'
+          import importlib.util, json, os, pathlib, sys
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          spec=importlib.util.spec_from_file_location('gateb', pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          fw=(root/'m9.dec').read_bytes(); bf=m.get_bf547(fw)
+          d=json.load(open(root/'control_trace.json'))
+          cb=int(d['sharpening_registration']['callback_ptr'],16)
+          off=cb-m.RAM
+          # Start exactly at the proven callback and retain a bounded 0x800-byte
+          # research window; no binary is published.
+          blob=bf[off:off+0x800]
+          (root/'callback.bin').write_bytes(blob)
+          (root/'callback_meta.json').write_text(json.dumps({'callback_runtime':hex(cb),'file_offset':hex(off),'window_size':len(blob)},indent=2)+'\n')
+          PY
+
+      - name: Disassemble proven Sharpening callback
+        shell: bash
+        run: |
+          set -euo pipefail
+          CB=$(python3 -c "import json; print(json.load(open('$RUNNER_TEMP/m9sharp/callback_meta.json'))['callback_runtime'])")
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma="$CB" "$RUNNER_TEMP/m9sharp/callback.bin" > "$RUNNER_TEMP/m9sharp/sharpening_callback.gnu.dis.txt"
+
+      - name: Publish derived text evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-GATEB-CALLBACK-DISASM
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/control_trace.json
+            ${{ runner.temp }}/m9sharp/callback_meta.json
+            ${{ runner.temp }}/m9sharp/sharpening_callback.gnu.dis.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec" "$RUNNER_TEMP/m9sharp/callback.bin"

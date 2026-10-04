@@ -1,0 +1,58 @@
+{
+  "baseline": "f5ce9888f62e3f6dced298a0edaf537005fc7d5b / GL1U",
+  "changed": {
+    "app/build.gradle": {
+      "before": "4237e633187f75b7cde20a87eece4adcfce987e11c692269aea58f8eb60a66a0",
+      "after": "e34f8011d0f5196b71cfb31350d8a4138723267b085bda3eb7798e3e86e5dbfd"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": {
+      "before": "1292332e5ff8be793ad6b97c13c8babfd11aad98110dcf0feaf7eaa657b41e0f",
+      "after": "a759a76b1ddb9531a7be0983736cfb77b848893f4e3a0a0f3a97382ce6c9907c"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": {
+      "before": null,
+      "after": "8b3f108aa8eb9bd4915a9a324572644fc02996018148b1ecb7749df79300af85"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": {
+      "before": null,
+      "after": "b5b2209721a0d5ed8725c1f84e352e2206b92b68a8ce38ea3557b6656d29f8b4"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9M10rMfmTest1A.java": {
+      "before": "a8d192a2eabff8eb0a8b7a9db0d6773e66f7992072e8aace8cb709f8893c4c20",
+      "after": "20176d1ec67728d31944dd567817e94612a6c339d71e5950b4b6d1229941a7ae"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ModernExposurePolicy.java": {
+      "before": "b8cac80c11cc7235ad9324a9b1bc6e08b618733c32f241c1d0200420cdc4a9ad",
+      "after": "5ecbc4859dc94a89ae6cd938bb931178a01a51597c55ba0f077a7c7a3d32134d"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
+      "before": "6e4946fa871eb07967b250676777319d9f2bf80a5bd5309c9ce93ebc75451097",
+      "after": "6dc83c0dfbd8858ad3998b27290413290f552f00733849deaaab19d3313958af"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": {
+      "before": "2c8632ea6f2115533ebcbf09e1e7656d92bb5255762b7dbdf64158262f1a1542",
+      "after": "7d43a6860bb18682b5c67a49163ad686e94f2cd29771e929ebe45e9d66717f9a"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java": {
+      "before": "6eb84e235e0716fffec09b135dbc0616c8ccbaae56fc884a522018a8a4020c11",
+      "after": "4faee32df194824f04d7e5914aec2f04239d0252bf402b1a4190cdc4659aeb71"
+    },
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": {
+      "before": "c656698ae3af51b694c0b76f764cc8cb19ac89b59e6eef57c154e45a1e9f4bc7",
+      "after": "850080cf6ad29e82d140f1ad0d87138c72751fbd188f161abcf472e395444b44"
+    }
+  },
+  "frozen": {
+    "app/src/main/assets/m9/m9_curve02_firmware.bin": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
+    "app/src/main/assets/m9/m9_preview_standard_gl1f_17.cube": "def88c0cde50fb198203e5938eae984930c08507efabafbcd7148a83d679463a",
+    "app/src/main/assets/m9/m9_preview_standard_gl1f_17.rgb": "a94cee9fc9c4e2df40c1cb06b3e8a53927502cb18757fd34ecd8702078cfbee4",
+    "app/src/main/assets/m9/m9_r35_calibration.bin": "5568978ea42e7c65b51f26ffc2d56479418ec6c8d98b242199bab08acb62cbca",
+    "app/src/main/assets/m9/m9_r35_calibration_manifest.json": "21232fb19721f484c8e8d3ce4c19cf9f89143b1185c16021355d3e413607553b",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "32c1de6a70051ccb5c9d0f00087a8f0931fbeafd14ef01f95c7180661afff00b",
+    "app/src/main/cpp/m9color_jni.cpp": "23037daba9fe5acbffb68f4bdf1fdce394eb476d7312ef0b57d514678b95a1bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LivePairDiagnostics1P.java": "05c38a1dedd0809b25cea686cd4bba971766b50f54c13a922e0b137002741b86",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9LiveToneModel1F.java": "76691d8d98fceeaa6a57bb7719cac237cfcf005f300e1eb2f068df948908b5af",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/FrameNumberSelector.java": "b50b333e858e7e84306ed09413676cd17b181e1e3cfa27c011bdcc6c99975ee0",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "82dddd184118f18f10dfca0b7d59b6027085435f174bad1d0d448e08040382ec"
+  }
+}

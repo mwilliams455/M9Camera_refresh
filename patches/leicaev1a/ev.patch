@@ -1,0 +1,789 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27232
++        versionCode 27233
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.32-m9previewbrightness1a'
++        versionName '2.33-m9leicaev1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.32_PREVIEWBRIGHTNESS1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.33_LEICAEV1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/api/Settings.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/api/Settings.java
+@@ -72,7 +72,11 @@
+ //        contrastConst = get(contrastConst, "ContrastConst");///////TODO
+ //        saturation = get(saturation, "Saturation");
+         saturation = PreferenceKeys.getSaturationValue();
+-        exposureCompensation = PreferenceKeys.getFloat(PreferenceKeys.Key.KEY_EXPOCOMPENSATE_SEEKBAR);
++        com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv.migrate(
++                com.particlesdevs.photoncamera.app.PhotonCamera.getSettingsManagerStatic().getDefaultPreferences());
++        // The shared physical plan (or legacy HAL fallback) owns EV exactly once.
++        // Keep Photon's separate allocator offset neutral, as in Monochrom.
++        exposureCompensation = 0.0;
+         compressor = PreferenceKeys.getCompressorValue();
+         noiseRstr = PreferenceKeys.getFloat(PreferenceKeys.Key.KEY_NOISESTR_SEEKBAR);
+         mergeStrength = PreferenceKeys.getFloat(PreferenceKeys.Key.KEY_MERGE_SEEKBAR);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -33,6 +33,11 @@
+             o.put("plannedIso", plan.iso);
+             o.put("plannedExposureNs", plan.exposureNs);
+             o.put("userEv", plan.userEv);
++            o.put("userEvRevision", "M9LEICAEV1A");
++            o.put("userEvMin", -3.0).put("userEvMax", 3.0).put("userEvStep", 1.0 / 3.0);
++            o.put("userEvAuthority", "shared_persistent_stop_value_menu_wheel_profiles");
++            o.put("hardwareAeCompensationNeutral", true);
++            o.put("userEvAppliedOnceInPhysicalPlan", true);
+             o.put("autoEv", plan.autoEv);
+             o.put("autoReason", plan.autoReason);
+             if (plan.getAutoPlacementSnapshot2D() != null)
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.m9;
+ 
+ import android.content.SharedPreferences;
++import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
+ import com.particlesdevs.photoncamera.m9.render.M9SaturationSettings;
+ import com.particlesdevs.photoncamera.m9.render.M9ContrastSettings;
+ import com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings;
+@@ -17,7 +18,7 @@
+ public final class M9ShootingProfiles {
+     public static final String LIBRARY_KEY = "pref_m9_shooting_profiles_v1";
+     public static final String ACTIVE_KEY = "pref_m9_shooting_profile_active";
+-    public static final String EV_KEY = "pref_expocompensation_seekbar_key";
++    public static final String EV_KEY = LeicaEv.KEY;
+     public static final int MAX_PROFILES = 20;
+     public static final int MAX_NAME_LENGTH = 40;
+     private final SharedPreferences preferences;
+@@ -30,7 +31,7 @@
+ 
+     public static final class Snapshot {
+         public final int saturation, contrast, sharpness;
+-        /** Keep the original text so precise, off-grid EV settings survive recall. */
++        /** Effective Leica EV. Legacy ±4/off-grid values remain readable and normalize to thirds. */
+         public final String ev;
+         public Snapshot(int saturation, int contrast, int sharpness, String ev) {
+             if (!level(saturation) || !level(contrast) || !level(sharpness) || ev == null)
+@@ -41,7 +42,7 @@
+                     throw new NumberFormatException();
+             } catch (NumberFormatException invalid) { throw new ProfileException(Problem.SETTINGS); }
+             this.saturation = saturation; this.contrast = contrast;
+-            this.sharpness = sharpness; this.ev = ev;
++            this.sharpness = sharpness; this.ev = LeicaEv.encode(Double.parseDouble(ev));
+         }
+         private static boolean level(int n) { return n >= 0 && n <= 4; }
+         public boolean sameSettings(Snapshot other) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java
+@@ -20,6 +20,7 @@
+ import android.hardware.camera2.CaptureRequest;
+ import android.hardware.camera2.CameraCharacteristics;
+ import android.util.Rational;
++import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
+ import com.particlesdevs.photoncamera.m9.M9Config;
+ import com.particlesdevs.photoncamera.m9.preview.M9LivePreview1A;
+ import android.hardware.camera2.CaptureResult;
+@@ -47,7 +48,7 @@
+  */
+ public class ParamController implements Observer {
+     public int ISO = -1;
+-    public int EV = 0;
++    public double EV = 0.0; // EV stops, never Camera2 integer compensation units
+     public long SHUTTER = -1;
+     public float FOCUS = -1;
+     public int WB = 0;
+@@ -124,7 +125,7 @@
+         captureController.rebuildPreviewBuilder();
+     }
+ 
+-    public void setEV(int ev) {
++    public void setEV(double ev) {
+         CaptureRequest.Builder builder = captureController.mPreviewRequestBuilder;
+         if (builder == null) {
+             Log.w(TAG, "setEV(): mPreviewRequestBuilder is null");
+@@ -134,7 +135,13 @@
+             applyM9MeteringReference1A(builder);
+             return;
+         }
+-        builder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, ev);
++        CameraCharacteristics chars = CaptureController.mCameraCharacteristics;
++        Rational step = chars == null ? null : chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP);
++        android.util.Range<Integer> range = chars == null ? null
++                : chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE);
++        int steps = range == null ? 0 : LeicaEv.hardwareSteps(ev,
++                step == null ? 0.0 : step.doubleValue(), range.getLower(), range.getUpper());
++        builder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, steps);
+         captureController.rebuildPreviewBuilder();
+     }
+ 
+@@ -154,13 +161,9 @@
+     }
+ 
+     public double getM9UserEv1A() {
+-        double settingsEv = com.particlesdevs.photoncamera.app.PhotonCamera
+-                .getSettings().exposureCompensation;
+-        Rational step = CaptureController.mCameraCharacteristics != null
+-                ? CaptureController.mCameraCharacteristics.get(
+-                        CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP) : null;
+-        double manualEv = manualParamModel != null ? manualParamModel.getCurrentEvValue() : 0.0;
+-        return settingsEv + manualEv * (step != null ? step.doubleValue() : 0.0);
++        com.particlesdevs.photoncamera.settings.SettingsManager settings =
++                com.particlesdevs.photoncamera.app.PhotonCamera.getSettingsManagerStatic();
++        return LeicaEv.read(settings == null ? null : settings.getDefaultPreferences());
+     }
+ 
+     public void setWB(int wbVal) {
+@@ -265,8 +268,8 @@
+                 setISO((int) model.getCurrentISOValue(), model.getCurrentExposureValue());
+             }
+             if (object.equals(ManualParamModel.ID_EV)) {
+-                EV = (int) model.getCurrentEvValue();
+-                setEV((int) model.getCurrentEvValue());
++                EV = LeicaEv.normalize(model.getCurrentEvValue());
++                setEV(EV);
+             }
+             if (object.equals(ManualParamModel.ID_SHUTTER)) {
+                 SHUTTER = (long) model.getCurrentExposureValue();
+@@ -282,7 +285,7 @@
+             if (object.equals(ManualParamModel.PANEL_INVISIBILITY)) {
+                 Log.d(TAG, "update: " + model.isManualMode());
+                 ISO = -1;
+-                EV = 0;
++                EV = getM9UserEv1A();
+                 SHUTTER = -1;
+                 FOCUS = -1;
+                 if (model.getCurrentWbValue() == ManualParamModel.WB_AUTO) {
+@@ -298,8 +301,8 @@
+         if (manualParamModel != null) {
+             if (ISO != -1)
+                 setISO(ISO, manualParamModel.getCurrentExposureValue());
+-            if (EV != 0)
+-                setEV(EV);
++            EV = getM9UserEv1A();
++            setEV(EV);
+             if (SHUTTER != -1)
+                 setShutter(SHUTTER, ISO);
+             if (FOCUS != -1)
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+@@ -35,6 +35,7 @@
+         // Named profile collections and their active marker belong to the app, not a lens.
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.LIBRARY_KEY);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv.KEY);
+         COMMON_KEYS.add(Key.CAMERA_ID.mValue);
+         COMMON_KEYS.add(Key.KEY_SAVE_PER_LENS_SETTINGS.mValue);
+         COMMON_KEYS.add(Key.KEY_PRESERVE_MANUAL_WB.mValue);
+--- /dev/null
++++ b/app/src/main/res/values/m9_ev.xml
+@@ -0,0 +1,47 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_ev_dialog">Exposure compensation · ⅓ EV steps</string>
++    <string name="m9_ev_info">The menu and EV wheel share one value. Compensation stays set until you change it. Long-press EV in the manual panel to reset to zero. With both ISO and shutter set manually, those values take priority.</string>
++    <string-array name="m9_ev_entries">
++        <item>−3 EV</item>
++        <item>−2 ⅔ EV</item>
++        <item>−2 ⅓ EV</item>
++        <item>−2 EV</item>
++        <item>−1 ⅔ EV</item>
++        <item>−1 ⅓ EV</item>
++        <item>−1 EV</item>
++        <item>−⅔ EV</item>
++        <item>−⅓ EV</item>
++        <item>0 EV</item>
++        <item>+⅓ EV</item>
++        <item>+⅔ EV</item>
++        <item>+1 EV</item>
++        <item>+1 ⅓ EV</item>
++        <item>+1 ⅔ EV</item>
++        <item>+2 EV</item>
++        <item>+2 ⅓ EV</item>
++        <item>+2 ⅔ EV</item>
++        <item>+3 EV</item>
++    </string-array>
++    <string-array name="m9_ev_values" translatable="false">
++        <item>-3.0</item>
++        <item>-2.6666666666666665</item>
++        <item>-2.3333333333333335</item>
++        <item>-2.0</item>
++        <item>-1.6666666666666667</item>
++        <item>-1.3333333333333333</item>
++        <item>-1.0</item>
++        <item>-0.6666666666666666</item>
++        <item>-0.3333333333333333</item>
++        <item>0.0</item>
++        <item>0.3333333333333333</item>
++        <item>0.6666666666666666</item>
++        <item>1.0</item>
++        <item>1.3333333333333333</item>
++        <item>1.6666666666666667</item>
++        <item>2.0</item>
++        <item>2.3333333333333335</item>
++        <item>2.6666666666666665</item>
++        <item>3.0</item>
++    </string-array>
++</resources>
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -13,7 +13,8 @@
+         <Preference android:key="m9_sharpness_info" android:selectable="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_sharpness_info_title" android:summary="@string/m9_sharpness_info" />
+     </PreferenceScreen>
+     <PreferenceScreen android:key="pref_m9_capture_screen" android:title="@string/m9_menu_capture" android:summary="@string/m9_menu_capture_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_focus" android:orderingFromXml="true">
+-        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference android:key="@string/pref_expocompensation_seekbar_key" android:layout="@layout/preference_seekbar" android:title="@string/expocompensation" android:summary="" android:defaultValue="@string/pref_expocompensation_seekbar_default" app:maxValue="4" app:minValue="-4" app:isFloat="true" app:stepPerUnit="10" android:icon="@drawable/ic_saturation" />
++        <ListPreference android:key="@string/pref_expocompensation_seekbar_key" android:layout="@layout/preference_with_margin" android:title="@string/expocompensation" android:dialogTitle="@string/m9_ev_dialog" android:entries="@array/m9_ev_entries" android:entryValues="@array/m9_ev_values" android:defaultValue="0.0" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
++        <Preference android:key="m9_ev_info" android:layout="@layout/preference_with_margin" android:selectable="false" android:summary="@string/m9_ev_info" />
+         <ListPreference android:key="@string/pref_countdown_timer_key" android:title="@string/countdown_timer" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_timer" android:entries="@array/m9_menu_timer_entries" android:entryValues="@array/m9_menu_timer_indices" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
+         <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_af_mode_key" android:title="@string/af_mode" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_focus" android:entries="@array/af_mode_entries" android:entryValues="@array/af_mode_entryvalues" android:defaultValue="@string/pref_af_mode_default_value" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_auto_zoom_switch_key" android:defaultValue="@bool/pref_auto_zoom_switch_default" android:layout="@layout/preference_with_margin" android:title="@string/auto_zoom_lens_switch" android:summary="@string/auto_zoom_lens_switch_summary" android:icon="@drawable/ic_focus" />
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9LeicaEvTest.java
+@@ -0,0 +1,160 @@
++package com.particlesdevs.photoncamera.m9;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.content.res.Resources;
++import android.os.Vibrator;
++import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
++import com.particlesdevs.photoncamera.circularbarlib.control.ManualParamModel;
++import com.particlesdevs.photoncamera.circularbarlib.control.models.EvModel;
++import com.particlesdevs.photoncamera.circularbarlib.console.ManualModeConsoleImpl;
++import com.particlesdevs.photoncamera.circularbarlib.model.KnobModel;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.ShadowTextDrawable;
++import org.junit.Test;
++import org.mockito.MockedConstruction;
++import java.lang.reflect.Field;
++import java.util.HashMap;
++import java.util.Map;
++import static org.junit.Assert.*;
++import static org.mockito.ArgumentMatchers.*;
++import static org.mockito.Mockito.*;
++
++public class M9LeicaEvTest {
++    private static final class Memory {
++        final Map<String,Object> values = new HashMap<>();
++        final SharedPreferences prefs = mock(SharedPreferences.class);
++        int writes;
++        Memory() {
++            when(prefs.getAll()).thenAnswer(i -> new HashMap<>(values));
++            when(prefs.getString(anyString(),nullable(String.class))).thenAnswer(i -> {
++                Object value=values.get(i.getArgument(0));
++                return value==null ? i.getArgument(1) : (String)value;
++            });
++            when(prefs.edit()).thenAnswer(i -> {
++                Map<String,Object> puts=new HashMap<>();
++                SharedPreferences.Editor editor=mock(SharedPreferences.Editor.class);
++                when(editor.putString(anyString(),anyString())).thenAnswer(call -> {
++                    puts.put(call.getArgument(0),call.getArgument(1)); return editor;
++                });
++                doAnswer(call -> { values.putAll(puts); ++writes; return null; }).when(editor).apply();
++                return editor;
++            });
++        }
++        Context context() {
++            Context c=mock(Context.class); Resources resources=mock(Resources.class);
++            when(c.getApplicationContext()).thenReturn(c);
++            when(c.getPackageName()).thenReturn("com.m9project.m9cam.photon");
++            when(c.getSharedPreferences("com.m9project.m9cam.photon_preferences",0)).thenReturn(prefs);
++            when(c.getResources()).thenReturn(resources);
++            when(c.getString(anyInt())).thenReturn("Auto");
++            when(resources.getInteger(anyInt())).thenReturn(120);
++            return c;
++        }
++    }
++    @Test public void exactNineteenStopsAndSymmetricRounding() {
++        for(int n=-9;n<=9;n++) {
++            double ev=n/3.0;
++            assertEquals(ev,LeicaEv.normalize(ev),0.0);
++            assertEquals(ev,Double.parseDouble(LeicaEv.encode(ev)),0.0);
++            assertEquals(-LeicaEv.normalize(ev),LeicaEv.normalize(-ev),0.0);
++        }
++        assertEquals(-2.0/3.0,LeicaEv.normalize(-0.68),0.0);
++        assertEquals(1.0/3.0,LeicaEv.normalize(0.25),0.0);
++        assertEquals(-1.0/3.0,LeicaEv.normalize(-1.0/6.0),0.0);
++        assertEquals(1.0/3.0,LeicaEv.normalize(1.0/6.0),0.0);
++        assertEquals(-3.0,LeicaEv.normalize(-4),0.0);
++        assertEquals(3.0,LeicaEv.normalize(4),0.0);
++    }
++    @Test public void labelsCannotSuggestQuarterStopsOrTwoCompensations() {
++        assertEquals("0",LeicaEv.label(0));
++        assertEquals("−⅔",LeicaEv.label(-2.0/3.0));
++        assertEquals("+1 ⅓",LeicaEv.label(4.0/3.0));
++        assertEquals("−3",LeicaEv.label(-3));
++    }
++    @Test public void nonfiniteValuesAreNeutral() {
++        for(double x:new double[]{Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY})
++            assertEquals(0.0,LeicaEv.normalize(x),0.0);
++    }
++    @Test public void oldSettingMigratesOnceAndKeepsOtherPreferences() {
++        Memory m=new Memory(); m.values.put(LeicaEv.KEY,"-0.680001"); m.values.put("unrelated","kept");
++        assertEquals(-2.0/3.0,LeicaEv.migrate(m.prefs),0.0);
++        assertEquals("-0.6666666666666666",m.values.get(LeicaEv.KEY));
++        assertEquals("kept",m.values.get("unrelated")); assertEquals(1,m.writes);
++        LeicaEv.migrate(m.prefs); assertEquals(1,m.writes);
++        assertEquals(-2.0/3.0,LeicaEv.read(m.prefs),0.0); assertEquals(1,m.writes);
++    }
++    @Test public void freshInstallReadsZeroWithoutWritesAndMalformedBackupRecovers() {
++        Memory m=new Memory(); assertEquals(0.0,LeicaEv.migrate(m.prefs),0.0); assertEquals(0,m.writes);
++        for(Object value:new Object[]{true,"bad","NaN","Infinity"}) {
++            m.values.put(LeicaEv.KEY,value);
++            assertEquals(0.0,LeicaEv.migrate(m.prefs),0.0);
++            assertEquals("0.0",m.values.get(LeicaEv.KEY));
++        }
++    }
++    @Test public void changingControlReplacesRatherThanAddsAndRestartReadsSameValue() {
++        Memory m=new Memory(); LeicaEv.write(m.prefs,-1);
++        LeicaEv.write(m.prefs,2.0/3.0);
++        assertEquals(2.0/3.0,LeicaEv.read(m.prefs),0.0);
++        Memory restarted=new Memory(); restarted.values.putAll(m.values);
++        assertEquals(2.0/3.0,LeicaEv.read(restarted.prefs),0.0);
++        assertEquals(1,m.values.size());
++    }
++    @Test public void hardwareConversionOnlyForLegacyFallbackIsBounded() {
++        assertEquals(3,LeicaEv.hardwareSteps(1,1.0/3.0,-9,9));
++        assertEquals(2,LeicaEv.hardwareSteps(1,0.5,-6,6));
++        assertEquals(2,LeicaEv.hardwareSteps(3,1.0/3.0,-2,2));
++        assertEquals(0,LeicaEv.hardwareSteps(1,0,-9,9));
++        assertEquals(0,LeicaEv.hardwareSteps(1,Double.NaN,-9,9));
++    }
++    @Test public void panelResetPreservesEvAndResetsActualManualExposure() {
++        ManualParamModel model=new ManualParamModel();
++        model.setCurrentEvValue(-2.0/3.0); model.setCurrentISOValue(400); model.setCurrentExposureValue(10000000);
++        model.reset();
++        assertEquals(-2.0/3.0,model.getCurrentEvValue(),0.0);
++        assertEquals(0.0,model.getCurrentISOValue(),0.0); assertEquals(0.0,model.getCurrentExposureValue(),0.0);
++        assertTrue(M9ExposurePlan1A.autoEligible(true,false,0,0));
++    }
++    @Test public void dialWorksWithoutVendorEvMetadataAndMirrorsProfileRecall() {
++        try(MockedConstruction<ShadowTextDrawable> ignored=mockConstruction(ShadowTextDrawable.class)) {
++            Memory m=new Memory(); ManualParamModel param=new ManualParamModel();
++            EvModel dial=new EvModel(m.context(),null,null,param,null,mock(Vibrator.class));
++            assertEquals(19,dial.getKnobInfoList().size());
++            for(KnobItemInfo item:dial.getKnobInfoList()) {
++                dial.onSelectedKnobItemChanged(item);
++                assertEquals(item.value,LeicaEv.read(m.prefs),0.0);
++                assertEquals(item.value,param.getCurrentEvValue(),0.0);
++            }
++            LeicaEv.write(m.prefs,1.0/3.0); int writes=m.writes;
++            dial.syncFromPreferences();
++            assertEquals(1.0/3.0,dial.getCurrentInfo().value,0.0);
++            assertEquals(1.0/3.0,param.getCurrentEvValue(),0.0);
++            assertEquals(writes,m.writes);
++        }
++    }
++    @Test public void closingPanelCannotResetTheLastEvWheelListener() throws Exception {
++        try(MockedConstruction<ShadowTextDrawable> ignored=mockConstruction(ShadowTextDrawable.class)) {
++            Memory m=new Memory(); LeicaEv.write(m.prefs,-2.0/3.0);
++            ManualModeConsoleImpl console=(ManualModeConsoleImpl)ManualModeConsoleImpl.newInstance();
++            EvModel dial=new EvModel(m.context(),null,null,console.getManualParamModel(),null,mock(Vibrator.class));
++            Field ev=ManualModeConsoleImpl.class.getDeclaredField("evModel"); ev.setAccessible(true); ev.set(console,dial);
++            // This models the widget's retained last listener even after deselection.
++            console.getKnobModel().addObserver((o,arg) -> {
++                if(arg==KnobModel.KnobModelFields.RESET) dial.resetModelSilently();
++            });
++            console.retractAllKnobs(); console.setPanelVisibility(false); console.setPanelVisibility(true);
++            assertEquals(-2.0/3.0,LeicaEv.read(m.prefs),0.0);
++            assertEquals(-2.0/3.0,console.getManualParamModel().getCurrentEvValue(),0.0);
++            console.resetAllValues(); assertEquals(0.0,LeicaEv.read(m.prefs),0.0);
++        }
++    }
++    @Test public void changedEvRejectsAnOlderDisplayedPlanAndIntentRemainsPhysical() {
++        M9ExposurePlan1A plan=new M9ExposurePlan1A(1,100,1,"0","PHOTO",100,10000000,
++                100,10000000,100,20000000,1,0,"test",0,0,100);
++        assertTrue(plan.matches("0","PHOTO",200,1,0,0));
++        assertFalse(plan.matches("0","PHOTO",200,2.0/3.0,0,0));
++        assertEquals(2.0,plan.previewScale(),0.0);
++        assertEquals(2.0,plan.renderIntentScale(100,20000000),0.0);
++        assertFalse(plan.matches("1","PHOTO",200,1,0,0));
++    }
++}
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.m9;
+ 
+ import android.content.SharedPreferences;
++import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Profile;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ProfileException;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Problem;
+@@ -36,7 +37,7 @@
+             });
+             when(preferences.edit()).thenAnswer(i -> {
+                 Map<String,Object> puts=new HashMap<>(); Set<String> removes=new HashSet<>();
+-                SharedPreferences.Editor editor=mock(SharedPreferences.Editor.class,RETURNS_SELF);
++                SharedPreferences.Editor editor=mock(SharedPreferences.Editor.class);
+                 when(editor.putString(anyString(),anyString())).thenAnswer(call -> {
+                     puts.put(call.getArgument(0),call.getArgument(1)); return editor;
+                 });
+@@ -66,10 +67,10 @@
+         assertTrue(memory.values.isEmpty()); assertTrue(memory.edits.isEmpty());
+     }
+ 
+-    @Test public void savePreservesPreciseEvAndWritesOnlyProfileMetadata() {
++    @Test public void saveNormalizesLegacyEvAndWritesOnlyProfileMetadata() {
+         Memory memory=new Memory(); memory.settings(3,1,4,"-0.680001");
+         Profile p=memory.store().save("  Evening  ");
+-        assertEquals("Evening",p.name); assertEquals("-0.680001",p.settings.ev);
++        assertEquals("Evening",p.name); assertEquals(LeicaEv.encode(-2.0/3.0),p.settings.ev);
+         assertEquals(new HashSet<>(Arrays.asList(LIB,ACTIVE)),memory.edits.get(0));
+         assertEquals(p.id,memory.store().list().get(0).id);
+     }
+@@ -90,7 +91,7 @@
+         outside.forEach((key,value) -> assertEquals(key,value,memory.values.get(key)));
+         Map<String,Object> observer=memory.observed.get(count);
+         assertEquals("3",observer.get(SAT)); assertEquals("1",observer.get(CONTRAST));
+-        assertEquals("4",observer.get(SHARP)); assertEquals("-0.68",observer.get(EV));
++        assertEquals("4",observer.get(SHARP)); assertEquals(LeicaEv.encode(-2.0/3.0),observer.get(EV));
+     }
+ 
+     @Test public void collectionSurvivesRestartAndBackupRestoreOfDefaultPreferences() {
+@@ -178,13 +179,13 @@
+         }
+     }
+ 
+-    @Test public void allLevelsAndEvLimitsRoundTripWithoutQuantization() {
++    @Test public void legacyProfilesNormalizeToLeicaLimitsAndRoundTrip() {
+         Memory memory=new Memory();
+         for (int level=0;level<5;level++) {
+             String ev=new String[]{"-4","-0.680001","0.0","0.333333","4"}[level];
+             memory.settings(level,level,level,ev); Profile p=memory.store().save("Level "+level);
+             memory.settings(2,2,2,"0"); memory.store().apply(p.id);
+-            assertTrue(p.settings.sameSettings(memory.store().current())); assertEquals(ev,memory.values.get(EV));
++            assertTrue(p.settings.sameSettings(memory.store().current())); assertEquals(LeicaEv.encode(Double.parseDouble(ev)),memory.values.get(EV));
+         }
+         assertTrue(new Snapshot(2,2,2,"-0.0").sameSettings(new Snapshot(2,2,2,"0")));
+     }
+--- a/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/camera/CameraProperties.java
++++ b/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/camera/CameraProperties.java
+@@ -21,11 +21,9 @@
+         //this.maxFocal = cameraCharacteristics.get(CameraCharacteristics.LENS_INFO_HYPERFOCAL_DISTANCE);
+         this.maxFocal = 0.0f;
+         this.focusRange = (!(minFocal == null || maxFocal == null || minFocal == 0.0f)) ? new Range<>(Math.min(minFocal, maxFocal), Math.max(minFocal, maxFocal)) : null;
+-        float evStep = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP).floatValue();
+         this.isoRange = new Range<>(IsoExpoSelector.getISOLOWExt(cameraCharacteristics), IsoExpoSelector.getISOHIGHExt(cameraCharacteristics));
+         this.expRange = new Range<>(IsoExpoSelector.getEXPLOW(cameraCharacteristics), IsoExpoSelector.getEXPHIGH(cameraCharacteristics));
+-        this.evRange = new Range<>((cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE).getLower() * evStep),
+-                (cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE).getUpper() * evStep));
++        this.evRange = new Range<>(-3.0f, 3.0f); // M9LEICAEV1A, independent of vendor AE metadata
+         logIt();
+     }
+ 
+--- a/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/console/ManualModeConsoleImpl.java
++++ b/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/console/ManualModeConsoleImpl.java
+@@ -106,6 +106,7 @@
+             viewObserver.enableOrientationListener();
+         }
+         addObserver();
++        syncEvFromPreferences();
+     }
+ 
+     @Override
+@@ -143,8 +144,7 @@
+                 manualModeModel::setFocusText, v);
+         evModel = new EvModel(context, cameraCharacteristics, cameraProperties.evRange, manualParamModel,
+                 manualModeModel::setEvText, v);
+-        ((EvModel) evModel).setEvStep(
+-                (cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP).floatValue()));
++        syncEvFromPreferences();
+         isoModel = new IsoModel(context, cameraCharacteristics, cameraProperties.isoRange, manualParamModel,
+                 manualModeModel::setIsoText, v);
+         expoTimeModel = new ShutterModel(context, cameraCharacteristics, cameraProperties.expRange, manualParamModel,
+@@ -173,6 +173,7 @@
+ 
+     @Override
+     public void setPanelVisibility(boolean visible) {
++        syncEvFromPreferences();
+         manualModeModel.setManualPanelVisible(visible);
+         if (!visible) {
+             manualParamModel.reset(this.preserveManualWb);
+@@ -186,7 +187,16 @@
+ 
+     @Override
+     public void resetAllValues() {
++        if (evModel != null) evModel.resetModelSilently();
+         manualParamModel.reset();
++    }
++
++    private void syncEvFromPreferences() {
++        if (!(evModel instanceof EvModel)) return;
++        ((EvModel)evModel).syncFromPreferences();
++        manualModeModel.setEvText(evModel.getCurrentInfo().text);
++        if (selectedModel == evModel) knobModel.setManualModel(evModel);
++        else if (previousModel == evModel) knobModel.setSecondaryManualModel(evModel);
+     }
+ 
+     @Override
+@@ -221,8 +231,7 @@
+     }
+ 
+     private void setAutoText() {
+-        if (evModel != null)
+-            evModel.setAutoTxt();
++        syncEvFromPreferences();
+         if (mfModel != null)
+             mfModel.setAutoTxt();
+         if (expoTimeModel != null)
+@@ -240,9 +249,8 @@
+     public void retractAllKnobs() {
+         knobModel.setKnobVisible(false);
+         knobModel.setSecondaryManualModel(null);
+-        if (!this.preserveManualWb || this.manualParamModel.getCurrentWbValue() == ManualParamModel.WB_AUTO || !(selectedModel instanceof WbModel)) {
+-            knobModel.setKnobResetCalled(true);
+-        }
++        // Do not reset the widget here: its last listener can still be the EV
++        // model even after the wheel is hidden. Reset the transient models below.
+         selectedModel = null;
+         previousModel = null;
+         selectedViewId = -1;
+@@ -254,8 +262,7 @@
+             expoTimeModel.resetModelSilently();
+         if (isoModel != null)
+             isoModel.resetModelSilently();
+-        if (evModel != null)
+-            evModel.resetModelSilently();
++        syncEvFromPreferences(); // EV is persistent; closing the panel is not EV reset.
+         if (wbModel != null && (!this.preserveManualWb || manualParamModel.getCurrentWbValue() == ManualParamModel.WB_AUTO))
+             wbModel.resetModel();
+         manualModeModel.setCheckedTextViewId(-1);
+--- /dev/null
++++ b/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/LeicaEv.java
+@@ -0,0 +1,57 @@
++package com.particlesdevs.photoncamera.circularbarlib.control;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++
++/** M9LEICAEV1A: one persisted, stop-domain EV shared by menu, dial and profiles. */
++public final class LeicaEv {
++    // Reuse the old preference identity for backup/profile compatibility. It is
++    // now the complete EV value, never an offset added to the manual wheel.
++    public static final String KEY = "pref_expocompensation_seekbar_key";
++    public static final double MIN = -3.0, MAX = 3.0, STEP = 1.0 / 3.0;
++    private LeicaEv() {}
++
++    public static double normalize(double stops) {
++        if (!Double.isFinite(stops)) return 0.0;
++        double bounded = Math.max(MIN, Math.min(MAX, stops));
++        int thirds = (int)Math.copySign(Math.floor(Math.abs(bounded) * 3.0 + 0.5), bounded);
++        return thirds / 3.0;
++    }
++    public static String encode(double stops) { return Double.toString(normalize(stops)); }
++    public static String label(double stops) {
++        int thirds = (int)Math.round(normalize(stops) * 3.0);
++        if (thirds == 0) return "0";
++        int magnitude = Math.abs(thirds), whole = magnitude / 3, fraction = magnitude % 3;
++        String body = whole == 0 ? "" : Integer.toString(whole);
++        if (fraction != 0) body += (whole == 0 ? "" : " ") + (fraction == 1 ? "⅓" : "⅔");
++        return (thirds > 0 ? "+" : "−") + body;
++    }
++    public static double read(SharedPreferences preferences) {
++        if (preferences == null) return 0.0;
++        try { return normalize(Double.parseDouble(preferences.getString(KEY, "0.0"))); }
++        catch (RuntimeException invalid) { return 0.0; }
++    }
++    public static SharedPreferences preferences(Context context) {
++        // Same default-preference file used by AndroidX PreferenceManager and
++        // the app's SettingsManager; no second storage authority in the library.
++        return context.getApplicationContext().getSharedPreferences(
++                context.getPackageName() + "_preferences", Context.MODE_PRIVATE);
++    }
++    public static void write(SharedPreferences preferences, double stops) {
++        String value = encode(stops);
++        Object old = preferences.getAll().get(KEY);
++        if (!value.equals(old)) preferences.edit().putString(KEY, value).apply();
++    }
++    /** Normalize an existing legacy/backup value once, without writing on fresh install. */
++    public static double migrate(SharedPreferences preferences) {
++        double value = read(preferences);
++        if (preferences != null && preferences.getAll().containsKey(KEY)) write(preferences, value);
++        return value;
++    }
++    /** Only legacy non-M9 requests use Camera2 compensation units. */
++    public static int hardwareSteps(double stops, double step, int low, int high) {
++        if (!Double.isFinite(step) || step <= 0.0 || low > high) return 0;
++        long count = Math.round(normalize(stops) / step);
++        return (int)Math.max(low, Math.min(high, count));
++    }
++}
+--- a/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/ManualParamModel.java
++++ b/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/ManualParamModel.java
+@@ -88,7 +88,7 @@
+ 
+     public void reset(boolean preserveWb) {
+         currentFocusValue = FOCUS_AUTO;
+-        currentEvValue = EV_AUTO;
++        // M9LEICAEV1A: compensation persists across panel/lens/session resets.
+         currentExposureValue = EXPOSURE_AUTO;
+         currentISOValue = ISO_AUTO;
+         if (!preserveWb) {
+--- a/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java
++++ b/circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java
+@@ -4,7 +4,6 @@
+ import android.graphics.drawable.StateListDrawable;
+ import android.hardware.camera2.CameraCharacteristics;
+ import android.os.Vibrator;
+-import android.util.Log;
+ import android.util.Range;
+ 
+ import com.particlesdevs.photoncamera.circularbarlib.R;
+@@ -14,82 +13,46 @@
+ import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
+ import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.ShadowTextDrawable;
+ 
+-import java.util.ArrayList;
+-import java.util.Locale;
++import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
+ 
+ /**
+  * Created by killerink, vibhorSrv, eszdman
+  */
+ public class EvModel extends ManualModel<Float> {
+ 
+-    private final String TAG = EvModel.class.getSimpleName();
+-    private float evStep;
+ 
+     public EvModel(Context context, CameraCharacteristics cameraCharacteristics, Range<Float> range,
+                    ManualParamModel manualParamModel, ValueChangedEvent valueChangedEvent, Vibrator v) {
+         super(context, cameraCharacteristics, range, manualParamModel, valueChangedEvent,v);
+     }
+ 
+-    public void setEvStep(float evStep) {
+-        this.evStep = evStep;
+-    }
++    // EV values are stored in stops; Camera2 compensation steps are not a dial input.
+ 
+     @Override
+     protected void fillKnobInfoList() {
+-        Range<Float> evRange = range;
+-        if (evRange == null || (evRange.getLower() == 0.0f && evRange.getUpper() == 0.0f)) {
+-            Log.d(TAG, "fillKnobInfoList() - evRange is not valid.");
+-            return;
+-        }
+-        KnobItemInfo auto = getNewAutoItem(ManualParamModel.EV_AUTO, null);
+-        getKnobInfoList().add(auto);
+-        currentInfo = auto;
+-        int positiveValueCount = 0;
+-        int negativeValueCount = 0;
+-        float step = 0.25f;
+-        ArrayList<Float> values = new ArrayList<>();
+-        for (float fValue = evRange.getUpper(); fValue >= evRange.getLower(); fValue -= step) {
+-            float roundedValue = ((float) Math.round(10000.0f * fValue)) / 10000.0f;
+-            if (!isZero(fValue)) {
+-                if (fValue > 0.0f) {
+-                    positiveValueCount++;
+-                } else {
+-                    negativeValueCount++;
+-                }
++        // M9 and first-generation Monochrom both use ±3 EV in exact thirds.
++        KnobItemInfo zero = getNewAutoItem(ManualParamModel.EV_AUTO, "0");
++        getKnobInfoList().add(zero);
++        currentInfo = zero;
++        for (int thirds = 9; thirds >= -9; --thirds) {
++            if (thirds == 0) continue;
++            double value = thirds / 3.0;
++            ShadowTextDrawable normal = new ShadowTextDrawable();
++            normal.setTextAppearance(context, R.style.ManualModeKnobText);
++            ShadowTextDrawable selected = new ShadowTextDrawable();
++            selected.setTextAppearance(context, R.style.ManualModeKnobTextSelected);
++            if (thirds % 3 == 0) {
++                normal.setText(LeicaEv.label(value));
++                selected.setText(LeicaEv.label(value));
+             }
+-            values.add(roundedValue);
+-        }
+-        if (values.size() > 0) {
+-            values.set(values.size() - 1, evRange.getLower());
+-        }
+-        for (int tick = 0; tick < values.size(); tick++) {
+-            float value = values.get(tick);
+-            if (!isZero(value)) {
+-                ShadowTextDrawable drawable = new ShadowTextDrawable();
+-                drawable.setTextAppearance(context, R.style.ManualModeKnobText);
+-                ShadowTextDrawable drawableSelected = new ShadowTextDrawable();
+-                drawableSelected.setTextAppearance(context, R.style.ManualModeKnobTextSelected);
+-                if (isInteger(value)) {
+-                    String valueStr = String.valueOf((int) value);
+-                    if (value > 0.0f) {
+-                        valueStr = "+" + valueStr;
+-                    }
+-                    drawable.setText(valueStr);
+-                    drawableSelected.setText(valueStr);
+-                }
+-                StateListDrawable stateDrawable = new StateListDrawable();
+-                stateDrawable.addState(new int[]{-android.R.attr.state_selected}, drawable);
+-                stateDrawable.addState(new int[]{android.R.attr.state_selected}, drawableSelected);
+-                String text = String.format(Locale.ROOT, "%.2f", value);
+-                if (value > 0.0f) {
+-                    getKnobInfoList().add(new KnobItemInfo(stateDrawable, text, positiveValueCount - tick, value));
+-                } else {
+-                    getKnobInfoList().add(new KnobItemInfo(stateDrawable, text, negativeValueCount - tick, value));
+-                }
+-            }
++            StateListDrawable drawable = new StateListDrawable();
++            drawable.addState(new int[]{-android.R.attr.state_selected}, normal);
++            drawable.addState(new int[]{android.R.attr.state_selected}, selected);
++            getKnobInfoList().add(new KnobItemInfo(drawable, LeicaEv.label(value), thirds, value));
+         }
+         int angle = context.getResources().getInteger(R.integer.manual_ev_knob_view_angle_half);
+-        knobInfo = new KnobInfo(-angle, angle, -negativeValueCount, positiveValueCount, context.getResources().getInteger(R.integer.manual_ev_knob_view_auto_angle));
++        knobInfo = new KnobInfo(-angle, angle, -9, 9,
++                context.getResources().getInteger(R.integer.manual_ev_knob_view_auto_angle));
+     }
+ 
+     @Override
+@@ -100,17 +63,25 @@
+     @Override
+     public void onSelectedKnobItemChanged(KnobItemInfo knobItemInfo) {
+         currentInfo = knobItemInfo;
+-        // Preserve the displayed EV for software exposure planning. Legacy Camera2
+-        // requests still quantize in ParamController.setEV(int).
+-        manualParamModel.setCurrentEvValue(knobItemInfo.value / evStep);
++        double stops = LeicaEv.normalize(knobItemInfo.value);
++        LeicaEv.write(LeicaEv.preferences(context), stops);
++        manualParamModel.setCurrentEvValue(stops);
+     }
+ 
+-    private boolean isZero(float value) {
+-        return ((double) Math.abs(value)) <= 0.001d;
++    /** Mirror a menu/profile change without turning it into another offset. */
++    public void syncFromPreferences() {
++        double stops = LeicaEv.read(LeicaEv.preferences(context));
++        for (KnobItemInfo item : getKnobInfoList()) {
++            if (Math.abs(item.value - stops) < 1e-9) {
++                if (currentInfo != null)
++                    currentInfo.drawable.setState(new int[]{-android.R.attr.state_selected});
++                currentInfo = item;
++                item.drawable.setState(new int[]{android.R.attr.state_selected});
++                if (Math.abs(manualParamModel.getCurrentEvValue() - stops) > 1e-9)
++                    manualParamModel.setCurrentEvValue(stops);
++                return;
++            }
++        }
+     }
+ 
+-    private boolean isInteger(float value) {
+-        int checkNumber = ((int) (Math.abs(value) * 10000.0f)) % 10000;
+-        return checkNumber == 0 || checkNumber == 9999;
+-    }
+ }

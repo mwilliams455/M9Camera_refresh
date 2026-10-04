@@ -1,0 +1,46 @@
+{
+  "parentCommit": "83b446fefc11b2a4303b504f331e5df6ef3f7ea6",
+  "version": "2.36-m9autoiso1a",
+  "parentFiles": {
+    "app/build.gradle": "2853154b14be0e64530caa1b26bfeaf0961351149b414256bea86af941bf2903",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "4abab6b4cc8e88440861c3de9c35868cf7f651ca2ff8d0c52d9e6c872872c89e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": "7ca0408e98d2e7a28afb5bdf2b272da75906e56c839124197623d507e1187b0f",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "f6575f3c169a02663d1e9919e29120aea1708cbcd09f20f641bbd9ae1ab70432",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java": "9b01ff49fc2f1e247de77a21a7b81a587ee64e32fe2666358dd343e26568cfc9",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java": "f03494b747692e10e6dba9a1e85be87bc22bbd1ee8e90b4e23bb9bb24e3d0b76",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "1f46f3484065136f935710673de77fdbd2a5472f099129d9e5bb58b8cc071ace",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java": "06121b272e0f50f5589677a05192c4e64acfe5f13385ec38abaf9de1a5768b95",
+    "app/src/main/res/values/m9_profiles.xml": "e2de3f55e75ee76c5afbc1d8ca49bb2d5f89dc002a6817ae7bbf2cb6dccc7c6e",
+    "app/src/main/res/xml/preferences_m9.xml": "01fa70b9cf763a20f29178afff361bc2bc068dd6b802dd111c62fa0cadc06f97",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java": "a1d6862f90abcf8f749e5846dba65f14ecf271d5351ee2a49e1b2d7f4d56ad63"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "9a34008745dfd761f233e7afd504fe7388cde8f5c4a07b16df34e1d14a06068e",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "86cb6f711fc68a18af3db0b837b1e825a965fb180e9f3631029ac7405de9a7c8",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java": "6e3dacd515660ead7946df5579922107568dcbc6ec062a9933246e4d113cbb88",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java": "502028ef5e7163070e05d84fa8a269b6f1b7a351cfb1a91425ad74a2753e331e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java": "3718b9385eab755a1aabf7eced78ee4b91baa1d30b97a0f4b572e74918710a19",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": "184da347491c6642f0c4a46d8cfcfe39ba8e7ebc8841530592bdd082fdd9bf5e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "879e8bfa5ab0eaf70b41898783701168a13941fea11ddd3e84528ef192f549bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java": "d82ac3304eebae16f46b6d0e0c5a6406d9faa59545b9a795eeb570c2c698666f",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java": "20c3853ed541c546a2ca81e499c01d20cd1ffc18910a95feca26946b3ca536f3",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "95243007b7c41d31468b5761b9e69a92ccbddb534b356e8c0e0cf5ac3b90c5c4",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java": "f15b11fe7e188057365cb5425e7ac8d552c4bda7005c0a14783c870bb365f9fc",
+    "app/src/main/res/values/m9_auto_iso.xml": "3d5fc858a9aec396ce22b13a084497dddbbdc57d421296230044e54a38122bf8",
+    "app/src/main/res/values/m9_profiles.xml": "12af4ed04db3c370ccfa792714e7c7bf4f7fe3551ddd13299e115748ef9e791e",
+    "app/src/main/res/xml/preferences_m9.xml": "786983df849d6851d008c113affe19fcfc4e275f6b1576f0e62b9c1a860b84d1",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java": "d26613a4f3ce0dc505aed381824077d884f3ee718bf0be72314b2ab12c781190",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java": "c14263a78585c943af64232c403b85e279d338a7bb120ff509c07e8864e18074"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java",
+    "app/src/main/res/values/m9_auto_iso.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java"
+  ],
+  "deletedFiles": [],
+  "patchSha256": "90678c07f5ba6add9af3ace4a1d3cff6f68435e1ed47a77eebc35e0bb72a39df",
+  "nativePolicy": "Preserve all 25 native entries and every asset from phone-accepted 2.35",
+  "scope": "Auto ISO maximum, slowest shutter, immutable exposure identity and profile persistence. No renderer/orientation changes."
+}

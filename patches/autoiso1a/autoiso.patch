@@ -1,0 +1,794 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27235
++        versionCode 27236
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.35-m9orientationfix1a'
++        versionName '2.36-m9autoiso1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.35_ORIENTATIONFIX1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.36_AUTOISO1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -4458,7 +4458,9 @@
+         return plan != null && plan.matches(PhotonCamera.getSettings().mCameraID,
+                 PhotonCamera.getSettings().selectedMode.name(), SystemClock.elapsedRealtime(),
+                 paramController.getM9UserEv1A(), (long) paramController.getCurrentExposureValue(),
+-                (int) paramController.getCurrentISOValue()) ? plan : null;
++                (int) paramController.getCurrentISOValue())
++                && plan.matchesAutoIsoControls(com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime.snapshot().identity)
++                ? plan : null;
+     }
+ 
+     /**
+@@ -4473,7 +4475,9 @@
+         return plan.matches(PhotonCamera.getSettings().mCameraID,
+                 PhotonCamera.getSettings().selectedMode.name(), SystemClock.elapsedRealtime(),
+                 paramController.getM9UserEv1A(), (long) paramController.getCurrentExposureValue(),
+-                (int) paramController.getCurrentISOValue()) ? plan : null;
++                (int) paramController.getCurrentISOValue())
++                && plan.matchesAutoIsoControls(com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime.snapshot().identity)
++                ? plan : null;
+     }
+ 
+     public void updateM9LiveGlIntendedExposure1B(int iso, long exposureNs) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java
+@@ -0,0 +1,22 @@
++package com.particlesdevs.photoncamera.m9;
++
++import android.hardware.camera2.CameraCharacteristics;
++import android.util.SizeF;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.capture.CaptureController;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/** Read both global controls atomically; resolve against the active camera's metadata. */
++public final class M9AutoIsoRuntime {
++    private M9AutoIsoRuntime() {}
++    public static M9AutoIsoSettings.Controls snapshot() {
++        SettingsManager settings = PhotonCamera.getSettingsManagerStatic();
++        M9AutoIsoSettings selected = M9AutoIsoSettings.read(settings == null ? null
++                : settings.getDefaultPreferences().getAll());
++        CameraCharacteristics camera = CaptureController.mCameraCharacteristics;
++        float[] focals = camera == null ? null : camera.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
++        SizeF size = camera == null ? null : camera.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
++        return selected.resolve(focals != null && focals.length > 0 ? focals[0] : Double.NaN,
++                size != null ? size.getWidth() : Double.NaN);
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java
+@@ -0,0 +1,70 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.Map;
++
++/** M9 menu values in physical sensor ISO. No claim of calibrated M9 sensor sensitivity. */
++public final class M9AutoIsoSettings {
++    public static final String REVISION = "M9AUTOISO1A";
++    public static final String MAX_ISO_KEY = "pref_m9_auto_iso_max";
++    public static final String SLOWEST_KEY = "pref_m9_auto_iso_slowest";
++    public static final int DEFAULT_MAX_ISO = 2500, DEFAULT_SLOWEST = 0;
++    private static final int[] ISO_VALUES = {160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500};
++    private static final int[] SHUTTERS = {125,60,30,15,8};
++    public final int maxIso, slowestMode;
++
++    public M9AutoIsoSettings(int maxIso, int slowestMode) {
++        if (!validMaxIso(maxIso) || !validSlowest(slowestMode))
++            throw new IllegalArgumentException("Invalid M9 Auto ISO settings");
++        this.maxIso = maxIso; this.slowestMode = slowestMode;
++    }
++    public static boolean validMaxIso(int value) {
++        for (int iso : ISO_VALUES) if (iso == value) return true;
++        return false;
++    }
++    public static boolean validSlowest(int value) { return value >= 0 && value <= 5; }
++    public static M9AutoIsoSettings read(Map<String,?> values) {
++        int max = integer(values,MAX_ISO_KEY,DEFAULT_MAX_ISO);
++        int slow = integer(values,SLOWEST_KEY,DEFAULT_SLOWEST);
++        return new M9AutoIsoSettings(validMaxIso(max) ? max : DEFAULT_MAX_ISO,
++                validSlowest(slow) ? slow : DEFAULT_SLOWEST);
++    }
++    private static int integer(Map<String,?> values, String key, int fallback) {
++        Object value = values == null ? null : values.get(key);
++        if (!(value instanceof String)) return fallback;
++        try { return Integer.parseInt((String)value); }
++        catch (NumberFormatException invalid) { return fallback; }
++    }
++
++    /** Same whole-stop, 35mm-equivalent lens policy as Monochrom; no digital-zoom multiplier. */
++    public Controls resolve(double focalMm, double sensorWidthMm) {
++        double equivalent = focalMm * 36.0 / sensorWidthMm;
++        boolean fallback = !Double.isFinite(focalMm) || focalMm <= 0
++                || !Double.isFinite(sensorWidthMm) || sensorWidthMm <= 0
++                || !Double.isFinite(equivalent) || equivalent <= 0;
++        int equivalentX10 = fallback ? 350 : (int)Math.round(Math.max(8,Math.min(200,equivalent))*10);
++        int denominator = slowestMode == 0 ? nearestWholeStop(equivalentX10 / 10.0)
++                : SHUTTERS[slowestMode-1];
++        return new Controls(maxIso,slowestMode,equivalentX10,fallback,denominator);
++    }
++    private static int nearestWholeStop(double focal) {
++        int result = 8; double best = Double.POSITIVE_INFINITY;
++        for (int speed : new int[]{8,15,30,60,125}) {
++            double distance = Math.abs(Math.log(focal / speed));
++            if (distance < best) { best = distance; result = speed; }
++        }
++        return result;
++    }
++
++    /** One immutable preference/lens snapshot is used for both neutral and intended plans. */
++    public static final class Controls {
++        public final int maxIso, slowestMode, equivalentFocalX10, denominator;
++        public final boolean lensFallback;
++        public final long slowestNs;
++        public final String identity;
++        private Controls(int max, int mode, int focal, boolean fallback, int denominator) {
++            maxIso=max; slowestMode=mode; equivalentFocalX10=focal; lensFallback=fallback;
++            this.denominator=denominator; slowestNs=Math.round(1e9 / denominator);
++            identity=REVISION+":"+max+":"+mode+":"+focal+":"+fallback+":"+slowestNs;
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java
+@@ -0,0 +1,56 @@
++package com.particlesdevs.photoncamera.m9;
++
++/** Physical ISO/time allocation shared by preview intent and the single-RAW capture plan. */
++public final class M9ExposureAllocation {
++    private M9ExposureAllocation() {}
++    public static final class Result {
++        public final int iso, automaticIsoMax;
++        public final long exposureNs, automaticExposureMaxNs, slowestNs;
++        public final String reason;
++        Result(int iso, long exposure, int maxIso, long maxTime, long slowest, String reason) {
++            this.iso=iso; exposureNs=exposure; automaticIsoMax=maxIso;
++            automaticExposureMaxNs=maxTime; slowestNs=slowest; this.reason=reason;
++        }
++    }
++    public static Result allocate(double target, int isoLow, int sensorIsoHigh,
++            long timeLow, long sensorTimeHigh, int policyIsoHigh, long policyTimeHigh,
++            long preferredTime, int manualIso, long manualTime, M9AutoIsoSettings.Controls controls) {
++        if (!Double.isFinite(target) || target <= 0 || isoLow <= 0 || sensorIsoHigh < isoLow
++                || timeLow <= 0 || sensorTimeHigh < timeLow || controls == null)
++            throw new IllegalArgumentException("Invalid physical exposure bounds");
++        int autoIsoHigh = (int)clamp(Math.min(policyIsoHigh,controls.maxIso),isoLow,sensorIsoHigh);
++        long autoTimeHigh = clamp(policyTimeHigh,timeLow,sensorTimeHigh);
++        long slowest = clamp(controls.slowestNs,timeLow,autoTimeHigh);
++        int iso; long exposure; String reason;
++        if (manualIso > 0 && manualTime > 0) {
++            iso=(int)clamp(manualIso,isoLow,sensorIsoHigh);
++            exposure=clamp(manualTime,timeLow,sensorTimeHigh);
++            reason="explicit_sensor_pair";
++        } else if (manualTime > 0) {
++            exposure=clamp(manualTime,timeLow,sensorTimeHigh);
++            iso=(int)clamp(Math.round(target/exposure),isoLow,autoIsoHigh);
++            reason="explicit_shutter_auto_iso";
++        } else if (manualIso > 0) {
++            iso=(int)clamp(manualIso,isoLow,sensorIsoHigh);
++            exposure=clamp(Math.round(target/iso),timeLow,autoTimeHigh);
++            reason="explicit_iso_auto_shutter";
++        } else if (target <= M9ExposurePlan1A.energy(isoLow,timeLow)) {
++            iso=isoLow; exposure=timeLow;
++            reason="minimum_exposure_boundary";
++        } else if (target >= M9ExposurePlan1A.energy(autoIsoHigh,autoTimeHigh)) {
++            iso=autoIsoHigh; exposure=autoTimeHigh;
++            reason="maximum_automatic_exposure_boundary";
++        } else {
++            // Slowest is a preference, not an underexposure-inducing hard cap. At the
++            // ISO ceiling the feasible interval requires a longer shutter instead.
++            double shortest=Math.max(timeLow,target/autoIsoHigh);
++            double longest=Math.min(autoTimeHigh,target/isoLow);
++            double shutter=Math.max(shortest,Math.min(longest,Math.min(preferredTime,slowest)));
++            iso=(int)clamp((long)Math.ceil(target/shutter),isoLow,autoIsoHigh);
++            exposure=clamp(Math.round(target/iso),timeLow,autoTimeHigh);
++            reason="intent_preserved_within_automatic_bounds";
++        }
++        return new Result(iso,exposure,autoIsoHigh,autoTimeHigh,slowest,reason);
++    }
++    private static long clamp(long n, long low, long high) { return Math.max(low,Math.min(high,n)); }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -14,19 +14,30 @@
+     private final String shutterPreviewSnapshot1W;
+     private final String autoPlacementSnapshot2D;
+     private final String allocationSnapshot2G;
++    private final String autoIsoControlsIdentity;
++    public String getAutoIsoControlsIdentity() { return autoIsoControlsIdentity; }
++    public boolean matchesAutoIsoControls(String identity) {
++        return autoIsoControlsIdentity != null && autoIsoControlsIdentity.equals(identity);
++    }
++    public M9ExposurePlan1A withAutoIsoControls(String identity) {
++        return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
++                observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G, identity);
++    }
+     public String getAllocationSnapshot2G() { return allocationSnapshot2G; }
+     public M9ExposurePlan1A withAllocationSnapshot2G(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot);
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot, autoIsoControlsIdentity);
+     }
+     public String getAutoPlacementSnapshot2D() { return autoPlacementSnapshot2D; }
+     public M9ExposurePlan1A withAutoPlacement2D(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G);
++                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G, autoIsoControlsIdentity);
+     }
+ 
+     public String getShutterPreviewSnapshot1W() { return shutterPreviewSnapshot1W; }
+@@ -35,7 +46,7 @@
+     public M9ExposurePlan1A withShutterPreviewSnapshot1W(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+-                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G);
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G, autoIsoControlsIdentity);
+     }
+ 
+     public M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+@@ -45,14 +56,15 @@
+             long manualExposureNs, int manualIso, int postRawBoost) {
+         this(id, createdMs, sensorTimestampNs, cameraId, mode, observedIso, observedExposureNs,
+                 referenceIso, referenceExposureNs, iso, exposureNs, userEv, autoEv, autoReason,
+-                manualExposureNs, manualIso, postRawBoost, null, null, null);
++                manualExposureNs, manualIso, postRawBoost, null, null, null, null);
+     }
+ 
+     private M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+             String cameraId, String mode, int observedIso, long observedExposureNs,
+             int referenceIso, long referenceExposureNs, int iso, long exposureNs,
+             double userEv, double autoEv, String autoReason,
+-            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot, String allocationSnapshot) {
++            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot, String allocationSnapshot, String controlsIdentity) {
++        this.autoIsoControlsIdentity = controlsIdentity;
+         this.allocationSnapshot2G = allocationSnapshot;
+         this.autoPlacementSnapshot2D = autoSnapshot;
+         this.shutterPreviewSnapshot1W = snapshot;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -12,6 +12,7 @@
+             o.put("schema", "m9cam.exposureplan.v1a");
+             o.put("revision", M9ExposurePlan1A.REVISION);
+             o.put("id", plan.id);
++            o.put("autoIsoControlsIdentity", plan.getAutoIsoControlsIdentity());
+             String shutterPreview1W = plan.getShutterPreviewSnapshot1W();
+             if (shutterPreview1W != null) {
+                 try { o.put("shutterPreview1W", new JSONObject(shutterPreview1W)); }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
+@@ -30,10 +30,16 @@
+     }
+ 
+     public static final class Snapshot {
+-        public final int saturation, contrast, sharpness;
++        public final int saturation, contrast, sharpness, autoIsoMax, slowestMode;
+         /** Effective Leica EV. Legacy ±4/off-grid values remain readable and normalize to thirds. */
+         public final String ev;
+         public Snapshot(int saturation, int contrast, int sharpness, String ev) {
++            this(saturation,contrast,sharpness,ev,M9AutoIsoSettings.DEFAULT_MAX_ISO,M9AutoIsoSettings.DEFAULT_SLOWEST);
++        }
++        public Snapshot(int saturation, int contrast, int sharpness, String ev, int autoIsoMax, int slowestMode) {
++            if (!M9AutoIsoSettings.validMaxIso(autoIsoMax) || !M9AutoIsoSettings.validSlowest(slowestMode))
++                throw new ProfileException(Problem.SETTINGS);
++            this.autoIsoMax=autoIsoMax; this.slowestMode=slowestMode;
+             if (!level(saturation) || !level(contrast) || !level(sharpness) || ev == null)
+                 throw new ProfileException(Problem.SETTINGS);
+             try {
+@@ -47,17 +53,21 @@
+         private static boolean level(int n) { return n >= 0 && n <= 4; }
+         public boolean sameSettings(Snapshot other) {
+             return other != null && saturation == other.saturation && contrast == other.contrast
+-                    && sharpness == other.sharpness && Double.parseDouble(ev) == Double.parseDouble(other.ev);
++                    && sharpness == other.sharpness && Double.parseDouble(ev) == Double.parseDouble(other.ev)
++                    && autoIsoMax == other.autoIsoMax && slowestMode == other.slowestMode;
+         }
+         JSONObject toJson() throws JSONException {
+             return new JSONObject().put("saturation",saturation).put("contrast",contrast)
+-                    .put("sharpness",sharpness).put("ev",ev);
++                    .put("sharpness",sharpness).put("ev",ev)
++                    .put("autoIsoMax",autoIsoMax).put("slowestMode",slowestMode);
+         }
+         static Snapshot fromJson(JSONObject json) throws JSONException {
+             Object ev = json.get("ev");
+             if (!(ev instanceof String)) throw new ProfileException(Problem.DATA);
+             return new Snapshot(integer(json,"saturation"),integer(json,"contrast"),
+-                    integer(json,"sharpness"),(String)ev);
++                    integer(json,"sharpness"),(String)ev,
++                    json.has("autoIsoMax") ? integer(json,"autoIsoMax") : M9AutoIsoSettings.DEFAULT_MAX_ISO,
++                    json.has("slowestMode") ? integer(json,"slowestMode") : M9AutoIsoSettings.DEFAULT_SLOWEST);
+         }
+         private static int integer(JSONObject json, String key) throws JSONException {
+             Object value = json.get(key);
+@@ -84,7 +94,9 @@
+         try {
+             return new Snapshot(Integer.parseInt(text(all,M9SaturationSettings.KEY,"2")),
+                     Integer.parseInt(text(all,M9ContrastSettings.KEY,"2")),
+-                    Integer.parseInt(text(all,M9SharpnessSettings.KEY,"2")),text(all,EV_KEY,"0.0"));
++                    Integer.parseInt(text(all,M9SharpnessSettings.KEY,"2")),text(all,EV_KEY,"0.0"),
++                    Integer.parseInt(text(all,M9AutoIsoSettings.MAX_ISO_KEY,"2500")),
++                    Integer.parseInt(text(all,M9AutoIsoSettings.SLOWEST_KEY,"0")));
+         } catch (RuntimeException invalid) { throw new ProfileException(Problem.SETTINGS); }
+     }
+     private static String text(Map<String,?> all, String key, String fallback) {
+@@ -142,12 +154,15 @@
+     public void apply(String id) {
+         Profile profile = required(list(),id);
+         Snapshot settings = profile.settings;
+-        // A single edit makes all four values visible together to the existing settings listeners.
+-        // No output, diagnostic, WB, ISO, shutter, lens or display preference is written here.
++        // One edit makes all six photographic preferences visible together to listeners.
++        // Manual sensor controls, output, diagnostics, WB, lens and display are untouched.
+         preferences.edit().putString(M9SaturationSettings.KEY,Integer.toString(settings.saturation))
+                 .putString(M9ContrastSettings.KEY,Integer.toString(settings.contrast))
+                 .putString(M9SharpnessSettings.KEY,Integer.toString(settings.sharpness))
+-                .putString(EV_KEY,settings.ev).putString(ACTIVE_KEY,profile.id).apply();
++                .putString(EV_KEY,settings.ev)
++                .putString(M9AutoIsoSettings.MAX_ISO_KEY,Integer.toString(settings.autoIsoMax))
++                .putString(M9AutoIsoSettings.SLOWEST_KEY,Integer.toString(settings.slowestMode))
++                .putString(ACTIVE_KEY,profile.id).apply();
+     }
+ 
+     public void update(String id) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+@@ -14,6 +14,9 @@
+ import com.particlesdevs.photoncamera.app.PhotonCamera;
+ import com.particlesdevs.photoncamera.m9.M9Config;
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
++import com.particlesdevs.photoncamera.m9.M9AutoIsoSettings;
++import com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime;
++import com.particlesdevs.photoncamera.m9.M9ExposureAllocation;
+ import com.particlesdevs.photoncamera.m9.M9ExposureDiagnostics;
+ import com.particlesdevs.photoncamera.m9.M9ExposureAudit;
+ import com.particlesdevs.photoncamera.m9.M9SceneExposureDiagnostic;
+@@ -137,8 +140,10 @@
+         final long exposureNs, manualExposureNs;
+         final double ev, autoEv;
+         final boolean tripod;
++        final M9AutoIsoSettings.Controls autoIso;
+         PlanInput1A(int iso, long exposureNs, double ev, double autoEv,
+-                long manualExposureNs, int manualIso, boolean tripod) {
++                long manualExposureNs, int manualIso, boolean tripod, M9AutoIsoSettings.Controls autoIso) {
++            this.autoIso=autoIso;
+             this.iso=iso; this.exposureNs=exposureNs; this.ev=ev; this.autoEv=autoEv;
+             this.manualExposureNs=manualExposureNs; this.manualIso=manualIso; this.tripod=tripod;
+         }
+@@ -166,7 +171,8 @@
+         M9BacklightDiagnostic.LiveFeedbackDecision feedback = M9M10rMfmTest1A.evaluateForPlan1A(
+                 M9ExposurePlan1A.energy(iso, exposure) / 1e9, rotation, eligible,
+                 eligible ? "eligible_live_auto_plan" : "manual_or_tripod_plan");
+-        PlanInput1A referenceInput = new PlanInput1A(iso, exposure, 0.0, 0.0, 0L, 0, tripod);
++        M9AutoIsoSettings.Controls autoIso = M9AutoIsoRuntime.snapshot();
++        PlanInput1A referenceInput = new PlanInput1A(iso, exposure, 0.0, 0.0, 0L, 0, tripod, autoIso);
+         ExpoPair reference = generateExpoPair1A(-1, controller, referenceInput);
+         com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.Decision placement2D =
+                 com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.decide(
+@@ -175,7 +181,7 @@
+                         M9ExposurePlan1A.energy(reference.iso, reference.exposure), ev,
+                         manualExposure, manualIso, feedback.appliedEv, eligible);
+         PlanInput1A intendedInput = new PlanInput1A(iso, exposure, ev, placement2D.appliedEv,
+-                manualExposure, manualIso, tripod);
++                manualExposure, manualIso, tripod, autoIso);
+         ExpoPair intended = generateExpoPair1A(-1, controller, intendedInput);
+         Integer boost = observation.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
+         return new M9ExposurePlan1A(android.os.SystemClock.elapsedRealtimeNanos(),
+@@ -184,7 +190,8 @@
+                 iso, exposure, reference.iso, reference.exposure, intended.iso, intended.exposure,
+                 ev, placement2D.appliedEv, placement2D.reason, manualExposure, manualIso,
+                 boost != null ? boost : 100).withAutoPlacement2D(placement2D.diagnostics)
+-                .withAllocationSnapshot2G(allocationSnapshot2G(reference, intended));
++                .withAllocationSnapshot2G(allocationSnapshot2G(reference, intended))
++                .withAutoIsoControls(autoIso.identity);
+     }
+ 
+     public static ExpoPair getM9LiveHudPair1A(CaptureController controller) {
+@@ -561,40 +568,31 @@
+         final int preferredIso = pair.iso;
+         final long preferredTime = pair.exposure;
+         final boolean manualIso = input.manualIso > 0, manualTime = input.manualExposureNs > 0;
+-        String reason;
+-        if (manualIso && manualTime) {
+-            pair.iso = Math.max(isoLow, Math.min(sensorIsoHigh, input.manualIso));
+-            pair.exposure = Math.max(timeLow, Math.min(sensorTimeHigh, input.manualExposureNs));
+-            reason = "explicit_sensor_pair";
+-        } else if (manualTime) {
+-            pair.exposure = Math.max(timeLow, Math.min(sensorTimeHigh, input.manualExposureNs));
+-            pair.iso = (int) Math.max(isoLow, Math.min(autoIsoHigh, Math.round(target / pair.exposure)));
+-            reason = "explicit_shutter_auto_iso";
+-        } else if (manualIso) {
+-            pair.iso = Math.max(isoLow, Math.min(sensorIsoHigh, input.manualIso));
+-            pair.exposure = Math.max(timeLow, Math.min(autoTimeHigh, Math.round(target / pair.iso)));
+-            reason = "explicit_iso_auto_shutter";
+-        } else if (target <= M9ExposurePlan1A.energy(isoLow, timeLow)) {
+-            pair.iso = isoLow; pair.exposure = timeLow;
+-            reason = "minimum_exposure_boundary";
+-        } else if (target >= M9ExposurePlan1A.energy(autoIsoHigh, autoTimeHigh)) {
+-            pair.iso = autoIsoHigh; pair.exposure = autoTimeHigh;
+-            reason = "maximum_automatic_exposure_boundary";
+-        } else {
+-            // The target is feasible. Use the preferred shutter inside the interval
+-            // that can actually retain its energy, then resolve integer sensor ISO.
+-            double shortest = Math.max(timeLow, target / autoIsoHigh);
+-            double longest = Math.min(autoTimeHigh, target / isoLow);
+-            double shutter = Math.max(shortest, Math.min(longest, preferredTime));
+-            pair.iso = (int) Math.max(isoLow, Math.min(autoIsoHigh, Math.ceil(target / shutter)));
+-            pair.exposure = Math.max(timeLow, Math.min(autoTimeHigh, Math.round(target / pair.iso)));
+-            reason = "intent_preserved_within_automatic_bounds";
+-        }
++        M9ExposureAllocation.Result allocation = M9ExposureAllocation.allocate(target,
++                isoLow, sensorIsoHigh, timeLow, sensorTimeHigh, autoIsoHigh, autoTimeHigh,
++                preferredTime, input.manualIso, input.manualExposureNs, input.autoIso);
++        pair.iso = allocation.iso;
++        pair.exposure = allocation.exposureNs;
++        autoIsoHigh = allocation.automaticIsoMax;
++        autoTimeHigh = allocation.automaticExposureMaxNs;
++        String reason = allocation.reason;
+         double errorEv = Math.log(M9ExposurePlan1A.energy(pair.iso, pair.exposure) / target) / Math.log(2.0);
+         try {
+         pair.allocationSnapshot2G = new JSONObject()
+                 .put("revision", "M9LIVEGL2G_EXPOSUREENERGY")
+                 .put("reason", reason)
++                .put("autoIsoRevision", M9AutoIsoSettings.REVISION)
++                .put("autoIsoControlsIdentity", input.autoIso.identity)
++                .put("selectedAutoIsoMax", input.autoIso.maxIso)
++                .put("selectedSlowestMode", input.autoIso.slowestMode)
++                .put("selectedSlowestNs", input.autoIso.slowestNs)
++                .put("effectiveSlowestNs", allocation.slowestNs)
++                .put("equivalentFocalLength35mm", input.autoIso.equivalentFocalX10 / 10.0)
++                .put("lensMetadataFallback", input.autoIso.lensFallback)
++                .put("isoFloorExceedsSelectedCap", isoLow > input.autoIso.maxIso)
++                .put("slowestBypassedForManualControl", manualIso || manualTime)
++                .put("slowestExceededAtIsoCeiling", !manualIso && !manualTime
++                        && pair.iso == autoIsoHigh && pair.exposure > allocation.slowestNs + 1000L)
+                 .put("automaticIsoPolicy", validAnalog ? "reported_analog_range" : "reported_sensor_range_analog_unavailable")
+                 .put("sensorIsoMax", sensorIsoHigh).put("automaticIsoMax", autoIsoHigh)
+                 .put("automaticExposureMaxNs", autoTimeHigh)
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+@@ -36,6 +36,8 @@
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.LIBRARY_KEY);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv.KEY);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.MAX_ISO_KEY);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.SLOWEST_KEY);
+         COMMON_KEYS.add(Key.CAMERA_ID.mValue);
+         COMMON_KEYS.add(Key.KEY_SAVE_PER_LENS_SETTINGS.mValue);
+         COMMON_KEYS.add(Key.KEY_PRESERVE_MANUAL_WB.mValue);
+@@ -208,6 +210,8 @@
+                     || com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY.equals(key)) continue;
+             if (com.particlesdevs.photoncamera.m9.M9DisplayAids.HIGHLIGHT_KEY.equals(key)
+                     || com.particlesdevs.photoncamera.m9.M9DisplayAids.SHADOW_KEY.equals(key)) continue;
++            if (com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.MAX_ISO_KEY.equals(key)
++                    || com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.SLOWEST_KEY.equals(key)) continue;
+             Object value = e.getValue();
+             // Normalize boolean values to the "1"/"0" String convention used by
+             // SettingsManager/ManagedSwitchPreference. This also fixes up legacy
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
+@@ -16,6 +16,7 @@
+ import com.particlesdevs.photoncamera.R;
+ import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles;
++import com.particlesdevs.photoncamera.m9.M9AutoIsoSettings;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Profile;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Snapshot;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ProfileException;
+@@ -43,7 +44,8 @@
+     void changed(String key) {
+         if (key == null || key.equals(M9ShootingProfiles.LIBRARY_KEY) || key.equals(M9ShootingProfiles.ACTIVE_KEY)
+                 || key.equals(M9ShootingProfiles.EV_KEY) || key.equals(M9SaturationSettings.KEY)
+-                || key.equals(M9ContrastSettings.KEY) || key.equals(M9SharpnessSettings.KEY)) refresh();
++                || key.equals(M9ContrastSettings.KEY) || key.equals(M9SharpnessSettings.KEY)
++                || key.equals(M9AutoIsoSettings.MAX_ISO_KEY) || key.equals(M9AutoIsoSettings.SLOWEST_KEY)) refresh();
+     }
+ 
+     void refresh() {
+@@ -70,6 +72,8 @@
+             syncList(M9SaturationSettings.KEY,settings.saturation);
+             syncList(M9ContrastSettings.KEY,settings.contrast);
+             syncList(M9SharpnessSettings.KEY,settings.sharpness);
++            syncList(M9AutoIsoSettings.MAX_ISO_KEY,settings.autoIsoMax);
++            syncList(M9AutoIsoSettings.SLOWEST_KEY,settings.slowestMode);
+             if (save != null) {
+                 boolean hasRoom = profiles.size() < M9ShootingProfiles.MAX_PROFILES;
+                 save.setEnabled(hasRoom);
+@@ -116,7 +120,8 @@
+         String[] sharpness = context.getResources().getStringArray(R.array.m9_sharpness_entries);
+         return context.getString(R.string.m9_profile_values,saturation[settings.saturation],
+                 contrast[settings.contrast],sharpness[settings.sharpness],
+-                LeicaEv.label(Double.parseDouble(settings.ev)));
++                LeicaEv.label(Double.parseDouble(settings.ev)),Integer.toString(settings.autoIsoMax),
++                context.getResources().getStringArray(R.array.m9_auto_iso_slowest_entries)[settings.slowestMode]);
+     }
+ 
+     private void showProfile(Profile profile) {
+diff --git a/app/src/main/res/values/m9_auto_iso.xml b/app/src/main/res/values/m9_auto_iso.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/m9_auto_iso.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_auto_iso_title">Auto ISO setup</string>
++    <string name="m9_auto_iso_summary">Maximum ISO and slowest shutter</string>
++    <string name="m9_auto_iso_max_title">Maximum ISO</string>
++    <string name="m9_auto_iso_slowest_title">Slowest shutter</string>
++    <string name="m9_auto_iso_info">In Photo and Motion, ISO rises to hold the slowest shutter. At the ISO ceiling, the shutter can slow further to preserve exposure.\n\nLens dependent follows the active lens. Manual ISO bypasses both settings; manual shutter keeps its speed while Auto ISO obeys the ceiling. Camera limits still apply.\n\nProfiles save both choices. Older profiles use ISO 2500 and Lens dependent.</string>
++    <string-array name="m9_auto_iso_max_entries">
++        <item>ISO 160</item><item>ISO 200</item><item>ISO 250</item><item>ISO 320</item><item>ISO 400</item><item>ISO 500</item><item>ISO 640</item><item>ISO 800</item><item>ISO 1000</item><item>ISO 1250</item><item>ISO 1600</item><item>ISO 2000</item><item>ISO 2500</item>
++    </string-array>
++    <string-array name="m9_auto_iso_max_values">
++        <item>160</item><item>200</item><item>250</item><item>320</item><item>400</item><item>500</item><item>640</item><item>800</item><item>1000</item><item>1250</item><item>1600</item><item>2000</item><item>2500</item>
++    </string-array>
++    <string-array name="m9_auto_iso_slowest_entries">
++        <item>Lens dependent</item><item>1/125 s</item><item>1/60 s</item><item>1/30 s</item><item>1/15 s</item><item>1/8 s</item>
++    </string-array>
++    <string-array name="m9_auto_iso_slowest_values">
++        <item>0</item><item>1</item><item>2</item><item>3</item><item>4</item><item>5</item>
++    </string-array>
++</resources>
+diff --git a/app/src/main/res/values/m9_profiles.xml b/app/src/main/res/values/m9_profiles.xml
+--- a/app/src/main/res/values/m9_profiles.xml
++++ b/app/src/main/res/values/m9_profiles.xml
+@@ -2,14 +2,14 @@
+ <resources>
+     <string name="m9_profiles_title">Shooting profiles</string>
+     <string name="m9_profiles_summary">Save and recall your image settings</string>
+-    <string name="m9_profiles_info">Profiles save saturation, contrast, sharpness and exposure compensation. Output, diagnostics and other settings stay as you set them.</string>
++    <string name="m9_profiles_info">Profiles save saturation, contrast, sharpness, exposure compensation, Auto ISO maximum and slowest shutter. Output, diagnostics and other settings stay as you set them.</string>
+     <string name="m9_profile_entry_summary">%1$s · Save and recall settings</string>
+     <string name="m9_profile_current_title">Current: %1$s</string>
+     <string name="m9_profile_custom">Custom settings</string>
+     <string name="m9_profile_modified">%1$s (modified)</string>
+-    <string name="m9_profile_values">Saturation: %1$s · Contrast: %2$s\nSharpness: %3$s · EV: %4$s</string>
++    <string name="m9_profile_values">Saturation: %1$s · Contrast: %2$s\nSharpness: %3$s · EV: %4$s\nAuto ISO max: %5$s · Slowest: %6$s</string>
+     <string name="m9_profile_save">Save current settings</string>
+-    <string name="m9_profile_save_summary">Create a named profile from these four settings</string>
++    <string name="m9_profile_save_summary">Create a named profile from these settings</string>
+     <string name="m9_profile_saved">Saved profiles</string>
+     <string name="m9_profile_empty">No saved profiles yet</string>
+     <string name="m9_profile_empty_summary">Set your preferred image controls, then save them here.</string>
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -15,6 +15,11 @@
+     <PreferenceScreen android:key="pref_m9_capture_screen" android:title="@string/m9_menu_capture" android:summary="@string/m9_menu_capture_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_focus" android:orderingFromXml="true">
+         <ListPreference android:key="@string/pref_expocompensation_seekbar_key" android:layout="@layout/preference_with_margin" android:title="@string/expocompensation" android:dialogTitle="@string/m9_ev_dialog" android:entries="@array/m9_ev_entries" android:entryValues="@array/m9_ev_values" android:defaultValue="0.0" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <Preference android:key="m9_ev_info" android:layout="@layout/preference_with_margin" android:selectable="false" android:summary="@string/m9_ev_info" />
++        <PreferenceScreen android:key="pref_m9_auto_iso_screen" android:title="@string/m9_auto_iso_title" android:summary="@string/m9_auto_iso_summary" android:layout="@layout/preference_with_margin" android:orderingFromXml="true">
++            <ListPreference android:key="pref_m9_auto_iso_max" android:title="@string/m9_auto_iso_max_title" android:dialogTitle="@string/m9_auto_iso_max_title" android:layout="@layout/preference_with_margin" android:entries="@array/m9_auto_iso_max_entries" android:entryValues="@array/m9_auto_iso_max_values" android:defaultValue="2500" app:useSimpleSummaryProvider="true" />
++            <ListPreference android:key="pref_m9_auto_iso_slowest" android:title="@string/m9_auto_iso_slowest_title" android:dialogTitle="@string/m9_auto_iso_slowest_title" android:layout="@layout/preference_with_margin" android:entries="@array/m9_auto_iso_slowest_entries" android:entryValues="@array/m9_auto_iso_slowest_values" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
++            <Preference android:key="m9_auto_iso_info" android:summary="@string/m9_auto_iso_info" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
++        </PreferenceScreen>
+         <ListPreference android:key="@string/pref_countdown_timer_key" android:title="@string/countdown_timer" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_timer" android:entries="@array/m9_menu_timer_entries" android:entryValues="@array/m9_menu_timer_indices" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
+         <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_af_mode_key" android:title="@string/af_mode" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_focus" android:entries="@array/af_mode_entries" android:entryValues="@array/af_mode_entryvalues" android:defaultValue="@string/pref_af_mode_default_value" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_auto_zoom_switch_key" android:defaultValue="@bool/pref_auto_zoom_switch_default" android:layout="@layout/preference_with_margin" android:title="@string/auto_zoom_lens_switch" android:summary="@string/auto_zoom_lens_switch_summary" android:icon="@drawable/ic_focus" />
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java
+@@ -0,0 +1,127 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.HashMap;
++import java.util.Map;
++import java.util.Random;
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9AutoIsoTest {
++    private static M9AutoIsoSettings.Controls controls(int max, int slow) {
++        return new M9AutoIsoSettings(max,slow).resolve(24,36);
++    }
++    private static M9ExposureAllocation.Result auto(double energy, int max, int slow, long preferred) {
++        return M9ExposureAllocation.allocate(energy,100,6400,100000L,1000000000L,
++                3200,1000000000L,preferred,0,0,controls(max,slow));
++    }
++    private static void energy(double target, M9ExposureAllocation.Result result) {
++        assertEquals(target,M9ExposurePlan1A.energy(result.iso,result.exposureNs),result.iso * 0.51);
++    }
++    @Test public void defaultsAndMalformedStorageAreReadWithoutWrites() {
++        Map<String,Object> map=new HashMap<>();
++        assertEquals(2500,M9AutoIsoSettings.read(map).maxIso);
++        assertEquals(0,M9AutoIsoSettings.read(map).slowestMode);
++        assertTrue(map.isEmpty());
++        map.put(M9AutoIsoSettings.MAX_ISO_KEY,"10000"); map.put(M9AutoIsoSettings.SLOWEST_KEY,"-1");
++        assertEquals(2500,M9AutoIsoSettings.read(map).maxIso);
++        assertEquals(0,M9AutoIsoSettings.read(map).slowestMode);
++        map.put(M9AutoIsoSettings.MAX_ISO_KEY,640); map.put(M9AutoIsoSettings.SLOWEST_KEY,"bad");
++        assertEquals(2500,M9AutoIsoSettings.read(map).maxIso);
++        map.put(M9AutoIsoSettings.MAX_ISO_KEY,"640"); map.put(M9AutoIsoSettings.SLOWEST_KEY,"4");
++        assertEquals(640,M9AutoIsoSettings.read(map).maxIso);
++        assertEquals(4,M9AutoIsoSettings.read(map).slowestMode);
++    }
++    @Test public void lensPolicyUsesEquivalentFocalAndFixedSpeedsIgnoreLens() {
++        M9AutoIsoSettings setting=new M9AutoIsoSettings(2500,0);
++        assertEquals(15,setting.resolve(13,36).denominator);
++        assertEquals(30,setting.resolve(6,9).denominator);
++        assertEquals(30,setting.resolve(35,36).denominator);
++        assertEquals(60,setting.resolve(50,36).denominator);
++        assertEquals(125,setting.resolve(120,36).denominator);
++        assertEquals(35.0,setting.resolve(Double.NaN,0).equivalentFocalX10/10.0,0);
++        assertTrue(setting.resolve(Double.POSITIVE_INFINITY,36).lensFallback);
++        assertFalse(setting.resolve(6,9).lensFallback);
++        for (int mode=1;mode<=5;mode++)
++            assertEquals(new M9AutoIsoSettings(800,mode).resolve(13,36).slowestNs,
++                    new M9AutoIsoSettings(800,mode).resolve(120,36).slowestNs);
++    }
++    @Test public void nonBindingControlsKeepPreferredExposureExactly() {
++        M9ExposureAllocation.Result r=auto(200*4000000.0,2500,1,4000000L);
++        assertEquals(200,r.iso); assertEquals(4000000L,r.exposureNs);
++    }
++    @Test public void isoRisesBeforeShutterCrossesThreshold() {
++        double target=400*16000000.0;
++        M9ExposureAllocation.Result r=auto(target,1600,1,16000000L);
++        assertEquals(800,r.iso); assertEquals(8000000L,r.exposureNs); energy(target,r);
++    }
++    @Test public void shutterLengthensOnlyAfterIsoCeilingToPreserveExposure() {
++        double target=400*16000000.0;
++        M9ExposureAllocation.Result r=auto(target,400,1,16000000L);
++        assertEquals(400,r.iso); assertEquals(16000000L,r.exposureNs); energy(target,r);
++        assertTrue(r.exposureNs>r.slowestNs);
++    }
++    @Test public void physicalFloorAndAnalogOrExplicitIsoLimitRemainAuthoritative() {
++        M9ExposureAllocation.Result floor=M9ExposureAllocation.allocate(320*20000000.0,
++                320,6400,100000L,1000000000L,3200,1000000000L,20000000L,0,0,controls(160,1));
++        assertEquals(320,floor.iso); assertEquals(320,floor.automaticIsoMax);
++        M9ExposureAllocation.Result limited=M9ExposureAllocation.allocate(2000*20000000.0,
++                100,6400,100000L,1000000000L,800,1000000000L,20000000L,0,0,controls(2500,1));
++        assertEquals(800,limited.iso); assertEquals(50000000L,limited.exposureNs);
++    }
++    @Test public void manualShutterIsExactWhileAutoIsoIsCapped() {
++        M9ExposureAllocation.Result r=M9ExposureAllocation.allocate(800*8000000.0,
++                100,6400,100000L,1000000000L,3200,4000000L,4000000L,0,8000000L,controls(400,5));
++        assertEquals(8000000L,r.exposureNs); assertEquals(400,r.iso);
++        assertEquals("explicit_shutter_auto_iso",r.reason);
++    }
++    @Test public void manualIsoAndFullyManualPairBypassBothMenuControls() {
++        M9ExposureAllocation.Result r=M9ExposureAllocation.allocate(3200*20000000.0,
++                100,6400,100000L,1000000000L,800,1000000000L,8000000L,3200,0,controls(160,1));
++        assertEquals(3200,r.iso); assertEquals(20000000L,r.exposureNs);
++        M9ExposureAllocation.Result both=M9ExposureAllocation.allocate(100,
++                100,6400,100000L,1000000000L,800,8000000L,8000000L,5000,50000000L,controls(160,1));
++        assertEquals(5000,both.iso); assertEquals(50000000L,both.exposureNs);
++        M9ExposureAllocation.Result sensor=M9ExposureAllocation.allocate(100,
++                100,6400,100000L,1000000000L,800,8000000L,8000000L,10000,2000000000L,controls(160,1));
++        assertEquals(6400,sensor.iso); assertEquals(1000000000L,sensor.exposureNs);
++    }
++    @Test public void sensorAndExplicitShutterBoundariesDoNotInventExposure() {
++        M9ExposureAllocation.Result min=auto(1,2500,1,8000000L);
++        assertEquals(100,min.iso); assertEquals(100000L,min.exposureNs);
++        M9ExposureAllocation.Result max=auto(1e14,400,1,8000000L);
++        assertEquals(400,max.iso); assertEquals(1000000000L,max.exposureNs);
++        M9ExposureAllocation.Result hard=M9ExposureAllocation.allocate(1e14,
++                100,6400,100000L,1000000000L,3200,4000000L,8000000L,0,0,controls(400,5));
++        assertEquals(400,hard.iso); assertEquals(4000000L,hard.exposureNs);
++    }
++    @Test public void feasibleExposureEnergyAndEvArePreservedAcrossControls() {
++        Random random=new Random(236);
++        int[] caps={160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500};
++        for (int cap:caps) for (int mode=0;mode<=5;mode++) for(int n=0;n<100;n++) {
++            double target=100*100000.0+random.nextDouble()*(cap*1000000000.0-100*100000.0);
++            M9ExposureAllocation.Result r=auto(target,cap,mode,40000000L);
++            energy(target,r); assertTrue(r.iso>=100 && r.iso<=cap);
++            assertTrue(r.exposureNs>=100000L && r.exposureNs<=1000000000L);
++            if (r.exposureNs>r.slowestNs+1000) assertEquals(cap,r.iso);
++        }
++        double base=200*16000000.0;
++        for (int thirds=-9;thirds<=9;thirds++) {
++            double target=base*Math.pow(2,thirds/3.0); energy(target,auto(target,2500,1,16000000L));
++        }
++    }
++    @Test public void controlIdentitySurvivesCopiesAndRejectsChangedSettingsOrLens() {
++        String identity=controls(800,0).identity;
++        M9ExposurePlan1A bare=new M9ExposurePlan1A(1,100,200,"0","PHOTO",200,8000000L,
++                200,8000000L,200,8000000L,0,0,"auto",0,0,100);
++        assertFalse(bare.matchesAutoIsoControls(identity));
++        M9ExposurePlan1A plan=bare.withAutoIsoControls(identity).withAllocationSnapshot2G("{}")
++                .withAutoPlacement2D("{}").withShutterPreviewSnapshot1W("{}");
++        assertTrue(plan.matchesAutoIsoControls(identity));
++        assertTrue(plan.matches("0","PHOTO",200,0,0,0));
++        assertFalse(plan.matchesAutoIsoControls(controls(640,0).identity));
++        assertFalse(plan.matchesAutoIsoControls(controls(800,1).identity));
++        assertFalse(plan.matchesAutoIsoControls(new M9AutoIsoSettings(800,0).resolve(120,36).identity));
++        assertFalse(plan.matches("1","PHOTO",200,0,0,0));
++        assertFalse(plan.matches("0","PHOTO",1700,0,0,0));
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
+@@ -86,12 +86,54 @@
+         memory.values.putAll(outside);
+         int count=memory.edits.size(); memory.store().apply(p.id);
+         assertEquals(count+1,memory.edits.size());
+-        assertEquals(new HashSet<>(Arrays.asList(SAT,CONTRAST,SHARP,EV,ACTIVE)),memory.edits.get(count));
++        assertEquals(new HashSet<>(Arrays.asList(SAT,CONTRAST,SHARP,EV,ACTIVE,M9AutoIsoSettings.MAX_ISO_KEY,M9AutoIsoSettings.SLOWEST_KEY)),memory.edits.get(count));
+         assertTrue(memory.store().current().sameSettings(p.settings));
+         outside.forEach((key,value) -> assertEquals(key,value,memory.values.get(key)));
+         Map<String,Object> observer=memory.observed.get(count);
+         assertEquals("3",observer.get(SAT)); assertEquals("1",observer.get(CONTRAST));
+         assertEquals("4",observer.get(SHARP)); assertEquals(LeicaEv.encode(-2.0/3.0),observer.get(EV));
++    }
++
++    @Test public void autoIsoControlsRecallTogetherAndMarkProfileModified() {
++        Memory memory=new Memory();
++        memory.values.put(M9AutoIsoSettings.MAX_ISO_KEY,"640");
++        memory.values.put(M9AutoIsoSettings.SLOWEST_KEY,"1");
++        Profile profile=memory.store().save("Moving subjects");
++        memory.values.put(M9AutoIsoSettings.MAX_ISO_KEY,"2500");
++        memory.values.put(M9AutoIsoSettings.SLOWEST_KEY,"5");
++        assertFalse(profile.settings.sameSettings(memory.store().current()));
++        int count=memory.edits.size(); memory.store().apply(profile.id);
++        assertEquals(count+1,memory.edits.size());
++        Map<String,Object> observed=memory.observed.get(count);
++        assertEquals("640",observed.get(M9AutoIsoSettings.MAX_ISO_KEY));
++        assertEquals("1",observed.get(M9AutoIsoSettings.SLOWEST_KEY));
++        assertTrue(profile.settings.sameSettings(memory.store().current()));
++    }
++
++    @Test public void legacyProfileGetsDocumentedAutoIsoDefaultsWithoutReadMigration() throws Exception {
++        Memory memory=new Memory(); Profile profile=memory.store().save("Legacy");
++        JSONObject root=new JSONObject((String)memory.values.get(LIB));
++        JSONObject values=root.getJSONArray("profiles").getJSONObject(0).getJSONObject("settings");
++        values.remove("autoIsoMax"); values.remove("slowestMode");
++        String original=root.toString(); memory.values.put(LIB,original);
++        int count=memory.edits.size(); Snapshot snapshot=memory.store().list().get(0).settings;
++        assertEquals(2500,snapshot.autoIsoMax); assertEquals(0,snapshot.slowestMode);
++        assertEquals(count,memory.edits.size()); assertEquals(original,memory.values.get(LIB));
++        memory.store().apply(profile.id);
++        assertEquals("2500",memory.values.get(M9AutoIsoSettings.MAX_ISO_KEY));
++        assertEquals("0",memory.values.get(M9AutoIsoSettings.SLOWEST_KEY));
++    }
++
++    @Test public void malformedAutoIsoProfileIsRejectedWithoutOverwritingCollection() throws Exception {
++        for (Object bad : new Object[]{"640",640.5,10000,JSONObject.NULL}) {
++            Memory memory=new Memory(); memory.store().save("Broken");
++            JSONObject root=new JSONObject((String)memory.values.get(LIB));
++            root.getJSONArray("profiles").getJSONObject(0).getJSONObject("settings").put("autoIsoMax",bad);
++            String original=root.toString(); memory.values.put(LIB,original);
++            fails(Problem.DATA,() -> memory.store().save("Another"));
++            assertEquals(original,memory.values.get(LIB));
++        }
++        fails(Problem.SETTINGS,() -> new Snapshot(2,2,2,"0",2500,6));
+     }
+ 
+     @Test public void collectionSurvivesRestartAndBackupRestoreOfDefaultPreferences() {

@@ -1,0 +1,400 @@
+name: Build M9Cam M9PREVIEWSTABILITY1A
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-previewstability1a]
+    paths:
+      - 'patches/colourtrial1c/**'
+      - 'patches/colourtrial1a/**'
+      - 'patches/tests/colourtrial1c/**'
+      - '.github/workflows/build-m9cam-m9previewstability1a.yml'
+      - 'patches/previewstability1a/**'
+      - 'patches/previewtc20neutral1a/**'
+      - 'patches/shutterdrawlock1a/**'
+      - 'patches/previewtc20neg1a/**'
+      - 'patches/autoexposurefinish1b/**'
+      - 'patches/autoexposurefinish1a/**'
+      - 'patches/colourtrial1e/**'
+      - 'patches/tests/colourtrial1e/**'
+      - 'patches/colourtrial1d/**'
+      - 'patches/tests/colourtrial1d/**'
+
+concurrency:
+  group: m9-previewstability1a
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected exposure-plan parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No exposure-plan parent source blocks found')
+          for idx,body in enumerate(blocks):
+              script=Path('/tmp/m9livegl2a-gl1u-'+str(idx)+'.sh')
+              script.write_text(body+'\n')
+              subprocess.run(['bash',str(script)],check=True)
+          PYREPLAY
+
+      - name: Apply GL2A through GL2G exposure energy
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2c.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2d.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2e.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera | tee M9LIVEGL2G_VERIFY.txt
+
+      - name: Apply controlled native detail candidate
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9detail1h.py PhotonCamera | tee M9DETAIL1H_VERIFY.txt
+          python3 patches/verify-m9cam-m9tungstencont1a.py PhotonCamera | tee M9TUNGSTENCONT1A_VERIFY.txt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.."; pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Verify tile seams, JNI transport and fallback
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/m9detail1h-python
+          /tmp/m9detail1h-python/bin/pip install numpy scipy tifffile pillow
+          /tmp/m9detail1h-python/bin/python patches/tests/m9detail1h/native.py M9DETAIL1H_TESTS
+          /tmp/m9detail1h-python/bin/python patches/tests/m9detail1h/jni.py M9DETAIL1H_TESTS/jni
+          g++ -std=c++17 -O1 -g -ffp-contract=off -fno-fast-math -fsanitize=address,undefined -fno-omit-frame-pointer patches/tests/m9detail1h/sanitize.cpp research/detail1a/rb_domain.cpp research/detail1a/noise2_guard_native.cpp -o /tmp/m9detail1h-sanitize
+          /tmp/m9detail1h-sanitize | tee M9DETAIL1H_SANITIZE.txt
+
+      - name: Test focus transitions, exposure, source math and atomic publication
+        run: |
+          set -euo pipefail
+          python3 patches/tests/m9livegl2g/run.py PhotonCamera | tee M9LIVEGL2G_ENERGY_TESTS.txt
+          python3 patches/tests/m9livegl2f/run.py PhotonCamera | tee M9LIVEGL2G_CONTRACT_TESTS.txt
+          python3 patches/tests/m9livegl2e/run.py PhotonCamera | tee M9LIVEGL2G_EVIDENCE_TESTS.txt
+          python3 patches/tests/m9livegl2d/run.py PhotonCamera | tee M9LIVEGL2G_AUTO_TESTS.txt
+          python3 patches/tests/m9livegl2d/meter.py PhotonCamera | tee M9LIVEGL2G_METER_TESTS.txt
+          python3 patches/tests/m9livegl2b/run.py PhotonCamera | tee M9LIVEGL2G_FOCUS_TESTS.txt
+          python3 patches/tests/m9exposureplan1b/run.py PhotonCamera | tee M9LIVEGL2G_EXPOSURE_TESTS.txt
+          python3 patches/tests/m9exposureplan1c/run.py PhotonCamera | tee M9LIVEGL2G_EV_FLOOR_TESTS.txt
+          python3 patches/tests/m9livegl2a/run.py PhotonCamera | tee M9LIVEGL2G_HOST_TESTS.txt
+          python3 patches/tests/m9livegl2a/atomic.py PhotonCamera | tee M9LIVEGL2G_ATOMIC_TESTS.txt
+          python3 patches/tests/m9tungstencont1a/run.py PhotonCamera | tee M9TUNGSTENCONT1A_TESTS.txt
+
+      - name: Execute GPU shader against frozen native kernel
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y libegl1-mesa-dev libgl1-mesa-dri python3-numpy
+          /usr/bin/python3 patches/tests/m9livegl2f/gpu_test.py PhotonCamera | tee M9LIVEGL2G_GPU_TESTS.json
+
+      - name: Add and validate shutter-to-display recording on accepted TG1 baseline
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9shuttertrace1a.py PhotonCamera | tee M9SHUTTERTRACE1A_APPLY.json
+          python3 patches/tests/m9shuttertrace1a/run.py PhotonCamera | tee M9SHUTTERTRACE1A_COLLECTOR_TESTS.txt
+          /tmp/m9detail1h-python/bin/python patches/tests/m9shuttertrace1a/core.py | tee M9SHUTTERTRACE1A_CORE_TESTS.txt
+          python3 patches/tests/m9shuttertrace1a/rgb.py | tee M9SHUTTERTRACE1A_RGB_TESTS.txt
+          python3 patches/verify-m9cam-m9shuttertrace1a.py PhotonCamera | tee M9SHUTTERTRACE1A_VERIFY.json
+
+      - name: Correct recorder lifecycle, gallery visibility, thumbnail joins and digest batching
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9shuttertrace1b.py PhotonCamera | tee M9SHUTTERTRACE1B_APPLY.json
+          /tmp/m9detail1h-python/bin/python patches/tests/m9shuttertrace1b/run.py PhotonCamera | tee M9SHUTTERTRACE1B_TESTS.txt
+          python3 patches/verify-m9cam-m9shuttertrace1b.py PhotonCamera | tee M9SHUTTERTRACE1B_VERIFY.json
+
+      - name: Integrate and verify selected colour balance and Auto highlight policy
+        run: |
+          set -euo pipefail
+          python3 patches/colourtrial1c/apply.py PhotonCamera | tee M9COLOURTRIAL1C_APPLY.json
+          python3 patches/colourtrial1c/apply.py PhotonCamera > M9COLOURTRIAL1C_VERIFY.json
+          python3 patches/colourtrial1a/test.py COLOURTRIAL1C_TESTS/auto | tee M9COLOURTRIAL1C_AUTO_TESTS.txt
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1c/run.py PhotonCamera COLOURTRIAL1C_TESTS
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1c/jni.py PhotonCamera COLOURTRIAL1C_TESTS
+
+      - name: Apply and verify memory repair and persistent exit diagnostics
+        run: |
+          set -euo pipefail
+          python3 patches/colourtrial1d/apply.py PhotonCamera | tee M9COLOURTRIAL1D_APPLY.json
+          python3 patches/colourtrial1d/apply.py PhotonCamera > M9COLOURTRIAL1D_VERIFY.json
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1d/build.py PhotonCamera COLOURTRIAL1D_TESTS
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1d/parity.py COLOURTRIAL1C_TESTS/libtrial.so COLOURTRIAL1D_TESTS/libtrial.so | tee COLOURTRIAL1D_TESTS/parity.txt
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1d/inplace.py PhotonCamera COLOURTRIAL1D_TESTS/libtrial.so | tee COLOURTRIAL1D_TESTS/inplace.json
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1d/jni.py PhotonCamera COLOURTRIAL1D_TESTS
+          bash patches/tests/colourtrial1d/sanitize.sh PhotonCamera COLOURTRIAL1D_TESTS | tee COLOURTRIAL1D_TESTS/sanitize.txt
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1d/peak.py PhotonCamera COLOURTRIAL1C_TESTS/libtrial.so > COLOURTRIAL1D_TESTS/peak_before.json
+          OPENBLAS_NUM_THREADS=1 /tmp/m9detail1h-python/bin/python patches/tests/colourtrial1d/peak.py PhotonCamera COLOURTRIAL1D_TESTS/libtrial.so > COLOURTRIAL1D_TESTS/peak_after.json
+          python3 - <<'PYMEM'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('COLOURTRIAL1D_TESTS/peak_before.json').read_text())
+          b=json.loads(Path('COLOURTRIAL1D_TESTS/peak_after.json').read_text())
+          assert a['camera16_sha256']==b['camera16_sha256']
+          assert a['Q14_sha256']==b['Q14_sha256']
+          print('12MP camera and pre-SAT pixels identical; host peak KiB',a['host_peak_rss_KiB'],b['host_peak_rss_KiB'])
+          PYMEM
+
+      - name: Apply and verify foreground diagnostic publication
+        run: |
+          set -euo pipefail
+          python3 patches/colourtrial1e/apply.py PhotonCamera | tee M9COLOURTRIAL1E_APPLY.json
+          python3 patches/colourtrial1e/apply.py PhotonCamera > M9COLOURTRIAL1E_VERIFY.json
+          python3 patches/tests/colourtrial1e/run.py PhotonCamera | tee M9COLOURTRIAL1E_IO_TESTS.txt
+
+      - name: Apply and verify Auto-exposure finish 1A
+        run: |
+          set -euo pipefail
+          python3 patches/autoexposurefinish1a/apply.py PhotonCamera | tee M9AUTOEXPOSUREFINISH1A_APPLY.json
+          python3 patches/autoexposurefinish1a/apply.py PhotonCamera > M9AUTOEXPOSUREFINISH1A_VERIFY.json
+          python3 patches/autoexposurefinish1a/test.py AUTOEXPOSUREFINISH1A_TESTS/auto PhotonCamera | tee M9AUTOEXPOSUREFINISH1A_TESTS.txt
+
+      - name: Apply and verify Auto-exposure finish 1B
+        run: |
+          set -euo pipefail
+          python3 patches/autoexposurefinish1b/apply.py PhotonCamera | tee M9AUTOEXPOSUREFINISH1B_APPLY.json
+          python3 patches/autoexposurefinish1b/apply.py PhotonCamera > M9AUTOEXPOSUREFINISH1B_VERIFY.json
+          python3 patches/autoexposurefinish1b/test.py AUTOEXPOSUREFINISH1B_TESTS/auto PhotonCamera | tee M9AUTOEXPOSUREFINISH1B_TESTS.txt
+
+      - name: Apply and verify preview TC20 parity
+        run: |
+          set -euo pipefail
+          python3 patches/previewtc20neg1a/apply.py PhotonCamera | tee M9PREVIEWTC20NEG1A_APPLY.json
+          python3 patches/previewtc20neg1a/apply.py PhotonCamera > M9PREVIEWTC20NEG1A_VERIFY.json
+          python3 patches/previewtc20neg1a/test.py PREVIEWTC20NEG1A_TESTS/java PhotonCamera | tee M9PREVIEWTC20NEG1A_TESTS.txt
+
+      - name: Apply and verify shutter draw lock
+        run: |
+          set -euo pipefail
+          python3 patches/shutterdrawlock1a/apply.py PhotonCamera | tee M9SHUTTERDRAWLOCK1A_APPLY.json
+          python3 patches/shutterdrawlock1a/apply.py PhotonCamera > M9SHUTTERDRAWLOCK1A_VERIFY.json
+          python3 patches/shutterdrawlock1a/test.py PhotonCamera M9SHUTTERDRAWLOCK1A_TESTS.json | tee M9SHUTTERDRAWLOCK1A_TESTS.txt
+
+      - name: Apply and verify neutral preview TC20
+        run: |
+          set -euo pipefail
+          python3 patches/previewtc20neutral1a/apply.py PhotonCamera | tee M9PREVIEWTC20NEUTRAL1A_APPLY.json
+          python3 patches/previewtc20neutral1a/apply.py PhotonCamera > M9PREVIEWTC20NEUTRAL1A_VERIFY.json
+          python3 patches/previewtc20neutral1a/test.py PREVIEWTC20NEUTRAL1A_TESTS/java PhotonCamera | tee M9PREVIEWTC20NEUTRAL1A_TESTS.txt
+
+      - name: Apply and verify preview stability 1A
+        run: |
+          set -euo pipefail
+          python3 patches/previewstability1a/apply.py PhotonCamera | tee M9PREVIEWSTABILITY1A_APPLY.json
+          python3 patches/previewstability1a/apply.py PhotonCamera > M9PREVIEWSTABILITY1A_VERIFY.json
+          python3 patches/previewstability1a/test.py PREVIEWSTABILITY1A_TESTS/java PhotonCamera | tee M9PREVIEWSTABILITY1A_TESTS.txt
+
+      - name: Build M9PREVIEWSTABILITY1A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/M9LIVEGL2G_GRADLE.log"
+
+      - name: Verify packaged preview and exposure contracts
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          rm -rf /tmp/m9livegl2a-apk && mkdir -p /tmp/m9livegl2a-apk
+          unzip -q "$APK" -d /tmp/m9livegl2a-apk
+          python3 - <<'PY' | tee M9LIVEGL2G_APK_PROOF.txt
+          from pathlib import Path
+          import hashlib
+          root=Path('/tmp/m9livegl2a-apk')
+          shader='assets/shaders/preview/main_fs.glsl'
+          assert (root/shader).read_bytes()==(Path('PhotonCamera/app/src/main')/shader).read_bytes()
+          for name in ['m9_curve02_firmware.bin']:
+              assert (root/'assets/m9'/name).read_bytes()==(Path('PhotonCamera/app/src/main/assets/m9')/name).read_bytes()
+          dex=b''.join(p.read_bytes() for p in sorted(root.glob('classes*.dex')))
+          for marker in [b'M9LIVEGL2A_CONTROLLEDOES',b'M9LIVEGL2B_FOCUSCONTINUITY',b'M9LIVEGL2C_INVERSEPRECISION',b'M9PREVIEWSTABILITY1A',b'M9LIVEGL2E_PAIREDPIXELS',b'M9LIVEGL2F_CURVECONTRACT',b'M9LIVEGL2G_EXPOSUREENERGY',b'allocation2G',b'allocationErrorEv',b'reported_curve_disagrees_with_request',b'toneCurveMaxOutputError2F',b'pairedPixels2E',b'reportedToneCurveRgb2E',b'M9EXPOSUREPLAN2G',b'shutterPreview1W',
+                         b'incomplete_source_contract',b'controlled_curve_not_reported',
+                         b'unity_pending_live_linear_TC20_meter',b'exportPreviewContext2A',
+                         b'planned_single_RAW_request',b'live_pair_spool_fallback',
+                         b'M9TUNGSTENCONT1A',b'M9PreviewSourceContinuity1A',
+                         b'held_last_valid_source',b'processed_OES_exposure_plus_TG1_fallback']:
+              assert marker in dex,marker
+          assert b'M9SHUTTERTRACE1B' in dex and b'm9cam.shuttertrace.v1b' in dex
+          assert b'postJpegWindow' in dex and b'digestProviderUpdates' in dex and b'selectedPageBefore' in dex
+          assert b'preEncodeRgb' in dex and b'postPreview' in dex and b'jpegDecodedRgb' in dex
+          assert b'codingBytesPreservedAcrossExif' in dex and b'softwareVsWindowDelta' in dex
+          assert b'M9TG2NEUTRAL1A' not in (root/shader).read_bytes()
+          assert b'TG2NEUTRAL1A_STILL' not in dex
+          assert b'M9COLOURTRIAL1C_AMAZE_QUARTER' in dex
+          assert b'M9RENDERCRASH1D' in dex and b'M9COLOURTRIAL1D' in dex
+          assert b'M9LOG1E' in dex and b'M9DIAGIO1E' in dex
+          assert b'rawNoiseEffectiveStrength' in dex and b'chromaDomain' in dex
+          assert b'M9TUNGSTENCONT1A' in dex
+          assert b'return tungsten2A(fallback1A);' in (root/shader).read_bytes()
+          assert b'camera2CfaPairs' in dex and b'noiseAuthority' in dex and b'detail1H' in dex
+          library=root/'lib/arm64-v8a/libm9color.so'
+          assert b'Java_com_particlesdevs_photoncamera_m9_render_M9Detail1H_applyNative' in library.read_bytes()
+          for abi in ['arm64-v8a','armeabi-v7a']:
+              binary=(root/'lib'/abi/'libm9color.so').read_bytes()
+              for name in ['reconstruct','prepare','renderDirect','renderBitmap']:
+                  assert ('Java_com_particlesdevs_photoncamera_m9_render_M9ColourTrial1C_'+name).encode() in binary
+          assert (root/'assets/m9/AMaZE_LICENSE.txt').read_bytes()==Path('patches/colourtrial1c/upstream/LICENSE.txt').read_bytes()
+          print('COLOURTRIAL1C APK PROOF PASS: both ARM ABIs, candidate entry points, Auto policy, exact shader/curve, TG1 and recorder')
+          PY
+
+      - name: Verify Android installation metadata, signing and alignment
+        if: success()
+        run: |
+          set -euo pipefail
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p /tmp/m9livegl2g-installcheck
+          javac -cp "$BUILD_TOOLS/lib/apksigner.jar" -d /tmp/m9livegl2g-installcheck patches/tests/m9livegl2g/ApkInstallCheck.java
+          java -cp "/tmp/m9livegl2g-installcheck:$BUILD_TOOLS/lib/apksigner.jar" ApkInstallCheck "$APK" 1.73-m9previewstability1a-tg1 | tee M9LIVEGL2G_INSTALL_CHECK.txt
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$APK" | tee -a M9LIVEGL2G_INSTALL_CHECK.txt
+
+      - name: Record APK SHA256
+        if: success()
+        run: |
+          APK="$(find PhotonCamera/app/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          cp "$APK" M9Cam-M9PREVIEWSTABILITY1A-TG1.apk
+          sha256sum M9Cam-M9PREVIEWSTABILITY1A-TG1.apk | tee M9LIVEGL2G_APK_SHA256.txt
+
+      - name: Upload validation APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-M9PREVIEWSTABILITY1A-TG1
+          path: |
+            M9PREVIEWSTABILITY1A_APPLY.json
+            M9PREVIEWSTABILITY1A_VERIFY.json
+            M9PREVIEWSTABILITY1A_TESTS.txt
+            PREVIEWSTABILITY1A_TESTS/previewstability1a_tests.json
+            PhotonCamera/M9PREVIEWSTABILITY1A_SOURCE_PROOF.json
+            M9PREVIEWTC20NEUTRAL1A_APPLY.json
+            M9PREVIEWTC20NEUTRAL1A_VERIFY.json
+            M9PREVIEWTC20NEUTRAL1A_TESTS.txt
+            PREVIEWTC20NEUTRAL1A_TESTS/previewtc20neutral1a_tests.json
+            PhotonCamera/M9PREVIEWTC20NEUTRAL1A_SOURCE_PROOF.json
+            M9SHUTTERDRAWLOCK1A_APPLY.json
+            M9SHUTTERDRAWLOCK1A_VERIFY.json
+            M9SHUTTERDRAWLOCK1A_TESTS.txt
+            M9SHUTTERDRAWLOCK1A_TESTS.json
+            PhotonCamera/M9SHUTTERDRAWLOCK1A_SOURCE_PROOF.json
+            M9PREVIEWTC20NEG1A_APPLY.json
+            M9PREVIEWTC20NEG1A_VERIFY.json
+            M9PREVIEWTC20NEG1A_TESTS.txt
+            PREVIEWTC20NEG1A_TESTS/previewtc20neg1a_tests.json
+            PhotonCamera/M9PREVIEWTC20NEG1A_SOURCE_PROOF.json
+            M9AUTOEXPOSUREFINISH1B_APPLY.json
+            M9AUTOEXPOSUREFINISH1B_VERIFY.json
+            M9AUTOEXPOSUREFINISH1B_TESTS.txt
+            AUTOEXPOSUREFINISH1B_TESTS/autoexposurefinish1b_tests.json
+            PhotonCamera/M9AUTOEXPOSUREFINISH1B_SOURCE_PROOF.json
+            M9AUTOEXPOSUREFINISH1A_APPLY.json
+            M9AUTOEXPOSUREFINISH1A_VERIFY.json
+            M9AUTOEXPOSUREFINISH1A_TESTS.txt
+            AUTOEXPOSUREFINISH1A_TESTS/autoexposurefinish1a_tests.json
+            PhotonCamera/M9AUTOEXPOSUREFINISH1A_SOURCE_PROOF.json
+            M9COLOURTRIAL1E_APPLY.json
+            M9COLOURTRIAL1E_VERIFY.json
+            M9COLOURTRIAL1E_IO_TESTS.txt
+            PhotonCamera/M9COLOURTRIAL1E_SOURCE_PROOF.json
+            M9COLOURTRIAL1D_APPLY.json
+            M9COLOURTRIAL1D_VERIFY.json
+            PhotonCamera/M9COLOURTRIAL1D_SOURCE_PROOF.json
+            PhotonCamera/app/build/intermediates/cxx/Debug/**/obj/*/libm9color.so
+            COLOURTRIAL1D_TESTS/*.json
+            COLOURTRIAL1D_TESTS/*.txt
+            M9COLOURTRIAL1C_APPLY.json
+            M9COLOURTRIAL1C_VERIFY.json
+            M9COLOURTRIAL1C_AUTO_TESTS.txt
+            COLOURTRIAL1C_TESTS/checks.json
+            COLOURTRIAL1C_TESTS/jni_checks.json
+            PhotonCamera/M9COLOURTRIAL1C_SOURCE_PROOF.json
+            M9SHUTTERTRACE1B_APPLY.json
+            M9SHUTTERTRACE1B_TESTS.txt
+            M9SHUTTERTRACE1B_VERIFY.json
+            PhotonCamera/M9SHUTTERTRACE1B_SOURCE_PROOF.json
+            M9SHUTTERTRACE1A_APPLY.json
+            M9SHUTTERTRACE1A_COLLECTOR_TESTS.txt
+            M9SHUTTERTRACE1A_CORE_TESTS.txt
+            M9SHUTTERTRACE1A_RGB_TESTS.txt
+            M9SHUTTERTRACE1A_VERIFY.json
+            PhotonCamera/M9SHUTTERTRACE1A_SOURCE_PROOF.json
+            M9Cam-M9PREVIEWSTABILITY1A-TG1.apk
+            M9LIVEGL2G_APK_SHA256.txt
+            M9LIVEGL2G_INSTALL_CHECK.txt
+            M9DETAIL1H_VERIFY.txt
+            M9TUNGSTENCONT1A_VERIFY.txt
+            M9TUNGSTENCONT1A_TESTS.txt
+            M9DETAIL1H_SANITIZE.txt
+            M9DETAIL1H_TESTS/tile_checks.json
+            M9DETAIL1H_TESTS/jni/jni_checks.json
+            M9LIVEGL2G_VERIFY.txt
+            M9LIVEGL2G_APK_PROOF.txt
+            M9LIVEGL2G_ENERGY_TESTS.txt
+            M9LIVEGL2G_CONTRACT_TESTS.txt
+            M9LIVEGL2G_EVIDENCE_TESTS.txt
+            M9LIVEGL2G_FOCUS_TESTS.txt
+            M9LIVEGL2G_AUTO_TESTS.txt
+            M9LIVEGL2G_METER_TESTS.txt
+            M9LIVEGL2G_HOST_TESTS.txt
+            M9LIVEGL2G_GPU_TESTS.json
+            M9LIVEGL2G_EV_FLOOR_TESTS.txt
+            M9LIVEGL2G_ATOMIC_TESTS.txt
+            M9LIVEGL2G_EXPOSURE_TESTS.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-M9PREVIEWSTABILITY1A-BUILDLOG
+          path: M9LIVEGL2G_GRADLE.log
+          if-no-files-found: ignore

@@ -1,0 +1,33 @@
+{
+  "parentCommit": "869f9540907b80353d5e8c77f65f2e598f56ae1e",
+  "version": "2.30-m9shootingprofiles1a",
+  "parentFiles": {
+    "app/build.gradle": "4bbe0efc436a9f6809619f919ad317a51c73640b015075b7a7bccf84b9530b92",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "55465e11913e75e945ef3612657a31c17bf3edf6a18103aca6fc0ad146d6ad3e",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "2d94a0bd230aa0dced70bcd253272ff55fcff6bcc50d35f7512fc5cba62c05ba",
+    "app/src/main/res/xml/preferences_m9.xml": "781854d1949d950f0f8138828af12fc68217a12257873683473747276991cfe9"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "c9371ea1f2541abad842cd76d46f687a920156aeed3354492bf40f143037be7b",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "ec2d874b8e6771934f4df8c2ac00efb139d75822da919b475996a4957501a0ad",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "68491df7776c888ad3d7b74ba841619d7d8865f81e584534e755310578041e40",
+    "app/src/main/res/xml/preferences_m9.xml": "4631bfb88fb79ecd914246e1de2b6686dee8dfee36e5afd96b643d6b5a67865f",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java": "d9f8dfe9b19d99d28d618631b18564e4fd56c205b09cf02b4fddca44143b50ce",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java": "81b8d9eeed01fef93dd1b967e1944e0e21858af0f3c23e3cb3564bc69a034d76",
+    "app/src/main/res/layout/preference_m9_profile.xml": "49c13016ac29b123e1bc53aca67c312590636acd68c40e9fa14c5f5d89bc98e7",
+    "app/src/main/res/values/m9_profiles.xml": "e2de3f55e75ee76c5afbc1d8ca49bb2d5f89dc002a6817ae7bbf2cb6dccc7c6e",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java": "8b8d4cf07eaa8e4a61a18559e4decf8e545dbfdd7d8842b9d2c61625900bb221"
+  },
+  "patchSha256": "bf20baf274c135b1a18be5a660997430845cfc9e234f2e38ff66cc257018c9c0",
+  "nativePolicy": "Preserve all 25 native entries from accepted 2.29",
+  "profileFields": [
+    "pref_m9_saturation",
+    "pref_m9_contrast",
+    "pref_m9_sharpness",
+    "pref_expocompensation_seekbar_key"
+  ],
+  "profileLimit": 20,
+  "profileNameLimit": 40,
+  "defaultPolicy": "No new presets, migrations or photographic default changes",
+  "photoPolicy": "Existing capture and rendering source unchanged; same assets and native libraries as 2.29"
+}

@@ -1,0 +1,94 @@
+{
+  "status": "passed",
+  "tests": 62,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9AeLockTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.23"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9BracketTest",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.116"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9LeicaEvTest",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "2.382"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SelfTimerTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayLayoutTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "9.794"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayPolicyTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.008"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9ShootingControlsTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "2.382"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.358"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.views.M9LinearRulerSelectionTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.003"
+    }
+  ],
+  "hardwareRun": false,
+  "androidUiRuntime": "Robolectric 4.16.1, Android API 35",
+  "startupFixRegressionCovered": true,
+  "quickToggleRestorationAndBusyGuardsCovered": true,
+  "zeroPercentShadowEnabledCovered": true,
+  "accessibleToggleStateCovered": true,
+  "holdToChooseAndCloseCovered": true,
+  "centredChevronAt320360480dpWithAeLockVisibleAndHidden": true
+}

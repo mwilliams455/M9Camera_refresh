@@ -1,0 +1,1 @@
+mode4 parity; disable unrelated HSM audit; sidecar-embedded variant telemetry

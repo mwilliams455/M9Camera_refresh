@@ -1,0 +1,88 @@
+name: M9 Sharpness ISO Table Fast Decode
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpnessforensics1a]
+    paths:
+      - '.github/workflows/m9-sharpness-iso-table-fast.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verify decrypt and decode BF547 ISO records
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9isofast/evidence"
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9isofast/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9isofast/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9isofast/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9isofast/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9isofast/m9.upd" "$RUNNER_TEMP/m9isofast/mm.upm" --m9-out "$RUNNER_TEMP/m9isofast/m9.dec" --meta-out "$RUNNER_TEMP/m9isofast/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9isofast/m9.dec" | sha256sum -c --strict
+          python3 - <<'PY'
+          import importlib.util,os,pathlib,sys,hashlib,struct,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9isofast'; ev=root/'evidence'
+          spec=importlib.util.spec_from_file_location('gateb',pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          bf=m.get_bf547((root/'m9.dec').read_bytes())
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('BF547 hash mismatch')
+          vals=[80,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000,10000]
+          # Enumerate every exact value in the dense region.
+          hits=[]
+          for w,fmt in [(2,'H'),(4,'I')]:
+            for v in vals:
+              pat=struct.pack('<'+fmt,v)
+              st=0xc9800
+              while True:
+                p=bf.find(pat,st,0xc9c00)
+                if p<0: break
+                hits.append({'offset':p,'hex':hex(p),'runtime':hex(p+0x20000),'width':w,'value':v,'mod16':p&15})
+                st=p+1
+          hits.sort(key=lambda x:(x['offset'],x['width']))
+          # Find exact constant-stride runs for M9 native 160..2500.
+          seq=[160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500]
+          runs=[]
+          for w,fmt in [(2,'H'),(4,'I')]:
+            for stride in range(4,65,2):
+              for field in range(stride-w+1):
+                for start in range(0xc9800,0xc9c00-stride*len(seq)):
+                  if all(bf[start+i*stride+field:start+i*stride+field+w]==struct.pack('<'+fmt,v) for i,v in enumerate(seq)):
+                    runs.append({'start':hex(start),'runtime':hex(start+0x20000),'field':hex(field),'width':w,'stride':stride})
+          # Dump the most relevant aligned neighborhood as records with 4x u32.
+          recs=[]
+          for s in range(0xc99c0,0xc9b80,0x10):
+            d=bf[s:s+16]
+            recs.append({'offset':hex(s),'runtime':hex(s+0x20000),'hexbytes':d.hex(),'u32':list(struct.unpack('<4I',d)),'u16':list(struct.unpack('<8H',d))})
+          # Search for 80 immediately one record before any exact base13 run.
+          pull_checks=[]
+          for r in runs:
+            s=int(r['start'],16); stride=r['stride']; field=int(r['field'],16); w=r['width']; fmt='H' if w==2 else 'I'
+            prev=s-stride+field
+            if prev>=0:
+              pv=struct.unpack('<'+fmt,bf[prev:prev+w])[0]
+              pull_checks.append({'run':r,'previous_field_offset':hex(prev),'previous_value':pv})
+          out={'schema':'m9.sharpness.iso-table-fast.v1','hits':hits,'exact_runs':runs,'pull_predecessors':pull_checks,'records':recs}
+          (ev/'iso_table_fast.json').write_text(json.dumps(out,indent=2)+'\n')
+          with open(ev/'iso_table_fast.txt','w') as f:
+            f.write('EXACT RUNS\n'+json.dumps(runs,indent=2)+'\n\nPULL PREDECESSORS\n'+json.dumps(pull_checks,indent=2)+'\n\n')
+            for r in recs:f.write(f"{r['offset']} u32={r['u32']} u16={r['u16']} {r['hexbytes']}\n")
+          print(json.dumps({'hit_count':len(hits),'exact_runs':runs,'pull_predecessors':pull_checks},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-ISO-TABLE-FAST
+          retention-days: 30
+          path: ${{ runner.temp }}/m9isofast/evidence/*
+      - name: Remove firmware material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/m9isofast/m9.upd" "$RUNNER_TEMP/m9isofast/mm.upm" "$RUNNER_TEMP/m9isofast/m9.dec"

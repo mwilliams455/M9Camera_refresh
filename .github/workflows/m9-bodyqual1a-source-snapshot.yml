@@ -1,0 +1,35 @@
+name: M9 BODYQUAL1A source snapshot
+on:
+  push:
+    branches: [research/m9-bodyqual1a-subjectheadroom1a]
+    paths: [.github/workflows/m9-bodyqual1a-source-snapshot.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package selected source and tests only
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          paths=list(Path('patches').glob('autoexposurefinish*'))
+          paths += [Path('patches/spoolreset1a'),Path('patches/primaryexport1b'),Path('patches/colorperfrollback1a'),Path('patches/m9rbrollback1a')]
+          with zipfile.ZipFile('m9_ae_source_snapshot.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for root in paths:
+                  if root.is_dir():
+                      for p in sorted(root.rglob('*')):
+                          if p.is_file(): z.write(p,p.as_posix())
+              for p in Path('.github/workflows').glob('*autoexposurefinish1m*'):
+                  z.write(p,p.as_posix())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-BODYQUAL1A-SOURCE-SNAPSHOT
+          path: m9_ae_source_snapshot.zip
+          retention-days: 7

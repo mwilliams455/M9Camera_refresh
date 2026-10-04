@@ -1,0 +1,474 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27231
++        versionCode 27232
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.31-m9displayaids1a'
++        versionName '2.32-m9previewbrightness1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.31_DISPLAYAIDS1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.32_PREVIEWBRIGHTNESS1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -14,7 +14,7 @@
+ uniform bool uM9Enabled;
+ uniform int uM9SaturationBank;
+ uniform float uM9ExposureScale1B;
+-// M9PREVIEWTC20NEG1A: preview-only bounded TC20 darkening prediction.
++// M9PREVIEWBRIGHTNESS1A: preview-only bounded JPEG tone prediction.
+ uniform float uM9PreviewTc20Gain1A;
+ uniform bool uM9SourceReady2A;
+ uniform mat3 uM9InputToSensor2A;
+@@ -102,14 +102,17 @@
+     return floor(clamp(vec3(float(y)+1.402*r,float(y)-.344136*b-.714136*r,
+             float(y)+1.772*b),vec3(0),vec3(255))+.5)/255.0;
+ }
+-vec3 previewTc20Probe1A(vec3 oes) {
++vec4 previewTc20Probe1A(vec3 oes) {
+     // Match the still TC20 signal as closely as controlled OES permits:
+     // inverse reported tone/CCM/WB -> sensor -> ProPhoto D50 -> linear sRGB D65 luma.
+-    // Active selected path uses identity HSM. R/G encode one 16-bit linear-luma value.
+-    if (!uM9SourceReady2A) return vec3(0.0);
++    // RG: linear luma U16. BA: max reconstructed sensor channel U16, before
++    // native clipping. Both are neutral-reference estimates; neither is RAW.
++    if (!uM9SourceReady2A) return vec4(0.0);
+     vec3 linear=vec3(inverseChannel2A(oes.r,0),inverseChannel2A(oes.g,1),inverseChannel2A(oes.b,2));
+     vec3 sensor=max(uM9InputToSensor2A*linear,vec3(0));
+-    sensor=min(sensor*uM9ExposureScale1B,uM9ClipWhite2A);
++    sensor*=uM9ExposureScale1B;
++    float headroom=max(sensor.r,max(sensor.g,sensor.b));
++    sensor=min(sensor,uM9ClipWhite2A);
+     vec3 pp=clamp(uM9SensorToPp2A*sensor,0.0,1.0);
+     const mat3 PP_D50_TO_SRGB_D65=mat3(
+          2.03416363,-0.22892257,-0.00855493,
+@@ -120,7 +123,9 @@
+     float q=floor(clamp(y,0.0,1.0)*65535.0+.5);
+     float hi=floor(q/256.0);
+     float lo=q-hi*256.0;
+-    return vec3(hi/255.0,lo/255.0,0.0);
++    float h=floor(clamp(headroom,0.0,1.0)*65535.0+.5);
++    float hh=floor(h/256.0);
++    return vec4(hi/255.0,lo/255.0,hh/255.0,(h-hh*256.0)/255.0);
+ }
+ 
+ vec3 m9DisplayTransform(vec3 oes,vec2 uv) {
+@@ -145,7 +150,7 @@
+     // TARGETDIRECT identity HSM; no historical Cobalt/HSM/LUT or post-EV auto-normalization.
+     vec3 m9=max(uM9PpToTarget2A*pp,vec3(0));
+     // Same placement seam as the still renderer: gain before SAT2/curve02.
+-    m9*=clamp(uM9PreviewTc20Gain1A,0.70710678,1.0);
++    m9*=clamp(uM9PreviewTc20Gain1A,0.70710678,1.41421356);
+     return tungsten2A(curveSat2M9(m9));
+ }
+ 
+@@ -165,7 +170,7 @@
+ 
+     vec4 photonColor = texture(sTexture, uv);
+     if (uM9EvidenceStage2E == 1) { Output = vec4(photonColor.rgb, 1.0); return; }
+-    if (uM9EvidenceStage2E == 2) { Output = vec4(previewTc20Probe1A(photonColor.rgb), 1.0); return; }
++    if (uM9EvidenceStage2E == 2) { Output = previewTc20Probe1A(photonColor.rgb); return; }
+     vec4 color = vec4(m9DisplayTransform(photonColor.rgb, uv), 1.0);
+ 
+     // Peaking is UI diagnostics; avoid nine extra OES samples unless requested.
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java
+@@ -8,7 +8,7 @@
+ import java.nio.ByteBuffer;
+ 
+ /**
+- * Paired preview evidence plus preview-only negative TC20 prediction.
++ * Paired preview evidence plus preview-only bounded TC20 prediction.
+  * M9PREVIEWTC20NEUTRAL1A makes TC20 a neutral-reference scene property so
+  * positive/negative exposure intent cannot move the tone predictor itself.
+  * Never feeds Auto, capture allocation or the still renderer.
+@@ -16,7 +16,7 @@
+ public final class M9PreviewEvidence2E {
+     public static final String LEGACY_EVIDENCE_REVISION="M9LIVEGL2E_PAIREDPIXELS";
+     public static final String PARENT_TC20_REVISION="M9PREVIEWTC20NEG1A";
+-    public static final String TC20_REVISION="M9PREVIEWTC20NEUTRAL1A";
++    public static final String TC20_REVISION="M9PREVIEWBRIGHTNESS1A";
+     private static final long INTERVAL_NS=250000000L;
+     private static final long FRESH_NS=1000000000L;
+     private static final long RESULT_MATCH_NS=500000000L;
+@@ -29,7 +29,7 @@
+     private M9PreviewFrameState1W pending;
+     private boolean disabled;
+     private int pendingDataSpace=-1;
+-    private float pendingReferenceScale;
++    private float pendingReferenceScale,pendingDisplayGain;
+     private volatile Evidence latest;
+     private volatile String unavailableReason="awaiting_gpu_evidence";
+     private long consumedTc20SampleNs=-1;
+@@ -58,6 +58,13 @@
+                 &&Math.abs(frame.resultTimestampNs-e.state.resultTimestampNs)<=RESULT_MATCH_NS;
+         if(fresh) {
+             target=e.tc20.boundedEv;
++            if(!M9PreviewTc20Math1A.canPredictLift(
++                    e.state.source2A.ready,e.state.source2A.continuityHeld,
++                    frame.source2A.ready,frame.source2A.continuityHeld,
++                    e.textureNs,e.state.resultTimestampNs)) {
++                target=Math.min(target,0.0);
++                appliedTc20Ev=Math.min(appliedTc20Ev,0.0);
++            }
+             if(consumedTc20SampleNs!=e.submittedNs) {
+                 appliedTc20Ev=M9PreviewTc20Math1A.slewEv(appliedTc20Ev,target);
+                 consumedTc20SampleNs=e.submittedNs;
+@@ -121,7 +128,7 @@
+             if(fence==0||GLES30.glGetError()!=GLES30.GL_NO_ERROR)
+                 throw new IllegalStateException("meter readback failed");
+             pending=frame;pendingNs=now;pendingTextureNs=textureNs;
+-            pendingReferenceScale=referenceScale;pendingDataSpace=-1;
++            pendingReferenceScale=referenceScale;pendingDisplayGain=displayTc20Gain;pendingDataSpace=-1;
+             if(android.os.Build.VERSION.SDK_INT>=33&&surface!=null){
+                 try{pendingDataSpace=surface.getDataSpace();}catch(RuntimeException ignored){}
+             }
+@@ -182,7 +189,7 @@
+                 M9PreviewTc20Math1A.Result tc20=M9PreviewTc20Math1A.analyzePackedPanel(
+                         pixels,W,H,STEPS,TC20_PANEL);
+                 latest=new Evidence(pending,pendingNs,pendingTextureNs,pendingDataSpace,
+-                        pendingReferenceScale,pixels,tc20);
++                        pendingReferenceScale,pendingDisplayGain,pixels,tc20);
+             }
+         }catch(RuntimeException e){fail(e);}
+         finally{
+@@ -205,13 +212,13 @@
+         final M9PreviewFrameState1W state;
+         final long submittedNs,textureNs;
+         final int dataSpace;
+-        final float referenceScale;
++        final float referenceScale,displayGain;
+         final byte[] rgba;
+         final M9PreviewTc20Math1A.Result tc20;
+         Evidence(M9PreviewFrameState1W state,long submitted,long texture,int space,
+-                float reference,byte[] pixels,M9PreviewTc20Math1A.Result tc20){
++                float reference,float displayGain,byte[] pixels,M9PreviewTc20Math1A.Result tc20){
+             this.state=state;submittedNs=submitted;textureNs=texture;dataSpace=space;
+-            referenceScale=reference;rgba=pixels.clone();this.tc20=tc20;
++            referenceScale=reference;this.displayGain=displayGain;rgba=pixels.clone();this.tc20=tc20;
+         }
+     }
+ 
+@@ -248,7 +255,7 @@
+             o.put("sameTextureForAllPanels",true).put("sameFrameAsShutter",false);
+             o.put("focusPeakingIncluded",false).put("displayPresentationVerified",false);
+             o.put("width",W).put("height",H).put("rowOrder","GL_bottom_to_top");
+-            o.put("previewTc20NegativeOnly",true)
++            o.put("previewTc20NegativeOnly",false)
+                     .put("previewTc20Domain","neutral_reference_not_display_intent")
+                     .put("previewTc20Target",M9PreviewTc20Math1A.METER_TARGET)
+                     .put("previewTc20Valid",e.tc20.valid)
+@@ -257,11 +264,17 @@
+                     .put("previewTc20RequestedEv",e.tc20.valid?e.tc20.requestedEv:org.json.JSONObject.NULL)
+                     .put("previewTc20BoundedGain",e.tc20.valid?e.tc20.boundedGain:org.json.JSONObject.NULL)
+                     .put("previewTc20BoundedEv",e.tc20.valid?e.tc20.boundedEv:org.json.JSONObject.NULL)
+-                    .put("previewTc20AppliedGain",appliedTc20Gain)
+-                    .put("previewTc20AuthorityEv","[-0.5,0.0]")
++                    .put("previewTc20AppliedGain",e.displayGain)
++                    .put("previewTc20LatestGain",appliedTc20Gain)
++                    .put("previewTc20EstimatedTail",e.tc20.valid?e.tc20.estimatedTail:org.json.JSONObject.NULL)
++                    .put("previewTc20EstimatedClipFraction",e.tc20.valid?e.tc20.estimatedClipFraction:org.json.JSONObject.NULL)
++                    .put("previewTc20BaseGain",e.tc20.baseGain)
++                    .put("previewTc20GuardGain",e.tc20.guardGain)
++                    .put("previewTc20HeadroomDomain","reconstructed_sensor_max_RGB_not_RAW")
++                    .put("previewTc20AuthorityEv","[-0.5,+0.5]")
+                     .put("previewTc20SlewEvPerSample",M9PreviewTc20Math1A.MAX_SLEW_EV)
+                     .put("previewTc20DeadbandEv",M9PreviewTc20Math1A.DEADBAND_EV)
+-                    .put("previewTc20PositiveReason","raw_tail_headroom_unavailable_live");
++                    .put("previewTc20PositiveReason","bounded_reconstructed_headroom_estimate_requires_live_source_contract");
+             String[] names={"incomingOes","referenceRender","displayRender"};
+             org.json.JSONObject panels=new org.json.JSONObject();
+             for(int i=0;i<3;i++)panels.put(names[i],panel(e.rgba,i));
+@@ -294,7 +307,7 @@
+             int q=((rgba[off]&255)<<8)|(rgba[off+1]&255);
+             min=Math.min(min,q);max=Math.max(max,q);sum+=q;
+         }
+-        return new org.json.JSONObject().put("encoding","linear_luma_u16_big_endian_RG")
++        return new org.json.JSONObject().put("encoding","linear_luma_u16_RG_reconstructed_headroom_u16_BA")
+                 .put("min",min/65535.0).put("mean",(sum/(double)(W*H))/65535.0)
+                 .put("max",max/65535.0);
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+@@ -54,9 +54,16 @@
+         public final M9PreviewFrameState1W state;
+         public final long textureTimestampNs, submittedElapsedNs, sequence;
+         public final boolean transformEnabled;
++        public final float previewToneGain;
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+                 long submittedElapsedNs, long sequence, boolean transformEnabled) {
++            this(state,textureTimestampNs,submittedElapsedNs,sequence,transformEnabled,1.0f);
++        }
++
++        public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
++                long submittedElapsedNs, long sequence, boolean transformEnabled, float previewToneGain) {
++            this.previewToneGain=bounded(previewToneGain,1,.70710678f,1.41421356f);
+             this.state = state;
+             this.textureTimestampNs = textureTimestampNs;
+             this.submittedElapsedNs = submittedElapsedNs;
+@@ -85,6 +92,9 @@
+                 o.put("analyzerElapsedNs", state.analyzerElapsedNs);
+                 o.put("transformEnabled", transformEnabled);
+                 o.put("uniformExposureScale", state.exposureScale);
++                o.put("uniformPreviewToneGain",previewToneGain);
++                o.put("previewToneRevision",M9PreviewTc20Math1A.REVISION);
++                o.put("previewToneAuthorityEv","[-0.5,+0.5]");
+                 o.put("toneModel", "M9LIVEGL2A_CONTROLLEDOES");
+                 o.put("source2A", state.source2A.diagnostics());
+                 o.put("colourPath", state.source2A.ready && transformEnabled
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewTc20Math1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewTc20Math1A.java
+@@ -3,16 +3,17 @@
+ import java.util.Arrays;
+ 
+ /**
+- * Allocation-stable preview-only negative TC20 math.
+- * Keeps the NEUTRAL1A photographic behavior while removing per-sample object sorting.
++ * Preview-only estimate of the existing bounded JPEG tone correction.
++ * RG contains neutral-reference linear luma; BA contains reconstructed sensor headroom.
++ * Headroom is an ISP-derived estimate, never a RAW clipping measurement.
+  */
+ public final class M9PreviewTc20Math1A {
+-    public static final String REVISION="M9PREVIEWSTABILITY1A";
+-    public static final String PARENT_REVISION="M9PREVIEWTC20NEUTRAL1A";
++    public static final String REVISION="M9PREVIEWBRIGHTNESS1A";
++    public static final String PARENT_REVISION="M9PREVIEWSTABILITY1A";
+     public static final double METER_TARGET=0.107*(8192.0/10000.0);
+     public static final double CENTER_WEIGHT_WIDTH=.75;
+     public static final double MIN_EV=-.5;
+-    public static final double MAX_EV=0.0;
++    public static final double MAX_EV=.5;
+     public static final double MAX_SLEW_EV=.125;
+     public static final double DEADBAND_EV=.04;
+     private static final int HIST_BITS=12;
+@@ -25,6 +26,7 @@
+ 
+     private static final class Scratch {
+         final double[] weightedHistogram=new double[HIST_BINS];
++        final int[] headroomHistogram=new int[HIST_BINS];
+     }
+ 
+     private M9PreviewTc20Math1A(){}
+@@ -33,13 +35,17 @@
+         public final boolean valid;
+         public final int validCount;
+         public final double weightedMedian,requestedGain,requestedEv,boundedGain,boundedEv;
++        public final double baseGain,guardGain,estimatedTail,estimatedClipFraction;
+         Result(boolean valid,int count,double median,double requestedGain,double requestedEv,
+-               double boundedGain,double boundedEv){
++               double boundedGain,double boundedEv,double baseGain,double guardGain,
++               double estimatedTail,double estimatedClipFraction){
+             this.valid=valid;validCount=count;weightedMedian=median;
+             this.requestedGain=requestedGain;this.requestedEv=requestedEv;
+             this.boundedGain=boundedGain;this.boundedEv=boundedEv;
++            this.baseGain=baseGain;this.guardGain=guardGain;
++            this.estimatedTail=estimatedTail;this.estimatedClipFraction=estimatedClipFraction;
+         }
+-        static Result invalid(){return new Result(false,0,Double.NaN,1,0,1,0);}
++        static Result invalid(){return new Result(false,0,Double.NaN,1,0,1,0,1,1,Double.NaN,Double.NaN);}
+     }
+ 
+     /**
+@@ -48,11 +54,14 @@
+      */
+     public static Result analyzePackedPanel(byte[] rgba,int width,int height,int panels,int panel) {
+         if(rgba==null||width<=0||height<=0||panels<=0||panel<0||panel>=panels
+-                ||rgba.length<width*height*panels*4)return Result.invalid();
++                ||(long)width*height*panels*4>rgba.length)return Result.invalid();
+ 
+         Scratch scratch=SCRATCH.get();
+         double[] hist=scratch.weightedHistogram;
+         Arrays.fill(hist,0.0);
++        int[] headroom=scratch.headroomHistogram;
++        Arrays.fill(headroom,0);
++        int headroomCount=0,clipped=0;
+ 
+         int valid=0;
+         double totalWeight=0.0;
+@@ -62,6 +71,11 @@
+         for(int y=0;y<height;y++)for(int x=0;x<width;x++){
+             int off=((y*width*panels)+(panel*width)+x)*4;
+             int q=((rgba[off]&255)<<8)|(rgba[off+1]&255);
++            int h=((rgba[off+2]&255)<<8)|(rgba[off+3]&255);
++            // The saved RAW tail excludes samples at sensor white. Keep that rule,
++            // but use each reconstructed RGB pixel maximum as a conservative proxy.
++            if(h==65535)clipped++;
++            else { headroom[h>>>HIST_SHIFT]++; headroomCount++; }
+             if(q<=1)continue;
+             double ry=(y-h2)/h2,rx=(x-w2)/w2;
+             double weight=Math.exp(-(ry*ry)/den)*Math.exp(-(rx*rx)/den);
+@@ -82,17 +96,51 @@
+         double median=((medianBin<<HIST_SHIFT)+(1<<(HIST_SHIFT-1)))/65535.0;
+         median=Math.max(0.0,Math.min(1.0,median));
+ 
+-        double requested=clamp(METER_TARGET/Math.max(median,1e-6),.5,16.0);
+-        double negativeOnly=Math.min(1.0,requested);
+-        double requestedEv=log2(negativeOnly);
++        double clipFraction=clipped/(double)(width*height);
++        double q99=quantile(headroom,headroomCount,.99);
++        double q995=quantile(headroom,headroomCount,.995);
++        double q998=quantile(headroom,headroomCount,.998);
++        double curvature=Math.log(Math.max(q998,1e-9)/Math.max(q995,1e-9))
++                -.6*Math.log(Math.max(q995,1e-9)/Math.max(q99,1e-9));
++        double tail=curvature>.25?q995:quantile(headroom,headroomCount,
++                clamp(.999-.20*clipFraction,.95,.999));
++        double baseGain=clamp(METER_TARGET/Math.max(median,1e-6),.5,16.0);
++        // Same bounded correction and guard floor as JPEG; only the measurements
++        // differ. A bright tail can limit lift, never invent additional darkening.
++        double guardGain=Math.max(1.0,.95/Math.max(tail,1e-9));
++        double requested=Math.min(baseGain,guardGain);
++        double requestedEv=log2(requested);
+         double boundedEv=clamp(requestedEv,MIN_EV,MAX_EV);
+-        return new Result(true,valid,median,negativeOnly,requestedEv,
+-                Math.pow(2.0,boundedEv),boundedEv);
++        return new Result(true,valid,median,requested,requestedEv,
++                Math.pow(2.0,boundedEv),boundedEv,baseGain,guardGain,tail,clipFraction);
++    }
++
++    private static double quantile(int[] histogram,int count,double q) {
++        if(count<=0)return 1.0;
++        double position=(count-1)*q;
++        int lower=(int)Math.floor(position),upper=(int)Math.ceil(position),sum=0;
++        double lo=1.0,hi=1.0;boolean found=false;
++        for(int i=0;i<histogram.length;i++) {
++            sum+=histogram[i];
++            if(!found && sum>lower) { lo=binValue(i); found=true; }
++            if(sum>upper) { hi=binValue(i); break; }
++        }
++        return lo+(hi-lo)*(position-lower);
++    }
++    private static double binValue(int bin) {
++        return Math.min(1.0,((bin<<HIST_SHIFT)+(1<<(HIST_SHIFT-1)))/65535.0);
++    }
++
++    /** Positive prediction needs a live source contract and reasonably paired metadata. */
++    public static boolean canPredictLift(boolean sampleReady,boolean sampleHeld,
++            boolean currentReady,boolean currentHeld,long textureNs,long resultNs) {
++        return sampleReady && !sampleHeld && currentReady && !currentHeld
++                && textureNs>0 && resultNs>0 && Math.abs(textureNs-resultNs)<=150000000L;
+     }
+ 
+     public static double slewEv(double current,double target) {
+-        current=clamp(current,MIN_EV,MAX_EV);
+-        target=clamp(target,MIN_EV,MAX_EV);
++        current=clamp(Double.isFinite(current)?current:0,MIN_EV,MAX_EV);
++        target=clamp(Double.isFinite(target)?target:0,MIN_EV,MAX_EV);
+         double delta=target-current;
+         if(Math.abs(delta)<=DEADBAND_EV)return current;
+         if(delta>MAX_SLEW_EV)return current+MAX_SLEW_EV;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -387,7 +387,7 @@
+                 mView.getWidth(),mView.getHeight(),m9TapViewport1A,mTexRotateMatrix,mMirrorPreview);
+         }
+         mM9LastDraw1W = new M9PreviewFrameState1W.Draw(frame1W, textureTimestamp1W,
+-                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0);
++                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A);
+         // Rounded screen corners do not apply to offscreen meter/probe tiles.
+         GLES20.glUniform1f(uCornerRadius, 0f);
+         try {
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9PreviewBrightnessTest.java
+@@ -0,0 +1,85 @@
++package com.particlesdevs.photoncamera.m9;
++
++import com.particlesdevs.photoncamera.m9.preview.M9PreviewTc20Math1A;
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9PreviewBrightnessTest {
++    private byte[] panel(int n,double luma,double headroom) {
++        byte[] p=new byte[n*4];
++        for(int i=0;i<n;i++)put(p,i,luma,headroom);
++        return p;
++    }
++    private void put(byte[] p,int i,double luma,double headroom) {
++        int y=(int)Math.round(luma*65535),h=(int)Math.round(headroom*65535);
++        p[i*4]=(byte)(y>>8);p[i*4+1]=(byte)y;p[i*4+2]=(byte)(h>>8);p[i*4+3]=(byte)h;
++    }
++    private M9PreviewTc20Math1A.Result measure(double luma,double headroom) {
++        return M9PreviewTc20Math1A.analyzePackedPanel(panel(64,luma,headroom),8,8,1,0);
++    }
++    @Test public void darkScenePredictsExistingHalfStopLift() {
++        assertEquals(.5,measure(.04,.2).boundedEv,0);
++    }
++    @Test public void moderateSceneUsesMeasuredCorrection() {
++        assertEquals(Math.log(M9PreviewTc20Math1A.METER_TARGET/.078)/Math.log(2),measure(.078,.4).boundedEv,.003);
++    }
++    @Test public void brightSceneRetainsExistingHalfStopDarkening() {
++        assertEquals(-.5,measure(.2,.9).boundedEv,0);
++    }
++    @Test public void highlightGuardLimitsLiftWithoutForcingDarkening() {
++        M9PreviewTc20Math1A.Result r=measure(.03,.8);
++        assertEquals(Math.log(.95/.8)/Math.log(2),r.boundedEv,.001);
++        assertTrue(r.guardGain<r.baseGain);
++        assertEquals(0,measure(.03,.98).boundedEv,0);
++    }
++    @Test public void allClippedHeadroomCannotAuthorizeLift() {
++        M9PreviewTc20Math1A.Result r=measure(.03,1);
++        assertEquals(0,r.boundedEv,0);assertEquals(1,r.estimatedClipFraction,0);
++    }
++    @Test public void rawStyleWhiteExclusionDoesNotTurnSpecularIntoDarkening() {
++        byte[] p=panel(1000,.03,.3);put(p,0,.8,1);
++        M9PreviewTc20Math1A.Result r=M9PreviewTc20Math1A.analyzePackedPanel(p,1000,1,1,0);
++        assertEquals(.5,r.boundedEv,0);assertEquals(.001,r.estimatedClipFraction,0);
++    }
++    @Test public void negativePredictionIsIndependentOfHeadroom() {
++        for(double y:new double[]{.1,.12,.16,.3})
++            assertEquals(measure(y,.2).boundedEv,measure(y,1).boundedEv,0);
++    }
++    @Test public void blackAndInvalidInputsRemainUnity() {
++        assertFalse(measure(0,.5).valid);assertEquals(1,measure(0,.5).boundedGain,0);
++        assertFalse(M9PreviewTc20Math1A.analyzePackedPanel(null,8,8,1,0).valid);
++        assertFalse(M9PreviewTc20Math1A.analyzePackedPanel(new byte[4],Integer.MAX_VALUE,2,1,0).valid);
++        assertFalse(M9PreviewTc20Math1A.analyzePackedPanel(new byte[4],1,1,1,1).valid);
++    }
++    @Test public void panelOffsetDoesNotReadNeighbourMeasurements() {
++        byte[] p=new byte[8*8*4*4];
++        for(int y=0;y<8;y++)for(int x=0;x<8;x++)put(p,y*32+24+x,.04,.2);
++        M9PreviewTc20Math1A.Result r=M9PreviewTc20Math1A.analyzePackedPanel(p,8,8,4,3);
++        assertEquals(64,r.validCount);assertEquals(.5,r.boundedEv,0);
++    }
++    @Test public void inputIsReadOnlyAndLaterSamplesDoNotChangePriorResults() {
++        byte[] p=panel(64,.04,.2),copy=p.clone();
++        M9PreviewTc20Math1A.Result first=M9PreviewTc20Math1A.analyzePackedPanel(p,8,8,1,0);
++        measure(.2,.9);assertArrayEquals(copy,p);assertEquals(.5,first.boundedEv,0);
++    }
++    @Test public void smoothingBoundsBothDirectionsAndRetainsDeadband() {
++        double ev=0;
++        for(int i=0;i<4;i++){ev=M9PreviewTc20Math1A.slewEv(ev,.5);assertEquals((i+1)*.125,ev,0);}
++        assertEquals(.375,M9PreviewTc20Math1A.slewEv(ev,-.5),0);
++        assertEquals(.2,M9PreviewTc20Math1A.slewEv(.2,.23),0);
++        assertEquals(-.5,M9PreviewTc20Math1A.slewEv(-.5,-100),0);
++    }
++    @Test public void nonfiniteSlewStateCannotContaminateUniform() {
++        assertEquals(.125,M9PreviewTc20Math1A.slewEv(Double.NaN,.5),0);
++        assertEquals(0,M9PreviewTc20Math1A.slewEv(0,Double.POSITIVE_INFINITY),0);
++    }
++    @Test public void liftRequiresCurrentUnheldSourceAndPairedTimestamps() {
++        assertTrue(M9PreviewTc20Math1A.canPredictLift(true,false,true,false,1_033_000_000L,1_000_000_000L));
++        assertFalse(M9PreviewTc20Math1A.canPredictLift(true,true,true,false,1,1));
++        assertFalse(M9PreviewTc20Math1A.canPredictLift(true,false,true,true,1,1));
++        assertFalse(M9PreviewTc20Math1A.canPredictLift(false,false,true,false,1,1));
++        assertFalse(M9PreviewTc20Math1A.canPredictLift(true,false,false,false,1,1));
++        assertFalse(M9PreviewTc20Math1A.canPredictLift(true,false,true,false,1_151_000_000L,1_000_000_000L));
++        assertFalse(M9PreviewTc20Math1A.canPredictLift(true,false,true,false,-1,1));
++    }
++}

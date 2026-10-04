@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "unchangedExistingAppSourceFiles": 1127,
+  "existingMenuRoutesKeysClassesDefaultsPreserved": true,
+  "allPhotographicSourceUnchanged": true,
+  "existingCaptureFreezeUnchanged": true,
+  "allAssetsAndNativeSourcesUnchanged": true,
+  "profileCollectionExcludedFromPerLensSnapshots": true,
+  "profileMetadataIgnoredOnPerLensRestore": true,
+  "profileScreen": "Settings > Image > Shooting profiles",
+  "evRange": [
+    -4,
+    4
+  ],
+  "phoneUiValidationPending": true
+}

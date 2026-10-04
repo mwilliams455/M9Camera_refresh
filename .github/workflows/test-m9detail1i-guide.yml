@@ -1,0 +1,129 @@
+name: M9DETAIL1I Green Guide Research
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [research/m9livegl2g-exposureenergy]
+    paths:
+      - 'research/detail1a/green_guide2_probe.py'
+      - 'research/detail1a/edge_directed_carrier_probe.py'
+      - 'research/detail1a/native_clip_fallback_probe.py'
+      - 'research/detail1a/censored_diagonal_mean_probe.py'
+      - 'research/detail1a/censored_diagonal_stress_probe.py'
+      - 'research/detail1a/censored_signoutlier_stress_probe.py'
+      - 'research/detail1a/censored_signoutlier_guard_probe.py'
+      - 'research/detail1a/rb_domain.py'
+      - 'research/detail1a/rb_domain.cpp'
+      - '.github/workflows/test-m9detail1i-guide.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Replay exact M9EXPOSUREPLAN1C source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYREPLAY'
+          from pathlib import Path
+          import subprocess
+          lines=Path('.github/workflows/build-m9cam-m9exposureplan1c.yml').read_text().splitlines()
+          blocks=[]
+          for i,line in enumerate(lines):
+              if line=='      - name: Set up JDK 17': break
+              if line.strip()!='run: |': continue
+              body=[]
+              for following in lines[i+1:]:
+                  if following.startswith('      - '): break
+                  if following.startswith('          '): body.append(following[10:])
+                  elif not following.strip(): body.append('')
+                  else: raise SystemExit('Unexpected exposure-plan parent indentation: '+following)
+              blocks.append('\n'.join(body))
+          if not blocks: raise SystemExit('No exposure-plan parent source blocks found')
+          for idx,body in enumerate(blocks):
+              script=Path('/tmp/m9detail1i-parent-'+str(idx)+'.sh')
+              script.write_text(body+'\n')
+              subprocess.run(['bash',str(script)],check=True)
+          PYREPLAY
+
+      - name: Apply GL2A through GL2G
+        run: |
+          set -euo pipefail
+          python3 patches/apply-m9cam-m9livegl2a.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2b.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2c.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2d.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2e.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2f.py PhotonCamera
+          python3 patches/apply-m9cam-m9livegl2g.py PhotonCamera
+
+      - name: Run RGGB colour-edge falsification
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/m9detail1i-python
+          /tmp/m9detail1i-python/bin/pip install --disable-pip-version-check numpy scipy
+          /tmp/m9detail1i-python/bin/python research/detail1a/green_guide2_probe.py \
+            --assembled PhotonCamera --cfas 0 --out M9DETAIL1I_GUIDE_RGGB | tee M9DETAIL1I_GUIDE_RGGB.log
+
+      - name: Run clipping-gated edge-directed carrier falsification
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/edge_directed_carrier_probe.py \
+            --assembled PhotonCamera --cfas 0 --out M9DETAIL1J_CARRIER_RGGB | tee M9DETAIL1J_CARRIER_RGGB.log
+
+      - name: Run native R/B clipping fallback falsification
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/native_clip_fallback_probe.py \
+            --assembled PhotonCamera --cfas 0 --out M9DETAIL1K_NATIVEFALLBACK_RGGB | tee M9DETAIL1K_NATIVEFALLBACK_RGGB.log
+
+      - name: Run censored-diagonal carrier falsification
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_mean_probe.py \
+            --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1L_CENSOREDMEAN_ALLCFA | tee M9DETAIL1L_CENSOREDMEAN_ALLCFA.log
+
+      - name: Stress zero-regression censored-diagonal candidate
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/censored_diagonal_stress_probe.py \
+            --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1M_STRESS_ALLCFA | tee M9DETAIL1M_STRESS_ALLCFA.log
+
+      - name: Stress sign-consensus censored-anchor candidate
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/censored_signoutlier_stress_probe.py \
+            --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1N_SIGNOUTLIER_ALLCFA | tee M9DETAIL1N_SIGNOUTLIER_ALLCFA.log
+
+      - name: Stress WB-guarded sign-consensus candidate
+        run: |
+          set -euo pipefail
+          /tmp/m9detail1i-python/bin/python research/detail1a/censored_signoutlier_guard_probe.py \
+            --assembled PhotonCamera --cfas 0 1 2 3 --out M9DETAIL1O_WBGUARD_ALLCFA | tee M9DETAIL1O_WBGUARD_ALLCFA.log
+
+      - name: Upload research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9DETAIL1I-GREEN-GUIDE-RGGB
+          path: |
+            M9DETAIL1I_GUIDE_RGGB/report.json
+            M9DETAIL1I_GUIDE_RGGB.log
+            M9DETAIL1J_CARRIER_RGGB/report.json
+            M9DETAIL1J_CARRIER_RGGB.log
+            M9DETAIL1K_NATIVEFALLBACK_RGGB/report.json
+            M9DETAIL1K_NATIVEFALLBACK_RGGB.log
+            M9DETAIL1L_CENSOREDMEAN_ALLCFA/report.json
+            M9DETAIL1L_CENSOREDMEAN_ALLCFA.log
+            M9DETAIL1M_STRESS_ALLCFA/report.json
+            M9DETAIL1M_STRESS_ALLCFA.log
+            M9DETAIL1N_SIGNOUTLIER_ALLCFA/report.json
+            M9DETAIL1N_SIGNOUTLIER_ALLCFA.log
+            M9DETAIL1O_WBGUARD_ALLCFA/report.json
+            M9DETAIL1O_WBGUARD_ALLCFA.log
+          if-no-files-found: warn

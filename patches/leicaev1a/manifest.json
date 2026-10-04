@@ -1,0 +1,44 @@
+{
+  "parentCommit": "90483f0066cc21ddc03c380cd7a64d891a4b5638",
+  "version": "2.33-m9leicaev1a",
+  "parentFiles": {
+    "app/build.gradle": "46edb7c073c973affc5d256507337995843545decf26569ffb57313f3dc7a223",
+    "app/src/main/java/com/particlesdevs/photoncamera/api/Settings.java": "051187c2a767cb28607db03dba34e87155d36d27a72825bfffd892fb9aa6d413",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "daadb67149601719709dfd6060185287e6a8ef457eb727eda417e8364d60034a",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java": "d9f8dfe9b19d99d28d618631b18564e4fd56c205b09cf02b4fddca44143b50ce",
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "1d2dc752ca98d9aab91736003e9e510c3e4d26c1c12f0971b43607d22352a9c0",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "f5e2fbb29756bf9938b5b75fc1fb42ca17efe1daf42eb73290d50f395a111c03",
+    "app/src/main/res/xml/preferences_m9.xml": "456a16429cd106a63a19ace8f60fa84c27857b069e25f1d04c80fe7df1e43171",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java": "8b8d4cf07eaa8e4a61a18559e4decf8e545dbfdd7d8842b9d2c61625900bb221",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/camera/CameraProperties.java": "816ab07bb7fb8617c3a14825beed5cd0c3ad50670de50e3a89aa612c82fe74c9",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/console/ManualModeConsoleImpl.java": "02fe8ea53b67ff4fe90d80b83765e013b1c32c414e5d10c227507a9d64bd85cd",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/ManualParamModel.java": "a3172bdb4c846c7876dde4d2e24ebd44c7cb417625c4b88bf75df7a652541b69",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java": "74ae5a48ebe62c336fcecc7b82fad12f5d861ac2d4b1b18a1220aebd993edfb2"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "f94df6fa9a7a7b4808feaf2a93767180af296fcfd100b88317b1ab69892f7270",
+    "app/src/main/java/com/particlesdevs/photoncamera/api/Settings.java": "28e0df9beb5035a80f49aa8498e018d3721d75c8caf6a3860a473517ad89af6e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java": "f6575f3c169a02663d1e9919e29120aea1708cbcd09f20f641bbd9ae1ab70432",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java": "9b01ff49fc2f1e247de77a21a7b81a587ee64e32fe2666358dd343e26568cfc9",
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "32d21525322a7d9c63922267c4edc465fe76806bdc43e5eb649903b2c1f6043a",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "1f46f3484065136f935710673de77fdbd2a5472f099129d9e5bb58b8cc071ace",
+    "app/src/main/res/values/m9_ev.xml": "0abd28fb252960731311f191920af8883ccd1cfdb6f1ea4b51de801af3d2f625",
+    "app/src/main/res/xml/preferences_m9.xml": "01fa70b9cf763a20f29178afff361bc2bc068dd6b802dd111c62fa0cadc06f97",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9LeicaEvTest.java": "81152ccc9ccf56cf05b08b231d0608b9d174ebcfd5abe0fd391cd8e91c4ac823",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java": "a1d6862f90abcf8f749e5846dba65f14ecf271d5351ee2a49e1b2d7f4d56ad63",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/camera/CameraProperties.java": "5138cadc7df81a21eb3a09a238bd1c8c45ec941a2133c30a497da5f200d270f1",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/console/ManualModeConsoleImpl.java": "1d11d74214fe82bff25e5dd23d8d27503bcf51b1b7fcd29f1aeb77c1186c3015",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/LeicaEv.java": "87c794d71067f114d58b6f10478f726a494213c9dd3c20247a133533fec2e503",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/ManualParamModel.java": "6be4b3f581648a233c096037b67e8da4411f80ab57366e5acf8a5809ac7495ea",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java": "0690c6b035f78c9e649a909fc5dadcd124c02bf7ecda158bf3b8681be33c427d"
+  },
+  "patchSha256": "1b50cba8cedd2fb36880abb60f3e91cf3113e7b4715b15407ad56be61da833e9",
+  "nativePolicy": "Preserve all 25 native entries from phone-accepted 2.32",
+  "photoPolicy": "JPEG/DNG renderer, neutral metering, allocation, automatic placement, tap policy and preview shader unchanged. User EV input is now one persisted exact-third value.",
+  "scope": "First exposure-standardization stage: EV. Auto ISO, slowest speed, AE-L, timer and bracketing follow.",
+  "rangeEv": [
+    -3,
+    3
+  ],
+  "stepEv": 0.3333333333333333
+}

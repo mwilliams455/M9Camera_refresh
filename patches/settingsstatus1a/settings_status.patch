@@ -1,0 +1,585 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27224
++        versionCode 27225
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.24-m9savemode1a'
++        versionName '2.25-m9settingsstatus1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.24_SAVEMODE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.25_SETTINGSSTATUS1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveFeedback.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveFeedback.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveFeedback.java
+@@ -0,0 +1,84 @@
++package com.particlesdevs.photoncamera.m9;
++
++import android.app.NotificationChannel;
++import android.app.NotificationManager;
++import android.app.PendingIntent;
++import android.content.Context;
++import android.content.Intent;
++import android.os.Handler;
++import android.os.Looper;
++import androidx.core.app.NotificationCompat;
++import androidx.core.app.NotificationManagerCompat;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++
++/** Application-context notifications, independent of camera rearm and Fragment lifetime. */
++public final class M9SaveFeedback {
++    private static final String CHANNEL = "m9_final_save";
++    private static final int NOTIFICATION = 925;
++    private static final Handler MAIN = new Handler(Looper.getMainLooper());
++    private static boolean initialized;
++    private M9SaveFeedback() {}
++
++    public static synchronized void initialize() {
++        if (initialized) return;
++        initialized = true;
++        M9SaveStatus.INSTANCE.addObserver(() -> MAIN.post(M9SaveFeedback::refreshNotification));
++        MAIN.post(M9SaveFeedback::refreshNotification);
++    }
++
++    public static String text(Context context, M9SaveStatus.Snapshot state) {
++        if (state.pending > 0) {
++            String saving = context.getResources().getQuantityString(
++                    R.plurals.m9_photos_saving, state.pending, state.pending);
++            return state.failed == 0 ? saving : saving + " · " + context.getString(R.string.m9_save_issue_short);
++        }
++        if (state.failed > 0) return context.getResources().getQuantityString(
++                R.plurals.m9_photos_save_issues, state.failed, state.failed);
++        if (state.saved > 0) return context.getResources().getQuantityString(
++                R.plurals.m9_photos_saved, state.saved, state.saved);
++        return "";
++    }
++
++    public static String details(Context context, M9SaveStatus.Snapshot state) {
++        StringBuilder message = new StringBuilder();
++        int[] flags = {M9SaveStatus.JPEG, M9SaveStatus.DNG, M9SaveStatus.PROFILE,
++                M9SaveStatus.UNFILTERED, M9SaveStatus.PUBLICATION, M9SaveStatus.PROCESSING, M9SaveStatus.QUEUE};
++        int[] resources = {R.string.m9_save_jpeg_failed, R.string.m9_save_dng_failed,
++                R.string.m9_save_profile_failed, R.string.m9_save_unfiltered_failed,
++                R.string.m9_save_publication_failed, R.string.m9_save_processing_failed,
++                R.string.m9_save_queue_failed};
++        for (int i = 0; i < flags.length; i++) if ((state.issues & flags[i]) != 0) {
++            if (message.length() > 0) message.append("\n\n");
++            message.append(context.getString(resources[i]));
++        }
++        return message.toString();
++    }
++
++    private static void refreshNotification() {
++        Context context = PhotonCamera.getAppContext();
++        if (context == null) return;
++        M9SaveStatus.Snapshot state = M9SaveStatus.INSTANCE.snapshot();
++        try {
++            NotificationManagerCompat manager = NotificationManagerCompat.from(context);
++            manager.createNotificationChannel(new NotificationChannel(CHANNEL,
++                    context.getString(R.string.m9_save_channel), NotificationManager.IMPORTANCE_LOW));
++            if (state.pending == 0 && state.failed == 0) { manager.cancel(NOTIFICATION); return; }
++            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL)
++                    .setSmallIcon(R.drawable.ic_round_photo_camera_24)
++                    .setContentTitle(context.getString(R.string.app_name))
++                    .setContentText(text(context, state)).setOnlyAlertOnce(true)
++                    .setOngoing(state.pending > 0).setAutoCancel(state.pending == 0)
++                    .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
++                    .setProgress(0, 0, state.pending > 0);
++            if (state.failed > 0) builder.setStyle(new NotificationCompat.BigTextStyle()
++                    .bigText(details(context, state)));
++            Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
++            if (open != null) builder.setContentIntent(PendingIntent.getActivity(context, NOTIFICATION,
++                    open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
++            manager.notify(NOTIFICATION, builder.build());
++        } catch (RuntimeException ignored) {
++            // The camera status remains available if notifications are disabled.
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java
+@@ -0,0 +1,87 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.concurrent.CopyOnWriteArrayList;
++
++/** Capture-owned final-save state. Contains no Activity, image buffer or diagnostic export. */
++public final class M9SaveStatus {
++    public static final M9SaveStatus INSTANCE = new M9SaveStatus();
++    public static final int JPEG = 1, DNG = 2, PROFILE = 4, UNFILTERED = 8,
++            PUBLICATION = 16, PROCESSING = 32, QUEUE = 64;
++    public interface Observer { void changed(); }
++    private final CopyOnWriteArrayList<Observer> observers = new CopyOnWriteArrayList<>();
++    private int pending, saved, failed, issues;
++    private long revision;
++
++    public static final class Snapshot {
++        public final int pending, saved, failed, issues;
++        public final long revision;
++        private Snapshot(int pending, int saved, int failed, int issues, long revision) {
++            this.pending = pending; this.saved = saved; this.failed = failed;
++            this.issues = issues; this.revision = revision;
++        }
++    }
++
++    public final class Ticket {
++        private final M9SaveSelection output;
++        private boolean done;
++        private Ticket(M9SaveSelection output) { this.output = output; }
++
++        /** Called only after requested file writes, metadata and publication attempts end. */
++        public void complete(boolean jpeg, boolean dng, boolean profile, boolean unfiltered,
++                             boolean published) {
++            int problems = 0;
++            if (output.jpeg && !jpeg) problems |= JPEG;
++            if (output.dng && !dng) problems |= DNG;
++            if (output.dng && dng && !profile) problems |= PROFILE;
++            if (output.unfilteredDng && !unfiltered) problems |= UNFILTERED;
++            if (!published) problems |= PUBLICATION;
++            finish(problems);
++        }
++
++        public void fail(int reason) { finish(reason == 0 ? PROCESSING : reason); }
++
++        private void finish(int problems) {
++            synchronized (M9SaveStatus.this) {
++                if (done) return;
++                done = true;
++                pending--;
++                if (problems == 0) saved++; else failed++;
++                issues |= problems;
++                revision++;
++            }
++            notifyObservers();
++        }
++    }
++
++    public Ticket begin(M9SaveSelection output) {
++        if (output == null) throw new IllegalArgumentException("Missing save selection");
++        Ticket ticket = new Ticket(output);
++        synchronized (this) { pending++; revision++; }
++        notifyObservers();
++        return ticket;
++    }
++
++    public synchronized Snapshot snapshot() {
++        return new Snapshot(pending, saved, failed, issues, revision);
++    }
++
++    /** A stale timer/dialog must never clear a newer capture's result. */
++    public void acknowledge(long expectedRevision) {
++        synchronized (this) {
++            if (revision != expectedRevision || pending != 0) return;
++            saved = failed = issues = 0;
++            revision++;
++        }
++        notifyObservers();
++    }
++
++    public void addObserver(Observer observer) { observers.addIfAbsent(observer); }
++    public void removeObserver(Observer observer) { observers.remove(observer); }
++    private void notifyObservers() {
++        for (Observer observer : observers) {
++            try { observer.changed(); } catch (RuntimeException ignored) {
++                // A detached UI or unavailable notification may never fail a save.
++            }
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatusView.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatusView.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatusView.java
+@@ -0,0 +1,62 @@
++package com.particlesdevs.photoncamera.m9;
++
++import android.os.Handler;
++import android.os.Looper;
++import android.view.View;
++import android.widget.TextView;
++import com.google.android.material.dialog.MaterialAlertDialogBuilder;
++import com.particlesdevs.photoncamera.R;
++
++/** Resubscribes to process-owned status after rotation/background; retains no capture data. */
++public final class M9SaveStatusView {
++    private final TextView view;
++    private final Handler main = new Handler(Looper.getMainLooper());
++    private final M9SaveStatus.Observer observer = () -> main.post(this::refresh);
++    private boolean started;
++    private long successRevision;
++    private final Runnable dismissSuccess = () -> {
++        M9SaveStatus.Snapshot state = M9SaveStatus.INSTANCE.snapshot();
++        if (started && state.failed == 0 && state.pending == 0)
++            M9SaveStatus.INSTANCE.acknowledge(successRevision);
++    };
++
++    public M9SaveStatusView(TextView view) {
++        this.view = view;
++        view.setOnClickListener(v -> {
++            M9SaveStatus.Snapshot state = M9SaveStatus.INSTANCE.snapshot();
++            if (!started || state.failed == 0) return;
++            new MaterialAlertDialogBuilder(view.getContext())
++                    .setTitle(R.string.m9_save_issue_title)
++                    .setMessage(M9SaveFeedback.details(view.getContext(), state))
++                    .setPositiveButton(android.R.string.ok, (dialog, which) ->
++                            M9SaveStatus.INSTANCE.acknowledge(state.revision))
++                    .show();
++        });
++    }
++
++    public void start() {
++        started = true;
++        M9SaveFeedback.initialize();
++        M9SaveStatus.INSTANCE.addObserver(observer);
++        refresh();
++    }
++    public void stop() {
++        started = false;
++        M9SaveStatus.INSTANCE.removeObserver(observer);
++        main.removeCallbacksAndMessages(null);
++    }
++    private void refresh() {
++        if (!started) return;
++        main.removeCallbacks(dismissSuccess);
++        M9SaveStatus.Snapshot state = M9SaveStatus.INSTANCE.snapshot();
++        String text = M9SaveFeedback.text(view.getContext(), state);
++        view.setText(text);
++        view.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
++        view.setClickable(state.failed > 0);
++        view.setFocusable(state.failed > 0);
++        if (state.pending == 0 && state.failed == 0 && state.saved > 0) {
++            successRevision = state.revision;
++            main.postDelayed(dismissSuccess, 3500);
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -2,6 +2,8 @@
+ 
+ import com.particlesdevs.photoncamera.m9.M9OutputSettings;
+ import com.particlesdevs.photoncamera.m9.M9SaveSelection;
++import com.particlesdevs.photoncamera.m9.M9SaveStatus;
++import com.particlesdevs.photoncamera.m9.M9SaveFeedback;
+ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+ 
+ import android.hardware.camera2.CameraCharacteristics;
+@@ -139,6 +141,7 @@
+         final int cameraRotation;
+         final boolean saveUnfilteredDng;
+         final M9SaveSelection output;
++        final M9SaveStatus.Ticket saveTicket;
+         final boolean rendererSucceeded;
+         final ProcessingEventsListener processingEventsListener;
+         final Path jpegPath;
+@@ -166,6 +169,7 @@
+                CaptureResult captureResult,
+                int cameraRotation,
+                M9SaveSelection output,
++               M9SaveStatus.Ticket saveTicket,
+                boolean rendererSucceeded,
+                ProcessingEventsListener processingEventsListener,
+                Path jpegPath,
+@@ -189,6 +193,7 @@
+             this.captureResult = captureResult;
+             this.cameraRotation = cameraRotation;
+             this.output = output;
++            this.saveTicket = saveTicket;
+             this.saveUnfilteredDng = output.unfilteredDng;
+             this.rendererSucceeded = rendererSucceeded;
+             this.processingEventsListener = processingEventsListener;
+@@ -240,12 +245,15 @@
+                 MAX_PENDING,
+                 QUEUE_FULL_COUNT.get());
+         final long queuedAtNs = System.nanoTime();
++        M9SaveFeedback.initialize();
++        final M9SaveStatus.Ticket saveTicket = M9SaveStatus.INSTANCE.begin(output);
+ 
+         Runnable job = () -> {
+             final long workerStartedNs = System.nanoTime();
+             final long queueWaitMs = (workerStartedNs - queuedAtNs) / 1_000_000L;
+             M9R35Renderer.Result renderResult = null;
+             DngJob dngJob = null;
++            M9JpegFinalizeQueue.Ticket jpegFinalizeTicket = null;
+             boolean frameTransferredToDngWorker = false;
+             long renderElapsedMs = -1L;
+             String error = null;
+@@ -269,7 +277,6 @@
+ 
+                 final Path jpegPath = renderResult != null ? renderResult.jpegPath : null;
+                 final boolean jpegPayloadSaved = renderResult != null && renderResult.success && jpegPath != null;
+-                M9JpegFinalizeQueue.Ticket jpegFinalizeTicket = null;
+                 if (jpegPayloadSaved) {
+                     // PERF3F EXIFASYNC1A: publication moves with EXIF finalization. The renderer
+                     // has already written the exact PERF3E JPEG payload; do not media-scan it here.
+@@ -296,6 +303,7 @@
+                         captureResult,
+                         cameraRotation,
+                         output,
++                        saveTicket,
+                         renderResult != null && renderResult.success,
+                         processingEventsListener,
+                         jpegPath,
+@@ -342,6 +350,9 @@
+                     runDngAndFinalize(dngJob, false, true, fallbackCount, 0L);
+                 }
+             } catch (Throwable t) {
++                // A submitted JPEG finalizer still owns file work even on a later handoff failure.
++                if (jpegFinalizeTicket != null) jpegFinalizeTicket.awaitCompletion();
++                saveTicket.fail(M9SaveStatus.PROCESSING);
+                 error = t.toString();
+                 Log.e(TAG, "PRIMARY2.4 QUEUE1B DNGASYNC1A render worker failed", t);
+                 // Preserve the pre-DNG failure behavior: do not invent a development DNG if
+@@ -416,6 +427,7 @@
+                     + queueTelemetry.activeRenderCountAtEnqueue);
+             return true;
+         } catch (RejectedExecutionException full) {
++            saveTicket.fail(M9SaveStatus.QUEUE);
+             IN_FLIGHT_COUNT.decrementAndGet();
+             final long fullCount = QUEUE_FULL_COUNT.incrementAndGet();
+             queueTelemetry.queueFullCountAtEnqueue = fullCount;
+@@ -443,6 +455,7 @@
+                     + "; enqueueWaitElapsedMs=" + queueTelemetry.enqueueWaitElapsedMs);
+             return false;
+         } catch (RuntimeException unexpected) {
++            saveTicket.fail(M9SaveStatus.PROCESSING);
+             IN_FLIGHT_COUNT.decrementAndGet();
+             throw unexpected;
+         }
+@@ -457,6 +470,7 @@
+                     + " ms DNG queue wait; dngPending=" + DNG_EXECUTOR.getQueue().size());
+             runDngAndFinalize(job, true, false, DNG_HANDOFF_FALLBACK_COUNT.get(), dngQueueWaitMs);
+         } catch (Throwable t) {
++            job.saveTicket.fail(M9SaveStatus.PROCESSING);
+             // runDngAndFinalize owns its own failure/timing/close path; this is a final guard.
+             Log.e(DNG_TAG, "DNGASYNC1A unexpected DNG worker failure", t);
+             try {
+@@ -515,10 +529,12 @@
+                 error = appendError(error, "JPEG payload saved but EXIF finalizer ticket missing");
+             }
+ 
++            boolean publicationSucceeded = true;
+             if (dngSaved && job.processingEventsListener != null) {
+                 try {
+                     job.processingEventsListener.notifyImageSavedStatus(true, job.dngPath);
+                 } catch (Throwable publishError) {
++                    publicationSucceeded = false;
+                     error = appendError(error, "DNG publication failed: " + publishError);
+                 }
+             }
+@@ -531,9 +547,16 @@
+                             com.particlesdevs.photoncamera.app.PhotonCamera.getAppContext(),
+                             new String[]{rawPairPath.toString()}, new String[]{"image/x-adobe-dng"}, null);
+                 } catch (Throwable publishError) {
++                    publicationSucceeded = false;
+                     error = appendError(error, "RAW control publication failed: " + publishError);
+                 }
+             }
++
++            // M9SETTINGSSTATUS1A: count a capture once, after every requested output and
++            // metadata/publication attempt. Optional diagnostics are not photo completion.
++            job.saveTicket.complete(jpegSaved, dngSaved,
++                    dngProfileReport != null && "embedded".equals(dngProfileReport.optString("status")),
++                    rawPairPath != null, publicationSucceeded);
+ 
+             // Preserve METAFREEZE1A storage ordering: DNG gets the storage path first; only
+             // after it completes do capture metadata and PRIMARY timing persistence get queued.
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -200,6 +200,7 @@
+     private volatile MediaPlayer endPlayer;
+     public GLPreview textureView;
+     private NotificationManagerCompat notificationManager;
++    private com.particlesdevs.photoncamera.m9.M9SaveStatusView m9SaveStatusView;
+     private SettingsManager settingsManager;
+     private SupportedDevice supportedDevice;
+     private SettingsBarEntryProvider settingsBarEntryProvider;
+@@ -501,6 +502,11 @@
+     @Override
+     public void onResume() {
+         super.onResume();
++        if (m9SaveStatusView == null) {
++            m9SaveStatusView = new com.particlesdevs.photoncamera.m9.M9SaveStatusView(
++                    requireView().findViewById(R.id.m9_save_status));
++        }
++        m9SaveStatusView.start();
+         updateSettingsBar();
+         lensZoomBarController.applyPosition(PreferenceKeys.getLensBarPosition(), true);
+         edgeBlurController.setEnabled(PreferenceKeys.isBlurViewfinderEdgesOn());
+@@ -553,6 +559,7 @@
+ 
+     @Override
+     public void onPause() {
++        if (m9SaveStatusView != null) m9SaveStatusView.stop();
+         PhotonCamera.getGravity().unregister();
+         PhotonCamera.getGyro().unregister();
+         PhotonCamera.getSettings().saveID();
+@@ -984,6 +991,8 @@
+ 
+     @Override
+     public void onDestroyView() {
++        if (m9SaveStatusView != null) m9SaveStatusView.stop();
++        m9SaveStatusView = null;
+         if (textureView != null) {
+             textureView.removeCallbacks(panelBlurTracker);
+             textureView.setPanelBlur(null);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+@@ -433,15 +433,43 @@
+             }
+         }
+ 
+-        /**
+-         * No-op retained for history: settings groups used to be hidden per
+-         * camera mode. All groups are always shown now; the Video settings
+-         * live in their own shortcut screen.
+-         */
++        private boolean usesM9PhotoSettings() {
++            return com.particlesdevs.photoncamera.m9.M9Config.isM9Modern()
++                    && sCameraMode != CameraMode.UNLIMITED.ordinal()
++                    && sCameraMode != CameraMode.RAWVIDEO.ordinal();
++        }
++
++        /** M9SETTINGSSTATUS1A: do not reset hidden settings or change their stored keys. */
+         private void filterPreferencesByMode() {
++            if (!usesM9PhotoSettings()) return;
++            int[] hidden = {R.string.pref_frame_count_key, R.string.pref_save_heic_key,
++                    R.string.pref_ultrahdr_key, R.string.pref_hdrx_nr_key,
++                    R.string.pref_sharpness_seekbar_key, R.string.pref_contrast_seekbar_key,
++                    R.string.pref_noise_seekbar_key, R.string.pref_merge_seekbar_key,
++                    R.string.pref_shadows_seekbar_key, R.string.pref_compressor_seekbar_key,
++                    R.string.pref_align_method_key};
++            for (int key : hidden) {
++                Preference preference = findPreference(getString(key));
++                if (preference != null) preference.setVisible(false);
++            }
++            androidx.preference.PreferenceGroup photo = findPreference(getString(R.string.pref_category_photo_key));
++            Preference save = findPreference(getString(R.string.pref_save_raw_key));
++            if (photo != null && save != null && save.getParent() != photo) {
++                if (save.getParent() != null) save.getParent().removePreference(save);
++                save.setOrder(-10);
++                photo.addPreference(save);
++            }
++            if (photo != null) photo.setSummary(R.string.m9_single_frame_summary);
+         }
+ 
+         private void showHideHdrxSettings() {
++            if (usesM9PhotoSettings()) {
++                // M9 never uses the legacy JPEG/YUV processing path. Keep the Save
++                // selector in Photo settings regardless of the inherited HDRX flag.
++                Preference legacy = findPreference(getString(R.string.pref_category_jpg_key));
++                if (legacy != null) legacy.setVisible(false);
++                return;
++            }
+             if (PreferenceKeys.isHdrXOn())
+                 removePreferenceFromScreen(mContext.getString(R.string.pref_category_jpg_key));
+             else
+@@ -455,6 +483,13 @@
+          * hidden entirely and forced off.
+          */
+         private void applySaveHeicUi() {
++            if (usesM9PhotoSettings()) {
++                Preference heic = findPreference(getString(R.string.pref_save_heic_key));
++                if (heic != null) heic.setVisible(false);
++                androidx.preference.ListPreference save = findPreference(getString(R.string.pref_save_raw_key));
++                if (save != null) save.setEntries(R.array.raw_mode_entries);
++                return;
++            }
+             try {
+                 boolean supported = com.particlesdevs.photoncamera.processing.encoder.HeicSupport.isHeicEncodeSupported();
+                 Preference heicPref = findPreference(
+@@ -800,6 +835,10 @@
+         private void setHdrxTitle() {
+             Preference p = findPreference(mContext.getString(R.string.pref_category_hdrx_key));
+             if (p != null) {
++                if (usesM9PhotoSettings()) {
++                    p.setTitle(R.string.m9_capture_preview_settings);
++                    return;
++                }
+                 if (PreferenceKeys.isPerLensSettingsOn()) {
+                     p.setTitle(mContext.getString(R.string.hdrx) + "\t(Lens: " + PreferenceKeys.getCameraID() + ')');
+                 } else {
+@@ -809,6 +848,7 @@
+         }
+ 
+         private void setFramesSummary() {
++            if (usesM9PhotoSettings()) return;
+             Preference frameCountPreference = findPreference(PreferenceKeys.Key.KEY_FRAME_COUNT.mValue);
+             if (frameCountPreference != null) {
+                 if (mSettingsManager.getInteger(PreferenceKeys.SCOPE_GLOBAL, PreferenceKeys.Key.KEY_FRAME_COUNT) == 1) {
+diff --git a/app/src/main/res/layout/layout_main_viewfinder.xml b/app/src/main/res/layout/layout_main_viewfinder.xml
+--- a/app/src/main/res/layout/layout_main_viewfinder.xml
++++ b/app/src/main/res/layout/layout_main_viewfinder.xml
+@@ -116,6 +116,23 @@
+                 app:layout_constraintTop_toTopOf="@id/viewfinder_frame" />
+         </androidx.constraintlayout.widget.ConstraintLayout>
+ 
++        <TextView
++                android:id="@+id/m9_save_status"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_gravity="top|center_horizontal"
++                android:layout_marginTop="12dp"
++                android:layout_marginHorizontal="16dp"
++                android:background="@drawable/aux_container_background"
++                android:paddingHorizontal="12dp"
++                android:paddingVertical="8dp"
++                android:textColor="@color/cam_on_surface"
++                android:textSize="13sp"
++                android:gravity="center"
++                android:accessibilityLiveRegion="polite"
++                android:visibility="gone"
++                tools:text="2 photos saving" />
++
+         <!--Capture Progress circle: M3E indicator sized like the old ring.
+             indicatorSize/trackThickness reproduce the previous drawable's
+             geometry (150dp box: 50dp inner radius + 3.75dp stroke = 107.5dp
+diff --git a/app/src/main/res/values/m9_save_status.xml b/app/src/main/res/values/m9_save_status.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/m9_save_status.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_save_channel">Photo saving</string>
++    <string name="m9_capture_preview_settings">Capture and preview</string>
++    <string name="m9_camera_processing_settings">Camera processing</string>
++    <string name="m9_single_frame_summary">M9 photos use a single RAW exposure. No HDR or stacking.</string>
++    <string name="m9_save_issue_short">Save issue — tap for details</string>
++    <string name="m9_save_issue_title">Photo save issue</string>
++    <string name="m9_save_issue_action">Review</string>
++    <string name="m9_save_jpeg_failed">A requested JPEG could not be saved or finalized. Check free storage, then take the photo again. Any completed RAW is kept.</string>
++    <string name="m9_save_dng_failed">A requested RAW could not be saved. Check free storage, then take the photo again. Any completed JPEG is kept.</string>
++    <string name="m9_save_profile_failed">A RAW was saved, but its Leica look could not be embedded. The RAW is kept and may look different in your editor. Check free storage and try another capture.</string>
++    <string name="m9_save_unfiltered_failed">The optional unfiltered RAW copy could not be saved. Check free storage, or turn off Save unfiltered DNG.</string>
++    <string name="m9_save_publication_failed">A saved file could not be announced to the gallery. Reopen the gallery and check the photo before taking it again.</string>
++    <string name="m9_save_processing_failed">Photo processing did not finish. Check the gallery for any completed files, check free storage, then take the photo again.</string>
++    <string name="m9_save_queue_failed">The photo could not enter the save queue. Wait for the other photos to finish saving, then take it again.</string>
++    <plurals name="m9_photos_saving"><item quantity="one">%d photo saving</item><item quantity="other">%d photos saving</item></plurals>
++    <plurals name="m9_photos_saved"><item quantity="one">%d photo saved</item><item quantity="other">%d photos saved</item></plurals>
++    <plurals name="m9_photos_save_issues"><item quantity="one">%d photo has a save issue — tap for details</item><item quantity="other">%d photos have save issues — tap for details</item></plurals>
++</resources>

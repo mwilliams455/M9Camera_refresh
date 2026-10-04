@@ -1,0 +1,6 @@
+{
+  "rgb_samples": 1457352,
+  "asan_ubsan_exit_code": 0,
+  "leak_check": false,
+  "local_ptrace_boundary": true
+}

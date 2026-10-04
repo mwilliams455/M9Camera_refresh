@@ -1,0 +1,39 @@
+{
+  "parentCommit": "fb09910a3ea17f71924d8226d576f347517f6018",
+  "version": "2.44-m9uioverlay1f",
+  "parentFiles": {
+    "app/build.gradle": "028f68e893155bbea09024cebfe5f6f2255511fda5e9bf0c5949e488d57b4bb3",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "ca0b2366d529bc622a44fb7bd1d04fda8552853ebd511c633e404725900baff8",
+    "app/src/main/res/layout/layout_main_bottombar.xml": "6a51c740f29eeb038dcc699bfda13ed40bb6cac094db1ff8cb245a695e29750e",
+    "app/src/main/res/layout/layout_main_topbar.xml": "ddc245751c1b0970ca76b7c1cbd2e11a04626a523d488f4291cdd76b74ff504c"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "8705a7f4683fe4c2098231667210eedf2d70030ec60f1c80d116a0d445d2ffd2",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "d1e7da6d7f6fc7ad659184c1540a395faa5ab4551e20d5a55d987025ffe5211b",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControls.java": "440fe86760eaeca18cf792bebb13ba383595d1fea1a9d61ac02f538132be28b4",
+    "app/src/main/res/color/m9_overlay_mode_text.xml": "38ab06077bc047bdb4e31b58b533aec03c075479c4b1c3229179cadf415119e2",
+    "app/src/main/res/drawable/m9_overlay_chevron_up.xml": "57b753008ac8d88c2bb472ba8db79a73fb0aa7fb0fce12af610fe2b21112a16c",
+    "app/src/main/res/drawable/m9_overlay_highlights.xml": "f916171b9da5475acb1f3ffd6e0a38d4cfb9db4e7c72cf8e9121707eed50830a",
+    "app/src/main/res/drawable/m9_overlay_mode_underline.xml": "bf936ab32bc0d04aaa716dae0b8e4e5be003ed4b2e02f3d3a0e54f95237260f0",
+    "app/src/main/res/drawable/m9_overlay_shadows.xml": "06630e311867ce553204fc34c4ff35985f7b939740ecab7f523debd406819cc5",
+    "app/src/main/res/drawable/m9_overlay_timer.xml": "e4c44f79cbfb653c6f8620e748274ac912da5229d5a5bfc2d2d7ac11d948021d",
+    "app/src/main/res/layout/layout_main_bottombar.xml": "21a0735a891b2d80f7b7b7d037693d8b5ccb268af430e5365f36c9fd6dc87c3b",
+    "app/src/main/res/layout/layout_main_topbar.xml": "6b66237164c35b1119bccce4dd73c0cee41348951f4560ac31230ea19a362831",
+    "app/src/main/res/values/m9_shooting_controls.xml": "3c8e0374191c20971934c04f5a5a815ecbfdbd9242ce95fefdcab7bfb6bba19e",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java": "cd9119803fdb779d9b756d2e085424838ccf0e4dd7ba4458e99b6bda17cf209e",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControlsTest.java": "3b622e996444c40fe5286aa389e08e00c048398c070b1ce6a8e014232258ae40"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControls.java",
+    "app/src/main/res/color/m9_overlay_mode_text.xml",
+    "app/src/main/res/drawable/m9_overlay_chevron_up.xml",
+    "app/src/main/res/drawable/m9_overlay_highlights.xml",
+    "app/src/main/res/drawable/m9_overlay_mode_underline.xml",
+    "app/src/main/res/drawable/m9_overlay_shadows.xml",
+    "app/src/main/res/drawable/m9_overlay_timer.xml",
+    "app/src/main/res/values/m9_shooting_controls.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControlsTest.java"
+  ],
+  "patchSha256": "568d8f48b3b76dfb879a130a893e0a17e76a4aa6727dd29d7a8ce3106d8d72e4"
+}

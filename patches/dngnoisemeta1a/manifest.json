@@ -1,0 +1,15 @@
+{
+  "revision": "M9DNGNOISEMETA1A",
+  "parentCommit": "b3507d9e4e4e8299c6049ca138df01db37b20476",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "535408e48926fcb10a37da44284c0b232fbf126db37d09de8b85df59cf9522db",
+  "fileOverrides": {
+    "app/build.gradle": "06cfc8f8f189544df1b86dde9df4caa0601393c7e3d923f2f00637d890452d28",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java": "927fc9de13ed75b192e2b72a3f1c30282245f295f7f268d5636059242c0de1d0",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java": "6bd830bb064c30eb3f06f61504f842b8ecceee20c4ba7dad8adbeec4425be416",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "627c8242287dbea19992aa68f734b01ad19c1f953dccaa505fb292d125c2151a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfile.java": "1ac52f77d0b3c5665855e2662a6d8e42d7fc7191148ba344b06b2ec5939c9137",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java": "b0926d3c2546eca9b79466dd06d5331a4332ac1d77e4aea254356e36c286472f",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngNoiseProfileTest.java": "3de185841606ffda69c71d1e12c530f02f1c56a4a088692acb279dad138fc6f2"
+  }
+}

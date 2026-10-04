@@ -1,0 +1,156 @@
+name: M9 Sharpness Selector4 Pointer Writer Trace
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-selector4-pointer-writer.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpness_gateb_control_trace.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+
+      - name: Download, verify and decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+
+      - name: Extract canonical BF547
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, os, pathlib, sys, hashlib, json, struct
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          spec=importlib.util.spec_from_file_location('gateb', pathlib.Path('tools/m9_sharpness_gateb_control_trace.py'))
+          m=importlib.util.module_from_spec(spec); sys.modules[spec.name]=m; spec.loader.exec_module(m)
+          fw=(root/'m9.dec').read_bytes(); bf=m.get_bf547(fw)
+          if hashlib.sha256(bf).hexdigest()!=m.BF_SHA: raise SystemExit('canonical BF547 hash mismatch')
+          (root/'BF547.bin').write_bytes(bf)
+          vals=[0x103EE4,0x103F44,0x103F48,0x103F4C,0x103F50,0x103F54,0x103F58]
+          raw={}
+          for v in vals:
+              pat=struct.pack('<I',v); hits=[]; p=0
+              while True:
+                  p=bf.find(pat,p)
+                  if p<0: break
+                  hits.append({'file_off':hex(p),'runtime':hex(p+m.RAM)}); p+=1
+              raw[hex(v)]=hits
+          (root/'selector4_raw_u32_xrefs.json').write_text(json.dumps(raw,indent=2)+'\n')
+          PY
+
+      - name: Full BF547 GNU disassembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$OBJDUMP" -D -b binary -m bfin --adjust-vma=0x20000 "$RUNNER_TEMP/m9sharp/BF547.bin" > "$RUNNER_TEMP/m9sharp/BF547.full.gnu.dis.txt"
+
+      - name: Extract metadata-base and selector-4 pointer contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'
+          lines=(root/'BF547.full.gnu.dis.txt').read_text(errors='replace').splitlines()
+
+          addr_re=re.compile(r'^\s*([0-9a-f]+):')
+          targets=('103ee4','103f44','103f48','103f4c','103f50','103f54','103f58','3ee4','3f44','3f48','3f4c','3f50','3f54','3f58')
+          hit_idx=[]
+          for i,line in enumerate(lines):
+              low=line.lower()
+              if any(t in low for t in targets):
+                  hit_idx.append(i)
+
+          # De-duplicate overlapping windows.
+          windows=[]
+          for idx in hit_idx:
+              lo=max(0,idx-14); hi=min(len(lines),idx+18)
+              if windows and lo <= windows[-1][1]+3:
+                  windows[-1]=(windows[-1][0],max(windows[-1][1],hi))
+              else:
+                  windows.append((lo,hi))
+          text=[]
+          for n,(lo,hi) in enumerate(windows):
+              text.append(f'===== WINDOW {n} lines {lo+1}-{hi} =====')
+              text.extend(lines[lo:hi]); text.append('')
+          (root/'selector4_metadata_disasm_contexts.txt').write_text('\n'.join(text)+'\n')
+
+          # Detect high-half 0x10 followed shortly by low halves around the metadata table.
+          pairs=[]
+          lo_tokens={'3ee4','3f44','3f48','3f4c','3f50','3f54','3f58'}
+          for i,line in enumerate(lines):
+              ll=line.lower()
+              if '.h = 0x10' not in ll: continue
+              regm=re.search(r'\b([pr][0-7])\.h = 0x10',ll)
+              if not regm: continue
+              reg=regm.group(1)
+              for j in range(i+1,min(i+14,len(lines))):
+                  lj=lines[j].lower()
+                  m=re.search(rf'\b{re.escape(reg)}\.l = 0x([0-9a-f]+)',lj)
+                  if m:
+                      low=m.group(1).lstrip('0') or '0'
+                      if low in lo_tokens:
+                          pairs.append({'hi_line':i+1,'lo_line':j+1,'register':reg,'low':low,'context':'\n'.join(lines[max(0,i-8):min(len(lines),j+12)])})
+                      break
+          (root/'selector4_hilo_pairs.json').write_text(json.dumps(pairs,indent=2)+'\n')
+
+          summary={'text_hit_count':len(hit_idx),'merged_windows':len(windows),'hilo_pairs':len(pairs)}
+          (root/'selector4_pointer_writer_summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          for p in pairs:
+              print('PAIR',p['register'],p['low'],'lines',p['hi_line'],p['lo_line'])
+          PY
+
+      - name: Publish derived text evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-SELECTOR4-POINTER-WRITER
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/selector4_raw_u32_xrefs.json
+            ${{ runner.temp }}/m9sharp/selector4_metadata_disasm_contexts.txt
+            ${{ runner.temp }}/m9sharp/selector4_hilo_pairs.json
+            ${{ runner.temp }}/m9sharp/selector4_pointer_writer_summary.json
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec" "$RUNNER_TEMP/m9sharp/BF547.bin" "$RUNNER_TEMP/m9sharp/BF547.full.gnu.dis.txt"

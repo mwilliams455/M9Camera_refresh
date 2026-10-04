@@ -1,0 +1,73 @@
+{
+  "firmware_sha256": "4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20",
+  "ldr_sha256": "06abf2c4ef5e14beeadc033359d7fe4ae955c8a30b4ef26afa756afcf6d21870",
+  "resource_sha256": "25debaf581d3fdbeca6ad7c6426ca5d9e597b98856c540ceddcc912b79409d8d",
+  "functions": [
+    {
+      "name": "ASMBox9CDI",
+      "address": "0xff600d48",
+      "size": 442,
+      "code_sha256": "8b3e29812ca807f202a5b2ee0879385a76e02f2b6da15d81fef980d3f051e4cb",
+      "file": "ASMBox9CDI_ff600d48.asm.txt",
+      "text_sha256": "18b1a155d4b5615cf3976a5741303b6ee901a8097346f2bed5338b9e864a38c2"
+    },
+    {
+      "name": "Gauss5CDI",
+      "address": "0xff60272c",
+      "size": 452,
+      "code_sha256": "8f5ece9b85af4677e994b7a835007b85de8cbc097bab48c06962b5b3e128b0d5",
+      "file": "Gauss5CDI_ff60272c.asm.txt",
+      "text_sha256": "a053f7fa899797866e0af3c6997a1858035c054821d9467ebcf0ce4fb7229725"
+    },
+    {
+      "name": "Gauss13CDI",
+      "address": "0xff60246c",
+      "size": 704,
+      "code_sha256": "df0735376333080f1118f4afdd19ba8807623c4e8ad6defeda585e2627308ae9",
+      "file": "Gauss13CDI_ff60246c.asm.txt",
+      "text_sha256": "3d0bcb5a8c975e64e6db26bff571d7334350cdb737ee8ae42bc5169248fca847"
+    },
+    {
+      "name": "Process_Noise",
+      "address": "0xff602bd0",
+      "size": 1278,
+      "code_sha256": "6e0d3650b115b37cd4f66c283632ca2be2a7f70f15c3a31bf9ef12b944571e31",
+      "file": "Process_Noise_ff602bd0.asm.txt",
+      "text_sha256": "f5d9bb1911972d0101899ffad890d26f5a1f8ce14c90495850e6a4d85843d1fe"
+    },
+    {
+      "name": "CalculateNoiseParameter",
+      "address": "0xfeb1cd70",
+      "size": 350,
+      "code_sha256": "d40cb78776e32057c1797ec9c4dff62f03578bde14b15623f4dea727ae79c791",
+      "file": "CalculateNoiseParameter_feb1cd70.asm.txt",
+      "text_sha256": "5d1c999b9b4afeb1a35c048cfed4c4e98c77b3cc1fdcca1b6495eee8a0ac5001"
+    },
+    {
+      "name": "LoadLutDataL3",
+      "address": "0xfeb1c638",
+      "size": 412,
+      "code_sha256": "8952817ee201e5a32c17e7b7a4d377a198c2abb8f4fed1b3e3a4b7394e95545c",
+      "file": "LoadLutDataL3_feb1c638.asm.txt",
+      "text_sha256": "f7509144b68a6e14f5223f881a059b31490cd707d0f72f67b0a4db51aa6eb66f"
+    },
+    {
+      "name": "Set",
+      "address": "0xfeb1d1bc",
+      "size": 1548,
+      "code_sha256": "dbe1e9a181666325096f744b4bc16320478ccd2ff9e6b1e2c3ac3bcc5fcaa024",
+      "file": "Set_feb1d1bc.asm.txt",
+      "text_sha256": "ae12a4a2db5371942a56df39148567d7b0d6ce22fc1f50e41de9be62ae434a88"
+    },
+    {
+      "name": "float_to_int",
+      "address": "0xfeb19c58",
+      "size": 66,
+      "code_sha256": "6df4a64fe98a9c9b453a8505a48c0563314864c87f1d88f3a1e474dcc7561ec2",
+      "file": "float_to_int_feb19c58.asm.txt",
+      "text_sha256": "e4a28905869d8798c083062f9ad0bda7b928348590c6bbcf20d9f6518b2965d4"
+    }
+  ],
+  "disassembler": "GNU objdump (GNU Binutils) 2.44",
+  "note": "Only active call targets are interpreted; overlapping stale map variants are excluded. ASMBox9CDI ends at its RTS; its map size is zero."
+}

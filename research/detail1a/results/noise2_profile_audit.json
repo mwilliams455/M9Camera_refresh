@@ -1,0 +1,82 @@
+{
+  "schema": "m9.detail1f.noiseprofile.provenance.v1",
+  "captures": [
+    {
+      "name": "IMG_20260912_124558_1789213558532_00.dng",
+      "raw_sha256": "08ac00c1ac84419d311844855bd4ffebcfeb161ad6f3f5e444cfbb1d48911b0f",
+      "noise_profile": [
+        2.9567403268055556e-05,
+        4.834904956268195e-07,
+        3.472056504539444e-05,
+        4.0775853931925274e-07,
+        2.917632891202222e-05,
+        4.945284597326194e-07
+      ],
+      "reported_frame_count": 1,
+      "description": "parameters:\n\n hasGainMap=true\n FrameCount=1\n CameraID=2\n DenoiseOn=true\n Sharp=0.20\n Sat=1.00\n Contrast=0.00\n ExpoCorrect=0.00\n Denoise=0.00\n Noise Merging=0.00\n Shadows=0.00\n Compressor=0.00\n Align=1\n Color=1\n PreviewFormat=0\n FocalL=8.72\n Version=1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a(26681)"
+    },
+    {
+      "name": "IMG_20260920_162257_1789917777152_00.dng",
+      "raw_sha256": "90d35b19e8a6daa3193991be1d6a70d40efd612251a27499c32f54de23372dbc",
+      "noise_profile": [
+        5.7279636544182224e-05,
+        5.014323367903248e-07,
+        6.216925982018444e-05,
+        4.140617580835352e-07,
+        5.738686982793555e-05,
+        4.903393616525596e-07
+      ],
+      "reported_frame_count": 1,
+      "description": "parameters:\n\n hasGainMap=true\n FrameCount=1\n CameraID=2\n DenoiseOn=true\n Sharp=0.20\n Sat=1.00\n Contrast=0.00\n ExpoCorrect=0.00\n Denoise=0.00\n Noise Merging=0.00\n Shadows=0.00\n Compressor=0.00\n Align=1\n Color=1\n PreviewFormat=0\n FocalL=8.71\n Version=1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a(26681)"
+    },
+    {
+      "name": "IMG_20260917_073643_1789627003451_00.dng",
+      "raw_sha256": "10cd0d0d6cf63b05b522b182977e5125fa88a9058bd1eac1a971b819781c28a1",
+      "noise_profile": [
+        0.00027221497270700886,
+        7.0498410767932e-07,
+        0.0002741341805810628,
+        6.116058165781373e-07,
+        0.0002742996232591956,
+        7.178011388784019e-07
+      ],
+      "reported_frame_count": 1,
+      "description": "parameters:\n\n hasGainMap=true\n FrameCount=1\n CameraID=2\n DenoiseOn=true\n Sharp=0.20\n Sat=1.00\n Contrast=0.00\n ExpoCorrect=0.00\n Denoise=0.00\n Noise Merging=0.00\n Shadows=0.00\n Compressor=0.00\n Align=1\n Color=1\n PreviewFormat=0\n FocalL=8.72\n Version=1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a(26681)"
+    },
+    {
+      "name": "IMG_20260908_201025_1788894625828_00.dng",
+      "raw_sha256": "cde734262366f3d7456805ac8cfafe56053d79fbe8e36e22554b1ba8c996350f",
+      "noise_profile": [
+        0.00029900408865356,
+        7.518357539602614e-07,
+        0.00030056625703086057,
+        6.547248051618914e-07,
+        0.00030136206764572,
+        7.650291040129306e-07
+      ],
+      "reported_frame_count": 1,
+      "description": "parameters:\n\n hasGainMap=true\n FrameCount=1\n CameraID=2\n DenoiseOn=true\n Sharp=0.20\n Sat=1.00\n Contrast=0.00\n ExpoCorrect=0.00\n Denoise=0.00\n Noise Merging=0.00\n Shadows=0.00\n Compressor=0.00\n Align=1\n Color=1\n PreviewFormat=0\n FocalL=8.72\n Version=1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-skychroma1a-nativewpclip1a(26681)"
+    },
+    {
+      "name": "IMG_20260908_201112_1788894672206_00.dng",
+      "raw_sha256": "f06d21a35e340d79acd8eb8aa8849a7cdf364a0c5023e571a9e01d5eac88e2d8",
+      "noise_profile": [
+        0.0005921388381456288,
+        1.555510979817427e-06,
+        0.0005897941704911478,
+        1.394371448120472e-06,
+        0.0005974876610290356,
+        1.575159559593242e-06
+      ],
+      "reported_frame_count": 1,
+      "description": "parameters:\n\n hasGainMap=true\n FrameCount=1\n CameraID=2\n DenoiseOn=true\n Sharp=0.20\n Sat=1.00\n Contrast=0.00\n ExpoCorrect=0.00\n Denoise=0.00\n Noise Merging=0.00\n Shadows=0.00\n Compressor=0.00\n Align=1\n Color=1\n PreviewFormat=0\n FocalL=8.72\n Version=1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-skychroma1a-nativewpclip1a(26681)"
+    }
+  ],
+  "inspected_writer_source_sha256": {
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java": "61dad5c80d5e5098040a5c4e1935a224cd908d499a10e34b0ecbf898a09ca8e5",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/NoiseModeler.java": "75020e63e42951595c76bdf067b58d40189016d670fafe0f602de0f1274e2b48"
+  },
+  "writer_observation": "DngCreator.setParameters writes RGB computeModel pairs; NoiseModeler computes adaptiveMpy*baseModel/(FrameCount*0.9).",
+  "boundary": "Current assembled source is inspected evidence, not proof of every historical writer. All tested DNG descriptions report FrameCount=1. No merged input is inferred. NoiseProfile is a prior, not empirical sensor/covariance calibration.",
+  "noise_model_reference": "https://developer.android.com/reference/android/hardware/camera2/CaptureResult#SENSOR_NOISE_PROFILE"
+}

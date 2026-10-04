@@ -1,0 +1,48 @@
+{
+  "parentCommit": "725322974b0f1fc4b36cd56a64aa03f533adc445",
+  "version": "2.31-m9displayaids1a",
+  "parentFiles": {
+    "app/build.gradle": "c9371ea1f2541abad842cd76d46f687a920156aeed3354492bf40f143037be7b",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "68491df7776c888ad3d7b74ba841619d7d8865f81e584534e755310578041e40",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "b7356cb16c56400c5aa4fcc9b5c804da9610052a72e2690bf75e65aa233ef202",
+    "app/src/main/res/layout/layout_main_topbar.xml": "5e30b0ea64b4a919e43585440b0c1d9c660c2bb16f9bee9661bd59477205c1d7",
+    "app/src/main/res/layout/layout_main_viewfinder.xml": "114dac05a6b7db776c122697154488c5cf1d416aaf0a94053e1055a9802546a5",
+    "app/src/main/res/values/m9_menu.xml": "537fca362d86b368dfeb4e5ccee2e5a6aca37bf0bf91c54f6d32a862e4455f00",
+    "app/src/main/res/xml/preferences_m9.xml": "4631bfb88fb79ecd914246e1de2b6686dee8dfee36e5afd96b643d6b5a67865f"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "fd49c272206e671c5baa7742b79afa133f6eefa9d600a0e64c8cfcc57c644e7a",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DisplayAids.java": "615f01cf17876f6c89db47d383b6c2b458774e5e612d997ce7605dced75d1cbb",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DisplaySampleGate.java": "e2bedade0b1e97fc40e5d5cda0886a344750dd7e147bc00a704a9b08b6923db7",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "f5e2fbb29756bf9938b5b75fc1fb42ca17efe1daf42eb73290d50f395a111c03",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "6c071879b6d7ef67381a1c6e89c5c2b9bf185e9a611515e76f2a8c998e33b834",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9DisplayAidsController.java": "730159f619909497029f84d34f48913c629a518eeed4712bd07dcbfacbcde4ab",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/M9DisplayAidsView.java": "687a604223a1836dc12f83a12a321146e24697bb55570ac9dde177f5acbe0ba0",
+    "app/src/main/res/drawable/ic_m9_display_aids.xml": "1d785cde2237de6501653632506829b308983cfe1e3ad24364c762532e17610f",
+    "app/src/main/res/layout/layout_main_topbar.xml": "04566f4e9a193ce81326f3f424ce29e8e83f3f911755f10ee9121b0b1d32d56c",
+    "app/src/main/res/layout/layout_main_viewfinder.xml": "a1c8a77127bff93fbadaaccf01b2837e3da3c17f68686ae583cb6a74e157b545",
+    "app/src/main/res/values/m9_display_aids.xml": "de3c1a51d631947863ddea70b7ccaa4af5fcc01dadd2057dad71d60fc77231a4",
+    "app/src/main/res/values/m9_menu.xml": "150c3a324302b4e54f61a05ce15fe6102e1362f9ab4fc0906bf1ae95a9aea057",
+    "app/src/main/res/xml/preferences_m9.xml": "456a16429cd106a63a19ace8f60fa84c27857b069e25f1d04c80fe7df1e43171",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9DisplayAidsTest.java": "bdaa1cdf067694a4f740a82c650b608662260935117e4b774191e7658daa0a95"
+  },
+  "patchSha256": "11ad5406398d5fc35e9bfc4fc64a8f343a87aa275221bb401ffd9ccf58d3cc01",
+  "nativePolicy": "Preserve all 25 native entries from accepted 2.30",
+  "photoPolicy": "Saved-photo rendering, capture planning, shaders, assets and native source unchanged",
+  "sampleSize": [
+    128,
+    96
+  ],
+  "sampleIntervalMs": 150,
+  "histogramBins": 64,
+  "highlightRange": [
+    95,
+    100
+  ],
+  "shadowRange": [
+    0,
+    5
+  ],
+  "defaults": "New warning controls off; existing HUD values 0..3 retain their meaning",
+  "monochromReference": "1716e806cc66ec999faff4e820c0f6927d92ab3a"
+}

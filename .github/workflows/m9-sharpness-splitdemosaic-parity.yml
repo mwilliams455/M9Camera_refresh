@@ -1,0 +1,37 @@
+name: M9 Sharpness Split Demosaic Parity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpness-splitdemosaic1a]
+    paths:
+      - 'tools/m9_mhc_split_parity.py'
+      - '.github/workflows/m9-sharpness-splitdemosaic-parity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run frozen MHC split-stage parity oracle
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 tools/m9_mhc_split_parity.py --out evidence/mhc_split_parity.json | tee evidence/mhc_split_parity.stdout.txt
+          python3 - <<'PY'
+          import json
+          p=json.load(open('evidence/mhc_split_parity.json'))
+          assert p['all_pixel_exact'] is True
+          assert p['case_count'] == 20
+          assert all(x['mono_rgb_sha256']==x['split_rgb_sha256'] for x in p['cases'])
+          print('SPLITDEMOSAIC1A parity gate PASS:',p['case_count'],'cases')
+          PY
+          sha256sum evidence/* | tee evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-SPLITDEMOSAIC-PARITY
+          retention-days: 30
+          path: evidence/*

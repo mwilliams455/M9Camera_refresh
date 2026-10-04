@@ -1,0 +1,157 @@
+{
+  "status": "passed",
+  "movedNodesPreservingAllAttributes": [
+    "prefscreen",
+    "pref_m9_saturation",
+    "pref_m9_contrast",
+    "pref_m9_sharpness",
+    "m9_sharpness_info",
+    "pref_expocompensation_seekbar_key",
+    "pref_af_mode_key",
+    "pref_auto_zoom_switch_key",
+    "pref_preserve_manual_wb_key",
+    "pref_camera_sounds_key",
+    "pref_save_raw_key",
+    "pref_wide169_key",
+    "pref_show_grid_key",
+    "pref_peak_method_key",
+    "pref_show_afdata_key",
+    "pref_horizon",
+    "pref_lens_bar_position_key",
+    "pref_show_roundedge_key",
+    "pref_theme_key",
+    "pref_theme_accent_key",
+    "pref_viewfinder_background_key",
+    "pref_m9_save_diagnostic_files",
+    "pref_m9_save_unfiltered_dng",
+    "pref_m9_full_frame_sat_audit",
+    "pref_m9_omit_auto_remosaic",
+    "pref_save_per_lens_settings",
+    "pref_binning_key",
+    "pref_cfa_key",
+    "pref_color_method_key",
+    "pref_tunable_submenu",
+    "pref_sensor_config_submenu",
+    "pref_fetch_configurations_key",
+    "pref_video_settings_submenu",
+    "pref_category_video_key",
+    "pref_video_resolution_key",
+    "pref_video_bitrate_key",
+    "pref_video_hevc_key",
+    "pref_video_hdr_key",
+    "pref_video_hdr_transfer_key",
+    "pref_video_color_range_key",
+    "pref_video_ois_key",
+    "pref_video_use_logical_id_key",
+    "pref_video_logical_id_key",
+    "pref_video_logical_lenses_key",
+    "pref_video_hdr_session_type_key",
+    "pref_video_sdr_session_type_key",
+    "pref_video_tunable_submenu",
+    "pref_video_hdr_tunable_submenu",
+    "pref_category_audio_key",
+    "pref_audio_bitrate_key",
+    "pref_audio_stereo_key",
+    "pref_audio_source_key",
+    "pref_category_rawvideo_key",
+    "pref_rawvideo_downscale_4x_key",
+    "pref_rawvideo_container_key",
+    "pref_rawvideo_crop_169_key",
+    "pref_hide_gallery_icon_key",
+    "pref_category_backup_restore",
+    "pref_backup_preferences_key",
+    "pref_restore_preferences_key",
+    "pref_reset_preferences_key",
+    "pref_about_key",
+    "pref_photoncamera",
+    "pref_version_key",
+    "pref_this_device_key",
+    "pref_contributors_key",
+    "pref_telegram_channel_key",
+    "all_devices_names"
+  ],
+  "fiveRootMenus": [
+    "image",
+    "capture",
+    "output",
+    "display",
+    "advanced"
+  ],
+  "childRoutes": {
+    "prefscreen": [
+      "prefscreen"
+    ],
+    "pref_m9_image_screen": [
+      "prefscreen",
+      "pref_m9_image_screen"
+    ],
+    "pref_m9_capture_screen": [
+      "prefscreen",
+      "pref_m9_capture_screen"
+    ],
+    "pref_m9_output_screen": [
+      "prefscreen",
+      "pref_m9_output_screen"
+    ],
+    "pref_m9_display_screen": [
+      "prefscreen",
+      "pref_m9_display_screen"
+    ],
+    "pref_m9_advanced_screen": [
+      "prefscreen",
+      "pref_m9_advanced_screen"
+    ],
+    "pref_tunable_submenu": [
+      "prefscreen",
+      "pref_m9_advanced_screen",
+      "pref_tunable_submenu"
+    ],
+    "pref_sensor_config_submenu": [
+      "prefscreen",
+      "pref_m9_advanced_screen",
+      "pref_sensor_config_submenu"
+    ],
+    "pref_video_settings_submenu": [
+      "prefscreen",
+      "pref_m9_advanced_screen",
+      "pref_video_settings_submenu"
+    ],
+    "pref_video_tunable_submenu": [
+      "prefscreen",
+      "pref_m9_advanced_screen",
+      "pref_video_settings_submenu",
+      "pref_video_tunable_submenu"
+    ],
+    "pref_video_hdr_tunable_submenu": [
+      "prefscreen",
+      "pref_m9_advanced_screen",
+      "pref_video_settings_submenu",
+      "pref_video_hdr_tunable_submenu"
+    ],
+    "pref_about_key": [
+      "prefscreen",
+      "pref_m9_advanced_screen",
+      "pref_about_key"
+    ]
+  },
+  "timerStoredIndices": [
+    "0",
+    "1",
+    "2"
+  ],
+  "timerSeconds": [
+    0,
+    3,
+    10
+  ],
+  "newlyHiddenRows": [
+    "pref_energy_safe_key",
+    "pref_preview_format_key",
+    "pref_show_watermark_key"
+  ],
+  "hiddenStoredValuesUntouched": true,
+  "originalPreferenceResourceUnchanged": true,
+  "unchangedAppSourceFiles": 1127,
+  "photographicSourceUnchanged": true,
+  "runtimePhoneNavigationChecked": false
+}

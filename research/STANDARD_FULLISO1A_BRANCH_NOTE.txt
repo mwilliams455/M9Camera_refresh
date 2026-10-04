@@ -1,0 +1,1 @@
+Dedicated full-ISO workflow trigger branch: research/sharpness-standard-fulliso1a

@@ -1,0 +1,66 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9livegl2g-installfix1'
++        versionName '1.61-m9detail1h-nativeguard'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+diff --git a/app/src/main/cpp/CMakeLists.txt b/app/src/main/cpp/CMakeLists.txt
+--- a/app/src/main/cpp/CMakeLists.txt
++++ b/app/src/main/cpp/CMakeLists.txt
+@@ -232,6 +232,9 @@
+ # PhotonCamera remains owner of the native project; this adds one isolated shared library.
+ add_library(m9color SHARED
+     ${CMAKE_CURRENT_SOURCE_DIR}/m9color_jni.cpp
++    ${CMAKE_CURRENT_SOURCE_DIR}/m9detail1h.cpp
++    ${CMAKE_CURRENT_SOURCE_DIR}/m9detail1h_rb.cpp
++    ${CMAKE_CURRENT_SOURCE_DIR}/m9detail1h_guard.cpp
+ )
+ set_target_properties(m9color PROPERTIES
+     CXX_STANDARD 17
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -3720,6 +3720,8 @@
+                                         sourceCfaPattern, sourceRawOriginX, sourceRawOriginY)))
+                 : NativeProspectiveShadingStats.none();
+ 
++        JSONObject detail1HJson = null;
++
+         // DEMOSAICAB1A keeps the production MHC direct RGB16 path exact. Only encoded
+         // diagnostic mode 54 allocates a Bayer Mat for the historical OpenCV EA control.
+         final int mhcBytes = Math.multiplyExact(Math.multiplyExact(width, height), 6);
+@@ -3758,6 +3760,14 @@
+                             neutralF[0],neutralF[1],neutralF[2],!demosaicPlainMhc1A,mhcStats);
+                 }
+                 if(mhcNativeNs<0) throw new IllegalStateException("DEMOSAICMHCNEUTRAL1A native failure: "+mhcNativeNs);
++            }
++            if (!demosaicNeutralEa1A && !demosaicPlainMhc1A && bridgeProbeMode == 0
++                    && applyNativeShading && applyShadingLumaDecomp1A
++                    && normalizeShadingLumaOutsideMedian1A && nativeShading.applied) {
++                detail1HJson = M9Detail1H.apply(norm16, dup, mhcRgbBuffer, width, height,
++                        sourceCfaPattern, sourceRawOriginX, sourceRawOriginY, black, wl, neutralF,
++                        nativeLiveGainMap, effectiveShadingLumaAuthorityAlpha,
++                        nativeShading.representationScale, nativeCaptureResult);
+             }
+             norm16 = null;
+             demosaicElapsedMs = (System.nanoTime() - demosaicStartedNs) / 1_000_000L;
+@@ -4545,6 +4555,13 @@
+             d.put("demosaicInputDomain", "existing_NORM030_normalized_linear_Bayer");
+             d.put("demosaicOutputDomain", "CV_16UC3_RGB_memory_order_frozen_downstream");
+             d.put("demosaicPhotographicChangeScope", "demosaic_only_WB_shading_SOURCECAL_identityHSM_TC20_SAT2_curve02_BT601_TG1_frozen");
++            if (detail1HJson != null) {
++                d.put("detail1H", detail1HJson);
++                d.put("demosaicControl", "DETAIL1H_corrected_RB_guarded_noise_candidate");
++                d.put("demosaicNeutralVariant", "DETAIL1H_SAT2_NATIVE_GUARD");
++                d.put("demosaicMhcNeutralFrozen1A", false);
++                d.put("demosaicPhotographicChangeScope", "DETAIL1D_RB_DETAIL1F_guard_green_Sharp_fixed");
++            }
+             d.put("colorContextElapsedMs", colorContextElapsedMs);
+             d.put("meterTc20ElapsedMs", meterTc20ElapsedMs);
+             d.put("meterResizeElapsedMs", meterResizeElapsedMs);

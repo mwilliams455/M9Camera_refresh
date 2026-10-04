@@ -1,0 +1,211 @@
+name: Build M9Cam SOURCESHADING1A PORTABLE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sourceadapter-shading1a-portable]
+    paths:
+      - 'payload/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingAudit1A.java'
+      - 'patches/apply-m9cam-sourceshading1a-portable.py'
+      - 'patches/verify-m9cam-sourceshading1a-portable.py'
+      - 'patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py'
+      - 'patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py'
+      - 'patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py'
+      - '.github/workflows/build-m9cam-sourceshading1a-portable.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify patch syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile patches/apply-m9cam-cobaltrolepurge1a-nativefirmware1a.py
+          python3 -m py_compile patches/verify-m9cam-cobaltrolepurge1a-nativefirmware1a.py
+          python3 -m py_compile patches/apply-m9cam-sourceshading1a-portable.py
+          python3 -m py_compile patches/verify-m9cam-sourceshading1a-portable.py
+          python3 -m py_compile patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py
+          python3 -m py_compile patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py
+          python3 -m py_compile patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py
+
+      - name: Replay exact SHARPSOURCE1C RBANCHOR1A validated baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf = Path('.github/workflows/build-m9cam-sharpness-sharpsource1c-rbanchor1a.yml')
+          lines = wf.read_text().splitlines()
+          names = [
+              'Replay exact UPSTREAMAXIS1A parent assembly',
+              'Assemble frozen neutral-MHC parent',
+              'Assemble SHARPSOURCE1C RBANCHOR1A',
+          ]
+          for idx, name in enumerate(names):
+              target = '      - name: ' + name
+              i = lines.index(target)
+              while i < len(lines) and lines[i].strip() != 'run: |': i += 1
+              if i >= len(lines): raise SystemExit('baseline run block missing: ' + name)
+              i += 1; out = []
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith('      - name:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected baseline indentation: ' + line)
+                  i += 1
+              Path(f'/tmp/sourceshading_baseline_{idx}.sh').write_text('\n'.join(out) + '\n')
+          PY
+          for s in /tmp/sourceshading_baseline_*.sh; do bash "$s"; done
+
+      - name: Apply DEVICEPORT1A and CFA abstractions
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/verify-m9cam-deviceport1a-cfaabstract1a.py "$ROOT"
+          python3 patches/apply-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+          python3 patches/verify-m9cam-cfaabstract1b-ultrawide1a.py "$ROOT"
+          python3 patches/apply-m9cam-cfaauthority1a-ultrawide1b.py "$ROOT"
+          python3 patches/verify-m9cam-cfaauthority1a-ultrawide1b.py "$ROOT" | tee CFAAUTHORITY1A_VERIFY.txt
+
+      - name: Apply COBALTROLEPURGE1A NATIVEFIRMWARE1A
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-cobaltrolepurge1a-nativefirmware1a.py "$ROOT"
+          python3 patches/verify-m9cam-cobaltrolepurge1a-nativefirmware1a.py "$ROOT" | tee COBALTROLEPURGE1A_VERIFY.txt
+
+      - name: Freeze production target before source diagnostics
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > SOURCESHADING1A_FROZEN_BEFORE.sha256
+
+      - name: Apply SOURCESHADING1A portable descriptor
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-sourceshading1a-portable.py "$ROOT"
+          python3 patches/verify-m9cam-sourceshading1a-portable.py "$ROOT" | tee SOURCESHADING1A_VERIFY.txt
+
+      - name: Apply SOURCEBOUNDARYPROBE1A MULTISENSOR
+        run: |
+          set -euxo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-sourceboundaryprobe1a-multisensor.py "$ROOT"
+          python3 patches/apply-m9cam-sourceboundaryprobe1a-neutraltype1a.py "$ROOT"
+          python3 patches/verify-m9cam-sourceboundaryprobe1a-multisensor.py "$ROOT" | tee SOURCEBOUNDARYPROBE1A_VERIFY.txt
+
+      - name: Prove shared M9 target unchanged by source diagnostics
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          sha256sum \
+            "$ROOT/app/src/main/cpp/m9color_jni.cpp" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java" \
+            "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java" \
+            "$ROOT/app/src/main/assets/m9/m9_r35_calibration.bin" \
+            "$ROOT/app/src/main/assets/m9/m9_curve02_firmware.bin" \
+            > SOURCESHADING1A_FROZEN_AFTER.sha256
+          diff -u SOURCESHADING1A_FROZEN_BEFORE.sha256 SOURCESHADING1A_FROZEN_AFTER.sha256
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Snapshot assembled diagnostic source
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/assembled-sourceshading1a-portable"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DevicePortAudit1A.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceShadingAudit1A.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java" "$OUT/"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9CfaResolver.java" "$OUT/"
+          cp SOURCESHADING1A_VERIFY.txt SOURCEBOUNDARYPROBE1A_VERIFY.txt COBALTROLEPURGE1A_VERIFY.txt CFAAUTHORITY1A_VERIFY.txt "$OUT/"
+          cp SOURCESHADING1A_FROZEN_BEFORE.sha256 SOURCESHADING1A_FROZEN_AFTER.sha256 "$OUT/"
+          sha256sum "$OUT"/* > "$OUT/SHA256SUMS.txt"
+
+      - name: Locate runner Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in "${ANDROID_HOME:-}/cmdline-tools/latest/bin/sdkmanager" "${ANDROID_SDK_ROOT:-}/cmdline-tools/latest/bin/sdkmanager" "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find /usr/local/lib/android/sdk "${ANDROID_HOME:-/nonexistent}" "${ANDROID_SDK_ROOT:-/nonexistent}" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then echo 'No usable sdkmanager found' >&2; exit 1; fi
+          SDKROOT="$(cd "$(dirname "$SDKMANAGER")/../../.." && pwd)"
+          echo "ANDROID_HOME=$SDKROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDKROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
+      - name: Build SOURCESHADING1A APK
+        run: |
+          set -o pipefail
+          cd PhotonCamera
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/SOURCESHADING1A_GRADLE.log"
+
+      - name: Record APK SHA256
+        if: success()
+        run: sha256sum PhotonCamera/app/build/outputs/apk/debug/*.apk | tee SOURCESHADING1A_APK_SHA256.txt
+
+      - name: Upload assembled source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SOURCESHADING1A-PORTABLE-ASSEMBLED-SOURCE
+          path: assembled-sourceshading1a-portable/
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SOURCESHADING1A-PORTABLE-BUILDLOG
+          path: SOURCESHADING1A_GRADLE.log
+          if-no-files-found: ignore
+
+      - name: Upload SOURCESHADING1A APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-SOURCESHADING1A-PORTABLE
+          path: |
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+            SOURCESHADING1A_APK_SHA256.txt
+            SOURCESHADING1A_VERIFY.txt
+            SOURCEBOUNDARYPROBE1A_VERIFY.txt
+            COBALTROLEPURGE1A_VERIFY.txt
+            CFAAUTHORITY1A_VERIFY.txt

@@ -1,0 +1,143 @@
+name: M9 Sharpness Base LUT Provenance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/sharpnessforensics1a
+    paths:
+      - '.github/workflows/m9-sharpness-base-lut-provenance.yml'
+      - 'tools/recover_m9_key_from_shared_body.py'
+      - 'tools/m9_sharpnessforensics1a_firmwarepass.py'
+      - 'tools/m9_sharpnessforensics1a.py'
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install or build Blackfin objdump
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq binutils-multiarch curl xz-utils build-essential
+          OBJDUMP="$(command -v objdump)"
+          if ! "$OBJDUMP" -i 2>/dev/null | grep -Eiq 'bfin|blackfin'; then
+            cd "$RUNNER_TEMP"
+            curl --fail --location --retry 4 --retry-all-errors -o binutils-2.44.tar.xz https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+            tar -xf binutils-2.44.tar.xz
+            mkdir -p binutils-build && cd binutils-build
+            ../binutils-2.44/configure --target=bfin-elf --disable-nls --disable-werror --disable-gdb --disable-gas --disable-ld --disable-sim
+            make -j2 all-binutils
+            OBJDUMP="$PWD/binutils/objdump"
+          fi
+          echo "OBJDUMP=$OBJDUMP" >> "$GITHUB_ENV"
+      - name: Download verify decrypt canonical firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9sharp"
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9sharp/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9sharp/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9sharp/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" --m9-out "$RUNNER_TEMP/m9sharp/m9.dec" --meta-out "$RUNNER_TEMP/m9sharp/recovery_meta.json"
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9sharp/m9.dec" | sha256sum -c --strict
+          python3 tools/m9_sharpnessforensics1a_firmwarepass.py "$RUNNER_TEMP/m9sharp/m9.dec" --out "$RUNNER_TEMP/m9sharp/pass"
+      - name: Extract coherent BF561 overlay and disassemble blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,importlib.util,sys
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp'; d=json.load(open(rt/'pass/report.json'))
+          cand=[]
+          for i,x in enumerate(d.get('bf561_deep',[])):
+              t=x.get('detail',{}).get('targets',{}) if isinstance(x.get('detail'),dict) else {}
+              cand.append((sum(k in t for k in ('Run','Set','SetStructParameter','Process_Sharpness')),x.get('covered',0),i))
+          cand.sort(reverse=True); pair=cand[0][2]
+          root=rt/'pass'/f'bf561_pair_{pair:02d}'
+          spec=importlib.util.spec_from_file_location('base',pathlib.Path('tools/m9_sharpnessforensics1a.py'))
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          syms=sorted(m.parse_map(root/'bf0.map'),key=lambda s:(s['addr'],s['name']))
+          _,blocks=m.parse_ldr(root/'bf0.bin')
+          ev=rt/'evidence';ev.mkdir(exist_ok=True);bd=rt/'blocks';bd.mkdir(exist_ok=True)
+          manifest=[]
+          for i,b in enumerate(blocks):
+              if isinstance(b,dict): addr=int(b.get('addr',b.get('address',0))); data=b.get('data',b.get('bytes',b''))
+              else: addr=int(b[0]);data=b[1]
+              if not data:continue
+              p=bd/f'block_{i:03d}_{addr:08x}.bin';p.write_bytes(bytes(data));manifest.append({'file':p.name,'addr':addr,'size':len(data)})
+          json.dump({'pair':pair,'symbols':syms,'blocks':manifest},open(ev/'manifest.json','w'),indent=2)
+          PY
+          for f in "$RUNNER_TEMP/m9sharp/blocks"/*.bin; do
+            bn=$(basename "$f" .bin); base=$(printf '%s' "$bn" | sed -nE 's/^block_[0-9]+_([0-9a-fA-F]{8})$/\1/p')
+            "$OBJDUMP" -D -b binary -m bfin --adjust-vma="0x$base" "$f" > "$RUNNER_TEMP/m9sharp/blocks/${bn}.dis.txt"
+          done
+      - name: Trace Sharp LUT descriptor construction and base source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib,re,bisect
+          rt=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9sharp';ev=rt/'evidence';bd=rt/'blocks';m=json.load(open(ev/'manifest.json'));syms=m['symbols']
+          exact={}
+          for s in syms: exact.setdefault(int(s['addr']),[]).append(s)
+          starts=sorted(exact)
+          def resolve(a):
+              if a in exact:return {'exact':[x['name'] for x in exact[a]]}
+              j=bisect.bisect_right(starts,a)-1
+              if j<0:return {}
+              st=starts[j];return {'nearest_addr':hex(st),'nearest':[x['name'] for x in exact[st]],'offset':a-st}
+          def containers(a):return [{'name':s['name'],'addr':hex(int(s['addr'])),'size':int(s['size'])} for s in syms if int(s['size'])>0 and int(s['addr'])<=a<int(s['addr'])+int(s['size'])]
+          lm=[s for s in syms if 'LoadAndModifySharpness' in s['name']]
+          lm_ranges=[(int(s['addr']),int(s['addr'])+max(1,int(s['size'])),s['name']) for s in lm]
+          are=re.compile(r'^\s*([0-9a-f]+):');xfer=re.compile(r'\b(?:CALL|JUMP(?:\.S)?)\s+0x0*([0-9a-f]+)',re.I)
+          desc_hits=[]; callers=[]; sharp_literals=[]
+          for p in sorted(bd.glob('*.dis.txt')):
+              ls=p.read_text(errors='replace').splitlines()
+              for i,l in enumerate(ls):
+                  am=are.match(l);a=int(am.group(1),16) if am else None;low=l.lower()
+                  # Descriptor fields observed in LoadAndModify: +0c source, +10 work/dest, +18 count.
+                  if any(re.search(r'\+\s*'+off+r'\]',low) for off in ('0xc','0x10','0x18')):
+                      cs=containers(a or 0); names={x['name'] for x in cs}
+                      if any(('Sharp' in n or 'Lut' in n or 'LUT' in n or n in ('Set','Init')) for n in names):
+                          desc_hits.append({'file':p.name,'line':i+1,'addr':hex(a) if a is not None else None,'text':l,'containers':cs,'resolve':resolve(a or 0),'context':'\n'.join(ls[max(0,i-28):min(len(ls),i+55)])})
+                  xm=xfer.search(l)
+                  if xm:
+                      t=int(xm.group(1),16); inside=[{'start':hex(lo),'end':hex(hi),'name':n,'offset':t-lo} for lo,hi,n in lm_ranges if lo<=t<hi]
+                      if inside:callers.append({'file':p.name,'line':i+1,'site':hex(a) if a is not None else None,'target':hex(t),'inside':inside,'site_resolve':resolve(a or 0),'site_containers':containers(a or 0),'context':'\n'.join(ls[max(0,i-40):min(len(ls),i+50)])})
+                  if any(tok in low for tok in ('0x802','0x801','0x800')) and ('0x18' in low or 'sharp' in low):
+                      sharp_literals.append({'file':p.name,'line':i+1,'addr':hex(a) if a is not None else None,'text':l,'context':'\n'.join(ls[max(0,i-12):min(len(ls),i+20)])})
+          focus=[s for s in syms if any(k.lower() in s['name'].lower() for k in ('sharp','lut','archive','initl1memory','setlut','loadlut'))]
+          report={'schema':'m9.sharpness.base-lut-provenance.v1','pair':m['pair'],'load_modify_symbols':lm,'load_modify_callers':callers,'descriptor_field_hits':desc_hits,'count_related_literals':sharp_literals,'focus_symbols':focus}
+          json.dump(report,open(ev/'sharp_base_lut_provenance.json','w'),indent=2)
+          with open(ev/'sharp_base_lut_provenance.txt','w') as f:
+              f.write('=== LOAD/MODIFY SYMBOLS ===\n'+json.dumps(lm,indent=2)+'\n\n')
+              f.write('=== CALLERS INTO LOAD/MODIFY ===\n')
+              for h in callers:f.write(json.dumps({k:v for k,v in h.items() if k!='context'},indent=2)+'\n'+h['context']+'\n\n')
+              f.write('=== DESCRIPTOR FIELD HITS IN SHARP/LUT/SET/INIT FUNCTIONS ===\n')
+              for h in desc_hits:f.write(json.dumps({k:v for k,v in h.items() if k!='context'},indent=2)+'\n'+h['context']+'\n\n')
+              f.write('=== FOCUS SYMBOLS ===\n')
+              for s in focus:f.write(f"{int(s['addr']):#010x} {int(s['size']):6d} {s['name']}\n")
+          print(json.dumps({'load_modify_symbols':len(lm),'callers':len(callers),'descriptor_hits':len(desc_hits),'focus_symbols':len(focus)},indent=2))
+          PY
+      - name: Publish derived evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-BASE-LUT-PROVENANCE
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/m9sharp/evidence/*.json
+            ${{ runner.temp }}/m9sharp/evidence/*.txt
+            ${{ runner.temp }}/m9sharp/recovery_meta.json
+      - name: Remove firmware and binary material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/m9sharp/pass" "$RUNNER_TEMP/m9sharp/blocks" "$RUNNER_TEMP/m9sharp/m9.upd" "$RUNNER_TEMP/m9sharp/mm.upm" "$RUNNER_TEMP/m9sharp/m9.dec"

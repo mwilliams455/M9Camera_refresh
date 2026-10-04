@@ -1,0 +1,18 @@
+{
+  "parentCommit": "72fc1fdc01dc2d68ad0a0edd40cffd3ba4a6cb50",
+  "version": "2.29-m9menuorganise1a",
+  "parentFiles": {
+    "app/build.gradle": "8e22755278ccd10e9b8ff5666529ba9d5fcea11b6b6ce83909781c42c280bda2",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "67f5306e807c355f58046d3c3c4f5ed89a0b9f9db15a762250108d98e3414b64"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "4bbe0efc436a9f6809619f919ad317a51c73640b015075b7a7bccf84b9530b92",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "55465e11913e75e945ef3612657a31c17bf3edf6a18103aca6fc0ad146d6ad3e",
+    "app/src/main/res/xml/preferences_m9.xml": "781854d1949d950f0f8138828af12fc68217a12257873683473747276991cfe9",
+    "app/src/main/res/values/m9_menu.xml": "537fca362d86b368dfeb4e5ccee2e5a6aca37bf0bf91c54f6d32a862e4455f00"
+  },
+  "patchSha256": "2c58109773e929cff6f760b2355d4f3312b2789414d32cbb5c2e7ab256cc7ef2",
+  "nativePolicy": "Preserve all 25 native entries from accepted 2.28",
+  "preferencePolicy": "Retain existing keys, classes, defaults and values. Timer reuses global string index 0/1/2.",
+  "photoPolicy": "All photographic source and assets unchanged from 2.28."
+}

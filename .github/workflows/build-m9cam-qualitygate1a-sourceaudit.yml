@@ -1,0 +1,124 @@
+name: M9 QUALITYGATE1A source audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9-qualitygate1a-stageaudit]
+    paths:
+      - .github/workflows/build-m9cam-qualitygate1a-sourceaudit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m9-qualitygate1a-sourceaudit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Replay exact 2.05 source without photographic changes
+        run: |
+          set -euo pipefail
+          python3 patches/tapmeter1a/apply.py --check-payload
+          python3 patches/autoexposurefinish1n/ci.py source
+          python3 patches/autoexposurefinish1n/apply.py PhotonCamera > QG_AE1N.json
+          python3 patches/tapmeter1a/apply.py PhotonCamera > QG_TAP1A.json
+          python3 patches/tapexactpatchclip1b/apply.py apply PhotonCamera > QG_EXACTPATCH1B.json
+
+      - name: Export exact assembled renderer seams
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, shutil
+          root=Path('PhotonCamera')
+          out=Path('M9_QUALITYGATE1A_SOURCE_AUDIT')
+          out.mkdir(parents=True,exist_ok=True)
+
+          wanted=[
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NativeColorCore.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9Detail1H.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java',
+            'app/src/main/cpp/CMakeLists.txt',
+            'app/src/main/cpp/m9color_jni.cpp',
+            'app/src/main/cpp/m9noisecancel1b.cpp',
+            'app/src/main/cpp/colourtrial1c/native.inc',
+            'app/src/main/cpp/colourtrial1c/reconstruct.cpp',
+            'app/src/main/cpp/colourtrial1c/chroma.cpp',
+            'app/src/main/cpp/colourtrial1c/phase_noise.cpp',
+            'app/src/main/assets/m9/m9_curve02_firmware.bin',
+            'app/build.gradle',
+          ]
+
+          # Also capture any current M9 render Java and colourtrial native files not listed above.
+          for p in sorted((root/'app/src/main/java/com/particlesdevs/photoncamera/m9/render').glob('*')):
+              if p.is_file():
+                  wanted.append(str(p.relative_to(root)))
+          for p in sorted((root/'app/src/main/cpp/colourtrial1c').glob('*')):
+              if p.is_file():
+                  wanted.append(str(p.relative_to(root)))
+
+          manifest={}
+          for rel in sorted(set(wanted)):
+              src=root/rel
+              if not src.exists():
+                  manifest[rel]={'present':False}
+                  continue
+              data=src.read_bytes()
+              manifest[rel]={
+                  'present':True,
+                  'size':len(data),
+                  'sha256':hashlib.sha256(data).hexdigest()
+              }
+              dst=out/'source'/rel
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copyfile(src,dst)
+
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          for receipt in ['QG_AE1N.json','QG_TAP1A.json','QG_EXACTPATCH1B.json',
+                          'M9AE1N_PARENT_SOURCE_REPLAY.json']:
+              p=Path(receipt)
+              if p.exists(): shutil.copyfile(p,out/p.name)
+
+          renderer=root/'app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java'
+          if not renderer.exists():
+              raise SystemExit('assembled M9R35Renderer.java missing')
+          s=renderer.read_text()
+          markers=[
+              'M9COLORPERFROLLBACK1A_PERF3I_EXACT',
+              'M9NOISECANCEL1B_DECOUPLED_AMAZE_CHROMA',
+              'SAT2_STANDARD_M04_M05',
+              'nativeSaturationBankActuallySelected',
+              'curve02',
+              'BT.601',
+              'TG1',
+          ]
+          marker_report={m:(m in s) for m in markers}
+          (out/'renderer_markers.json').write_text(json.dumps(marker_report,indent=2)+'\n')
+          print(json.dumps({'files':sum(1 for v in manifest.values() if v.get('present')),
+                            'rendererMarkers':marker_report},indent=2))
+          PY
+
+      - name: Upload source audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9-QUALITYGATE1A-SOURCE-AUDIT
+          path: M9_QUALITYGATE1A_SOURCE_AUDIT/
+          if-no-files-found: error

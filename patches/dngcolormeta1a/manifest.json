@@ -1,0 +1,17 @@
+{
+  "revision": "M9DNGCOLORMETA1A",
+  "parentCommit": "5d476ecbd31eaf699b9b7bfb9a8c192b5666af67",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "1a63e8ab0a1725e4f372ab51a024a43e2cca028069c15247149e599f3fd5d7e7",
+  "fileOverrides": {
+    "app/build.gradle": "b5ce35f7cdfb59cfd4af9bc0ed9071653528a856480e25d349b097284e14e2cf",
+    "app/src/main/cpp/dngCreator.cpp": "526609ea2ea79548c31ca9f771f2e48a627b1917d748fe0ae6893028f763f3b4",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PhotonBoundary2Q.java": "44b6794ae0342f1b495d16f24af4103bbc7586bb7b08af7a82a7c64ff383dfb1",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/DngCreator.java": "e05a555eb94711824f455aff306cb64b1f0c7093d3e91c9cc884e529a88cfbad",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "aa3aadf56f6b06e84a03a458deb123d8735c662aee3fb75ffdccbf7879c67c7f",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngColorCapture.java": "6d540b08d336aa765abd5b8e3bbd0ce0fe01989a9c8b83dcd34a63c58ad59205",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngColorMetadata.java": "945455d227b3e95f3ef9467d9957490b0c4b41c9a35150183979a03b04da865b",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java": "98914a5d0a41610dc993dd6b43b56cc7794b346d1bd2ff8cccd5cfa1f44fa073",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngColorMetadataTest.java": "a4af34819285ffb09658cb08f32eda640d33b2a79637872fdae962664e9d8069"
+  }
+}

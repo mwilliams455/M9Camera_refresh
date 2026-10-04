@@ -1,0 +1,16 @@
+{
+  "revision": "M9UPSTREAM2R_FIX1",
+  "baseSourceCommit": "1359369032e88720078c013ccc748825dadaf2e3",
+  "sourceCommit": "188ab711c998464aec89d9a63297680e932a02b8",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "baseManifestSha256": "462c0ed3033570de53d8b10ff1404fed918c8689e409c785374e9b27a13e87c4",
+  "patchSha256": "253b4bd7dc9e0105ff03861686e6fbc42dc0fd004428447096e760e4144a7057",
+  "fileOverrides": {
+    "app/build.gradle": "9e35790fa02ca54a01576a9710dfd7b2e68c4a236598084aa3decf4650ff33d9",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "5b34d426ca5c3105e7ee2761866a12852cb0a9698235d753b2d75000d00b47ff",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageFrame.java": "2f16af409da1c3bbed82ee616047bcb6aaf57f65a406abf8ed543743b9d0ff84",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": "eb6df5e685fa1cf14d381b0b61f081a6b3d871bd01041e43b9d80a2cf8804281",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/M9Upstream2RRawPackingTest.java": "d748c4009725170183f5c930badcad1b092865ebc84686bf09bd5e53745e8126",
+    "app/version.properties": "db2f579676589fabe54622fafa58ed7bf2c5107c177ce5c9c0d85c10e97d08b1"
+  }
+}

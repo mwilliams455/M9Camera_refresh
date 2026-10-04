@@ -1,0 +1,119 @@
+{
+  "schema": "m9.wb_gain_contract.v1",
+  "firmware_sha256": "4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20",
+  "bf547_sha256": "f044097bc9ce0deba129f593321aeb20d30c5c2e7b8c3074e44717e7765c66bd",
+  "wbparam_sha256": "8f2075372d16c021b12a898195ccc9623c19c13715ee0309c8e8be76f7ad6911",
+  "wbparam_bytes": 20008,
+  "evidence": [
+    {
+      "name": "Gain_from_measurement",
+      "address": "0xa98d4",
+      "size": 542,
+      "asset": "BF547",
+      "code_sha256": "9c16e17ca1b8cc8997f18fcf5fedc3a9498857c2f178a9d09c47f9ad489198e6",
+      "file": "Gain_from_measurement_000a98d4.asm.txt",
+      "text_sha256": "e7399cba19abb59f2ecad87c3405ed56042decf7ae00f28365f666c9a3d277f4"
+    },
+    {
+      "name": "Gain_from_estimate",
+      "address": "0xab588",
+      "size": 564,
+      "asset": "BF547",
+      "code_sha256": "071e50d23a46d32d9698bca06e61821141365c7a2d229ab7051e8efaab67ff09",
+      "file": "Gain_from_estimate_000ab588.asm.txt",
+      "text_sha256": "95a497ec6df65d6e36d67479644d766c2d016524867aba8bf4dc90e2f6ae797d"
+    },
+    {
+      "name": "Auto_to_gain_estimate",
+      "address": "0xaba1e",
+      "size": 24,
+      "asset": "BF547",
+      "code_sha256": "7e9d33198ad4c34649d4d6bc41afe6f36d2efac09171bdd63ece30438735134b",
+      "file": "Auto_to_gain_estimate_000aba1e.asm.txt",
+      "text_sha256": "e2c53b761ba164de19b241f040ba12082ac3650421f6cc0ebef60fb539a36999"
+    },
+    {
+      "name": "WB_dispatch_and_unity_snap",
+      "address": "0xaba68",
+      "size": 672,
+      "asset": "BF547",
+      "code_sha256": "6a9950ebe3c20d5fafdbd2847c3aad8c5c254dfa454f1a448d5427d085aad500",
+      "file": "WB_dispatch_and_unity_snap_000aba68.asm.txt",
+      "text_sha256": "b4f68fe570ea16bf144ae4b51b2426893f458944b5c591367cf065ed228a59c8"
+    },
+    {
+      "name": "Gain_to_capture_record",
+      "address": "0xb00ec",
+      "size": 522,
+      "asset": "BF547",
+      "code_sha256": "5a0f3b1cea683464766199e790386307643ee35479a0df605881fd116717e3bb",
+      "file": "Gain_to_capture_record_000b00ec.asm.txt",
+      "text_sha256": "c891cfa515e9926bbb6968923579576f290d41ece8fd31088054e5d037f2c8b9"
+    },
+    {
+      "name": "Capture_record_to_packet",
+      "address": "0x39f74",
+      "size": 242,
+      "asset": "BF547",
+      "code_sha256": "b04c0677df1d823f6e0b06488e71a3c4b017bdd300234885797f4c4df505cf8f",
+      "file": "Capture_record_to_packet_00039f74.asm.txt",
+      "text_sha256": "4c4fc106afd3f50d4dd8948e31a85a5df287ff57f8ab95e549a36798578cc3ea"
+    },
+    {
+      "name": "Integer_divide",
+      "address": "0xb4a24",
+      "size": 70,
+      "asset": "BF547",
+      "code_sha256": "f9d2ecd6c8e011a19f1f706ce20a11694117942d4e24fcb5e3f5e54d638f1bca",
+      "file": "Integer_divide_000b4a24.asm.txt",
+      "text_sha256": "588a565591586786031f0a866174fca2e6504195bd6e9e17c2f8f6e21efc872e"
+    },
+    {
+      "name": "Init_zero_WB_context",
+      "address": "0xfeb1ca48",
+      "size": 104,
+      "asset": "BF561/bf1",
+      "code_sha256": "3db005c65448a221a77169dfbfa260ee863a7b0bfe3714de411a50ac19202ba8",
+      "file": "Init_zero_WB_context_feb1ca48.asm.txt",
+      "text_sha256": "40cb92fbfdc71a78e60ec9ae26dc52932f99fc7a765279e75601d16bbcabc48d"
+    },
+    {
+      "name": "Run_context_base",
+      "address": "0xff61022c",
+      "size": 20,
+      "asset": "BF561/bf1",
+      "code_sha256": "372c57e03834a55d97b69a22dc893363b006f429fc22dafd937b939872f3e547",
+      "file": "Run_context_base_ff61022c.asm.txt",
+      "text_sha256": "fe89fd0cead0f21144a07ffb36eb74118f88be4508dde6846d76130e2a8fb82c"
+    },
+    {
+      "name": "Run_frame_base",
+      "address": "0xff610430",
+      "size": 18,
+      "asset": "BF561/bf1",
+      "code_sha256": "e0ac76d1927cc253858685910a57453f18df765eb0cf3cbbbb9dd76ce33fd74a",
+      "file": "Run_frame_base_ff610430.asm.txt",
+      "text_sha256": "91571ca2d630ab70097a31c323fbb921ca2d58ae45b8806e9596e9a8c5da0dbf"
+    }
+  ],
+  "source_sha256": "69dbf96fe2f4c306fb41b23d5280b6d950461baa9e7fe35cc4dd912a5a8f82a2",
+  "probe_sha256": "2997ac5c5c31e0799bad9d002b5590ab4d4371d0b5c530eeb55c568120099aee",
+  "exact_gain_triplets": 381799,
+  "safe_gain_triplets": 326853,
+  "safe_subset_all_have_exact_unity": true,
+  "non_safe_cases": 54946,
+  "packet_zero_cases": 54943,
+  "phone_preliminary_rb_q14": [
+    39199,
+    25458
+  ],
+  "phone_packet_rgb_q14": [
+    39199,
+    16384,
+    25458
+  ],
+  "pedestal_source_correction": "context+0x7c, not frame+0x7c; context initially zeroed, complete later-writer audit not claimed",
+  "normalization": "Green-relative preliminary R/B; divide all gains by their minimum when below unity; fixed-point floor; final 16383/16385 ->16384 snap.",
+  "limits": "Scoped normalization tail only. Inputs tested 8192..65536; preserve signed 32-bit products and uint16 narrowing. No WB estimator, WBPARAM format, hardware trace or complete sensor calibration claim.",
+  "android_implementation_changed": false
+}

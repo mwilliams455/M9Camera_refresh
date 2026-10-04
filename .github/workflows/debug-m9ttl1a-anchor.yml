@@ -1,0 +1,57 @@
+name: Debug M9TTL1A Anchor
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/m9ttl1a-sidecar]
+    paths:
+      - '.github/workflows/debug-m9ttl1a-anchor.yml'
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct tone-bound baseline
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/build-m9cam-m9nativehsm1a-sat2standard1b-nativefix.yml')
+          lines=wf.read_text().splitlines()
+          for idx,name in enumerate(['Replay exact SAT2STANDARD1A assembled baseline','Apply true native SAT2 selection']):
+              i=lines.index('      - name: '+name)
+              while i < len(lines) and lines[i].strip() != 'run: |': i += 1
+              i += 1; out=[]
+              while i < len(lines):
+                  line=lines[i]
+                  if line.startswith('      - name:') or line.startswith('      - uses:'): break
+                  if line.startswith('          '): out.append(line[10:])
+                  elif not line.strip(): out.append('')
+                  else: raise SystemExit('unexpected indentation '+line)
+                  i += 1
+              Path(f'/tmp/base_{idx}.sh').write_text('\n'.join(out)+'\n')
+          PY
+          for s in /tmp/base_*.sh; do bash "$s"; done
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          python3 patches/apply-m9cam-m9toneforensics1a.py "$ROOT"
+          python3 patches/apply-m9cam-m9tonebound1a-050ev.py "$ROOT"
+      - name: Capture baseline writer and TTL patch output
+        run: |
+          set -u
+          ROOT="$GITHUB_WORKSPACE/PhotonCamera"
+          OUT="$GITHUB_WORKSPACE/ttl-debug"
+          mkdir -p "$OUT"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9CaptureMetadataWriter.java" "$OUT/M9CaptureMetadataWriter_BEFORE.java"
+          grep -n -C 4 'm9VirtualBv\|M9VirtualBv1A' "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9CaptureMetadataWriter.java" > "$OUT/VIRTUALBV_ANCHOR.txt" || true
+          python3 patches/apply-m9cam-m9ttl1a-sidecar.py "$ROOT" > "$OUT/APPLY.log" 2>&1
+          echo $? > "$OUT/APPLY_RC.txt"
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9CaptureMetadataWriter.java" "$OUT/M9CaptureMetadataWriter_AFTER.java" || true
+          cp "$ROOT/app/src/main/java/com/particlesdevs/photoncamera/m9/M9TtlSidecar1A.java" "$OUT/" || true
+          python3 patches/verify-m9cam-m9ttl1a-sidecar.py "$ROOT" > "$OUT/VERIFY.log" 2>&1 || true
+      - name: Upload debug
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9TTL1A-ANCHOR-DEBUG
+          path: ttl-debug/

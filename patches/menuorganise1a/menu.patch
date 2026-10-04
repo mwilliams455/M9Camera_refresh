@@ -1,0 +1,176 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27228
++        versionCode 27229
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.28-m9sharpnessmenu1a'
++        versionName '2.29-m9menuorganise1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.28_SHARPNESSMENU1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.29_MENUORGANISE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+@@ -181,7 +181,10 @@
+ 
+         @Override
+         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+-            setPreferencesFromResource(R.xml.preferences, rootKey);
++            // M9MENUORGANISE1A: only change the hierarchy. Preference keys, classes,
++            // defaults and the existing child-screen navigation remain unchanged.
++            setPreferencesFromResource(usesM9PhotoSettings()
++                    ? R.xml.preferences_m9 : R.xml.preferences, rootKey);
+         }
+ 
+         @Override
+--- /dev/null
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -0,0 +1,101 @@
++<?xml version='1.0' encoding='utf-8'?>
++<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:orderingFromXml="true" android:title="@string/settings" android:key="prefscreen">
++    <PreferenceScreen android:key="pref_m9_image_screen" android:title="@string/m9_menu_image" android:summary="@string/m9_menu_image_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_saturation" android:orderingFromXml="true">
++        <ListPreference android:key="pref_m9_saturation" android:layout="@layout/preference_with_margin" android:title="@string/m9_saturation_title" android:dialogTitle="@string/m9_saturation_title" android:entries="@array/m9_saturation_entries" android:entryValues="@array/m9_saturation_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
++        <ListPreference android:key="pref_m9_contrast" android:layout="@layout/preference_with_margin" android:title="@string/m9_contrast_title" android:dialogTitle="@string/m9_contrast_title" android:entries="@array/m9_contrast_entries" android:entryValues="@array/m9_contrast_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
++        <ListPreference android:key="pref_m9_sharpness" android:layout="@layout/preference_with_margin" android:title="@string/m9_sharpness_title" android:dialogTitle="@string/m9_sharpness_dialog" android:entries="@array/m9_sharpness_entries" android:entryValues="@array/m9_sharpness_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" />
++        <Preference android:key="m9_sharpness_info" android:selectable="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_sharpness_info_title" android:summary="@string/m9_sharpness_info" />
++    </PreferenceScreen>
++    <PreferenceScreen android:key="pref_m9_capture_screen" android:title="@string/m9_menu_capture" android:summary="@string/m9_menu_capture_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_focus" android:orderingFromXml="true">
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference android:key="@string/pref_expocompensation_seekbar_key" android:layout="@layout/preference_seekbar" android:title="@string/expocompensation" android:summary="" android:defaultValue="@string/pref_expocompensation_seekbar_default" app:maxValue="4" app:minValue="-4" app:isFloat="true" app:stepPerUnit="10" android:icon="@drawable/ic_saturation" />
++        <ListPreference android:key="@string/pref_countdown_timer_key" android:title="@string/countdown_timer" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_timer" android:entries="@array/m9_menu_timer_entries" android:entryValues="@array/m9_menu_timer_indices" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
++        <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_af_mode_key" android:title="@string/af_mode" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_focus" android:entries="@array/af_mode_entries" android:entryValues="@array/af_mode_entryvalues" android:defaultValue="@string/pref_af_mode_default_value" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_auto_zoom_switch_key" android:defaultValue="@bool/pref_auto_zoom_switch_default" android:layout="@layout/preference_with_margin" android:title="@string/auto_zoom_lens_switch" android:summary="@string/auto_zoom_lens_switch_summary" android:icon="@drawable/ic_focus" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_preserve_manual_wb_key" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/preserve_manual_wb" android:summary="" android:icon="@drawable/ic_multi_lens" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_camera_sounds_key" android:defaultValue="@bool/pref_camera_sounds_default" android:layout="@layout/preference_with_margin" android:title="@string/camera_sounds" android:summary="" android:icon="@drawable/ic_camera_sounds" />
++    </PreferenceScreen>
++    <PreferenceScreen android:key="pref_m9_output_screen" android:title="@string/m9_menu_output" android:summary="@string/m9_menu_output_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_save" android:orderingFromXml="true">
++        <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_save_raw_key" android:title="@string/raw" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_raw" android:summary="" android:entries="@array/raw_mode_entries" android:entryValues="@array/raw_mode_entryvalues" android:defaultValue="@string/pref_raw_mode_default_value" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_wide169_key" android:defaultValue="@bool/pref_wide169_default" android:layout="@layout/preference_with_margin" android:title="@string/wide169" android:summary="" android:icon="@drawable/ic_burst_mode_black_24dp" />
++    </PreferenceScreen>
++    <PreferenceScreen android:key="pref_m9_display_screen" android:title="@string/m9_menu_display" android:summary="@string/m9_menu_display_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_settings_grid" android:orderingFromXml="true">
++        <ListPreference android:key="@string/pref_show_grid_key" android:defaultValue="@string/pref_show_grid_default" android:layout="@layout/preference_with_margin" android:title="@string/turn_on_grid" app:useSimpleSummaryProvider="true" android:summary="" android:entries="@array/vf_grid_entries" android:entryValues="@array/vf_grid_entryvalues" android:icon="@drawable/ic_settings_grid" />
++        <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_peak_method_key" app:useSimpleSummaryProvider="true" android:title="@string/focus_peaking" android:icon="@drawable/ic_focus" android:entries="@array/focuspeakset_entries" android:entryValues="@array/focuspeakset_entryValues" android:defaultValue="2" />
++        <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_show_afdata_key" android:title="@string/m9_menu_hud_title" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_developer" android:entries="@array/afdata_entries" android:entryValues="@array/afdata_entryValues" android:defaultValue="0" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_horizon" android:title="@string/show_horizon_on_preview" android:summary="" android:defaultValue="false" android:icon="@drawable/ic_tune_black_24dp" />
++        <Preference android:key="m9_menu_histogram_info" android:title="@string/m9_menu_histogram_title" android:summary="@string/m9_menu_histogram_info" android:selectable="false" android:persistent="false" android:layout="@layout/preference_with_margin" />
++        <PreferenceCategory android:key="pref_m9_appearance_category" android:title="@string/m9_menu_appearance" android:layout="@layout/preference_category_layout">
++            <ListPreference android:key="@string/pref_lens_bar_position_key" android:defaultValue="@string/pref_lens_bar_position_default" android:layout="@layout/preference_with_margin" android:title="@string/lens_bar_position" app:useSimpleSummaryProvider="true" android:summary="" android:entries="@array/lens_bar_position_entries" android:entryValues="@array/lens_bar_position_entryvalues" android:icon="@drawable/ic_multi_lens" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_show_roundedge_key" android:defaultValue="@bool/pref_show_roundedge_default" android:layout="@layout/preference_with_margin" android:title="@string/turn_on_round_edges" android:summary="" android:icon="@drawable/ic_rounded_corner" />
++            <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_theme_key" android:title="@string/theme" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_theme" android:entries="@array/theme_entries" android:entryValues="@array/theme_entryValues" android:defaultValue="@string/pref_theme_default_value" />
++            <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_theme_accent_key" android:title="@string/theme_accent" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" android:entries="@array/theme_accent_entries" android:entryValues="@array/theme_accent_entryValues" android:defaultValue="@string/pref_theme_accent_default_value" />
++            <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_viewfinder_background_key" android:title="@string/viewfinder_background" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_gradient_black_24dp" android:entries="@array/viewfinder_background_entries" android:entryValues="@array/viewfinder_background_entryValues" android:defaultValue="@string/pref_viewfinder_background_default_value" />
++        </PreferenceCategory>
++    </PreferenceScreen>
++    <PreferenceScreen android:key="pref_m9_advanced_screen" android:title="@string/m9_menu_advanced" android:summary="@string/m9_menu_advanced_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_tune_black_24dp" android:orderingFromXml="true">
++        <PreferenceCategory android:key="pref_m9_diagnostics_category" android:title="@string/m9_menu_diagnostics" android:layout="@layout/preference_category_layout">
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_save_diagnostic_files" android:title="@string/m9_save_diagnostic_files_title" android:summary="@string/m9_save_diagnostic_files_summary" android:defaultValue="false" android:layout="@layout/preference_with_margin" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_save_unfiltered_dng" android:title="@string/m9_save_unfiltered_dng_title" android:summary="@string/m9_save_unfiltered_dng_summary" android:defaultValue="false" android:layout="@layout/preference_with_margin" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_full_frame_sat_audit" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_full_frame_sat_audit_title" android:summary="@string/m9_full_frame_sat_audit_summary" android:icon="@drawable/ic_developer" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_omit_auto_remosaic" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_capture_test_title" android:summary="@string/m9_capture_test_summary" android:icon="@drawable/ic_developer" />
++        </PreferenceCategory>
++        <PreferenceCategory android:key="pref_m9_sensor_category" android:title="@string/m9_menu_sensor" android:layout="@layout/preference_category_layout">
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:title="@string/pref_save_per_lens_string" android:layout="@layout/preference_with_margin" android:key="@string/pref_save_per_lens_settings" android:icon="@drawable/ic_multi_lens" app:defaultValue="false" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_binning_key" android:defaultValue="@bool/pref_binning_default" android:layout="@layout/preference_with_margin" android:title="@string/binning" android:summary="" android:icon="@drawable/ic_burst_mode_black_24dp" />
++            <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_cfa_key" android:title="@string/cfa" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_bayer" android:entries="@array/cfapat_entries" android:entryValues="@array/cfapat_entryValues" android:defaultValue="@string/pref_cfa_default_value" />
++            <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_color_method_key" app:useSimpleSummaryProvider="true" android:title="@string/color_method" android:icon="@drawable/ic_saturation" android:entries="@array/colorset_entries" android:entryValues="@array/colorset_entryValues" android:defaultValue="@string/pref_align_method_default" />
++            <PreferenceScreen android:layout="@layout/preference_with_margin" android:title="Tunable Settings" android:summary="Advanced tunable parameters" android:key="pref_tunable_submenu" android:icon="@drawable/ic_tune_black_24dp">
++            
++        </PreferenceScreen>
++            <PreferenceScreen android:layout="@layout/preference_with_margin" android:title="@string/sensor_configurations" android:summary="@string/sensor_configurations_summary" android:key="pref_sensor_config_submenu" android:icon="@drawable/ic_bayer">
++            
++        </PreferenceScreen>
++            <Preference android:layout="@layout/preference_with_margin" android:key="@string/pref_fetch_configurations_key" android:title="@string/fetch_configurations" android:summary="@string/fetch_configurations_summary" android:icon="@drawable/ic_refresh" android:persistent="false" />
++        </PreferenceCategory>
++        <PreferenceCategory android:key="pref_m9_other_category" android:title="@string/m9_menu_other" android:layout="@layout/preference_category_layout">
++            <PreferenceScreen android:layout="@layout/preference_with_margin" android:key="pref_video_settings_submenu" android:title="@string/video_settings" android:summary="@string/video_settings_summary" android:icon="@drawable/ic_burst_mode_black_24dp">
++                <PreferenceCategory android:layout="@layout/preference_category_layout" android:key="@string/pref_category_video_key" android:title="@string/video_settings">
++                    <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_resolution_key" android:title="@string/video_resolution" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" android:entries="@array/video_resolution_entries" android:entryValues="@array/video_resolution_entryvalues" android:defaultValue="@string/pref_video_resolution_default" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference android:layout="@layout/preference_seekbar" android:key="@string/pref_video_bitrate_key" android:title="@string/video_bitrate" android:defaultValue="@string/video_bitrate_default" app:minValue="30" app:maxValue="130" app:stepPerUnit="1" android:icon="@drawable/ic_saturation" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_video_hevc_key" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/video_save_storage" android:summary="@string/video_save_storage_summary" android:icon="@drawable/ic_save" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_video_hdr_key" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/video_hdr" android:summary="@string/video_hdr_summary" android:icon="@drawable/ic_gradient_black_24dp" />
++                    <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_hdr_transfer_key" android:title="@string/video_hdr_transfer" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_gradient_black_24dp" android:entries="@array/video_hdr_transfer_entries" android:entryValues="@array/video_hdr_transfer_entryvalues" android:defaultValue="@string/video_hdr_transfer_default" />
++                    <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_color_range_key" android:title="@string/video_color_range" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_gradient_black_24dp" android:entries="@array/video_color_range_entries" android:entryValues="@array/video_color_range_entryvalues" android:defaultValue="@string/video_color_range_default" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_video_ois_key" android:defaultValue="true" android:layout="@layout/preference_with_margin" android:title="@string/video_ois" android:summary="@string/video_ois_summary" android:icon="@drawable/ic_ois" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_video_use_logical_id_key" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/video_use_logical_id" android:summary="@string/video_use_logical_id_summary" android:icon="@drawable/ic_multi_lens" />
++                    <EditTextPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_logical_id_key" android:title="@string/video_logical_id" android:summary="@string/video_logical_id_summary" android:dialogTitle="@string/video_logical_id" android:inputType="number" android:numeric="integer" android:singleLine="true" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_multi_lens" android:defaultValue="@string/video_logical_id_default" />
++                    <EditTextPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_logical_lenses_key" android:title="@string/video_logical_lenses" android:summary="@string/video_logical_lenses_summary" android:dialogTitle="@string/video_logical_lenses" android:inputType="text" android:singleLine="true" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_multi_lens" android:defaultValue="@string/video_logical_lenses_default" />
++                    <EditTextPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_hdr_session_type_key" android:title="@string/video_hdr_session_type" android:summary="@string/video_session_type_summary" android:dialogTitle="@string/video_hdr_session_type" android:inputType="numberSigned" android:numeric="integer" android:singleLine="true" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_gradient_black_24dp" android:defaultValue="@string/video_session_type_default" />
++                    <EditTextPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_video_sdr_session_type_key" android:title="@string/video_sdr_session_type" android:summary="@string/video_session_type_summary" android:dialogTitle="@string/video_sdr_session_type" android:inputType="numberSigned" android:numeric="integer" android:singleLine="true" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_gradient_black_24dp" android:defaultValue="@string/video_session_type_default" />
++                    <PreferenceScreen android:layout="@layout/preference_with_margin" android:key="pref_video_tunable_submenu" android:title="@string/video_tunable_keys_sdr" android:summary="@string/video_tunable_summary_sdr" android:icon="@drawable/ic_add" />
++                    <PreferenceScreen android:layout="@layout/preference_with_margin" android:key="pref_video_hdr_tunable_submenu" android:title="@string/video_tunable_keys_hdr" android:summary="@string/video_tunable_summary_hdr" android:icon="@drawable/ic_add" />
++                </PreferenceCategory>
++                <PreferenceCategory android:layout="@layout/preference_category_layout" android:key="@string/pref_category_audio_key" android:title="@string/audio_settings">
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference android:layout="@layout/preference_seekbar" android:key="@string/pref_audio_bitrate_key" android:title="@string/audio_bitrate" android:defaultValue="@string/audio_bitrate_default" app:minValue="32" app:maxValue="512" app:stepPerUnit="1" android:icon="@drawable/ic_camera_sounds" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_audio_stereo_key" android:defaultValue="true" android:layout="@layout/preference_with_margin" android:title="@string/audio_stereo" android:summary="@string/audio_stereo_summary" android:icon="@drawable/ic_camera_sounds" />
++                    <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_audio_source_key" android:title="@string/audio_source" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_camera_sounds" android:entries="@array/audio_source_entries" android:entryValues="@array/audio_source_entryvalues" android:defaultValue="@string/audio_source_default" />
++                </PreferenceCategory>
++                <PreferenceCategory android:layout="@layout/preference_category_layout" android:key="@string/pref_category_rawvideo_key" android:title="@string/raw_video_settings">
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_rawvideo_downscale_4x_key" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/rawvideo_downscale_4x" android:summary="" android:icon="@drawable/ic_burst_mode_black_24dp" />
++                    <ListPreference android:key="@string/pref_rawvideo_container_key" android:defaultValue="@string/pref_rawvideo_container_default" android:layout="@layout/preference_with_margin" android:title="@string/rawvideo_container" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_save" android:entries="@array/rawvideo_container_entries" android:entryValues="@array/rawvideo_container_entryvalues" />
++                    <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_rawvideo_crop_169_key" android:defaultValue="true" android:layout="@layout/preference_with_margin" android:title="@string/rawvideo_crop_169" android:summary="" android:icon="@drawable/ic_burst_mode_black_24dp" />
++                </PreferenceCategory>
++            </PreferenceScreen>
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_hide_gallery_icon_key" android:defaultValue="@bool/pref_hide_gallery_icon_default" android:layout="@layout/preference_with_margin" android:title="@string/hide_gallery_icon" android:summary="" android:icon="@drawable/ic_watermark" />
++        </PreferenceCategory>
++        <PreferenceCategory android:layout="@layout/preference_category_layout" android:key="@string/pref_category_backup_restore" android:title="@string/backup_restore">
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.BackupPreferences android:icon="@drawable/ic_save" android:layout="@layout/preference_with_margin" android:title="@string/backup" android:key="@string/pref_backup_preferences_key" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.RestorePreference android:icon="@drawable/ic_restore" android:layout="@layout/preference_with_margin" android:title="@string/restore" android:key="@string/pref_restore_preferences_key" />
++            <com.particlesdevs.photoncamera.ui.settings.custompreferences.ResetPreferences android:icon="@drawable/ic_refresh" android:layout="@layout/preference_with_margin" android:title="@string/reset" android:key="@string/pref_reset_preferences_key" />
++        </PreferenceCategory>
++        <PreferenceScreen android:layout="@layout/preference_with_margin" android:title="@string/about" android:key="@string/pref_about_key" android:icon="@drawable/ic_baseline_info_24">
++            <Preference android:layout="@layout/preference_about" android:title="@string/app_name" android:summary="@string/photon_camera_summary" android:key="@string/pref_photoncamera" android:enabled="false" android:icon="@drawable/ic_splash">
++            </Preference>
++            <Preference android:key="@string/pref_version_key" android:title="@string/version_title" android:layout="@layout/preference_about" android:summary="@string/version_summary" android:enabled="false" />
++            <Preference android:layout="@layout/preference_about" app:singleLineTitle="true" android:enabled="false" android:persistent="false" android:key="@string/pref_this_device_key" />
++            <Preference android:layout="@layout/preference_about" android:key="@string/pref_contributors_key" android:icon="@drawable/ic_github" android:title="@string/contributors_title" android:summary="eszdman, assasinfil, killerink, mirai, Urnyx05, vibhorSrv, snajdovski" />
++            <Preference android:layout="@layout/preference_about" android:title="@string/telegram" android:icon="@drawable/ic_telegram" android:key="@string/pref_telegram_channel_key" />
++            <Preference android:layout="@layout/preference_about" android:title="@string/supported_devices" android:enabled="false" android:persistent="false" android:key="@string/all_devices_names" />
++        </PreferenceScreen>
++    </PreferenceScreen>
++</PreferenceScreen>
+\ No newline at end of file
+--- /dev/null
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -0,0 +1,27 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_menu_image">Image</string>
++    <string name="m9_menu_image_summary">Leica M9 saturation, contrast and sharpness</string>
++    <string name="m9_menu_capture">Capture</string>
++    <string name="m9_menu_capture_summary">Exposure, timer, autofocus and camera sounds</string>
++    <string name="m9_menu_output">Output</string>
++    <string name="m9_menu_output_summary">JPEG, RAW and aspect ratio</string>
++    <string name="m9_menu_display">Display</string>
++    <string name="m9_menu_display_summary">Grid, focus peaking, histogram and appearance</string>
++    <string name="m9_menu_advanced">Advanced</string>
++    <string name="m9_menu_advanced_summary">Diagnostics, sensor settings, video and backup</string>
++    <string name="m9_menu_appearance">Appearance</string>
++    <string name="m9_menu_diagnostics">Diagnostics and comparisons</string>
++    <string name="m9_menu_sensor">Sensor and processing</string>
++    <string name="m9_menu_other">Video and app</string>
++    <string name="m9_menu_hud_title">HUD and histogram</string>
++    <string name="m9_menu_histogram_title">About the histogram</string>
++    <string name="m9_menu_histogram_info">The histogram follows the preview. Saved JPEG tone and detail may differ.</string>
++    <string-array name="m9_menu_timer_entries">
++        <item>@string/off</item><item>3 seconds</item><item>10 seconds</item>
++    </string-array>
++    <!-- Existing timer preference stores an index, not a duration in seconds. -->
++    <string-array name="m9_menu_timer_indices" translatable="false">
++        <item>0</item><item>1</item><item>2</item>
++    </string-array>
++</resources>

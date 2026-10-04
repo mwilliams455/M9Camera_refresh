@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "productionSaveModeCases": 11,
+  "productionSaveStatusCases": 19,
+  "requestedFilesOnly": true,
+  "waitsForExifAndProfile": true,
+  "overlappingCaptures": true,
+  "observerDetachResume": true,
+  "partialFailuresVisible": true,
+  "queueRejectionVisible": true,
+  "staleAcknowledgementSafe": true,
+  "frameClosedExactlyOnce": true,
+  "handsetValidationPending": true
+}

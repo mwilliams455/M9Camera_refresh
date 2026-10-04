@@ -1,0 +1,10 @@
+{
+  "contract_samples": 241800,
+  "signed_half_ties": 201,
+  "asan_ubsan_exit_code": 0,
+  "leak_check": false,
+  "leak_check_boundary": "LeakSanitizer fails under host ptrace; detect_leaks=0 for completed ASan/UBSan run",
+  "source_sha256": "2a7912d1a840f7834fe66e48f622d5728b7d84598ca310c9632aa44f3578dda8",
+  "compiler_flags": "-std=c++17 -O1 -g -ffp-contract=off -fno-fast-math -fsanitize=address,undefined -fno-omit-frame-pointer",
+  "output": "ASan/UBSan contract samples: 241800; signed ties: 201"
+}

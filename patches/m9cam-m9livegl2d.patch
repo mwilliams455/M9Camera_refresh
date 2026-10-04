@@ -1,0 +1,432 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -48,7 +48,7 @@
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity-m9livegl2c'
++        versionName '1.61-m9r38-p3i-s1h-cs1c-rm1c-sb1b-neg1c-fp1b-sc1a-vbv1a-cs1af1-id1a-cr1a-vbvs1b-fg1a-cl1a-pn1a-cn1a-ct1a-cfc1a-m10rmfm1a-metadatafix1a-edgeplacementgate1a-bestfit2alive1-nohdr1a-sourcecal2a-cmfix-fixedgain1a-nativeab1a-jsonsafe1a-nativeapiorder1a-basishsm1p-curvedomain1c-upstreamaxis1a-nativewpclip1a-demosaicmhc1a-demosaicab1a-demosaicmhcneutral1a-frozen1a-m9livepreview1b-1080pfull-main-m9sensorport1a-anyraw-fallofftgt1a-m9livewysiwyg1a-currentexposure-m9livewysiwyg1b-displayedcapturelock-m9livewysiwyg1c-fullsource-final-m9livewysiwyg1e-fullsource-throttle-m9livewysiwyg1f-liveorientation-m9livewysiwyg1g-normalpriority-m9livegl1a-photonshader-m9livegl1b-exposureintent-m9livegl1c-appearanceparity-m9livegl1d-illuminantcolor-m9livegl1e-colorisolate-m9livegl1f-tonelut1a-m9livegl1p-livepairdiag1a-m9livegl1t-continuouspreview1a-m9livegl1u-sidecartransport1a-m9exposureplan1a-m9exposureplan1b-m9livegl1watomicstate1a-m9exposureplan1c-m9livegl2a-m9livegl2b-focuscontinuity-m9livegl2c-m9livegl2d-autoplacement'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -2,7 +2,7 @@
+ 
+ /** Immutable per-observation exposure intent. No Android or mutable camera state. */
+ public final class M9ExposurePlan1A {
+-    public static final String REVISION = "M9EXPOSUREPLAN1C";
++    public static final String REVISION = "M9EXPOSUREPLAN2D";
+     public static final long MAX_AGE_MS = 1500L;
+     public final long id, createdMs, sensorTimestampNs;
+     public final String cameraId, mode, autoReason;
+@@ -12,6 +12,14 @@
+     public final long manualExposureNs;
+     public final int manualIso;
+     private final String shutterPreviewSnapshot1W;
++    private final String autoPlacementSnapshot2D;
++    public String getAutoPlacementSnapshot2D() { return autoPlacementSnapshot2D; }
++    public M9ExposurePlan1A withAutoPlacement2D(String snapshot) {
++        return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
++                observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
++                shutterPreviewSnapshot1W, snapshot);
++    }
+ 
+     public String getShutterPreviewSnapshot1W() { return shutterPreviewSnapshot1W; }
+ 
+@@ -19,7 +27,7 @@
+     public M9ExposurePlan1A withShutterPreviewSnapshot1W(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+-                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot);
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D);
+     }
+ 
+     public M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+@@ -29,14 +37,15 @@
+             long manualExposureNs, int manualIso, int postRawBoost) {
+         this(id, createdMs, sensorTimestampNs, cameraId, mode, observedIso, observedExposureNs,
+                 referenceIso, referenceExposureNs, iso, exposureNs, userEv, autoEv, autoReason,
+-                manualExposureNs, manualIso, postRawBoost, null);
++                manualExposureNs, manualIso, postRawBoost, null, null);
+     }
+ 
+     private M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+             String cameraId, String mode, int observedIso, long observedExposureNs,
+             int referenceIso, long referenceExposureNs, int iso, long exposureNs,
+             double userEv, double autoEv, String autoReason,
+-            long manualExposureNs, int manualIso, int postRawBoost, String snapshot) {
++            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot) {
++        this.autoPlacementSnapshot2D = autoSnapshot;
+         this.shutterPreviewSnapshot1W = snapshot;
+         if (observedIso <= 0 || observedExposureNs <= 0 || referenceIso <= 0
+                 || referenceExposureNs <= 0 || iso <= 0 || exposureNs <= 0
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -35,6 +35,8 @@
+             o.put("userEv", plan.userEv);
+             o.put("autoEv", plan.autoEv);
+             o.put("autoReason", plan.autoReason);
++            if (plan.getAutoPlacementSnapshot2D() != null)
++                o.put("renderedAutoPlacement2D",new JSONObject(plan.getAutoPlacementSnapshot2D()));
+             o.put("manualIso", plan.manualIso);
+             o.put("manualExposureNs", plan.manualExposureNs);
+             o.put("previewExposureScale", plan.previewScale());
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+@@ -164,17 +164,23 @@
+                 M9ExposurePlan1A.energy(iso, exposure) / 1e9, rotation, eligible,
+                 eligible ? "eligible_live_auto_plan" : "manual_or_tripod_plan");
+         PlanInput1A referenceInput = new PlanInput1A(iso, exposure, 0.0, 0.0, 0L, 0, tripod);
+-        PlanInput1A intendedInput = new PlanInput1A(iso, exposure, ev, feedback.appliedEv,
++        ExpoPair reference = generateExpoPair1A(-1, controller, referenceInput);
++        com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.Decision placement2D =
++                com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.decide(
++                        PhotonCamera.getSettings().mCameraID, PhotonCamera.getSettings().selectedMode.name(),
++                        android.os.SystemClock.elapsedRealtimeNanos(),
++                        M9ExposurePlan1A.energy(reference.iso, reference.exposure), ev,
++                        manualExposure, manualIso, feedback.appliedEv);
++        PlanInput1A intendedInput = new PlanInput1A(iso, exposure, ev, placement2D.appliedEv,
+                 manualExposure, manualIso, tripod);
+-        ExpoPair reference = generateExpoPair1A(-1, controller, referenceInput);
+         ExpoPair intended = generateExpoPair1A(-1, controller, intendedInput);
+         Integer boost = observation.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
+         return new M9ExposurePlan1A(android.os.SystemClock.elapsedRealtimeNanos(),
+                 android.os.SystemClock.elapsedRealtime(), timestamp != null ? timestamp : -1L,
+                 PhotonCamera.getSettings().mCameraID, PhotonCamera.getSettings().selectedMode.name(),
+                 iso, exposure, reference.iso, reference.exposure, intended.iso, intended.exposure,
+-                ev, feedback.appliedEv, feedback.reason, manualExposure, manualIso,
+-                boost != null ? boost : 100);
++                ev, placement2D.appliedEv, placement2D.reason, manualExposure, manualIso,
++                boost != null ? boost : 100).withAutoPlacement2D(placement2D.diagnostics);
+     }
+ 
+     public static ExpoPair getM9LiveHudPair1A(CaptureController controller) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -28,6 +28,7 @@
+     private volatile M9PreviewFrameState1W mM9FrameState1W = M9PreviewFrameState1W.defaults();
+     private volatile M9PreviewFrameState1W.Draw mM9LastDraw1W;
+     private long mM9DrawSequence1W;
++    private com.particlesdevs.photoncamera.m9.preview.M9PreviewMeter2D mM9Meter2D;
+ 
+     public void setM9FrameState1W(M9PreviewFrameState1W state) {
+         if (state == null) return;
+@@ -105,6 +106,8 @@
+         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+         mM9LastDraw1W = new M9PreviewFrameState1W.Draw(frame1W, textureTimestamp1W,
+                 android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0);
++        if (mM9CurveTex != 0 && mM9Meter2D != null)
++            mM9Meter2D.sample(frame1W, textureTimestamp1W, uM9ExposureScale1B, enablePeak, peakEnabled);
+         // GLES20.glFlush();
+     }
+ 
+@@ -142,6 +145,8 @@
+         mM9LastDraw1W = null;
+         mM9FrameState1W = M9PreviewFrameState1W.defaults();
+         mM9DrawSequence1W = 0;
++        com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.reset();
++        mM9Meter2D = new com.particlesdevs.photoncamera.m9.preview.M9PreviewMeter2D();
+         GLES20.glDisable(GLES20.GL_DITHER);
+         initTex();
+         initM9CurveTexture1A();
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+@@ -0,0 +1,161 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import java.nio.ByteBuffer;
++import org.json.JSONArray;
++import org.json.JSONObject;
++
++/** Bounded scene placement from neutral-reference M9 GPU samples, never display feedback. */
++public final class M9AutoExposure2D {
++    public static final String REVISION="M9LIVEGL2D_AUTOPLACEMENT";
++    public static final int WIDTH=32, HEIGHT=24, STEPS=7;
++    public static final long MAX_AGE_NS=1200000000L;
++    public static double ev(int index) { return index*.25; }
++    private static Sample latest;
++    private static String meterStatus="awaiting_gpu_probe";
++    private static String owner="";
++    private static double heldAutoEv;
++    private static boolean haveAuto;
++    private static long consumedSampleNs=-1;
++    private M9AutoExposure2D() {}
++
++    public static synchronized void reset() {
++        latest=null;owner="";heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;meterStatus="awaiting_gpu_probe";
++    }
++    public static synchronized void publish(Sample sample) { latest=sample;meterStatus="gpu_probe_available"; }
++    public static synchronized void invalidate(String reason) { latest=null;meterStatus="gpu_probe_disabled:"+reason; }
++
++    public static final class Stats {
++        public final int median;
++        public final double dark, bright, clipped;
++        public Stats(int median,double dark,double bright,double clipped) {
++            this.median=median;this.dark=dark;this.bright=bright;this.clipped=clipped;
++        }
++        boolean valid() {
++            return median>=0 && median<=255 && fraction(dark) && fraction(bright) && fraction(clipped);
++        }
++        JSONObject json() throws org.json.JSONException {
++            return new JSONObject().put("weightedMedianCode",median).put("darkFraction",dark)
++                    .put("brightFraction",bright).put("channelClipFraction",clipped);
++        }
++    }
++    public static final class Sample {
++        public final String camera,mode;
++        public final long submittedNs,textureNs,resultNs;
++        public final double referenceEnergy;
++        private final Stats[] stats;
++        public Sample(String camera,String mode,long submittedNs,long textureNs,long resultNs,
++                double referenceEnergy,Stats[] stats) {
++            this.camera=camera;this.mode=mode;this.submittedNs=submittedNs;
++            this.textureNs=textureNs;this.resultNs=resultNs;this.referenceEnergy=referenceEnergy;
++            this.stats=stats.clone();
++        }
++        public Stats stats(int i) { return stats[i]; }
++        boolean matches(String camera,String mode,long nowNs,double energy) {
++            if (!this.camera.equals(camera) || !this.mode.equals(mode) || nowNs<submittedNs
++                    || nowNs-submittedNs>MAX_AGE_NS || referenceEnergy<=0 || energy<=0
++                    || !Double.isFinite(referenceEnergy) || !Double.isFinite(energy)
++                    || Math.abs(log2(energy/referenceEnergy))>.25 || textureNs<=0 || resultNs<=0
++                    || Math.abs(textureNs-resultNs)>150000000L || stats.length!=STEPS) return false;
++            for (Stats s:stats) if (s==null || !s.valid()) return false;
++            return true;
++        }
++    }
++    /** Read seven adjacent GPU viewports. Centre receives 3x weight; no local image lift. */
++    public static Stats[] measure(ByteBuffer rgba) {
++        if (rgba==null || rgba.limit()<WIDTH*HEIGHT*STEPS*4) throw new IllegalArgumentException("meter pixels");
++        Stats[] out=new Stats[STEPS];
++        for (int step=0;step<STEPS;step++) {
++            int[] hist=new int[256];int total=0,dark=0,bright=0,clip=0;
++            for (int y=0;y<HEIGHT;y++) for (int x=0;x<WIDTH;x++) {
++                int at=4*(y*WIDTH*STEPS+step*WIDTH+x);
++                int r=rgba.get(at)&255,g=rgba.get(at+1)&255,b=rgba.get(at+2)&255;
++                int l=(77*r+150*g+29*b+128)>>8;
++                int weight=x>=WIDTH/4 && x<3*WIDTH/4 && y>=HEIGHT/4 && y<3*HEIGHT/4 ? 3:1;
++                hist[l]+=weight;total+=weight;
++                if(l<32)dark++;if(l>=224)bright++;
++                if(Math.max(r,Math.max(g,b))>=253)clip++;
++            }
++            int median=0,sum=0;while(median<255 && sum+hist[median]<(total+1)/2)sum+=hist[median++];
++            double n=WIDTH*HEIGHT;
++            out[step]=new Stats(median,dark/n,bright/n,clip/n);
++        }
++        return out;
++    }
++    /** A shadow visibility floor, not middle-grey normalization or authentic Leica metering. */
++    public static int select(Stats[] s) {
++        if(s==null || s.length!=STEPS)return 0;
++        for(Stats v:s)if(v==null || !v.valid())return 0;
++        Stats base=s[0];
++        if(base.median>=40 || base.dark<.55)return 0;
++        int chosen=0;
++        for(int i=1;i<STEPS;i++) {
++            Stats v=s[i];
++            // Permit already-clipped windows/speculars, but little NEW clipping.
++            if(v.clipped>base.clipped+.015 || v.bright>base.bright+.04 || v.median>80)break;
++            if(v.median>=base.median+4)chosen=i;
++            if(v.median>=60)break;
++        }
++        return chosen;
++    }
++    public static final class Decision {
++        public final double appliedEv;
++        public final String reason,diagnostics;
++        Decision(double appliedEv,String reason,JSONObject diagnostics) {
++            this.appliedEv=appliedEv;this.reason=reason;this.diagnostics=diagnostics.toString();
++        }
++    }
++    public static synchronized Decision decide(String camera,String mode,long nowNs,
++            double referenceEnergy,double userEv,long manualExposure,int manualIso,double legacyEv) {
++        String key=camera+"|"+mode;
++        if(!key.equals(owner)) {owner=key;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;}
++        double baseline=Double.isFinite(legacyEv)?Math.max(-.5,Math.min(.75,legacyEv)):0;
++        double result=baseline,target=baseline;String reason="legacy_scene_baseline";
++        Sample sample=latest;boolean valid=sample!=null && sample.matches(camera,mode,nowNs,referenceEnergy);
++        int chosen=0;
++        if(manualExposure!=0 || manualIso!=0) {
++            result=0;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;reason="manual_ISO_or_shutter";
++        } else if(Math.abs(userEv)>1e-6) {
++            // EV is compensation around the Auto baseline already shown. Freeze it
++            // on handover so +0.25 EV cannot discard a larger automatic lift.
++            if(!haveAuto) {heldAutoEv=baseline;haveAuto=true;}
++            result=heldAutoEv;target=result;reason="manual_EV_holds_auto_baseline";
++        } else if(valid) {
++            chosen=select(sample.stats);
++            double placement=ev(chosen)*confidence(sample.stats[0]);
++            if(placement<.08)placement=0;
++            target=placement>0?Math.max(baseline,placement):baseline;
++            double current=haveAuto?heldAutoEv:baseline;
++            if(target<=current)result=target; // Release immediately when the scene becomes bright.
++            else if(consumedSampleNs!=sample.submittedNs)result=Math.min(target,current+.25);
++            else result=current;
++            consumedSampleNs=sample.submittedNs;heldAutoEv=result;haveAuto=true;
++            reason=chosen>0?"bounded_rendered_shadow_placement":"rendered_scene_no_extra_lift";
++        } else {
++            heldAutoEv=baseline;haveAuto=true;result=baseline;reason="rendered_meter_unavailable_or_stale";
++        }
++        JSONObject o=new JSONObject();
++        try {
++            o.put("revision",REVISION).put("reason",reason).put("sampleValid",valid).put("meterStatus",meterStatus)
++                    .put("legacySceneEv",baseline).put("recommendedTotalAutoEv",target)
++                    .put("appliedTotalAutoEv",result).put("userEv",userEv)
++                    .put("meterDomain","neutral_reference_same_M9_GPU_shader")
++                    .put("meterIncludesUserOrAutoEv",false).put("maximumPositiveEv",1.5)
++                    .put("shadowTargetCode",60).put("newClipBudget",.015)
++                    .put("shadowConfidence",valid?confidence(sample.stats[0]):0)
++                    .put("leicaMeterNumericalParity",false);
++            if(valid) {
++                o.put("sampleAgeMs",(nowNs-sample.submittedNs)/1e6)
++                        .put("textureTimestampNs",sample.textureNs).put("resultTimestampNs",sample.resultNs)
++                        .put("referenceEnergy",sample.referenceEnergy).put("selectedStep",chosen);
++                JSONArray a=new JSONArray();for(Stats s:sample.stats)a.put(s.json());o.put("bracket",a);
++            }
++        } catch(org.json.JSONException e) {throw new IllegalStateException(e);}
++        return new Decision(result,reason,o);
++    }
++    private static double confidence(Stats s) {
++        double x=Math.max(0,Math.min(1,Math.min((40.-s.median)/16.,(s.dark-.55)/.25)));
++        return x*x*(3-2*x);
++    }
++    private static boolean fraction(double x) {return Double.isFinite(x) && x>=0 && x<=1;}
++    private static double log2(double x) {return Math.log(x)/Math.log(2);}
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java
+@@ -0,0 +1,132 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import android.opengl.GLES30;
++import android.os.SystemClock;
++import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
++import com.particlesdevs.photoncamera.util.Log;
++import java.nio.Buffer;
++import java.nio.ByteBuffer;
++
++/** GL-thread-only 32x24 exposure probes. PBO/fence polling never waits for the GPU. */
++public final class M9PreviewMeter2D {
++    private static final long INTERVAL_NS=250000000L;
++    private static final int W=M9AutoExposure2D.WIDTH, H=M9AutoExposure2D.HEIGHT;
++    private static final int STEPS=M9AutoExposure2D.STEPS, BYTES=W*H*STEPS*4;
++    private int framebuffer,texture,pbo;
++    private long fence,lastProbeNs,pendingNs,pendingTextureNs;
++    private M9PreviewFrameState1W pending;
++    private boolean disabled;
++
++    public void sample(M9PreviewFrameState1W frame,long textureNs,int exposureUniform,
++            int peakUniform,int peakValue) {
++        if(disabled)return;
++        long now=SystemClock.elapsedRealtimeNanos();
++        poll(now);
++        M9ExposurePlan1A plan=frame.plan;
++        if(disabled || fence!=0 || now-lastProbeNs<INTERVAL_NS || plan==null
++                || !M9ExposurePlan1A.supportsMode1B(plan.mode) || !frame.source2A.ready
++                || !plan.cameraId.equals(frame.source2A.cameraId)
++                || Math.abs(plan.userEv)>1e-6 || plan.manualIso!=0 || plan.manualExposureNs!=0
++                || textureNs<=0 || frame.resultTimestampNs<=0
++                || Math.abs(textureNs-frame.resultTimestampNs)>150000000L)return;
++        double referenceScale=M9ExposurePlan1A.energy(plan.referenceIso,plan.referenceExposureNs)
++                /M9ExposurePlan1A.energy(plan.observedIso,plan.observedExposureNs);
++        if(!Double.isFinite(referenceScale) || referenceScale<.0625
++                || referenceScale*Math.pow(2,M9AutoExposure2D.ev(STEPS-1))>16)return;
++        lastProbeNs=now;
++        int[] viewport=new int[4],draw=new int[1],read=new int[1],pack=new int[1],active=new int[1],tex=new int[1];
++        GLES30.glGetIntegerv(GLES30.GL_VIEWPORT,viewport,0);
++        GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING,draw,0);
++        GLES30.glGetIntegerv(GLES30.GL_READ_FRAMEBUFFER_BINDING,read,0);
++        GLES30.glGetIntegerv(GLES30.GL_PIXEL_PACK_BUFFER_BINDING,pack,0);
++        GLES30.glGetIntegerv(GLES30.GL_ACTIVE_TEXTURE,active,0);
++        GLES30.glActiveTexture(GLES30.GL_TEXTURE3);
++        GLES30.glGetIntegerv(GLES30.GL_TEXTURE_BINDING_2D,tex,0);
++        boolean scissor=GLES30.glIsEnabled(GLES30.GL_SCISSOR_TEST);
++        try {
++            // Clear earlier renderer errors so a stale unrelated flag cannot accept/reject a probe.
++            for(int drain=0;drain<8 && GLES30.glGetError()!=GLES30.GL_NO_ERROR;drain++) {}
++            if(framebuffer==0)initialize();
++            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,framebuffer);
++            if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
++                throw new IllegalStateException("meter framebuffer incomplete");
++            GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
++            GLES30.glUniform1i(peakUniform,0);
++            for(int i=0;i<STEPS;i++) {
++                GLES30.glViewport(i*W,0,W,H);
++                GLES30.glUniform1f(exposureUniform,(float)(referenceScale*Math.pow(2,M9AutoExposure2D.ev(i))));
++                GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4);
++            }
++            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pbo);
++            GLES30.glReadPixels(0,0,W*STEPS,H,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,0);
++            fence=GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE,0);
++            if(fence==0 || GLES30.glGetError()!=GLES30.GL_NO_ERROR)throw new IllegalStateException("meter readback failed");
++            pending=frame;pendingNs=now;pendingTextureNs=textureNs;
++            GLES30.glFlush(); // Submit only; readback is mapped after a later zero-timeout fence poll.
++        } catch(RuntimeException e) { fail(e); }
++        finally {
++            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER,draw[0]);
++            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,read[0]);
++            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pack[0]);
++            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,tex[0]);
++            GLES30.glActiveTexture(active[0]);
++            GLES30.glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);
++            if(scissor)GLES30.glEnable(GLES30.GL_SCISSOR_TEST);
++            GLES30.glUniform1f(exposureUniform,frame.exposureScale);
++            GLES30.glUniform1i(peakUniform,peakValue);
++        }
++    }
++    private void initialize() {
++        int[] id=new int[1];
++        GLES30.glGenTextures(1,id,0);texture=id[0];
++        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,texture);
++        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_NEAREST);
++        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_NEAREST);
++        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D,0,GLES30.GL_RGBA8,W*STEPS,H,0,
++                GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,null);
++        GLES30.glGenFramebuffers(1,id,0);framebuffer=id[0];
++        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,framebuffer);
++        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,
++                GLES30.GL_TEXTURE_2D,texture,0);
++        GLES30.glGenBuffers(1,id,0);pbo=id[0];
++        GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pbo);
++        GLES30.glBufferData(GLES30.GL_PIXEL_PACK_BUFFER,BYTES,null,GLES30.GL_STREAM_READ);
++    }
++    private void poll(long now) {
++        if(fence==0)return;
++        int status=GLES30.glClientWaitSync(fence,0,0L);
++        if(status==GLES30.GL_TIMEOUT_EXPIRED && now-pendingNs<=M9AutoExposure2D.MAX_AGE_NS)return;
++        if(status!=GLES30.GL_ALREADY_SIGNALED && status!=GLES30.GL_CONDITION_SATISFIED) {
++            fail(new IllegalStateException("meter fence stale or failed"));return;
++        }
++        int[] pack=new int[1];GLES30.glGetIntegerv(GLES30.GL_PIXEL_PACK_BUFFER_BINDING,pack,0);
++        boolean mapped=false;
++        try {
++            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pbo);
++            Buffer buffer=GLES30.glMapBufferRange(GLES30.GL_PIXEL_PACK_BUFFER,0,BYTES,GLES30.GL_MAP_READ_BIT);
++            if(!(buffer instanceof ByteBuffer))throw new IllegalStateException("meter mapping unavailable");
++            mapped=true;
++            M9AutoExposure2D.Stats[] stats=M9AutoExposure2D.measure((ByteBuffer)buffer);
++            boolean intact=GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
++            mapped=false;
++            if(!intact)throw new IllegalStateException("meter mapping invalid");
++            M9ExposurePlan1A p=pending.plan;
++            if(now-pendingNs<=M9AutoExposure2D.MAX_AGE_NS)
++                M9AutoExposure2D.publish(new M9AutoExposure2D.Sample(p.cameraId,p.mode,pendingNs,
++                        pendingTextureNs,pending.resultTimestampNs,
++                        M9ExposurePlan1A.energy(p.referenceIso,p.referenceExposureNs),stats));
++        } catch(RuntimeException e) {fail(e);}
++        finally {
++            if(mapped)GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
++            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pack[0]);
++            if(fence!=0)GLES30.glDeleteSync(fence);
++            fence=0;pending=null;
++        }
++    }
++    private void fail(RuntimeException error) {
++        disabled=true;M9AutoExposure2D.invalidate(error.getMessage());
++        if(fence!=0)GLES30.glDeleteSync(fence);
++        fence=0;pending=null;
++        Log.w("M9AutoExposure2D","Rendered meter disabled for this surface: "+error);
++    }
++}

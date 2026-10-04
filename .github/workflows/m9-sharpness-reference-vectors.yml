@@ -1,0 +1,54 @@
+name: M9 Sharpness Reference Vectors
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/sharpnessforensics1a]
+    paths:
+      - '.github/workflows/m9-sharpness-reference-vectors.yml'
+      - 'tools/m9_sharpness_reference.py'
+      - 'tools/m9_sharpness_reference_vectors.py'
+      - 'tools/recover_m9_key_from_shared_body.py'
+
+permissions:
+  contents: read
+
+jobs:
+  vectors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover canonical LUT bank and generate vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/m9vectors/evidence"
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9vectors/m9.upd" 'https://reddotforum.com/Firmware_files/M9%2C%20M9-P%2C%20M-E/m9-1_216.upd'
+          curl -sS --fail --location --retry 4 --retry-all-errors -o "$RUNNER_TEMP/m9vectors/mm.upm" 'https://reddotforum.com/Firmware_files/M%20Monochrom/Mm-1_022.upm'
+          echo 'c3d30d7124abe6a3674cf2095719c178454b8773b1454cb70cf54ae468024da4  '"$RUNNER_TEMP/m9vectors/m9.upd" | sha256sum -c --strict
+          echo '53330385edfbfb9beeffa06645bffa2789e27dda614869107698919464f80ad8  '"$RUNNER_TEMP/m9vectors/mm.upm" | sha256sum -c --strict
+          python3 tools/recover_m9_key_from_shared_body.py "$RUNNER_TEMP/m9vectors/m9.upd" "$RUNNER_TEMP/m9vectors/mm.upm" --m9-out "$RUNNER_TEMP/m9vectors/m9.dec" --meta-out "$RUNNER_TEMP/m9vectors/evidence/recovery_meta.json" >/dev/null
+          echo '4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20  '"$RUNNER_TEMP/m9vectors/m9.dec" | sha256sum -c --strict
+          python3 - <<'PY'
+          import os,pathlib,struct,json,hashlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'m9vectors'
+          fw=(root/'m9.dec').read_bytes(); start=0xC0C+0xACF8; n=13*2050
+          raw=fw[start:start+n*2]
+          digest=hashlib.sha256(raw).hexdigest()
+          expect='a9c60000a8ec60ce922f8715436aa45223988f16c5b00fbfc417e546cdf7a8eb'
+          if digest!=expect: raise SystemExit(f'bank hash mismatch {digest}')
+          vals=list(struct.unpack('<'+'h'*n,raw)); luts=[vals[i*2050:(i+1)*2050] for i in range(13)]
+          obj={'schema':'m9.sharpness.base-lut-bank.v1','bank_sha256':digest,'lut_count':13,'count_per_lut':2050,'luts':luts}
+          (root/'bank.json').write_text(json.dumps(obj)+'\n')
+          PY
+          PYTHONPATH=tools python3 tools/m9_sharpness_reference_vectors.py --lut-json "$RUNNER_TEMP/m9vectors/bank.json" --out "$RUNNER_TEMP/m9vectors/evidence/sharpness_reference_vectors.json"
+          sha256sum "$RUNNER_TEMP/m9vectors/evidence/sharpness_reference_vectors.json" | tee "$RUNNER_TEMP/m9vectors/evidence/sharpness_reference_vectors.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-SHARPNESS-REFERENCE-VECTORS
+          retention-days: 30
+          path: ${{ runner.temp }}/m9vectors/evidence/*
+      - name: Cleanup
+        if: always()
+        run: rm -f "$RUNNER_TEMP/m9vectors/m9.upd" "$RUNNER_TEMP/m9vectors/mm.upm" "$RUNNER_TEMP/m9vectors/m9.dec" "$RUNNER_TEMP/m9vectors/bank.json"

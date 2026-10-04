@@ -1,0 +1,22 @@
+{
+  "revision": "M9SAVEMODE1A",
+  "parentCommit": "c22d3264a762438ecf94c85f907291db92491610",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "e1d3d1a99e39a7e57465acc1b38e63b100f6bb6e582a91c03637aac1046b023a",
+  "fileOverrides": {
+    "app/build.gradle": "02a2ba35db1d181d520860c012a3ff21de73738081cc06357d14edcfe02333be",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveSelection.java": "e8e26084eaa72de7fa78057187a052909691cfe443b6bc3e3470a070e6ebe829",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "a1b53143b3b861a02aa304dfa676b0b4a4dd89fe40b9b723bf2f65ba8369edfe",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "ce777ed6839eafcd58d5ca9d1fc4aa7a80a07495b4d7474bdbca3e1441dd8857",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "94a5e1a6fd728cd4bf140467da9b4d07f70c7f1b6085fdee9b878581b0e85f1d",
+    "app/src/main/res/values/m9_output.xml": "b75c793c9cf4e2de1cf52a0dbae457fcb9530f7a2a02225d154c6d07068f9e6b",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9SaveSelectionTest.java": "1219857c493cc33bcba9138ea205106c5c6753f658bb3b8f386ac9afba52770b"
+  },
+  "selectionBoundary": "RAW_enqueue",
+  "jpegMode": 0,
+  "rawPlusJpegMode": 1,
+  "rawMode": 2,
+  "unfilteredRequiresRawSelection": true,
+  "rawOnlyRetainsEmbeddedProfile": true,
+  "photographicMathUnchanged": true
+}

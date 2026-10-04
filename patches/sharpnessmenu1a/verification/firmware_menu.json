@@ -1,0 +1,400 @@
+{
+  "schema": "m9.sharpness.gateb-follow-menu.v1",
+  "bf547_sha256": "f044097bc9ce0deba129f593321aeb20d30c5c2e7b8c3074e44717e7765c66bd",
+  "descriptor_size": 32,
+  "options_pointer_offset": "0x14",
+  "menu_record_stride": 20,
+  "controls": {
+    "Sharpening": [
+      {
+        "off": "0xe2a54",
+        "label_ptr": "0xf3ec8",
+        "label": "Sharpening",
+        "control_id": "0x1005",
+        "word_08": "0x0",
+        "type": 6,
+        "word_10": "0x0",
+        "options_ptr": "0xe5e10",
+        "word_18": "0x0",
+        "word_1c": "0x0",
+        "string_off": "0xd3ec8",
+        "menu_records": [
+          {
+            "index": 0,
+            "record_off": "0xc5e10",
+            "record_addr": "0xe5e10",
+            "label_ptr": "0xf45cc",
+            "label": "Off",
+            "enum": 0,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 1,
+            "record_off": "0xc5e24",
+            "record_addr": "0xe5e24",
+            "label_ptr": "0xf3608",
+            "label": "Low",
+            "enum": 1,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 2,
+            "record_off": "0xc5e38",
+            "record_addr": "0xe5e38",
+            "label_ptr": "0xf35cc",
+            "label": "Standard",
+            "enum": 2,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 3,
+            "record_off": "0xc5e4c",
+            "record_addr": "0xe5e4c",
+            "label_ptr": "0xf360c",
+            "label": "Medium high",
+            "enum": 3,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 4,
+            "record_off": "0xc5e60",
+            "record_addr": "0xe5e60",
+            "label_ptr": "0xf3618",
+            "label": "High",
+            "enum": 4,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          }
+        ]
+      }
+    ],
+    "Contrast": [
+      {
+        "off": "0xe2ab4",
+        "label_ptr": "0xf3ee8",
+        "label": "Contrast",
+        "control_id": "0x1006",
+        "word_08": "0x0",
+        "type": 6,
+        "word_10": "0x0",
+        "options_ptr": "0xe60d8",
+        "word_18": "0x0",
+        "word_1c": "0x0",
+        "string_off": "0xd3ee8",
+        "menu_records": [
+          {
+            "index": 0,
+            "record_off": "0xc60d8",
+            "record_addr": "0xe60d8",
+            "label_ptr": "0xf3690",
+            "label": "Low ",
+            "enum": 0,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 1,
+            "record_off": "0xc60ec",
+            "record_addr": "0xe60ec",
+            "label_ptr": "0xf3698",
+            "label": "Medium low ",
+            "enum": 1,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 2,
+            "record_off": "0xc6100",
+            "record_addr": "0xe6100",
+            "label_ptr": "0xf35cc",
+            "label": "Standard",
+            "enum": 2,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 3,
+            "record_off": "0xc6114",
+            "record_addr": "0xe6114",
+            "label_ptr": "0xf36a4",
+            "label": "Medium high ",
+            "enum": 3,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 4,
+            "record_off": "0xc6128",
+            "record_addr": "0xe6128",
+            "label_ptr": "0xf36b4",
+            "label": "High ",
+            "enum": 4,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          }
+        ]
+      }
+    ],
+    "Color saturation": [
+      {
+        "off": "0xe2a74",
+        "label_ptr": "0xf3ed4",
+        "label": "Color saturation",
+        "control_id": "0x100d",
+        "word_08": "0x0",
+        "type": 6,
+        "word_10": "0x0",
+        "options_ptr": "0xe5e88",
+        "word_18": "0x0",
+        "word_1c": "0x0",
+        "string_off": "0xd3ed4",
+        "menu_records": [
+          {
+            "index": 0,
+            "record_off": "0xc5e88",
+            "record_addr": "0xe5e88",
+            "label_ptr": "0xf3608",
+            "label": "Low",
+            "enum": 0,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 1,
+            "record_off": "0xc5e9c",
+            "record_addr": "0xe5e9c",
+            "label_ptr": "0xf3620",
+            "label": "Medium low",
+            "enum": 1,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 2,
+            "record_off": "0xc5eb0",
+            "record_addr": "0xe5eb0",
+            "label_ptr": "0xf35cc",
+            "label": "Standard",
+            "enum": 2,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 3,
+            "record_off": "0xc5ec4",
+            "record_addr": "0xe5ec4",
+            "label_ptr": "0xf360c",
+            "label": "Medium high",
+            "enum": 3,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 4,
+            "record_off": "0xc5ed8",
+            "record_addr": "0xe5ed8",
+            "label_ptr": "0xf3618",
+            "label": "High",
+            "enum": 4,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 5,
+            "record_off": "0xc5eec",
+            "record_addr": "0xe5eec",
+            "label_ptr": "0xf362c",
+            "label": "Black & White",
+            "enum": 5,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 6,
+            "record_off": "0xc5f00",
+            "record_addr": "0xe5f00",
+            "label_ptr": "0xf363c",
+            "label": "Vintage B & W",
+            "enum": 6,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          }
+        ]
+      },
+      {
+        "off": "0xe2a94",
+        "label_ptr": "0xf3ed4",
+        "label": "Color saturation",
+        "control_id": "0x100d",
+        "word_08": "0x0",
+        "type": 1,
+        "word_10": "0x0",
+        "options_ptr": "0xe6074",
+        "word_18": "0x0",
+        "word_1c": "0x0",
+        "string_off": "0xd3ed4",
+        "menu_records": [
+          {
+            "index": 0,
+            "record_off": "0xc6074",
+            "record_addr": "0xe6074",
+            "label_ptr": "0xf35cc",
+            "label": "Standard",
+            "enum": 2,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 1,
+            "record_off": "0xc6088",
+            "record_addr": "0xe6088",
+            "label_ptr": "0xf3688",
+            "label": "Vivid",
+            "enum": 3,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 2,
+            "record_off": "0xc609c",
+            "record_addr": "0xe609c",
+            "label_ptr": "0xf362c",
+            "label": "Black & White",
+            "enum": 5,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          },
+          {
+            "index": 3,
+            "record_off": "0xc60b0",
+            "record_addr": "0xe60b0",
+            "label_ptr": "0xf363c",
+            "label": "Vintage B & W",
+            "enum": 6,
+            "word_08": "0x0",
+            "word_0c": "0x100",
+            "word_10": "0x0"
+          }
+        ]
+      }
+    ],
+    "Noise": []
+  },
+  "sharpening": {
+    "off": "0xe2a54",
+    "label_ptr": "0xf3ec8",
+    "label": "Sharpening",
+    "control_id": "0x1005",
+    "word_08": "0x0",
+    "type": 6,
+    "word_10": "0x0",
+    "options_ptr": "0xe5e10",
+    "word_18": "0x0",
+    "word_1c": "0x0",
+    "string_off": "0xd3ec8",
+    "menu_records": [
+      {
+        "index": 0,
+        "record_off": "0xc5e10",
+        "record_addr": "0xe5e10",
+        "label_ptr": "0xf45cc",
+        "label": "Off",
+        "enum": 0,
+        "word_08": "0x0",
+        "word_0c": "0x100",
+        "word_10": "0x0"
+      },
+      {
+        "index": 1,
+        "record_off": "0xc5e24",
+        "record_addr": "0xe5e24",
+        "label_ptr": "0xf3608",
+        "label": "Low",
+        "enum": 1,
+        "word_08": "0x0",
+        "word_0c": "0x100",
+        "word_10": "0x0"
+      },
+      {
+        "index": 2,
+        "record_off": "0xc5e38",
+        "record_addr": "0xe5e38",
+        "label_ptr": "0xf35cc",
+        "label": "Standard",
+        "enum": 2,
+        "word_08": "0x0",
+        "word_0c": "0x100",
+        "word_10": "0x0"
+      },
+      {
+        "index": 3,
+        "record_off": "0xc5e4c",
+        "record_addr": "0xe5e4c",
+        "label_ptr": "0xf360c",
+        "label": "Medium high",
+        "enum": 3,
+        "word_08": "0x0",
+        "word_0c": "0x100",
+        "word_10": "0x0"
+      },
+      {
+        "index": 4,
+        "record_off": "0xc5e60",
+        "record_addr": "0xe5e60",
+        "label_ptr": "0xf3618",
+        "label": "High",
+        "enum": 4,
+        "word_08": "0x0",
+        "word_0c": "0x100",
+        "word_10": "0x0"
+      }
+    ]
+  },
+  "gate_b_candidate_mapping": [
+    {
+      "label": "Off",
+      "enum": 0
+    },
+    {
+      "label": "Low",
+      "enum": 1
+    },
+    {
+      "label": "Standard",
+      "enum": 2
+    },
+    {
+      "label": "Medium high",
+      "enum": 3
+    },
+    {
+      "label": "High",
+      "enum": 4
+    }
+  ],
+  "note": "Mapping is firmware-derived from the M9 Sharpening descriptor itself; next trace selector state into process record field/job builder."
+}
