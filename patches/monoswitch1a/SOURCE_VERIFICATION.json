@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "parent": "2.45-monomerge1a",
+  "version": "2.46-monoswitch1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/main/res/values/m9_overlay.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RendererSwitchLifecycleTest.java"
+  ],
+  "allOtherSourceFilesUnchanged": 1322,
+  "renderersNativeAssetsAndCaptureAllocatorUnchanged": true
+}

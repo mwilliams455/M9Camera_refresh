@@ -1,0 +1,21 @@
+{
+  "parentCommit": "b84c6ea9bdc8c4b63b80e0f4f38c30487f22d11d",
+  "monochromCommit": "cf5e00e23ea47920fb863eb7abb0fa423885786a",
+  "version": "2.46-monoswitch1a",
+  "parentFiles": {
+    "app/build.gradle": "d01847ae1c9b51431035847730f61a7dde1464e68e23bb918816754d7a6b040e",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "0e4057c8fd0a3a8c8ced1b409e079e102cc17bb0c2bd8b45097dc717581b2e27",
+    "app/src/main/res/values/m9_overlay.xml": "60e74ab4eb2d889fc696ac5bb58e6cd60ac2915db12fe697957659c876867e72"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "5ac02804db7e0272e10ced0f2fbe467c5a1328945d2a5bdf93b191b0cf410c9a",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "ca4a90cc6520b12d393d952bf7914f09979195b2314de4cf129bd57f26172114",
+    "app/src/main/res/values/m9_overlay.xml": "e494084b0735ba9c53821c1e5b25d0974d3243a8642f0df56b48caa9f777af06",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RendererSwitchLifecycleTest.java": "784ed99086e56c123fe436b70c8c06e3f4ace69371d68f922357d908172d9010"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RendererSwitchLifecycleTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "683ec5b490dc37b6a9fd970f7edfde77db2d6e81c0cb4e36c4115da14899b3bf"
+}

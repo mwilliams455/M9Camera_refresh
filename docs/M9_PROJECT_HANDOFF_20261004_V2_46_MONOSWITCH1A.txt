@@ -1,0 +1,38 @@
+M9Cam 2.46 MONOSWITCH1A — renderer switch repair
+
+Build: 2.46-monoswitch1a (versionCode 27246)
+APK: M9Cam_2.46_MONOSWITCH1A.apk
+Bytes: 119556917
+SHA-256: 95bd5633aacd3bc6e72d2dfa3813bd16605f9c6efd5f703b4945497db2e23c75
+Application ID: com.m9project.m9cam.photon
+Same signing certificate as the accepted M9 APK; install over 2.45 without clearing settings.
+
+REPORTED BEHAVIOR AND EVIDENCE
+The supplied video shows the app returning to the launcher on M9 -> Monochrom and Monochrom -> M9. Reopening successfully starts the selected renderer. The supplied log has no fatal exception or native crash stack, so the exact device exception is not established by that file.
+
+A regression test reproduces a matching switch-time failure in the 2.45 camera-screen code: an already queued preview/HUD update runs after the old fragment's onDestroy has cleared its capture controller. It throws NullPointerException in MonoIsoExpoSelector.monoHudPair1A via IsoExpoSelector.getM9LiveHudPair1A and CameraFragment.updateViewfinderHud.
+
+FIX
+Each resumed preview now owns an identity token. onPause and onDestroyView invalidate it before camera teardown. Queued HUD work checks the token before accessing the old controller. PixelCopy completion, histogram processing and histogram UI publication also reject work from the old preview, including callbacks arriving after the executor is closed. Resume creates a new token.
+
+The renderer card's selected label is now simply Selected; Monochrom no longer displays Colour.
+
+SETTINGS AND PHOTOGRAPHIC SCOPE
+One settings hierarchy still adapts to the selected renderer. Each renderer retains its own Image controls. No changes to settings keys, capture allocator, renderer math, shaders, LUTs, output modes, DNG/JPEG processing, exposure planning, AE-L or bracketing.
+All 27 native libraries and all 285 assets are byte-for-byte preserved from 2.45. Its 25 accepted M9 libraries remain the 2.38 baseline; the two Monochrom libraries are unchanged from the 2.45 integration.
+
+VERIFICATION
+86 tests across 14 suites passed; zero failures, errors or skips.
+The new test recreates the real camera fragment in both directions and verifies MainRenderer/MonoRenderer selection. It also runs a queued preview update after the old controller is destroyed. This test fails against 2.45 with the null-controller exception and passes with this repair.
+Camera hardware, GPU execution, continuous preview blur animation, and the audio/gallery worker are replaced at test boundaries. Actual Camera2/GL operation on the target phone remains to be checked.
+Exact source reconstruction and source-isolation checks passed. Only CameraFragment lifecycle handling, the selected label, version and the new test differ from 2.45. Signature, package identity/version, compiled settings menus, APK 16-KiB alignment and Monochrom ELF alignment passed.
+
+SOURCE RECOVERY
+Repository: https://github.com/mwilliams455/M9Camera_refresh
+Parent main: b84c6ea9bdc8c4b63b80e0f4f38c30487f22d11d (2.45, PR 63)
+Fix branch: fix/monochrom-switch1a
+Recovery: patches/monoswitch1a/README.md, assemble.py, build.py, package.py, manifest.json, monoswitch1a.patch.gz and verification JSON files.
+Packaging restores the exact 2.45 native libraries. Do not distribute the raw Gradle APK.
+
+PHONE CHECK
+Install over 2.45. Keep HUD/histogram enabled and switch M9 -> Monochrom -> M9 several times. The app should stay open and resume live preview. Check each renderer's Image settings, a capture in each renderer and background/resume. This is a phone-test candidate, not a newly accepted photographic baseline.
