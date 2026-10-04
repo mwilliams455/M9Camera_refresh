@@ -1,0 +1,30 @@
+{
+  "parentCommit": "c3f63962b54f63590dda9fdb0cab90156cafc2a9",
+  "version": "2.32-m9previewbrightness1a",
+  "parentFiles": {
+    "app/build.gradle": "fd49c272206e671c5baa7742b79afa133f6eefa9d600a0e64c8cfcc57c644e7a",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "9eb75b34c1a3100145fd4581a8479dbb8c81c7ba177943ab99c8f8ef77d396db",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java": "ac972caf6c549c98b67b91da87393d8f5b16cf50c5553c5efda609752d710c9e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "9ca02b9170dbacf46bfce66f3ef5c206e908ab300efa3de5f103f7bb05a10123",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewTc20Math1A.java": "e1c2052caebfd6f4cf28cacb8e6dffcc489180ee171af969f75796749e549ba1",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "f00462414a44c85d5608973b3e72417c82370302aa1392bd787adfd113aac483"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "46edb7c073c973affc5d256507337995843545decf26569ffb57313f3dc7a223",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "14cc1e074dd5eaa40d97f94631cfc1338b4d7b7ebfc52204139e43f85605940b",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java": "9d95662fd26746e381339e2a18200fbd45aa4caef0859531cc7195209a326898",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "f66987e82add735bdc1e5f0a3f2cb1912af8b8ced34b1cfeaabb893aef407c56",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewTc20Math1A.java": "f89dd041e9dbf097783e83857c7ed3cf7006bd0e6521b9e54df0e78fc6477371",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "c44fcd781c01d683770fc14e6d1c59e987de862f654c308453bd2e7f5f98f8c4",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9PreviewBrightnessTest.java": "f97ce25f0c8e964954d673910c91783da4318ae1bbea4089250089858ac4ade8"
+  },
+  "patchSha256": "b81fc58ab287ef1ad447f028ac7e67ea17a270950e5a3b2d6c263c2e05e585f5",
+  "nativePolicy": "Preserve all 25 native entries from phone-accepted 2.31",
+  "photoPolicy": "Saved JPEG/DNG processing, capture planning and metering, menu/settings, profiles and display aids unchanged",
+  "previewToneAuthorityEv": [
+    -0.5,
+    0.5
+  ],
+  "previewOnlyHeadroom": "reconstructed neutral-reference sensor max channel, not RAW",
+  "controlsAdded": false
+}
