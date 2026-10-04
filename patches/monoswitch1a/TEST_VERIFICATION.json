@@ -1,0 +1,123 @@
+{
+  "status": "PASS",
+  "version": "2.46-monoswitch1a",
+  "tests": 86,
+  "failures": 0,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9AeLockTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9BracketTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9DisplayAidsTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9LeicaEvTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9SelfTimerTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayLayoutTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayPolicyTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9ShootingControlsTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.RendererSwitchLifecycleTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.views.M9LinearRulerSelectionTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.settings.MonochromDisplayPreferenceTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "regressionBefore": {
+    "parentVersion": "2.45-monomerge1a",
+    "tests": 2,
+    "failures": 1,
+    "failingTest": "queuedPreviewCannotReachDestroyedCamera",
+    "exception": "java.lang.NullPointerException: Cannot invoke \"com.particlesdevs.photoncamera.capture.CaptureController.getMonoExposurePlan1A()\" because \"controller\" is null",
+    "stack": [
+      "java.lang.NullPointerException: Cannot invoke \"com.particlesdevs.photoncamera.capture.CaptureController.getMonoExposurePlan1A()\" because \"controller\" is null",
+      "\tat com.particlesdevs.photoncamera.processing.parameters.MonoIsoExpoSelector.monoHudPair1A(MonoIsoExpoSelector.java:95)",
+      "\tat com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector.getM9LiveHudPair1A(IsoExpoSelector.java:217)",
+      "\tat com.particlesdevs.photoncamera.ui.camera.CameraFragment.updateViewfinderHud(CameraFragment.java:1335)",
+      "\tat com.particlesdevs.photoncamera.ui.camera.CameraFragment.lambda$updateScreenLog$9(CameraFragment.java:1221)",
+      "\tat com.particlesdevs.photoncamera.ui.camera.RendererSwitchLifecycleTest.exercise(RendererSwitchLifecycleTest.java:115)",
+      "\tat com.particlesdevs.photoncamera.ui.camera.RendererSwitchLifecycleTest.queuedPreviewCannotReachDestroyedCamera(RendererSwitchLifecycleTest.java:66)"
+    ]
+  },
+  "hardwareCameraAndGlValidationPending": true
+}
