@@ -1,0 +1,19 @@
+from pathlib import Path
+import json,subprocess,sys,hashlib
+here=Path(__file__).resolve().parent;root=Path(sys.argv[1]).resolve();out=Path(sys.argv[2]).resolve();out.mkdir(parents=True,exist_ok=True)
+src=root/'app/src/main/java/com/particlesdevs/photoncamera';stubs=out/'stubs';classes=out/'classes';classes.mkdir(exist_ok=True)
+jar=Path(sys.argv[3]).resolve();math=json.loads(Path(sys.argv[4]).read_text())
+code={
+'android/util/Log.java':'package android.util;public class Log {public static void e(String t,String m,Throwable e){}}',
+'com/particlesdevs/photoncamera/app/PhotonCamera.java':'''package com.particlesdevs.photoncamera.app;import java.nio.file.*;import java.io.*;public class PhotonCamera{public static Path assets;public static Resource getResourcesStatic(){return new Resource();}public static class Resource{public Resource getAssets(){return this;}public InputStream open(String p)throws IOException{return Files.newInputStream(assets.resolve(p));}}}''',
+'com/particlesdevs/photoncamera/processing/M9DngProfileWriter.java':'''package com.particlesdevs.photoncamera.processing;import java.nio.file.*;import java.security.*;public class M9DngProfileWriter{public static String hash;public static class Result{public String name,digest;public long addedBytes;}public static Result embed(Path path,M9DngProfile p,String name)throws Exception{hash=java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(p.look));Result r=new Result();r.name=name;r.digest=hash;return r;}}''',
+'ExportProbe.java':'''import java.nio.file.*;import org.json.*;import com.particlesdevs.photoncamera.processing.*;import com.particlesdevs.photoncamera.app.PhotonCamera;public class ExportProbe{public static void main(String[] a)throws Exception{PhotonCamera.assets=Path.of(a[0]);JSONArray results=new JSONArray();JSONObject frame=new JSONObject().put("nativeSaturationBankActuallySelected",3).put("identityHsmApplied",true).put("targetDomainTrace1A",new JSONObject().put("currentPpToM9Composed",new JSONArray("[[1,0,0],[0,1,0],[0,0,1]]")).put("effectiveRenderGain",1.0));for(int level=0;level<5;level++){frame.put("nativeContrastLevelActuallySelected",level);JSONObject r=M9DngProfileExport.embed(Path.of("synthetic.dng"),frame.toString(),true);if(!r.getString("status").equals("embedded")||r.getInt("leicaContrastIndex")!=level)throw new AssertionError(r);results.put(r);}frame.put("nativeContrastLevelActuallySelected",9);if(!M9DngProfileExport.embed(Path.of("synthetic.dng"),frame.toString(),true).getString("status").equals("bypassed_original_raw_preserved"))throw new AssertionError("invalid accepted");frame.remove("nativeContrastLevelActuallySelected");if(!M9DngProfileExport.embed(Path.of("synthetic.dng"),frame.toString(),true).getString("status").equals("bypassed_original_raw_preserved"))throw new AssertionError("missing metadata guessed");System.out.println(results);}}'''}
+for p,s in code.items():f=stubs/p;f.parent.mkdir(parents=True,exist_ok=True);f.write_text(s)
+prod=[src/'processing'/x for x in ['M9Contrast.java','M9Saturation.java','M9DngProfile.java','M9DngProfileExport.java']]+[src/'m9/render/M9TargetFirmwareCalibration.java']
+subprocess.run(['java','com.sun.tools.javac.Main','-cp',str(jar),'-d',str(classes),*map(str,stubs.rglob('*.java')),*map(str,prod)],check=True)
+result=json.loads(subprocess.check_output(['java','-Xmx128m','-cp',str(classes)+':'+str(jar),'ExportProbe',str(root/'app/src/main/assets')],text=True))
+for i,r in enumerate(result):
+ expected=next(x['lookSha256'] for x in math['combinations'] if x['contrast']==i and x['bank']==3)
+ assert r['profileDigest']==expected and r['leicaSaturationBank']==3,(i,r)
+report=dict(status='passed',productionExporterLevels=5,captureMetadataOwnsCurve=True,mediumHighSaturationPreserved=True,profilesMatchVerifiedTables=True,invalidAndMissingContrastFailSafely=True)
+(out/'EXPORT_VERIFICATION.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))

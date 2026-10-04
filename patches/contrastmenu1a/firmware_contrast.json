@@ -1,0 +1,36 @@
+{
+  "firmware": "Leica M9 1.216",
+  "packageSha256": "ec87d8d8d826bf1d17ba2aeb78591effb18ef2998819deb342f09df946a42051",
+  "source": "PROCESS_LUTS_ram.bin",
+  "offset": 3320,
+  "selector": "10 * pull80 + 5 * colorSpace + contrast",
+  "normalSrgbOnly": true,
+  "bankSha256": "85d9f1c97fb150cb204333288a76eb7d39900f985af6a9d5cd3747cab22da1ed",
+  "levels": [
+    {
+      "index": 0,
+      "name": "Low",
+      "sha256": "05ff73fc0850fcdc71fdb712e6afe68f6623e95b555ba6b33038f707511d9d17"
+    },
+    {
+      "index": 1,
+      "name": "Medium low",
+      "sha256": "32a861c8eac1c11727c8fa60cd94adda34a2045d076db931ee4f92713163dfc7"
+    },
+    {
+      "index": 2,
+      "name": "Standard",
+      "sha256": "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c"
+    },
+    {
+      "index": 3,
+      "name": "Medium high",
+      "sha256": "0c8e254678c82be94e86977cf3d205721eccc314dea1feafd94c34e5bb099974"
+    },
+    {
+      "index": 4,
+      "name": "High",
+      "sha256": "a4e2c32e7eb207ea91cde0b1ecd6ade53bba3172d1a51583a68bc02e4967ba6f"
+    }
+  ]
+}
