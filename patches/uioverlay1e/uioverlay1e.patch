@@ -1,0 +1,296 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27242
++        versionCode 27243
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.42-m9uioverlay1d'
++        versionName '2.43-m9uioverlay1e'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.42_UIOVERLAY1D-${variant.name}.apk"
++            outputFileName = "M9Cam_2.43_UIOVERLAY1E-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+@@ -2,6 +2,7 @@
+ 
+ import android.app.Dialog;
+ import android.content.Context;
++import android.content.SharedPreferences;
+ import android.graphics.Typeface;
+ import android.graphics.drawable.GradientDrawable;
+ import android.os.Handler;
+@@ -32,12 +33,14 @@
+     private final View root;
+     private final Context context;
+     private final Handler handler = new Handler(Looper.getMainLooper());
+-    private final TextView[] source = new TextView[4];
+-    private final TextView[] controls = new TextView[4];
+-    private final TextWatcher[] watchers = new TextWatcher[4];
++    private final TextView[] source = new TextView[5];
++    private final TextView[] controls = new TextView[5];
++    private final TextWatcher[] watchers = new TextWatcher[5];
+     private final String[] labels;
+-    private final View photo, motion, settings, quickControls, renderer;
+-    private final TextView activeRender;
++    private final View photo, motion, settings, quickControls, renderer, torch, night;
++    private final TextView captureStatus;
++    private final SharedPreferences overlayPreferences;
++    private CameraMode lastPrimaryMode;
+     private final M9LinearManualView manualRuler;
+     private volatile boolean burstLocked;
+     private boolean resumed;
+@@ -56,11 +59,14 @@
+         this.fragment = fragment;
+         root = fragment.cameraFragmentBinding.getRoot();
+         context = root.getContext();
++        overlayPreferences = context.getSharedPreferences("m9_overlay_ui", Context.MODE_PRIVATE);
++        lastPrimaryMode = "MOTION".equals(overlayPreferences.getString("last_primary_mode", "PHOTO"))
++                ? CameraMode.MOTION : CameraMode.PHOTO;
+         labels = new String[]{context.getString(R.string.m9_overlay_iso),
+                 context.getString(R.string.m9_overlay_shutter), context.getString(R.string.m9_overlay_ev),
+-                context.getString(R.string.m9_overlay_focus)};
+-        int[] sources = {R.id.iso_option_tv, R.id.exposure_option_tv, R.id.ev_option_tv, R.id.focus_option_tv};
+-        int[] targets = {R.id.m9_overlay_iso, R.id.m9_overlay_shutter, R.id.m9_overlay_ev, R.id.m9_overlay_focus};
++                context.getString(R.string.m9_overlay_focus), context.getString(R.string.m9_overlay_wb)};
++        int[] sources = {R.id.iso_option_tv, R.id.exposure_option_tv, R.id.ev_option_tv, R.id.focus_option_tv, R.id.wb_option_tv};
++        int[] targets = {R.id.m9_overlay_iso, R.id.m9_overlay_shutter, R.id.m9_overlay_ev, R.id.m9_overlay_focus, R.id.m9_overlay_wb};
+         for (int i = 0; i < source.length; i++) {
+             final int index = i;
+             source[i] = root.findViewById(sources[i]);
+@@ -76,17 +82,21 @@
+             };
+             source[i].addTextChangedListener(watchers[i]);
+         }
+-        ((View) root.findViewById(R.id.wb_option_tv).getParent()).setVisibility(View.GONE);
+         photo = root.findViewById(R.id.m9_overlay_photo);
+         motion = root.findViewById(R.id.m9_overlay_motion);
+         settings = root.findViewById(R.id.m9_overlay_settings);
+         quickControls = root.findViewById(R.id.m9_overlay_quick_controls);
+         renderer = root.findViewById(R.id.m9_overlay_renderer);
+-        activeRender = root.findViewById(R.id.m9_overlay_active_render);
++        captureStatus = root.findViewById(R.id.m9_overlay_capture_status);
++        torch = root.findViewById(R.id.m9_overlay_torch);
++        night = root.findViewById(R.id.m9_overlay_night);
+         photo.setOnClickListener(v -> selectMode(M9OverlayPolicy.primaryMode(false)));
+         motion.setOnClickListener(v -> selectMode(M9OverlayPolicy.primaryMode(true)));
+         settings.setOnClickListener(v -> openAppSettings());
+         quickControls.setOnClickListener(v -> showQuickControls());
++        torch.setOnClickListener(v -> toggleTorch());
++        night.setOnClickListener(v -> selectMode(M9OverlayPolicy.nightToggleTarget(
++                CameraMode.valueOf(PreferenceKeys.getCameraModeOrdinal()), lastPrimaryMode)));
+         renderer.setOnClickListener(v -> showRenderers());
+         manualRuler = root.findViewById(R.id.knobView);
+         manualRuler.setInteractionAllowed(this::available);
+@@ -121,19 +131,32 @@
+             mirror(i);
+             setAvailable(controls[i], enabled);
+         }
+-        for (View v : new View[]{photo, motion, settings, quickControls, renderer}) setAvailable(v, enabled);
++        for (View v : new View[]{photo, motion, settings, quickControls, renderer, night}) setAvailable(v, enabled);
++        boolean torchAvailable = root.findViewById(R.id.flash_button).getVisibility() == View.VISIBLE;
++        setAvailable(torch, enabled && torchAvailable);
++        torch.setSelected(torchAvailable && PreferenceKeys.getAeMode() == 0);
++        torch.setContentDescription(torchAvailable ? context.getString(R.string.m9_overlay_flash) + ", "
++                + context.getString(torch.isSelected() ? R.string.on : R.string.off)
++                : context.getString(R.string.m9_overlay_torch_unavailable));
+         CameraMode mode = CameraMode.valueOf(PreferenceKeys.getCameraModeOrdinal());
++        if ((mode == CameraMode.PHOTO || mode == CameraMode.MOTION) && mode != lastPrimaryMode) {
++            lastPrimaryMode = mode;
++            overlayPreferences.edit().putString("last_primary_mode", mode.name()).apply();
++        }
+         photo.setSelected(mode == CameraMode.PHOTO);
+         motion.setSelected(mode == CameraMode.MOTION);
+-        String heading = context.getString(R.string.m9_overlay_active_render);
++        night.setSelected(mode == CameraMode.NIGHT);
++        night.setContentDescription(context.getString(R.string.mode_night) + ", "
++                + context.getString(night.isSelected() ? R.string.on : R.string.off));
++        String heading = "";
+         if (mode != CameraMode.PHOTO && mode != CameraMode.MOTION) {
+-            heading += " · " + context.getString(CameraMode.nameIds()[mode.ordinal()]);
++            heading = context.getString(CameraMode.nameIds()[mode.ordinal()]);
+         }
+         int seconds = com.particlesdevs.photoncamera.m9.M9SelfTimer1A.seconds(PreferenceKeys.getCountdownTimerIndex());
+         if (seconds != 0 && (mode == CameraMode.PHOTO || mode == CameraMode.MOTION || mode == CameraMode.NIGHT)) {
+-            heading += " · " + seconds + "s";
+-        }
+-        if (!heading.contentEquals(activeRender.getText())) activeRender.setText(heading);
++            heading += (heading.isEmpty() ? "" : " · ") + seconds + "s";
++        }
++        if (!heading.contentEquals(captureStatus.getText())) captureStatus.setText(heading);
+         if (!enabled) dismissSurfaces();
+     }
+ 
+@@ -159,6 +182,7 @@
+         fragment.getManualModeConsole().setPanelVisibility(true);
+         String title = context.getString(R.string.m9_overlay_white_balance);
+         for (int i = 0; i < source.length; i++) if (source[i] == original) title = labels[i];
++        if (original.getId() == R.id.wb_option_tv) title = context.getString(R.string.m9_overlay_white_balance);
+         manualRuler.setControlLabel(title);
+         original.performClick(); // Refresh the model-bound long-click listener after a lens change.
+         if (reset) original.performLongClick();
+@@ -245,6 +269,14 @@
+         fragment.cameraFragmentBinding.layoutTopbar.settingsButton.performClick();
+     }
+ 
++    private void toggleTorch() {
++        if (!allowAction()) return;
++        View original = root.findViewById(R.id.flash_button);
++        if (original.getVisibility() != View.VISIBLE) return;
++        original.performClick();
++        refresh();
++    }
++
+     private void showQuickControls() {
+         if (!allowAction()) return;
+         dismissSurfaces();
+@@ -252,8 +284,6 @@
+                 context.getString(R.string.m9_overlay_timer) + " · " + timerLabel(),
+                 context.getString(R.string.m9_overlay_grid),
+                 context.getString(R.string.m9_display_title),
+-                context.getString(R.string.m9_overlay_flash) + " · " + context.getString(PreferenceKeys.getAeMode() == 0 ? R.string.on : R.string.off),
+-                context.getString(R.string.m9_overlay_white_balance),
+                 context.getString(R.string.m9_overlay_zoom_lock),
+                 context.getString(R.string.m9_overlay_more_modes)};
+         settingsDialog = new MaterialAlertDialogBuilder(context)
+@@ -264,16 +294,8 @@
+                         case 0: showTimer(); break;
+                         case 1: root.findViewById(R.id.grid_toggle_button).performClick(); break;
+                         case 2: root.findViewById(R.id.m9_display_aids_button).performClick(); break;
+-                        case 3:
+-                            if (root.findViewById(R.id.flash_button).getVisibility() == View.VISIBLE) {
+-                                root.findViewById(R.id.flash_button).performClick();
+-                                Toast.makeText(context, context.getString(R.string.m9_overlay_flash) + " · "
+-                                        + context.getString(PreferenceKeys.getAeMode() == 0 ? R.string.on : R.string.off), Toast.LENGTH_SHORT).show();
+-                            } else Toast.makeText(context, R.string.m9_overlay_torch_unavailable, Toast.LENGTH_SHORT).show();
+-                            break;
+-                        case 4: openManual(root.findViewById(R.id.wb_option_tv), false); break;
+-                        case 5: root.findViewById(R.id.zoom_lock_button).performClick(); break;
+-                        case 6: showOtherModes(); break;
++                        case 3: root.findViewById(R.id.zoom_lock_button).performClick(); break;
++                        case 4: showOtherModes(); break;
+                         default: break;
+                     }
+                 }).setNegativeButton(android.R.string.cancel, null).create();
+@@ -300,7 +322,7 @@
+     }
+ 
+     private void showOtherModes() {
+-        CameraMode[] modes = {CameraMode.NIGHT, CameraMode.UNLIMITED};
++        CameraMode[] modes = {CameraMode.UNLIMITED};
+         String[] names = new String[modes.length];
+         for (int i = 0; i < modes.length; i++) names[i] = context.getString(CameraMode.nameIds()[modes[i].ordinal()]);
+         settingsDialog = new MaterialAlertDialogBuilder(context).setTitle(R.string.m9_overlay_more_modes)
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java
+@@ -20,4 +20,9 @@
+     static boolean rendererAvailable(int index) {
+         return index == 0; // M9 only. Future cards never change the active renderer.
+     }
++
++    static CameraMode nightToggleTarget(CameraMode current, CameraMode previousPrimary) {
++        if (current != CameraMode.NIGHT) return CameraMode.NIGHT;
++        return previousPrimary == CameraMode.MOTION ? CameraMode.MOTION : CameraMode.PHOTO;
++    }
+ }
+diff --git a/app/src/main/res/drawable/m9_overlay_moon.xml b/app/src/main/res/drawable/m9_overlay_moon.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_moon.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:fillColor="@color/cam_on_surface"
++        android:pathData="M20.5,14.1A8.5,8.5 0,0 1,9.9 3.5A8.5,8.5 0,1 0,20.5 14.1Z" />
++</vector>
+diff --git a/app/src/main/res/layout/layout_m9_overlay_controls.xml b/app/src/main/res/layout/layout_m9_overlay_controls.xml
+--- a/app/src/main/res/layout/layout_m9_overlay_controls.xml
++++ b/app/src/main/res/layout/layout_m9_overlay_controls.xml
+@@ -6,6 +6,7 @@
+     <TextView android:id="@+id/m9_overlay_shutter" style="@style/M9OverlayControl" android:text="@string/m9_overlay_shutter" />
+     <TextView android:id="@+id/m9_overlay_ev" style="@style/M9OverlayControl" android:text="@string/m9_overlay_ev" />
+     <TextView android:id="@+id/m9_overlay_focus" style="@style/M9OverlayControl" android:text="@string/m9_overlay_focus" />
++    <TextView android:id="@+id/m9_overlay_wb" style="@style/M9OverlayControl" android:text="@string/m9_overlay_wb" android:contentDescription="@string/m9_overlay_white_balance" />
+     <ImageButton android:id="@+id/m9_overlay_settings" android:layout_width="48dp" android:layout_height="52dp"
+         android:layout_marginStart="4dp" android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true" android:padding="13dp"
+         android:src="@drawable/ic_settings" android:tint="@color/cam_on_surface"
+diff --git a/app/src/main/res/layout/layout_main_topbar.xml b/app/src/main/res/layout/layout_main_topbar.xml
+--- a/app/src/main/res/layout/layout_main_topbar.xml
++++ b/app/src/main/res/layout/layout_main_topbar.xml
+@@ -230,9 +230,19 @@
+         <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:orientation="horizontal"
+             android:paddingHorizontal="14dp" android:gravity="center_vertical" bindViewGroupChildrenRotate="@{uimodel}"
+             app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintBottom_toBottomOf="parent">
+-            <TextView android:id="@+id/m9_overlay_active_render" android:layout_width="0dp" android:layout_height="wrap_content"
+-                android:layout_weight="1" android:text="@string/m9_overlay_active_render" android:textSize="16sp"
+-                android:textStyle="bold" android:textColor="@color/cam_on_surface" />
++            <ImageButton android:id="@+id/m9_overlay_torch" android:layout_width="48dp" android:layout_height="48dp"
++                android:padding="12dp" android:layout_marginEnd="4dp" android:src="@drawable/ic_torch"
++                android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true"
++                android:tint="@color/m9_overlay_text" android:foreground="?attr/selectableItemBackgroundBorderless"
++                android:contentDescription="@string/m9_overlay_flash" android:tooltipText="@string/m9_overlay_flash" />
++            <ImageButton android:id="@+id/m9_overlay_night" android:layout_width="48dp" android:layout_height="48dp"
++                android:padding="12dp" android:src="@drawable/m9_overlay_moon"
++                android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true"
++                android:tint="@color/m9_overlay_text" android:foreground="?attr/selectableItemBackgroundBorderless"
++                android:contentDescription="@string/mode_night" android:tooltipText="@string/mode_night" />
++            <TextView android:id="@+id/m9_overlay_capture_status" android:layout_width="0dp" android:layout_height="wrap_content"
++                android:layout_weight="1" android:textSize="12sp" android:paddingHorizontal="8dp"
++                android:maxLines="1" android:ellipsize="end" android:textColor="@color/cam_on_surface" />
+             <ImageButton
+                     android:id="@+id/m9_overlay_quick_controls"
+                     android:layout_width="48dp"
+diff --git a/app/src/main/res/values/m9_overlay.xml b/app/src/main/res/values/m9_overlay.xml
+--- a/app/src/main/res/values/m9_overlay.xml
++++ b/app/src/main/res/values/m9_overlay.xml
+@@ -2,6 +2,7 @@
+ <resources>
+     <string name="m9_overlay_iso">ISO</string><string name="m9_overlay_shutter">Shutter</string>
+     <string name="m9_overlay_ev">EV</string><string name="m9_overlay_focus">Focus</string>
++    <string name="m9_overlay_wb">WB</string>
+     <string name="m9_overlay_rendering">Leica rendering</string>
+     <string name="m9_overlay_render_button">M9</string><string name="m9_overlay_active_render">M9 Colour</string>
+     <string name="m9_overlay_unavailable">Not installed</string>
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java
+--- a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java
+@@ -35,6 +35,20 @@
+         assertFalse(allowed(true, false, false, false, false, true, 0));
+     }
+ 
++    @Test public void nightToggleReturnsToThePreviousPrimaryMode() {
++        for (CameraMode primary : new CameraMode[]{CameraMode.PHOTO, CameraMode.MOTION}) {
++            assertEquals(CameraMode.NIGHT, M9OverlayPolicy.nightToggleTarget(primary, primary));
++            assertEquals(primary, M9OverlayPolicy.nightToggleTarget(CameraMode.NIGHT, primary));
++        }
++    }
++
++    @Test public void nightToggleNeverRestoresAnInvalidOrVideoReturnMode() {
++        for (CameraMode stale : new CameraMode[]{null, CameraMode.VIDEO, CameraMode.RAWVIDEO,
++                CameraMode.UNLIMITED, CameraMode.NIGHT}) {
++            assertEquals(CameraMode.PHOTO, M9OverlayPolicy.nightToggleTarget(CameraMode.NIGHT, stale));
++        }
++    }
++
+     private boolean allowed(boolean ready, boolean burst, boolean processing, boolean timer,
+                             boolean bracket, boolean recording, int pending) {
+         return M9OverlayPolicy.controlsAvailable(ready, burst, processing, timer, bracket, recording, pending);
