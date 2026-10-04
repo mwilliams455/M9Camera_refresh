@@ -21,13 +21,13 @@ The decimal EV presentation from 2.34 is retained byte-for-byte: menu, wheel inc
 - Existing brightness/firmware shader checks pass, including 1,200 negative/unity comparisons, 1,800 positive-gain comparisons, zero oracle channel error, fallback behavior and monotonic EV response.
 - The incremental patch round trip reproduces seven overridden files and removes one obsolete test. Packaging verifies every asset and all 25 native libraries against accepted 2.33, compiled decimal EV entries, signing certificate, version, archive integrity and 16 KiB alignment.
 
-Phone validation of 2.35 remains pending. Install it over 2.34 without uninstalling, fully close/reopen the app with the phone upright and confirm the scene is upright. Existing settings remain. Then check normal rotation/lens use and that EV still displays decimals.
+On 4 October 2026 Malcolm confirmed “That works.” The orientation recovery is now phone-accepted. The next requested stages are Auto ISO maximum/slowest shutter, AE lock and self-timer; see `../autoiso1a/README.md`. This confirmation supersedes the phone-validation-pending status recorded in the original 2.35 delivery reports.
 
 ## Current order
 
-First confirm this recovery. Preview colour/framing remains unfinished; 2.34's colour math audit is useful but its framing integration is withdrawn. Do not reintroduce producer transforms without a coherent full camera/stream/display orientation model and real buffer metadata. There is no justification for lens-specific colour tuning or changes to the accepted saved-image appearance.
+The user has prioritized Auto ISO/slowest shutter, followed by AE lock and self-timer. Preview colour/framing remains unfinished; 2.34's colour math audit is useful but its framing integration is withdrawn. Do not reintroduce producer transforms without a coherent full camera/stream/display orientation model and real buffer metadata. There is no justification for lens-specific colour tuning or changes to the accepted saved-image appearance.
 
-After remaining preview work, continue the requested architecture review of one app containing M9 Colour and M Monochrom, preserving their accepted rendering, exposure policies, DNG handling and per-mode settings. Auto ISO maximum/slowest shutter, AE-L, Leica timer and bracketing remain deferred Leica-control stages. Cross-lens colour/fringing investigations remain parked.
+After remaining preview work, continue the requested architecture review of one app containing M9 Colour and M Monochrom, preserving their accepted rendering, exposure policies, DNG handling and per-mode settings. Auto ISO maximum/slowest shutter proceeds in 2.36; AE-L and Leica timer follow. Bracketing remains deferred. Cross-lens colour/fringing investigations remain parked.
 
 ## Recovery
 

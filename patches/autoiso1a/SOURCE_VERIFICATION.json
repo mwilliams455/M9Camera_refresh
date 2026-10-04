@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "version": "2.36-m9autoiso1a",
+  "reference": "phone-accepted 2.35",
+  "exactParentFiles": 1188,
+  "onlyChangedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoRuntime.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AutoIsoSettings.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposureAllocation.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java",
+    "app/src/main/res/values/m9_auto_iso.xml",
+    "app/src/main/res/values/m9_profiles.xml",
+    "app/src/main/res/xml/preferences_m9.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9AutoIsoTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java"
+  ],
+  "patchRoundTrip": true,
+  "previewOrientationExactlyMatches235": true,
+  "savedRendererAndShaderAssetsExactlyMatch235": true,
+  "sharedAtomicAutoIsoSnapshot": true,
+  "bothCapturePlanAccessorsRejectChangedControls": true,
+  "globalAcrossLenses": true,
+  "menuValuesAndDefaultsVerified": true,
+  "phoneValidationPending": true
+}
