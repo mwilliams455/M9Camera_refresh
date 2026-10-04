@@ -1,6 +1,6 @@
 # M9Cam 2.36 AUTOISO1A
 
-Parent: `83b446fefc11b2a4303b504f331e5df6ef3f7ea6`, M9Cam 2.35 ORIENTATIONFIX1A. On 4 October 2026 Malcolm confirmed “That works” and requested Auto ISO and slowest shutter, followed by AE lock and self-timer. This accepts 2.35's orientation fix. This build implements the first stage; 2.36 still needs phone validation.
+Parent: `83b446fefc11b2a4303b504f331e5df6ef3f7ea6`, M9Cam 2.35 ORIENTATIONFIX1A. On 4 October 2026 Malcolm confirmed “That works” and requested Auto ISO and slowest shutter, followed by AE lock and self-timer. This accepts 2.35's orientation fix. This build implements the first stage. In the next turn on 4 October 2026 Malcolm confirmed “That worked” and requested AE lock and the self-timer. 2.36 is now phone-accepted; see `../aelocktimer1a/README.md`. This confirmation supersedes pending status in the original delivery reports.
 
 ## Controls and exposure behavior
 

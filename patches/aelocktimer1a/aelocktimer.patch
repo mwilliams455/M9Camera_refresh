@@ -1,0 +1,1161 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27236
++        versionCode 27237
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.36-m9autoiso1a'
++        versionName '2.37-m9aelocktimer1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.36_AUTOISO1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.37_AELOCKTIMER1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -198,6 +198,9 @@
+     // M9LIVEGL1B_EXPOSUREINTENT
+     // Latest non-ZSL IsoExpoSelector pair represented by the Photon GL viewfinder.
+     private volatile M9ExposurePlan1A m9ExposurePlan1A;
++    private final com.particlesdevs.photoncamera.m9.M9AeLock1A m9AeLock =
++            new com.particlesdevs.photoncamera.m9.M9AeLock1A();
++    private volatile int m9AeLockUiState = -1;
+     private volatile int m9LiveGlIntendedIso1B = -1;
+     private volatile long m9LiveGlIntendedExposureNs1B = -1L;
+     private volatile long m9LiveGlIntendedUpdatedElapsedMs1B = 0L;
+@@ -1291,6 +1294,7 @@
+      * Closes the current {@link CameraDevice}.
+      */
+     public void closeCamera() {
++        clearM9AeLock("camera_close");
+         m9ExposurePlan1A = null;
+         ++m9PlanWaitId1A;
+         stopM9LivePreview1A();
+@@ -2060,6 +2064,7 @@
+ 
+     /** Closes the session, device, readers and surfaces. Caller holds the lock. */
+     private void closeCameraResourcesLocked() {
++        clearM9AeLock("session_resources_closed");
+         if (mIsRecordingVideo) {
+             this.VideoEnd();
+         }
+@@ -4449,8 +4454,112 @@
+      * the exact IsoExpoSelector pair shown in the non-ZSL HUD. The GL preview is scaled
+      * to represent this pair, therefore this same pair is the shutter authority.
+      */
++    private com.particlesdevs.photoncamera.m9.M9AeLock1A.Context m9AeLockContext() {
++        return new com.particlesdevs.photoncamera.m9.M9AeLock1A.Context(
++                PhotonCamera.getSettings().mCameraID, PhotonCamera.getSettings().selectedMode.name(),
++                isCameraResumed ? openToken.get() : -1L, paramController.getM9UserEv1A(),
++                (long)paramController.getCurrentExposureValue(), (int)paramController.getCurrentISOValue(),
++                com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime.snapshot().identity,
++                Float.floatToIntBits(exposureBalanceMultiplier)+":"+exposureBalanceIsoLimit+":"
++                        +Float.floatToIntBits(exposureBalanceShutterLimit)+":"+PreferenceKeys.getAeMode());
++    }
++
++    private long syncM9AeLockContext(com.particlesdevs.photoncamera.m9.M9AeLock1A.Context context) {
++        boolean wasLocked=m9AeLock.isLocked();
++        long token=m9AeLock.context(context);
++        if (wasLocked && !m9AeLock.isLocked()) {
++            com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.reset();
++            m9ExposurePlan1A=null;
++        }
++        publishM9AeLockUi();
++        return token;
++    }
++
++    private void publishM9AeLockUi() {
++        int state=m9AeLock.isLocked()?1:0;
++        if (activity==null || state==m9AeLockUiState) return;
++        m9AeLockUiState=state;
++        activity.runOnUiThread(() -> {
++            android.view.View button=activity.findViewById(com.particlesdevs.photoncamera.R.id.m9_ae_lock_button);
++            if (button!=null) {
++                boolean held=m9AeLock.isLocked();
++                button.setSelected(held);
++                button.setContentDescription(activity.getString(held
++                        ? com.particlesdevs.photoncamera.R.string.m9_ae_lock_locked
++                        : com.particlesdevs.photoncamera.R.string.m9_ae_lock_auto));
++            }
++        });
++    }
++
++    public void clearM9AeLock(String reason) {
++        m9AeLock.clear(); m9ExposurePlan1A=null;
++        com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.reset();
++        publishM9AeLockUi();
++        Log.d(TAG,"M9AELOCK1A clear: "+reason);
++    }
++
++    public boolean isM9AeLocked() {
++        syncM9AeLockContext(m9AeLockContext());
++        return m9AeLock.isLocked();
++    }
++
++    public boolean toggleM9AeLock() {
++        if (isM9AeLocked()) { clearM9AeLock("user_unlock"); return false; }
++        if (!isCameraResumed || !paramController.useM9ExposurePlan1A()) return false;
++        M9ExposurePlan1A displayed=getM9DisplayedExposurePlan1A(SystemClock.elapsedRealtimeNanos());
++        if (!m9AeLock.engage(displayed,m9AeLockContext(),SystemClock.elapsedRealtime())) return false;
++        m9ExposurePlan1A=null;
++        com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.reset();
++        publishM9AeLockUi();
++        return true;
++    }
++
++    public boolean isM9TimerCaptureReady() {
++        return isCameraResumed && mCameraDevice!=null && mCaptureSession!=null && mPreviewRequestBuilder!=null;
++    }
++
++    public String getM9TimerContext() {
++        return PhotonCamera.getSettings().mCameraID+":"+PhotonCamera.getSettings().selectedMode.name()
++                +":"+openToken.get()+":"+isCameraResumed;
++    }
++
++    /** Lock projection replaces re-metering, while each real preview observation stays fresh. */
++    public M9ExposurePlan1A createM9ExposurePlan1A(CaptureResult observation) {
++        if (!isCameraResumed || !paramController.useM9ExposurePlan1A() || observation==null) return null;
++        com.particlesdevs.photoncamera.m9.M9AeLock1A.Context context=m9AeLockContext();
++        long token=syncM9AeLockContext(context);
++        M9ExposurePlan1A plan;
++        if (m9AeLock.isLocked()) {
++            Integer iso=observation.get(CaptureResult.SENSOR_SENSITIVITY);
++            Long time=observation.get(CaptureResult.SENSOR_EXPOSURE_TIME);
++            Long timestamp=observation.get(CaptureResult.SENSOR_TIMESTAMP);
++            Integer boost=observation.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
++            Integer ae=observation.get(CaptureResult.CONTROL_AE_MODE);
++            Integer compensation=observation.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION);
++            if (iso==null || iso<=0 || time==null || time<=0 || (ae!=null && ae==CaptureResult.CONTROL_AE_MODE_OFF)
++                    || (compensation!=null && compensation!=0)) return null;
++            com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.Controls autoIso=
++                    com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime.snapshot();
++            if (!context.autoIsoIdentity.equals(autoIso.identity)) return null;
++            IsoExpoSelector.ExpoPair reference=IsoExpoSelector.neutralReferenceForAeLock1A(this,iso,time,autoIso);
++            plan=m9AeLock.project(context,token,SystemClock.elapsedRealtimeNanos(),SystemClock.elapsedRealtime(),
++                    timestamp!=null?timestamp:-1L,iso,time,boost!=null?boost:100,reference.iso,reference.exposure);
++            if (plan!=null) plan=plan.withAllocationSnapshot2G(IsoExpoSelector.allocationForAeLock1A(reference,plan));
++        } else {
++            plan=IsoExpoSelector.planM9LiveExposure1A(this,observation);
++        }
++        syncM9AeLockContext(m9AeLockContext());
++        return isCameraResumed ? m9AeLock.stamp(plan,context,token) : null;
++    }
++
++    private boolean acceptsM9AeLockPlan(M9ExposurePlan1A plan) {
++        com.particlesdevs.photoncamera.m9.M9AeLock1A.Context context=m9AeLockContext();
++        syncM9AeLockContext(context);
++        return isCameraResumed && m9AeLock.accepts(plan,context,SystemClock.elapsedRealtime());
++    }
++
+     public void updateM9ExposurePlan1A(M9ExposurePlan1A plan) {
+-        m9ExposurePlan1A = plan;
++        if (acceptsM9AeLockPlan(plan)) m9ExposurePlan1A = plan;
+     }
+ 
+     public M9ExposurePlan1A getM9ExposurePlan1A() {
+@@ -4460,7 +4569,7 @@
+                 paramController.getM9UserEv1A(), (long) paramController.getCurrentExposureValue(),
+                 (int) paramController.getCurrentISOValue())
+                 && plan.matchesAutoIsoControls(com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime.snapshot().identity)
+-                ? plan : null;
++                && acceptsM9AeLockPlan(plan) ? plan : null;
+     }
+ 
+     /**
+@@ -4477,7 +4586,7 @@
+                 paramController.getM9UserEv1A(), (long) paramController.getCurrentExposureValue(),
+                 (int) paramController.getCurrentISOValue())
+                 && plan.matchesAutoIsoControls(com.particlesdevs.photoncamera.m9.M9AutoIsoRuntime.snapshot().identity)
+-                ? plan : null;
++                && acceptsM9AeLockPlan(plan) ? plan : null;
+     }
+ 
+     public void updateM9LiveGlIntendedExposure1B(int iso, long exposureNs) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/CountdownTimer.java b/app/src/main/java/com/particlesdevs/photoncamera/control/CountdownTimer.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/CountdownTimer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/CountdownTimer.java
+@@ -4,12 +4,12 @@
+ import android.widget.TextView;
+ 
+ import java.util.Locale;
+-import java.util.concurrent.TimeUnit;
+ 
+ public class CountdownTimer extends CountDownTimer {
+     private final TextView tv;
+     private final TimerCallback callback;
+     private final long interval;
++    private boolean active=true;
+ 
+     /**
+      * @param millisInFuture    The number of millis in the future from the call
+@@ -27,8 +27,9 @@
+ 
+     @Override
+     public void onTick(long millisUntilFinished) {
+-        long seconds = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) + 1;
++        long seconds = (millisUntilFinished + 999L) / 1000L;
+         tv.post(() -> {
++            if (!active) return;
+             tv.setScaleX(3);
+             tv.setScaleY(3);
+             tv.setAlpha(1);
+@@ -39,13 +40,21 @@
+ 
+     @Override
+     public void onFinish() {
+-        tv.post(() -> {
+-            tv.setText("");
+-            tv.setAlpha(1);
+-            tv.setScaleY(1);
+-            tv.setScaleX(1);
+-        });
++        if (!active) return;
++        active=false;
++        clearDisplay();
+         callback.onFinished();
++    }
++
++    /** Called on the UI thread, as are this timer's creation and completion. */
++    public void cancelCountdown() {
++        active=false;
++        cancel();
++        clearDisplay();
++    }
++    private void clearDisplay() {
++        tv.animate().cancel();
++        tv.setText(""); tv.setAlpha(1); tv.setScaleY(1); tv.setScaleX(1);
+     }
+ 
+     public interface TimerCallback {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java b/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java
+@@ -302,6 +302,15 @@
+         int[] origin=new int[2];textureView.getLocationOnScreen(origin);
+         float x=rawX-origin[0],y=rawY-origin[1];
+         if(x<0||y<0||x>=textureView.getWidth()||y>=textureView.getHeight())return true;
++        if (captureController.isM9AeLocked()) {
++            // AE-L owns exposure. Taps may still focus in the viewfinder's coordinate system.
++            if (autofocus) {
++                int[] focusOrigin=new int[2]; viewfinderFrame.getLocationOnScreen(focusOrigin);
++                processTouchToFocus(rawX-focusOrigin[0],rawY-focusOrigin[1]);
++            }
++            textureView.requestRender();
++            return true;
++        }
+         if(com.particlesdevs.photoncamera.m9.preview.M9TapMeter1A.insideSelection(x,y,now)) {
+             resetFocusCircle();setInitialAFAE();textureView.requestRender();return true;
+         }
+@@ -558,7 +567,7 @@
+                 // meter neutral; do not also apply a vendor tap-AE correction.
+                 boolean m9tap=com.particlesdevs.photoncamera.m9.preview.M9TapMeter1A
+                     .selection(SystemClock.elapsedRealtimeNanos())!=null;
+-                builder.set(CaptureRequest.CONTROL_AE_REGIONS,m9tap
++                builder.set(CaptureRequest.CONTROL_AE_REGIONS,(m9tap || captureController.isM9AeLocked())
+                     ?new MeteringRectangle[]{new MeteringRectangle(0,0,0,0,0)}:regions);
+                 aeRegionsWritten = true;
+             }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java
+@@ -0,0 +1,79 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.Objects;
++
++/** Session-scoped metering memory. The displayed physical exposure is the lock authority. */
++public final class M9AeLock1A {
++    public static final String REVISION = "M9AELOCK1A";
++    public static final class Context {
++        public final String camera, mode, autoIsoIdentity, policy;
++        public final long session, manualTime;
++        public final int manualIso;
++        public final double ev;
++        public Context(String camera, String mode, long session, double ev, long manualTime,
++                int manualIso, String autoIsoIdentity, String policy) {
++            this.camera=camera; this.mode=mode; this.session=session; this.ev=ev;
++            this.manualTime=manualTime; this.manualIso=manualIso;
++            this.autoIsoIdentity=autoIsoIdentity; this.policy=policy;
++        }
++        @Override public boolean equals(Object other) {
++            if (!(other instanceof Context)) return false;
++            Context c=(Context)other;
++            return session==c.session && Double.doubleToLongBits(ev)==Double.doubleToLongBits(c.ev)
++                    && manualTime==c.manualTime && manualIso==c.manualIso
++                    && Objects.equals(camera,c.camera) && Objects.equals(mode,c.mode)
++                    && Objects.equals(autoIsoIdentity,c.autoIsoIdentity) && Objects.equals(policy,c.policy);
++        }
++        @Override public int hashCode() {
++            return Objects.hash(camera,mode,session,ev,manualTime,manualIso,autoIsoIdentity,policy);
++        }
++    }
++    private Context context;
++    private long generation=1;
++    private M9ExposurePlan1A source;
++
++    public synchronized long context(Context next) {
++        if (!Objects.equals(context,next)) { context=next; source=null; generation++; }
++        return generation;
++    }
++    public synchronized boolean isLocked() { return source!=null; }
++    public synchronized void clear() { source=null; generation++; }
++
++    public synchronized boolean engage(M9ExposurePlan1A displayed, Context current, long nowMs) {
++        context(current);
++        if (current==null || current.manualTime>0 || !M9ExposurePlan1A.supportsMode1B(current.mode)
++                || !accepts(displayed,current,nowMs)) return false;
++        source=displayed; generation++;
++        return true;
++    }
++
++    /** Reject work computed across a toggle, control edit, or session boundary. */
++    public synchronized M9ExposurePlan1A stamp(M9ExposurePlan1A plan, Context expected, long token) {
++        if (plan==null || token!=generation || !Objects.equals(context,expected)) return null;
++        if (source!=null) return plan.aeLockGeneration==token && plan.aeLockSourcePlanId==source.id ? plan : null;
++        return plan.withAeLockState(token,0L);
++    }
++
++    public synchronized boolean accepts(M9ExposurePlan1A plan, Context current, long nowMs) {
++        context(current);
++        return current!=null && plan!=null && plan.aeLockGeneration==generation
++                && plan.aeLockSourcePlanId==(source==null ? 0L : source.id)
++                && plan.matches(current.camera,current.mode,nowMs,current.ev,current.manualTime,current.manualIso)
++                && plan.matchesAutoIsoControls(current.autoIsoIdentity);
++    }
++
++    /** Fresh observations refresh preview simulation and the neutral measurement reference. ISO/time stay held. */
++    public synchronized M9ExposurePlan1A project(Context expected, long token, long id, long nowMs,
++            long sensorTimestampNs, int observedIso, long observedTime, int boost, int referenceIso, long referenceTime) {
++        if (source==null || token!=generation || !Objects.equals(context,expected)
++                || observedIso<=0 || observedTime<=0 || referenceIso<=0 || referenceTime<=0) return null;
++        return new M9ExposurePlan1A(id,nowMs,sensorTimestampNs,source.cameraId,source.mode,
++                observedIso,observedTime,referenceIso,referenceTime,
++                source.iso,source.exposureNs,source.userEv,source.autoEv,"metering_memory_lock",
++                source.manualExposureNs,source.manualIso,boost>0?boost:100)
++                .withAutoIsoControls(source.getAutoIsoControlsIdentity())
++                .withAllocationSnapshot2G(source.getAllocationSnapshot2G())
++                .withAutoPlacement2D(source.getAutoPlacementSnapshot2D())
++                .withAeLockState(generation,source.id);
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -14,6 +14,14 @@
+     private final String shutterPreviewSnapshot1W;
+     private final String autoPlacementSnapshot2D;
+     private final String allocationSnapshot2G;
++    public final long aeLockGeneration, aeLockSourcePlanId;
++    public M9ExposurePlan1A withAeLockState(long generation, long sourcePlanId) {
++        return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
++                observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G,
++                autoIsoControlsIdentity, generation, sourcePlanId);
++    }
+     private final String autoIsoControlsIdentity;
+     public String getAutoIsoControlsIdentity() { return autoIsoControlsIdentity; }
+     public boolean matchesAutoIsoControls(String identity) {
+@@ -23,21 +31,21 @@
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G, identity);
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G, identity, aeLockGeneration, aeLockSourcePlanId);
+     }
+     public String getAllocationSnapshot2G() { return allocationSnapshot2G; }
+     public M9ExposurePlan1A withAllocationSnapshot2G(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot, autoIsoControlsIdentity);
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId);
+     }
+     public String getAutoPlacementSnapshot2D() { return autoPlacementSnapshot2D; }
+     public M9ExposurePlan1A withAutoPlacement2D(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G, autoIsoControlsIdentity);
++                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId);
+     }
+ 
+     public String getShutterPreviewSnapshot1W() { return shutterPreviewSnapshot1W; }
+@@ -46,7 +54,7 @@
+     public M9ExposurePlan1A withShutterPreviewSnapshot1W(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+-                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G, autoIsoControlsIdentity);
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId);
+     }
+ 
+     public M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+@@ -56,14 +64,16 @@
+             long manualExposureNs, int manualIso, int postRawBoost) {
+         this(id, createdMs, sensorTimestampNs, cameraId, mode, observedIso, observedExposureNs,
+                 referenceIso, referenceExposureNs, iso, exposureNs, userEv, autoEv, autoReason,
+-                manualExposureNs, manualIso, postRawBoost, null, null, null, null);
++                manualExposureNs, manualIso, postRawBoost, null, null, null, null, 0L, 0L);
+     }
+ 
+     private M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+             String cameraId, String mode, int observedIso, long observedExposureNs,
+             int referenceIso, long referenceExposureNs, int iso, long exposureNs,
+             double userEv, double autoEv, String autoReason,
+-            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot, String allocationSnapshot, String controlsIdentity) {
++            long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot, String allocationSnapshot, String controlsIdentity,
++            long lockGeneration, long lockSourcePlanId) {
++        this.aeLockGeneration=lockGeneration; this.aeLockSourcePlanId=lockSourcePlanId;
+         this.autoIsoControlsIdentity = controlsIdentity;
+         this.allocationSnapshot2G = allocationSnapshot;
+         this.autoPlacementSnapshot2D = autoSnapshot;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -13,6 +13,11 @@
+             o.put("revision", M9ExposurePlan1A.REVISION);
+             o.put("id", plan.id);
+             o.put("autoIsoControlsIdentity", plan.getAutoIsoControlsIdentity());
++            o.put("aeLockRevision", M9AeLock1A.REVISION);
++            o.put("aeLockHeld", plan.aeLockSourcePlanId != 0L);
++            o.put("aeLockGeneration", plan.aeLockGeneration);
++            o.put("aeLockSourcePlanId", plan.aeLockSourcePlanId);
++            o.put("aeLockAuthority", "displayed_physical_pair_with_live_neutral_reference");
+             String shutterPreview1W = plan.getShutterPreviewSnapshot1W();
+             if (shutterPreview1W != null) {
+                 try { o.put("shutterPreview1W", new JSONObject(shutterPreview1W)); }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SelfTimer1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SelfTimer1A.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SelfTimer1A.java
+@@ -0,0 +1,26 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.Objects;
++
++/** Leica M9 delay choices; stored preference remains the existing 0/1/2 index. */
++public final class M9SelfTimer1A {
++    public static final String REVISION="M9SELFTIMER1A";
++    private M9SelfTimer1A() {}
++    public static int index(int value) { return value>=0 && value<=2 ? value : 0; }
++    public static int seconds(int index) { return index==1 ? 2 : index==2 ? 12 : 0; }
++
++    /** One release per countdown, including queued completions after cancel/restart/session switch. */
++    public static final class Gate {
++        private long generation;
++        private boolean running;
++        private String context;
++        public long start(String context) { this.context=context; running=true; return ++generation; }
++        public boolean running() { return running; }
++        public void cancel() { running=false; generation++; }
++        public boolean finish(long ticket, String currentContext) {
++            if (!running || ticket!=generation) return false;
++            running=false;
++            return Objects.equals(context,currentContext);
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/IsoExpoSelector.java
+@@ -194,6 +194,24 @@
+                 .withAutoIsoControls(autoIso.identity);
+     }
+ 
++    /** Neutral metering remains live during AE-L so TC20 cannot normalize away held exposure. */
++    public static ExpoPair neutralReferenceForAeLock1A(CaptureController controller, int iso,
++            long exposure, M9AutoIsoSettings.Controls autoIso) {
++        boolean tripod=PhotonCamera.getGyro()!=null && PhotonCamera.getGyro().getTripod();
++        return generateExpoPair1A(-1,controller,new PlanInput1A(iso,exposure,0.0,0.0,0L,0,tripod,autoIso));
++    }
++
++    public static String allocationForAeLock1A(ExpoPair reference, M9ExposurePlan1A held) {
++        try {
++            return new JSONObject(held.getAllocationSnapshot2G())
++                    .put("reference",new JSONObject(reference.allocationSnapshot2G))
++                    .put("intendedHeldFromPlanId",held.aeLockSourcePlanId)
++                    .put("neutralReferenceLiveDuringAeLock",true).toString();
++        } catch (org.json.JSONException invalid) {
++            throw new IllegalStateException("AE lock allocation snapshot",invalid);
++        }
++    }
++
+     public static ExpoPair getM9LiveHudPair1A(CaptureController controller) {
+         M9ExposurePlan1A plan = controller.getM9ExposurePlan1A();
+         if (plan != null) return new ExpoPair(plan.exposureNs, getEXPLOW(), getEXPHIGH(),
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+@@ -51,6 +51,7 @@
+         COMMON_KEYS.add(Key.KEY_SHOW_WATERMARK.mValue);
+         COMMON_KEYS.add(Key.KEY_SHOW_ROUND_EDGE.mValue);
+         COMMON_KEYS.add(Key.KEY_CAMERA_SOUNDS.mValue);
++        COMMON_KEYS.add(Key.KEY_COUNTDOWN_TIMER.mValue);
+         COMMON_KEYS.add(Key.KEY_VIEWFINDER_BACKGROUND.mValue);
+         COMMON_KEYS.add(Key.KEY_AF_MODE.mValue);
+         COMMON_KEYS.add(Key.KEY_FOCUS_PEAK.mValue);
+@@ -212,6 +213,7 @@
+                     || com.particlesdevs.photoncamera.m9.M9DisplayAids.SHADOW_KEY.equals(key)) continue;
+             if (com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.MAX_ISO_KEY.equals(key)
+                     || com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.SLOWEST_KEY.equals(key)) continue;
++            if (Key.KEY_COUNTDOWN_TIMER.mValue.equals(key)) continue;
+             Object value = e.getValue();
+             // Normalize boolean values to the "1"/"0" String convention used by
+             // SettingsManager/ManagedSwitchPreference. This also fixes up legacy
+@@ -535,11 +537,14 @@
+     }
+ 
+     public static int getCountdownTimerIndex() {
+-        return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER);
++        try { return com.particlesdevs.photoncamera.m9.M9SelfTimer1A.index(
++                preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER)); }
++        catch (RuntimeException invalid) { return 0; }
+     }
+ 
+     public static void setCountdownTimerIndex(int valueMS) {
+-        preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER, valueMS);
++        preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_COUNTDOWN_TIMER,
++                com.particlesdevs.photoncamera.m9.M9SelfTimer1A.index(valueMS));
+     }
+     
+     public static int getBracketingMode() {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -1060,7 +1060,7 @@
+                 && !captureController.isZslMode() && result != null) {
+             try {
+                 M9ExposurePlan1A exposurePlan1A =
+-                        IsoExpoSelector.planM9LiveExposure1A(captureController, result);
++                        captureController.createM9ExposurePlan1A(result);
+                 if (captureController.getParamController().useM9ExposurePlan1A()
+                         && exposurePlan1A == null) return;
+                 IsoExpoSelector.ExpoPair intended1B = exposurePlan1A != null
+@@ -2142,6 +2142,10 @@
+ 
+         @Override
+         public void onCameraRestarted() {
++            // Also cancel countdowns when automatic zoom changes the physical camera.
++            activity.runOnUiThread(() -> {
++                if (mCameraUIEventsListener!=null) mCameraUIEventsListener.onPause();
++            });
+             // Same-sensor ISZ transitions keep the overlay (grid/HUD stay
+             // valid); everything else wipes it for a fresh lens.
+             if (!CameraManager2.isIszVirtual(PhotonCamera.getSettings().mCameraID)) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java
+@@ -2,7 +2,6 @@
+ 
+ import android.annotation.SuppressLint;
+ import android.content.Context;
+-import android.os.CountDownTimer;
+ 
+ import com.particlesdevs.photoncamera.processing.parameters.IsoExpoSelector;
+ import com.particlesdevs.photoncamera.util.Log;
+@@ -34,7 +33,9 @@
+         Observer<TopBarSettingsData<?, ?>>, AuxButtonsLayout.AuxButtonListener {
+     private static final String TAG = "CameraUIController";
+     private final CameraFragment cameraFragment;
+-    private CountDownTimer countdownTimer;
++    private CountdownTimer countdownTimer;
++    private final com.particlesdevs.photoncamera.m9.M9SelfTimer1A.Gate timerGate =
++            new com.particlesdevs.photoncamera.m9.M9SelfTimer1A.Gate();
+     private View shutterButton;
+ 
+     public CameraUIController(CameraFragment cameraFragment) {
+@@ -51,7 +52,7 @@
+                     case PHOTO:
+                     case MOTION:
+                     case NIGHT:
+-                        if (view.isHovered()) resetTimer();
++                        if (timerGate.running()) resetTimer();
+                         else startTimer();
+                         break;
+                     case UNLIMITED:
+@@ -80,6 +81,7 @@
+                 }
+                 break;
+             case R.id.settings_button:
++                resetTimer();
+                 cameraFragment.launchSettings();
+                 break;
+ 
+@@ -94,6 +96,7 @@
+                 break;
+ 
+             case R.id.gallery_image_button:
++                resetTimer();
+                 cameraFragment.launchGallery();
+                 break;
+ 
+@@ -136,6 +139,13 @@
+                 cameraFragment.updateSettingsBar();
+                 break;
+ 
++            case R.id.m9_ae_lock_button:
++                boolean wasLocked=cameraFragment.captureController.isM9AeLocked();
++                boolean locked=cameraFragment.captureController.toggleM9AeLock();
++                cameraFragment.showSnackBar(cameraFragment.getString(locked ? R.string.m9_ae_lock_locked
++                        : wasLocked ? R.string.m9_ae_lock_auto : R.string.m9_ae_lock_unavailable));
++                break;
++
+             case R.id.flash_button:
+                 PreferenceKeys.setAeMode((PreferenceKeys.getAeMode() + 1) % 2); //cycles in 0 (torch), 1 (off)
+                 ((FlashButton) view).setFlashValueState(PreferenceKeys.getAeMode());
+@@ -144,6 +154,7 @@
+                 break;
+ 
+             case R.id.countdown_timer_button:
++                resetTimer();
+                 PreferenceKeys.setCountdownTimerIndex((PreferenceKeys.getCountdownTimerIndex() + 1) % view.getResources().getIntArray(R.array.countdowntimer_entryvalues).length);
+                 ((TimerButton) view).setTimerIconState(PreferenceKeys.getCountdownTimerIndex());
+                 cameraFragment.updateSettingsBar();
+@@ -152,22 +163,26 @@
+     }
+ 
+     private int getTimerValue(Context context) {
+-        int[] timerValues = context.getResources().getIntArray(R.array.countdowntimer_entryvalues);
+-        return timerValues[PreferenceKeys.getCountdownTimerIndex()];
++        return com.particlesdevs.photoncamera.m9.M9SelfTimer1A.seconds(PreferenceKeys.getCountdownTimerIndex());
+     }
+ 
+     private void startTimer() {
+-        if (this.shutterButton != null) {
++        if (this.shutterButton != null && cameraFragment.captureController != null) {
++            resetTimer();
++            long ticket=timerGate.start(cameraFragment.captureController.getM9TimerContext());
+             this.shutterButton.setHovered(true);
+             this.countdownTimer = new CountdownTimer(
+                     cameraFragment.findViewById(R.id.frameTimer),
+                     getTimerValue(this.shutterButton.getContext()) * 1000L, 1000,
+-                    this::onTimerFinished).start();
++                    () -> onTimerFinished(ticket));
++            this.countdownTimer.start();
+         }
+     }
+ 
+     private void resetTimer() {
+-        if (this.countdownTimer != null) this.countdownTimer.cancel();
++        timerGate.cancel();
++        if (this.countdownTimer != null) this.countdownTimer.cancelCountdown();
++        this.countdownTimer=null;
+         if (this.shutterButton != null) this.shutterButton.setHovered(false);
+     }
+ 
+@@ -230,8 +245,17 @@
+         }
+     }
+ 
+-    private void onTimerFinished() {
+-        this.shutterButton.setHovered(false);
++    private void onTimerFinished(long ticket) {
++        String context=cameraFragment.captureController==null ? "closed"
++                : cameraFragment.captureController.getM9TimerContext();
++        boolean release=timerGate.finish(ticket,context);
++        if (!timerGate.running() && this.shutterButton!=null) this.shutterButton.setHovered(false);
++        if (!release || this.shutterButton==null) return;
++        if (!cameraFragment.captureController.isM9TimerCaptureReady()) {
++            cameraFragment.showSnackBar(cameraFragment.getString(R.string.m9_timer_camera_not_ready));
++            return;
++        }
++        // Resolve the displayed exposure in takePicture at release, not at countdown start.
+         if (M9Config.isCaptureTest() && !M9PrimaryRenderQueue.preflightCaptureAdmission()) {
+             Log.d(TAG, "M9 QUEUE1B shutter refused before takePicture because primary renderer is saturated");
+             cameraFragment.showSnackBar("M9 processing queue full - try again shortly");
+@@ -277,6 +301,7 @@
+                                 .setFpsModeState((Integer) value);
+                         break;
+                     case TIMER:
++                        resetTimer();
+                         PreferenceKeys.setCountdownTimerIndex((Integer) value);
+                         cameraFragment.cameraFragmentBinding.layoutTopbar.countdownTimerButton.setTimerIconState((Integer) value);
+                         break;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java
+@@ -388,6 +388,8 @@
+     public class VideoModeState implements CameraModeState {
+         @Override
+         public void reConfigureModeViews(CameraMode mode) {
++            topbar.m9AeLockButton.setVisibility(mode==CameraMode.PHOTO || mode==CameraMode.MOTION
++                    ? View.VISIBLE : View.GONE);
+             topbar.setEisVisible(true);
+             // cameraUIView.cameraFragmentBinding.textureHolder.setBackgroundResource(R.drawable.gradient_vector_video);
+             // Video topbar shows frame rate where quad res sits elsewhere.
+@@ -422,6 +424,8 @@
+     public class UnlimitedModeState implements CameraModeState {
+         @Override
+         public void reConfigureModeViews(CameraMode mode) {
++            topbar.m9AeLockButton.setVisibility(mode==CameraMode.PHOTO || mode==CameraMode.MOTION
++                    ? View.VISIBLE : View.GONE);
+             topbar.setFpsVisible(false);
+             topbar.setTimerVisible(false);
+             cameraFragment.cameraFragmentBinding.settingsBar.setChildVisibility(R.id.fps_entry_layout, View.VISIBLE);
+@@ -457,6 +461,8 @@
+     public class PhotoMotionModeState implements CameraModeState {
+         @Override
+         public void reConfigureModeViews(CameraMode mode) {
++            topbar.m9AeLockButton.setVisibility(mode==CameraMode.PHOTO || mode==CameraMode.MOTION
++                    ? View.VISIBLE : View.GONE);
+             topbar.setEisVisible(true);
+             topbar.setFpsVisible(false);
+             topbar.setTimerVisible(true);
+@@ -499,6 +505,8 @@
+     public class NightModeState implements CameraModeState {
+         @Override
+         public void reConfigureModeViews(CameraMode mode) {
++            topbar.m9AeLockButton.setVisibility(mode==CameraMode.PHOTO || mode==CameraMode.MOTION
++                    ? View.VISIBLE : View.GONE);
+             topbar.setEisVisible(false);
+             topbar.setFpsVisible(false);
+             topbar.setTimerVisible(true);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java
+@@ -179,8 +179,8 @@
+     private void createTimerEntry() {
+         timerEntry.addSettingsBarButtonModels(
+                 SettingsBarButtonModel.newButtonModel(R.id.timer_off_button, R.drawable.ic_timeroff, R.string.off, 0, timerEntry),
+-                SettingsBarButtonModel.newButtonModel(R.id.timer3s_button, R.drawable.ic_timer3s, R.string.t_3s, 1, timerEntry),
+-                SettingsBarButtonModel.newButtonModel(R.id.timer10s_button, R.drawable.ic_timer10s, R.string.t_10s, 2, timerEntry)
++                SettingsBarButtonModel.newButtonModel(R.id.timer3s_button, R.drawable.ic_timer2s_m9, R.string.m9_t_2s, 1, timerEntry),
++                SettingsBarButtonModel.newButtonModel(R.id.timer10s_button, R.drawable.ic_timer12s_m9, R.string.m9_t_12s, 2, timerEntry)
+         );
+     }
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TimerButton.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TimerButton.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TimerButton.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TimerButton.java
+@@ -12,12 +12,12 @@
+  * Created by Vibhor on 19-Jan-2021
+  */
+ public class TimerButton extends AppCompatButton {
+-    private static final int[] STATE_TIMER_3S = {R.attr.timer_3s};
+-    private static final int[] STATE_TIMER_10S = {R.attr.timer_10s};
++    private static final int[] STATE_TIMER_2S = {R.attr.timer_2s};
++    private static final int[] STATE_TIMER_12S = {R.attr.timer_12s};
+     private static final int[] STATE_TIMER_OFF = {R.attr.timer_off};
+     private boolean timer_off;
+-    private boolean timer_3s;
+-    private boolean timer_10s;
++    private boolean timer_2s;
++    private boolean timer_12s;
+ 
+     public TimerButton(Context context, AttributeSet attrs) {
+         super(context, attrs);
+@@ -32,29 +32,32 @@
+         final int[] drawableState = super.onCreateDrawableState(extraSpace + 3);
+         if (timer_off)
+             mergeDrawableStates(drawableState, STATE_TIMER_OFF);
+-        if (timer_3s)
+-            mergeDrawableStates(drawableState, STATE_TIMER_3S);
+-        if (timer_10s)
+-            mergeDrawableStates(drawableState, STATE_TIMER_10S);
++        if (timer_2s)
++            mergeDrawableStates(drawableState, STATE_TIMER_2S);
++        if (timer_12s)
++            mergeDrawableStates(drawableState, STATE_TIMER_12S);
+         return drawableState;
+     }
+ 
+     public void setTimerIconState(int index) {
+         timer_off = false;
+-        timer_3s = false;
+-        timer_10s = false;
++        timer_2s = false;
++        timer_12s = false;
+         switch (index) {
+             case 0:
+             default:
+                 timer_off = true;
+                 break;
+             case 1:
+-                timer_3s = true;
++                timer_2s = true;
+                 break;
+             case 2:
+-                timer_10s = true;
++                timer_12s = true;
+                 break;
+         }
++        int seconds=com.particlesdevs.photoncamera.m9.M9SelfTimer1A.seconds(index);
++        setContentDescription(getContext().getString(R.string.m9_timer_description,
++                seconds==0 ? getContext().getString(R.string.off) : seconds+" s"));
+         refreshDrawableState();
+     }
+ }
+diff --git a/app/src/main/res/color/m9_ae_lock_text.xml b/app/src/main/res/color/m9_ae_lock_text.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/color/m9_ae_lock_text.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_selected="true" android:color="@color/cam_on_primary_container" />
++    <item android:color="@color/cam_on_surface" />
++</selector>
+diff --git a/app/src/main/res/drawable/ic_timer.xml b/app/src/main/res/drawable/ic_timer.xml
+--- a/app/src/main/res/drawable/ic_timer.xml
++++ b/app/src/main/res/drawable/ic_timer.xml
+@@ -2,8 +2,8 @@
+ <inset android:inset="@dimen/topbar_button_inset"
+   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+     <selector>
+-        <item android:drawable="@drawable/ic_timer3s" app:timer_3s="true" />
+-        <item android:drawable="@drawable/ic_timer10s" app:timer_10s="true" />
++        <item android:drawable="@drawable/ic_timer2s_m9" app:timer_2s="true" />
++        <item android:drawable="@drawable/ic_timer12s_m9" app:timer_12s="true" />
+         <item android:drawable="@drawable/ic_timeroff" />
+     </selector>
+ </inset>
+\ No newline at end of file
+diff --git a/app/src/main/res/drawable/ic_timer12s_m9.xml b/app/src/main/res/drawable/ic_timer12s_m9.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_timer12s_m9.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="24" android:viewportHeight="24">
++    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
++        android:strokeWidth="1.8" android:strokeLineCap="round"
++        android:pathData="M12,5 A8,8 0,1 1,11.99,5 M9.5,2.5 L14.5,2.5 M16.8,4.2 L18.3,2.7"/>
++    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
++        android:strokeWidth="1.55" android:strokeLineCap="round" android:strokeLineJoin="round"
++        android:pathData="M8.3,9 L9.7,8 L9.7,16 M11.4,10 C11.4,8.8 12.3,8 13.8,8 C15.3,8 16.3,8.9 16.3,10.1 C16.3,11.3 15.5,12 14.3,12.9 L11.6,15.4 L16.5,15.4"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_timer2s_m9.xml b/app/src/main/res/drawable/ic_timer2s_m9.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_timer2s_m9.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="24" android:viewportHeight="24">
++    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
++        android:strokeWidth="1.8" android:strokeLineCap="round"
++        android:pathData="M12,5 A8,8 0,1 1,11.99,5 M9.5,2.5 L14.5,2.5 M16.8,4.2 L18.3,2.7"/>
++    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
++        android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round"
++        android:pathData="M9.2,10 C9.2,8.8 10.2,8 11.8,8 C13.5,8 14.6,8.9 14.6,10.2 C14.6,11.5 13.6,12.3 12.3,13.2 L9.4,15.6 L14.8,15.6"/>
++</vector>
+diff --git a/app/src/main/res/drawable/m9_ae_lock_button.xml b/app/src/main/res/drawable/m9_ae_lock_button.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_ae_lock_button.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="8dp">
++    <selector>
++        <item android:state_selected="true">
++            <shape android:shape="rectangle"><corners android:radius="12dp" /><solid android:color="@color/cam_primary_container" /><stroke android:width="1dp" android:color="@color/cam_primary" /></shape>
++        </item>
++        <item><shape android:shape="rectangle"><solid android:color="@android:color/transparent" /></shape></item>
++    </selector>
++</inset>
+diff --git a/app/src/main/res/layout/layout_main_topbar.xml b/app/src/main/res/layout/layout_main_topbar.xml
+--- a/app/src/main/res/layout/layout_main_topbar.xml
++++ b/app/src/main/res/layout/layout_main_topbar.xml
+@@ -184,6 +184,27 @@
+                     app:layout_constraintDimensionRatio="1:1"
+                     app:layout_constraintBottom_toBottomOf="parent"
+                     app:layout_constraintStart_toEndOf="@id/grid_toggle_button"
++                    app:layout_constraintEnd_toStartOf="@id/m9_ae_lock_button"
++                    app:layout_constraintTop_toTopOf="parent" />
++
++            <Button
++                    android:id="@+id/m9_ae_lock_button"
++                    android:layout_width="0dp"
++                    android:layout_height="wrap_content"
++                    android:minWidth="0dp"
++                    android:minHeight="48dp"
++                    android:padding="0dp"
++                    android:text="@string/m9_ae_lock_label"
++                    android:textSize="12sp"
++                    android:textColor="@color/m9_ae_lock_text"
++                    android:background="@drawable/m9_ae_lock_button"
++                    android:foreground="?attr/selectableItemBackgroundBorderless"
++                    android:contentDescription="@string/m9_ae_lock_auto"
++                    android:tooltipText="@string/m9_ae_lock_title"
++                    android:onClick="@{top_bar_click_listener}"
++                    app:layout_constraintDimensionRatio="1:1"
++                    app:layout_constraintBottom_toBottomOf="parent"
++                    app:layout_constraintStart_toEndOf="@id/m9_display_aids_button"
+                     app:layout_constraintEnd_toStartOf="@id/flash_button"
+                     app:layout_constraintTop_toTopOf="parent" />
+ 
+@@ -199,7 +220,7 @@
+                     android:textOn=""
+                     android:onClick="@{top_bar_click_listener}"
+                     app:layout_constraintBottom_toBottomOf="parent"
+-                    app:layout_constraintStart_toEndOf="@id/m9_display_aids_button"
++                    app:layout_constraintStart_toEndOf="@id/m9_ae_lock_button"
+                     app:layout_constraintEnd_toStartOf="@id/settings_button"
+                     app:layout_constraintTop_toTopOf="parent"
+                     android:visibility='@{flash_visible ? View.VISIBLE:View.GONE, default=visible}'
+diff --git a/app/src/main/res/values/arrays.xml b/app/src/main/res/values/arrays.xml
+--- a/app/src/main/res/values/arrays.xml
++++ b/app/src/main/res/values/arrays.xml
+@@ -147,8 +147,8 @@
+     </string-array>
+     <integer-array name="countdowntimer_entryvalues">
+         <item>0</item>
+-        <item>3</item>
+-        <item>10</item>
++        <item>2</item>
++        <item>12</item>
+     </integer-array>
+     <string-array name="video_resolution_entries">
+         <item>@string/video_res_4k</item>
+diff --git a/app/src/main/res/values/attrs.xml b/app/src/main/res/values/attrs.xml
+--- a/app/src/main/res/values/attrs.xml
++++ b/app/src/main/res/values/attrs.xml
+@@ -57,8 +57,8 @@
+ 
+     <declare-styleable name="TimerButtonStates">
+         <attr name="timer_off" format="boolean"/>
+-        <attr name="timer_3s" format="boolean"/>
+-        <attr name="timer_10s" format="boolean"/>
++        <attr name="timer_2s" format="boolean"/>
++        <attr name="timer_12s" format="boolean"/>
+     </declare-styleable>
+ 
+ </resources>
+\ No newline at end of file
+diff --git a/app/src/main/res/values/m9_ae_lock_timer.xml b/app/src/main/res/values/m9_ae_lock_timer.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/m9_ae_lock_timer.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_ae_lock_label">AE-L</string>
++    <string name="m9_ae_lock_title">AE lock and self-timer</string>
++    <string name="m9_ae_lock_locked">AE-L: exposure locked</string>
++    <string name="m9_ae_lock_auto">AE-L: automatic exposure</string>
++    <string name="m9_ae_lock_unavailable">Set shutter to Auto in Photo or Motion, then wait for the preview before locking.</string>
++    <string name="m9_ae_lock_timer_info">Tap AE-L above the viewfinder to hold the metered exposure while you recompose. Tap again to release it. Focusing remains available. Changing an exposure control, lens or camera mode, or leaving the camera, releases the lock.\n\nThe self-timer offers 2 or 12 seconds. Tap the shutter again to cancel; your delay stays selected. Exposure is determined at release unless AE-L is active. AE-L works with shutter set to Auto, including manual ISO.</string>
++    <string name="m9_t_2s">2s</string>
++    <string name="m9_t_12s">12s</string>
++    <string name="m9_timer_description">Self-timer: %1$s</string>
++    <string name="m9_timer_camera_not_ready">Camera is getting ready. Please try again.</string>
++</resources>
+diff --git a/app/src/main/res/values/m9_menu.xml b/app/src/main/res/values/m9_menu.xml
+--- a/app/src/main/res/values/m9_menu.xml
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -18,7 +18,7 @@
+     <string name="m9_menu_histogram_title">About the histogram</string>
+     <string name="m9_menu_histogram_info">The histogram follows the preview. Saved JPEG tone and detail may differ.</string>
+     <string-array name="m9_menu_timer_entries">
+-        <item>@string/off</item><item>3 seconds</item><item>10 seconds</item>
++        <item>@string/off</item><item>2 seconds</item><item>12 seconds</item>
+     </string-array>
+     <!-- Existing timer preference stores an index, not a duration in seconds. -->
+     <string-array name="m9_menu_timer_indices" translatable="false">
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -21,6 +21,7 @@
+             <Preference android:key="m9_auto_iso_info" android:summary="@string/m9_auto_iso_info" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
+         </PreferenceScreen>
+         <ListPreference android:key="@string/pref_countdown_timer_key" android:title="@string/countdown_timer" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_timer" android:entries="@array/m9_menu_timer_entries" android:entryValues="@array/m9_menu_timer_indices" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
++        <Preference android:key="m9_ae_lock_timer_info" android:title="@string/m9_ae_lock_title" android:summary="@string/m9_ae_lock_timer_info" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
+         <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_af_mode_key" android:title="@string/af_mode" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_focus" android:entries="@array/af_mode_entries" android:entryValues="@array/af_mode_entryvalues" android:defaultValue="@string/pref_af_mode_default_value" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_auto_zoom_switch_key" android:defaultValue="@bool/pref_auto_zoom_switch_default" android:layout="@layout/preference_with_margin" android:title="@string/auto_zoom_lens_switch" android:summary="@string/auto_zoom_lens_switch_summary" android:icon="@drawable/ic_focus" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_preserve_manual_wb_key" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/preserve_manual_wb" android:summary="" android:icon="@drawable/ic_multi_lens" />
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockTest.java
+@@ -0,0 +1,119 @@
++package com.particlesdevs.photoncamera.m9;
++
++import org.junit.Test;
++import org.json.JSONObject;
++import static org.junit.Assert.*;
++
++public class M9AeLockTest {
++    private static M9AeLock1A.Context context(String camera, String mode, long session,
++            double ev, long manualTime, int manualIso, int maximum, String policy) {
++        return new M9AeLock1A.Context(camera,mode,session,ev,manualTime,manualIso,
++                new M9AutoIsoSettings(maximum,1).resolve(24,36).identity,policy);
++    }
++    private static M9AeLock1A.Context normal() { return context("0","PHOTO",1,-1.0/3,0,0,800,"default"); }
++    private static M9ExposurePlan1A candidate(M9AeLock1A.Context c, long id, long now) {
++        return new M9ExposurePlan1A(id,now,now*1000000,c.camera,c.mode,200,16000000L,
++                400,8000000L,320,8000000L,c.ev,0.2,"auto_placement",c.manualTime,c.manualIso,100)
++                .withAutoIsoControls(c.autoIsoIdentity).withAllocationSnapshot2G("{\"source\":true}")
++                .withAutoPlacement2D("{\"meter\":true}");
++    }
++    private static M9ExposurePlan1A publish(M9AeLock1A lock, M9AeLock1A.Context c, long now) {
++        long generation=lock.context(c); return lock.stamp(candidate(c,now,now),c,generation);
++    }
++    private static M9ExposurePlan1A hold(M9AeLock1A lock, M9AeLock1A.Context c) {
++        M9ExposurePlan1A shown=publish(lock,c,100); assertTrue(lock.engage(shown,c,110)); return shown;
++    }
++    @Test public void locksDisplayedPairWithLiveReferenceAcrossFreshObservationsForMultipleShots() {
++        M9AeLock1A lock=new M9AeLock1A(); M9AeLock1A.Context c=normal();
++        M9ExposurePlan1A shown=hold(lock,c);
++        for (int n=1;n<=120;n++) {
++            long now=1000L*n;
++            M9ExposurePlan1A held=lock.project(c,lock.context(c),now,now,now*1000000,
++                    n*10,10000000L,100,n*10,10000000L);
++            assertNotNull(held); assertTrue(lock.accepts(held,c,now+10));
++            assertEquals(shown.id,held.aeLockSourcePlanId); assertEquals(shown.iso,held.iso);
++            assertEquals(shown.exposureNs,held.exposureNs);
++            assertEquals(n*10,held.referenceIso);
++            assertEquals(10000000L,held.referenceExposureNs);
++            assertEquals(shown.autoEv,held.autoEv,0); assertEquals(shown.userEv,held.userEv,0);
++            assertEquals(held.iso*held.exposureNs/(double)(n*10*10000000L),held.previewScale(),1e-12);
++            assertEquals(held.previewScale(),held.renderIntentScale(held.iso,held.exposureNs),0);
++        }
++        assertTrue(lock.isLocked());
++    }
++    @Test public void freshLockedPlanExpiresIfObservationsStop() {
++        M9AeLock1A lock=new M9AeLock1A(); M9AeLock1A.Context c=normal(); hold(lock,c);
++        M9ExposurePlan1A p=lock.project(c,lock.context(c),2000,2000,1,100,2000000L,100,100,2000000L);
++        assertTrue(lock.accepts(p,c,3500)); assertFalse(lock.accepts(p,c,3501));
++        assertNull(lock.project(c,lock.context(c),1,2,3,0,1000000L,100,100,1000000L));
++    }
++    @Test public void refusesMissingStaleUndisplayedAndManualShutterPlans() {
++        M9AeLock1A lock=new M9AeLock1A(); M9AeLock1A.Context c=normal();
++        assertFalse(lock.engage(null,c,100));
++        assertFalse(lock.engage(candidate(c,100,100),c,100));
++        M9ExposurePlan1A p=publish(lock,c,100); assertFalse(lock.engage(p,c,1601));
++        M9AeLock1A.Context manual=context("0","PHOTO",1,0,10000000L,0,800,"default");
++        assertFalse(lock.engage(publish(lock,manual,100),manual,101));
++        M9AeLock1A.Context video=context("0","VIDEO",1,0,0,0,800,"default");
++        assertFalse(lock.engage(publish(lock,video,100),video,101));
++    }
++    @Test public void manualIsoWithAutomaticShutterCanLock() {
++        M9AeLock1A lock=new M9AeLock1A();
++        M9AeLock1A.Context c=context("0","PHOTO",1,0,0,320,800,"default");
++        hold(lock,c); assertTrue(lock.isLocked());
++    }
++    @Test public void changedExposureControlsCameraModeOrSessionClearAndRejectOldPlan() {
++        M9AeLock1A.Context[] changes={
++            context("1","PHOTO",1,-1.0/3,0,0,800,"default"),
++            context("0","MOTION",1,-1.0/3,0,0,800,"default"),
++            context("0","PHOTO",2,-1.0/3,0,0,800,"default"),
++            context("0","PHOTO",1,0,0,0,800,"default"),
++            context("0","PHOTO",1,-1.0/3,1000000L,0,800,"default"),
++            context("0","PHOTO",1,-1.0/3,0,200,800,"default"),
++            context("0","PHOTO",1,-1.0/3,0,0,400,"default"),
++            context("0","PHOTO",1,-1.0/3,0,0,800,"torch"),
++            new M9AeLock1A.Context("0","PHOTO",1,-1.0/3,0,0,
++                    new M9AutoIsoSettings(800,5).resolve(24,36).identity,"default")};
++        for (M9AeLock1A.Context next:changes) {
++            M9AeLock1A lock=new M9AeLock1A();M9AeLock1A.Context c=normal();hold(lock,c);
++            M9ExposurePlan1A p=lock.project(c,lock.context(c),120,120,1,100,10000000L,100,100,10000000L);
++            assertFalse(lock.accepts(p,next,121));assertFalse(lock.isLocked());
++            assertFalse(lock.accepts(p,c,122));
++        }
++    }
++    @Test public void racingPlansCannotCrossEngageUnlockOrReopen() {
++        M9AeLock1A lock=new M9AeLock1A();M9AeLock1A.Context c=normal();
++        long before=lock.context(c);M9ExposurePlan1A old=publish(lock,c,100);
++        assertTrue(lock.engage(old,c,101));assertFalse(lock.accepts(old,c,102));
++        assertNull(lock.stamp(candidate(c,102,102),c,before));
++        long heldToken=lock.context(c);M9ExposurePlan1A held=lock.project(c,heldToken,103,103,1,100,10000000L,100,100,10000000L);
++        lock.clear();assertFalse(lock.accepts(held,c,104));assertNull(lock.stamp(held,c,heldToken));
++        M9ExposurePlan1A fresh=publish(lock,c,105);assertTrue(lock.accepts(fresh,c,106));
++        assertEquals(0,fresh.aeLockSourcePlanId);assertEquals(fresh.previewScale(),candidate(c,105,105).previewScale(),0);
++        lock.context(context("0","PHOTO",2,-1.0/3,0,0,800,"default"));
++        assertFalse(lock.accepts(fresh,c,107));
++    }
++    @Test public void liveNeutralReferencePreventsToneNormalizationFromUndoingPhysicalLock() {
++        M9AeLock1A lock=new M9AeLock1A();M9AeLock1A.Context c=normal();hold(lock,c);
++        long token=lock.context(c);
++        M9ExposurePlan1A first=lock.project(c,token,200,200,1,400,8000000L,100,400,8000000L);
++        // Scene becomes one stop brighter: neutral AE halves its exposure, held RAW doubles its median.
++        M9ExposurePlan1A brighter=lock.project(c,token,300,300,2,200,8000000L,100,200,8000000L);
++        double gainBefore=M9ExposurePlan1A.neutralBaseGain(.08,first.renderIntentScale(first.iso,first.exposureNs),.18);
++        double gainAfter=M9ExposurePlan1A.neutralBaseGain(.16,brighter.renderIntentScale(brighter.iso,brighter.exposureNs),.18);
++        assertEquals(first.iso,brighter.iso);assertEquals(first.exposureNs,brighter.exposureNs);
++        assertEquals(gainBefore,gainAfter,1e-12);
++        assertEquals(2.0,(.16*gainAfter)/(.08*gainBefore),1e-12);
++    }
++
++    @Test public void allPlanCopiesKeepLockIdentityAndDiagnostics() throws Exception {
++        M9AeLock1A lock=new M9AeLock1A();M9AeLock1A.Context c=normal();hold(lock,c);
++        M9ExposurePlan1A p=lock.project(c,lock.context(c),200,200,1,100,10000000L,100,100,10000000L)
++                .withAllocationSnapshot2G("{}").withAutoPlacement2D("{}")
++                .withAutoIsoControls(c.autoIsoIdentity).withShutterPreviewSnapshot1W("{}");
++        assertTrue(lock.accepts(p,c,201));
++        JSONObject json=M9ExposurePlanDiagnostics1A.toJson(p);
++        assertTrue(json.getBoolean("aeLockHeld")); assertEquals(100,json.getLong("aeLockSourcePlanId"));
++        assertEquals(p.aeLockGeneration,json.getLong("aeLockGeneration"));
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9SelfTimerTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9SelfTimerTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9SelfTimerTest.java
+@@ -0,0 +1,47 @@
++package com.particlesdevs.photoncamera.m9;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9SelfTimerTest {
++    @Test public void storedIndicesUseLeicaDelaysAndInvalidDataMeansOff() {
++        assertEquals(0,M9SelfTimer1A.seconds(0));assertEquals(2,M9SelfTimer1A.seconds(1));
++        assertEquals(12,M9SelfTimer1A.seconds(2));
++        for (int bad:new int[]{-1,3,12,Integer.MAX_VALUE}) {
++            assertEquals(0,M9SelfTimer1A.index(bad)); assertEquals(0,M9SelfTimer1A.seconds(bad));
++        }
++    }
++    @Test public void finishCanReleaseOnceOnlyIncludingZeroDelay() {
++        M9SelfTimer1A.Gate gate=new M9SelfTimer1A.Gate();
++        for (int index=0;index<3;index++) {
++            long ticket=gate.start("main:PHOTO:session1"); assertTrue(gate.running());
++            assertTrue(gate.finish(ticket,"main:PHOTO:session1"));
++            assertFalse(gate.running()); assertFalse(gate.finish(ticket,"main:PHOTO:session1"));
++        }
++    }
++    @Test public void canceledCallbacksCannotCaptureOrCancelReplacementTimer() {
++        M9SelfTimer1A.Gate gate=new M9SelfTimer1A.Gate();
++        long old=gate.start("main");gate.cancel();assertFalse(gate.finish(old,"main"));
++        long fresh=gate.start("main"); assertFalse(gate.finish(old,"main"));assertTrue(gate.running());
++        assertTrue(gate.finish(fresh,"main"));
++    }
++    @Test public void lensModeSessionAndPauseChangesSuppressRelease() {
++        for (String next:new String[]{"tele:PHOTO:1:true","main:VIDEO:1:true","main:PHOTO:2:true","main:PHOTO:1:false"}) {
++            M9SelfTimer1A.Gate gate=new M9SelfTimer1A.Gate();
++            long ticket=gate.start("main:PHOTO:1:true");assertFalse(gate.finish(ticket,next));assertFalse(gate.running());
++        }
++    }
++    @Test public void heldExposureCanRemainFreshAcrossTwelveSecondCountdown() {
++        M9AeLock1A lock=new M9AeLock1A();String iso=new M9AutoIsoSettings(800,1).resolve(24,36).identity;
++        M9AeLock1A.Context context=new M9AeLock1A.Context("0","PHOTO",1,0,0,0,iso,"default");
++        long generation=lock.context(context);
++        M9ExposurePlan1A first=new M9ExposurePlan1A(1,100,1,"0","PHOTO",400,20000000L,
++                400,20000000L,400,20000000L,0,0,"auto",0,0,100).withAutoIsoControls(iso);
++        first=lock.stamp(first,context,generation);assertTrue(lock.engage(first,context,101));
++        M9SelfTimer1A.Gate gate=new M9SelfTimer1A.Gate();long ticket=gate.start("session1");
++        M9ExposurePlan1A release=lock.project(context,lock.context(context),2,12101,12101000000L,1600,40000000L,100,1600,40000000L);
++        assertTrue(gate.finish(ticket,"session1"));assertTrue(lock.accepts(release,context,12102));
++        assertEquals(400,release.iso);assertEquals(20000000L,release.exposureNs);
++        assertNotEquals(first.observedIso,release.observedIso);
++    }
++}
