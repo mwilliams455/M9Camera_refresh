@@ -63,12 +63,18 @@ app/src/main/res/layout/layout_main_topbar.xml
 app/src/main/res/layout/layout_main_bottombar.xml
 app/src/main/res/layout/layout_m9_overlay_controls.xml
 
-GITHUB INTEGRATION
+GITHUB INTEGRATION — COMPLETED
+PR: https://github.com/mwilliams455/M9Camera_refresh/pull/62
+Merged into main: 4 October 2026, 17:42 Europe/London
+Merge commit: 61f807edfca97bed96ac0106aee7d5d563eeef90
+Published branch head: c17eb56775749512b98f868bfd5314923eb00148
+Published equivalent of the tested 2.44 code commit: 81febf2600cc2738651d6d1f9abba2d9b6d47146
+
 Main was at 20788d74418d27e75ff087521a989d7a6f08b377 before integration. It was far behind the research lineage. Once shallow history was fetched, main had two exclusive commits whose net tree change from the common ancestor was empty. A three-way merge produced the tested research tree without source conflicts. The integration carries the established development history and complete accepted controls/UI chain through 2.44. No APK source changed after the 62 passing checks; subsequent changes document the handoff and authorization.
 
 Malcolm explicitly approved public publication of the full branch, its required history and firmware-derived assets, and its merge into main on 4 October 2026 at 17:35 Europe/London. The earlier automatic approval hold is resolved by that specific confirmation. No raw user photos or newly uploaded attachment files were added in this task.
 
-The branch's pull request and merge commit are the authoritative integration receipt. Preserve the full history because the source assembly chain depends on preceding patches. Local verification already completed for the exact APK/source; inspect GitHub status separately rather than assuming a fresh Actions build occurred. Do not confuse this repository merge with Monochrom integration, which remains future work.
+GitHub confirmed PR #62 closed and merged. The fetched merge tree matches the prepared branch byte-for-byte. Command-line Git lacked write authentication, so the connected GitHub API published the 30 local commits with new commit metadata; every file tree was checked against its original hash. Each message retains Original-local-commit provenance. Source and APK hashes are unchanged. The existing remote history is retained. GitHub reported no status checks, check runs or PR workflows for this head, so validation evidence remains the successful local build and 62 passing tests; no new Actions build is claimed. Do not confuse this repository merge with Monochrom integration, which remains future work.
 
 NEXT WORK, IN ORDER
 1. Confirm 2.44 on the phone: open/close popup, plain Photo/Motion strip, timer off/on restore after choosing 12 seconds, grid restore, histogram/clipping state and hold menus, lens lock, capture/back/resume, Night round trip, WB and app settings. Address concrete regressions first.
