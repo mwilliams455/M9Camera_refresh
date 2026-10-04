@@ -1,5 +1,7 @@
 # M9Cam 2.34 PREVIEWCOLOURFRAME1A
 
+**WITHDRAWN: phone orientation regression reported 4 October 2026.** Portrait UI displays a sideways preview in 2.34. Its texture-transform integration is reverted by 2.35 ORIENTATIONFIX1A; retain only the decimal EV presentation. Automated results below did not validate the handset orientation contract. See `../orientationfix1a/README.md`.
+
 Parent: `a74a8ea7e824b57886cccb066eab9bdfec1d7f72`, phone-accepted M9Cam 2.33 LEICAEV1A. On 4 October 2026 Malcolm confirmed: “Everything works the only critique is that the EV should be decimal values and not fractions but that's easy to fix. If you can fix that then move on to color and framing next”. This supersedes the prior order that put Auto ISO/slowest shutter immediately after EV.
 
 ## Decimal EV

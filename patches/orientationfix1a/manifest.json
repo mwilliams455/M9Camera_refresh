@@ -1,0 +1,30 @@
+{
+  "parentCommit": "63af8af93927105af9397f44cbf466a4b2b01ff4",
+  "version": "2.35-m9orientationfix1a",
+  "parentFiles": {
+    "app/build.gradle": "78c04ec1a4f9000dcd0aceefe88b28933bac9aa740a63c1409c88dbe0662b0b7",
+    "app/src/main/assets/shaders/preview/blur_oes_fs.glsl": "02fcc693f1c53d75388bf71f9f767a945af3345a14c0807a9609be2ace160311",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "9f4a81d124700b14fb4dcf8d41a1fbba24f5eca87fd546bdf6360f975f202f35",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java": "557a86daa0ab26ed887e1352aa26eb506820c7f4022bb83e57a0247b0519d48f",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "1af77b0cb09c7b1264f17ac378ef56cf6b26c71e1719525aff7821b002fb98cf",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java": "bcc6cfc0ffee0015b457a6beb5c964e60f08513198246c30bcfbc26eec74f773",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "ba89e9f229436b3fe796e1ac2f36d678ec89a60bddfab379073cde02e752baf9",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9PreviewFramingTest.java": "1630d0e90c455ffd81fa85fca8969d4044773781327093cd3a7ab3ef4826d903"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "2853154b14be0e64530caa1b26bfeaf0961351149b414256bea86af941bf2903",
+    "app/src/main/assets/shaders/preview/blur_oes_fs.glsl": "74a6e2ebf4a4f19c9868e5842d8691f09aba47387a37f5afabaae50ecd186b45",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "14cc1e074dd5eaa40d97f94631cfc1338b4d7b7ebfc52204139e43f85605940b",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java": "9d95662fd26746e381339e2a18200fbd45aa4caef0859531cc7195209a326898",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "f66987e82add735bdc1e5f0a3f2cb1912af8b8ced34b1cfeaabb893aef407c56",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java": "8072d04cab83a8dd2a73e1997a8369cf7606693217766afb33c6178ea5e5cb4a",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "c44fcd781c01d683770fc14e6d1c59e987de862f654c308453bd2e7f5f98f8c4"
+  },
+  "deletedFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9PreviewFramingTest.java"
+  ],
+  "patchSha256": "7a459c837e6354821c64d3126af6dbfb90433ba054e0793ee685fa6b517082f2",
+  "nativePolicy": "Preserve all 25 native entries and every asset from phone-accepted 2.33",
+  "photoPolicy": "All preview, capture, metering and saved JPEG/DNG code exactly restored to accepted 2.33. Decimal EV presentation from 2.34 retained.",
+  "scope": "Correct reported sideways portrait preview in 2.34 by reverting its producer-transform integration. No device-specific angle correction."
+}
