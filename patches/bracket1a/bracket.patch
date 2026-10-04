@@ -1,0 +1,1019 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27237
++        versionCode 27238
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.37-m9aelocktimer1a'
++        versionName '2.38-m9bracket1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.37_AELOCKTIMER1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.38_BRACKET1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -201,6 +201,9 @@
+     private final com.particlesdevs.photoncamera.m9.M9AeLock1A m9AeLock =
+             new com.particlesdevs.photoncamera.m9.M9AeLock1A();
+     private volatile int m9AeLockUiState = -1;
++    private final com.particlesdevs.photoncamera.m9.M9Bracket1A.Series m9Bracket =
++            new com.particlesdevs.photoncamera.m9.M9Bracket1A.Series();
++    private volatile long m9BracketAttemptToken;
+     private volatile int m9LiveGlIntendedIso1B = -1;
+     private volatile long m9LiveGlIntendedExposureNs1B = -1L;
+     private volatile long m9LiveGlIntendedUpdatedElapsedMs1B = 0L;
+@@ -1294,6 +1297,7 @@
+      * Closes the current {@link CameraDevice}.
+      */
+     public void closeCamera() {
++        cancelM9Bracket("camera_close");
+         clearM9AeLock("camera_close");
+         m9ExposurePlan1A = null;
+         ++m9PlanWaitId1A;
+@@ -2064,6 +2068,7 @@
+ 
+     /** Closes the session, device, readers and surfaces. Caller holds the lock. */
+     private void closeCameraResourcesLocked() {
++        cancelM9Bracket("session_resources_closed");
+         clearM9AeLock("session_resources_closed");
+         if (mIsRecordingVideo) {
+             this.VideoEnd();
+@@ -3992,6 +3997,7 @@
+      * Initiate a still image capture.
+      */
+     public void takePicture() {
++        if(!m9Bracket.active())m9BracketAttemptToken=0;
+         if (mPreviewRequestBuilder == null || mCaptureSession == null) {
+             Log.w(TAG, "takePicture(): camera not ready, ignoring shutter press");
+             return;
+@@ -4514,6 +4520,85 @@
+         return true;
+     }
+ 
++    private com.particlesdevs.photoncamera.m9.M9Bracket1A.Context m9BracketContext() {
++        com.particlesdevs.photoncamera.m9.M9AeLock1A.Context context=m9AeLockContext();
++        long generation=syncM9AeLockContext(context);
++        String settings=com.particlesdevs.photoncamera.m9.M9BracketRuntime.settings().identity()
++                +":"+PreferenceKeys.isSaveRaw()+":"+com.particlesdevs.photoncamera.m9.M9OutputSettings.saveUnfilteredDng()
++                +":"+com.particlesdevs.photoncamera.m9.render.M9SaturationSettings.selected()
++                +":"+com.particlesdevs.photoncamera.m9.render.M9ContrastSettings.selected()
++                +":"+com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings.selected()
++                +":"+paramController.WB;
++        return new com.particlesdevs.photoncamera.m9.M9Bracket1A.Context(context,generation,settings);
++    }
++    public boolean isM9BracketActive(){return m9Bracket.active();}
++
++    /** Called after the self-timer. The first physical release latches the displayed centre. */
++    public synchronized int prepareM9Bracket() {
++        com.particlesdevs.photoncamera.m9.M9Bracket1A.Settings settings=
++                com.particlesdevs.photoncamera.m9.M9BracketRuntime.settings();
++        if(!settings.enabled)return 0;
++        if(com.particlesdevs.photoncamera.m9.M9SaveStatus.INSTANCE.snapshot().pending>0 || burst)return -4;
++        if(m9Bracket.active() || !isM9TimerCaptureReady() || !paramController.useM9ExposurePlan1A()
++                || PhotonCamera.getSettings().selectedMode!=CameraMode.PHOTO
++                || paramController.getCurrentExposureValue()>0)return -1;
++        if(PreferenceKeys.getAeMode()!=1 || mFlashed)return -2;
++        Range<Long> range=mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
++        if(range==null || range.getLower()<=0 || range.getUpper()<range.getLower())return -3;
++        com.particlesdevs.photoncamera.m9.M9Bracket1A.Context context=m9BracketContext();
++        long now=SystemClock.elapsedRealtime();
++        long token=m9Bracket.start(context,settings,PreferenceKeys.isSaveRaw(),
++                com.particlesdevs.photoncamera.m9.M9OutputSettings.saveUnfilteredDng(),
++                com.particlesdevs.photoncamera.m9.render.M9SaturationSettings.selected(),
++                com.particlesdevs.photoncamera.m9.render.M9ContrastSettings.selected(),
++                com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings.selected(),now);
++        if(token==0 || !m9Bracket.request(token,context,now))return -1;
++        m9BracketAttemptToken=token;
++        mBackgroundHandler.postDelayed(() -> pollM9Bracket(token),250);
++        return settings.frames;
++    }
++    public synchronized void cancelM9Bracket(String reason) {
++        if(!m9Bracket.active())return;
++        m9Bracket.cancel();++m9PlanWaitId1A;
++        // An already submitted photograph is allowed to finish saving.
++        if(!burst && isCameraResumed)mState=STATE_PREVIEW;
++        Log.d(TAG,"M9BRACKET1A stopped: "+reason);
++    }
++    private void pollM9Bracket(long token) {
++        if(!m9Bracket.active() || m9Bracket.ticket()!=token)return;
++        if(!m9Bracket.valid(token,m9BracketContext()) || !isM9TimerCaptureReady()) {
++            failM9Bracket(token,"Bracketing stopped: camera or settings changed.");return;
++        }
++        if(m9Bracket.expired(SystemClock.elapsedRealtime())) {
++            failM9Bracket(token,"Bracketing stopped while waiting for the camera or photo save.");return;
++        }
++        if(m9Bracket.ready() && !burst && mState==STATE_PREVIEW
++                && com.particlesdevs.photoncamera.m9.render.M9PrimaryRenderQueue.preflightCaptureAdmission()) {
++            activity.runOnUiThread(() -> {
++                if(m9Bracket.request(token,m9BracketContext(),SystemClock.elapsedRealtime())) {
++                    m9BracketAttemptToken=token;takePicture();
++                }
++            });
++        }
++        if(mBackgroundHandler!=null)mBackgroundHandler.postDelayed(() -> pollM9Bracket(token),250);
++    }
++    private synchronized void failM9Bracket(long expectedToken,String reason) {
++        if(!m9Bracket.active() || m9Bracket.ticket()!=expectedToken)return;
++        cancelM9Bracket(reason);cameraEventsListener.onProcessingError(reason);
++    }
++    /** The only event allowed to advance a bracket is its own final-output ticket. */
++    public void onM9BracketSaved(com.particlesdevs.photoncamera.m9.M9Bracket1A.Completion event) {
++        activity.runOnUiThread(() -> {
++            if(event==null || event.frame==null || !m9Bracket.active()
++                    || event.frame.seriesId!=m9Bracket.ticket())return;
++            int result=m9Bracket.complete(event,m9BracketContext(),SystemClock.elapsedRealtime());
++            if(result==0)return;
++            if(result<0)cameraEventsListener.onProcessingError("Bracketing stopped: a photo could not be fully saved or settings changed.");
++            else if(result==2)cameraEventsListener.onProcessingFinished("M9 bracket saved");
++            else Log.d(TAG,"M9BRACKET1A saved "+m9Bracket.index()+"/"+m9Bracket.count());
++        });
++    }
++
+     public boolean isM9TimerCaptureReady() {
+         return isCameraResumed && mCameraDevice!=null && mCaptureSession!=null && mPreviewRequestBuilder!=null;
+     }
+@@ -4613,8 +4698,9 @@
+         m9LivePairPreviewAfState1P = afState;
+     }
+ 
+-    private void captureStillPicture() {
+-        try {
++    private synchronized void captureStillPicture() {
++        try {
++            if(m9BracketAttemptToken!=0 && !m9Bracket.valid(m9BracketAttemptToken,m9BracketContext()))return;
+             if (null == mCameraDevice) {
+                 return;
+             }
+@@ -4643,11 +4729,20 @@
+                     ? getM9ExposurePlan1A() : null;
+             final M9ExposurePlan1A basePlan1W = plannedCapture1A
+                     ? getM9DisplayedExposurePlan1A(shutterDrawLockNs1A) : null;
+-            final M9ExposurePlan1A capturePlan1A = basePlan1W == null ? null
++            final M9ExposurePlan1A displayedPlan1A = basePlan1W == null ? null
+                     : basePlan1W.withShutterPreviewSnapshot1W(mTextureView != null
+                         ? mTextureView.snapshotM9DrawState1W(shutterDrawLockNs1A, basePlan1W)
+                         : com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W
+                             .unavailable("GL_view_unavailable"));
++            final M9ExposurePlan1A capturePlan1A;
++            if(m9Bracket.active() && displayedPlan1A!=null) {
++                Range<Long> range=mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
++                capturePlan1A=m9Bracket.frame(m9BracketAttemptToken,m9BracketContext(),displayedPlan1A,
++                        SystemClock.elapsedRealtimeNanos(),SystemClock.elapsedRealtime(),range.getLower(),range.getUpper());
++                if(capturePlan1A==null) {
++                    failM9Bracket(m9BracketAttemptToken,"Bracketing stopped: exposure settings changed.");return;
++                }
++            } else capturePlan1A=displayedPlan1A;
+             if (plannedCapture1A && capturePlan1A != null) {
+                 Log.d(TAG, "M9SHUTTERDRAWLOCK1A displayedPlanId=" + capturePlan1A.id
+                         + " latestCameraPlanId="
+@@ -5034,6 +5129,26 @@
+                     //if(frameCount == 0)
+                         mCaptureResult = result;
+                     if (maxFrameCount[0] != -1) PhotonCamera.getGyro().CaptureGyroBurst();
++                }
++
++                @Override
++                public void onCaptureFailed(@NonNull CameraCaptureSession session,@NonNull CaptureRequest request,
++                        @NonNull android.hardware.camera2.CaptureFailure failure) {
++                    if(capturePlan1A!=null && capturePlan1A.bracket!=null
++                            && m9Bracket.ticket()==capturePlan1A.bracket.seriesId) {
++                        burst=false;
++                        failM9Bracket(capturePlan1A.bracket.seriesId,"Bracketing stopped: camera capture failed.");
++                        unlockFocusM9Continuous1T();
++                    }
++                }
++                @Override
++                public void onCaptureSequenceAborted(@NonNull CameraCaptureSession session,int sequenceId) {
++                    if(capturePlan1A!=null && capturePlan1A.bracket!=null
++                            && m9Bracket.ticket()==capturePlan1A.bracket.seriesId) {
++                        burst=false;
++                        failM9Bracket(capturePlan1A.bracket.seriesId,"Bracketing stopped: camera capture was cancelled.");
++                        unlockFocusM9Continuous1T();
++                    }
+                 }
+ 
+                 @Override
+@@ -5157,8 +5272,13 @@
+                         break;
+                 }
+             }
+-        } catch (CameraAccessException e) {
++        } catch (CameraAccessException | IllegalStateException e) {
+             Log.e(TAG, Log.getStackTraceString(e));
++            if(m9Bracket.active()) {
++                burst=false;
++                failM9Bracket(m9BracketAttemptToken,"Bracketing stopped: camera unavailable.");
++                unlockFocusM9Continuous1T();
++            }
+         }
+     }
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
+@@ -0,0 +1,136 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.Map;
++import java.util.Objects;
++import java.util.concurrent.atomic.AtomicLong;
++
++/** Separate exposures. Pure sequence/intent policy shared by capture and save completion. */
++public final class M9Bracket1A {
++    public static final String REVISION="M9BRACKET1A";
++    public static final String ENABLED="pref_m9_bracket_enabled", FRAMES="pref_m9_bracket_frames",
++            STEP="pref_m9_bracket_step", ORDER="pref_m9_bracket_order";
++    private static final AtomicLong IDS=new AtomicLong();
++    private M9Bracket1A() {}
++    public static final class Settings {
++        public final boolean enabled;
++        public final int frames, halfStops, order;
++        public Settings(boolean enabled,int frames,int halfStops,int order) {
++            this.enabled=enabled; this.frames=frames==5?5:frames==7?7:3;
++            this.halfStops=Math.max(1,Math.min(this.frames==7?2:4,halfStops));
++            this.order=order==1?1:0;
++        }
++        public String identity(){return enabled+":"+frames+":"+halfStops+":"+order;}
++        public double[] offsets(){
++            double[] result=new double[frames];int side=(frames-1)/2;
++            if(order==1) {for(int i=0;i<frames;i++)result[i]=(i-side)*halfStops*0.5;}
++            else {for(int i=1;i<=side;i++){result[2*i-1]=i*halfStops*0.5;result[2*i]=-i*halfStops*0.5;}}
++            return result;
++        }
++        public static Settings read(Map<String,?> values){
++            return new Settings(number(values,ENABLED,0)==1,number(values,FRAMES,3),
++                    number(values,STEP,1),number(values,ORDER,0));
++        }
++        private static int number(Map<String,?> values,String key,int fallback){
++            Object v=values==null?null:values.get(key);
++            try{return v instanceof String?Integer.parseInt((String)v):fallback;}
++            catch(NumberFormatException invalid){return fallback;}
++        }
++    }
++    public static final class Context {
++        public final M9AeLock1A.Context exposure;
++        public final long lockGeneration;
++        public final String settings;
++        public Context(M9AeLock1A.Context exposure,long lockGeneration,String settings){
++            this.exposure=exposure;this.lockGeneration=lockGeneration;this.settings=settings;
++        }
++        @Override public boolean equals(Object other){
++            if(!(other instanceof Context))return false;Context c=(Context)other;
++            return lockGeneration==c.lockGeneration && Objects.equals(exposure,c.exposure)
++                    && Objects.equals(settings,c.settings);
++        }
++        @Override public int hashCode(){return Objects.hash(exposure,lockGeneration,settings);}
++    }
++    public static final class Frame {
++        public final long seriesId,planId,basePlanId,baseExposureNs;
++        public final int index,count,baseIso,saveMode,saturation,contrast,sharpness;
++        public final boolean unfiltered;
++        public final double requestedEv,actualEv;
++        public Frame(long seriesId,long planId,long basePlanId,long baseTime,int baseIso,int index,int count,
++                double requestedEv,long time,int saveMode,boolean unfiltered,int saturation,int contrast,int sharpness){
++            this.seriesId=seriesId;this.planId=planId;this.basePlanId=basePlanId;this.baseExposureNs=baseTime;
++            this.baseIso=baseIso;this.index=index;this.count=count;this.requestedEv=requestedEv;
++            this.actualEv=Math.log(time/(double)baseTime)/Math.log(2.0);this.saveMode=saveMode;
++            this.unfiltered=unfiltered;this.saturation=saturation;this.contrast=contrast;this.sharpness=sharpness;
++        }
++    }
++    public static final class Completion {
++        public final Frame frame; public final int issues;
++        public Completion(Frame frame,int issues){this.frame=frame;this.issues=issues;}
++    }
++    public static long shutter(long base,double ev,long min,long max){
++        if(base<=0 || !Double.isFinite(ev) || min<=0 || max<min)
++            throw new IllegalArgumentException("Invalid bracket exposure range");
++        double target=base*Math.pow(2.0,ev);
++        return target>=max?max:target<=min?min:Math.round(target);
++    }
++    public static M9ExposurePlan1A project(M9ExposurePlan1A base,M9ExposurePlan1A live,
++            long id,long now,Frame frame,long time){
++        return new M9ExposurePlan1A(id,now,live.sensorTimestampNs,base.cameraId,base.mode,
++                live.observedIso,live.observedExposureNs,live.referenceIso,live.referenceExposureNs,
++                base.iso,time,base.userEv,base.autoEv,"leica_separate_bracket",
++                base.manualExposureNs,base.manualIso,live.postRawBoost)
++                .withAutoIsoControls(base.getAutoIsoControlsIdentity())
++                .withAutoPlacement2D(base.getAutoPlacementSnapshot2D())
++                .withAllocationSnapshot2G(base.getAllocationSnapshot2G())
++                .withAeLockState(base.aeLockGeneration,base.aeLockSourcePlanId)
++                .withShutterPreviewSnapshot1W(live.getShutterPreviewSnapshot1W()).withBracket(frame);
++    }
++    /** A queued/stale/double completion cannot release an unrelated physical capture. */
++    public static final class Series {
++        private static final int IDLE=0,READY=1,REQUEST=2,SAVING=3;
++        private int state,index,saveMode,saturation,contrast,sharpness;
++        private boolean unfiltered;
++        private long ticket,deadline;
++        private Context context;private Settings settings;private M9ExposurePlan1A base;
++        private Frame pending;
++        public synchronized long start(Context context,Settings settings,int mode,boolean unfiltered,
++                int saturation,int contrast,int sharpness,long now){
++            if(active() || !settings.enabled || context.exposure.manualTime>0
++                    || !"PHOTO".equals(context.exposure.mode))return 0;
++            this.context=context;this.settings=settings;this.saveMode=mode;this.unfiltered=unfiltered;
++            this.saturation=saturation;this.contrast=contrast;this.sharpness=sharpness;
++            base=null;pending=null;index=0;state=READY;deadline=now+20000;return ticket=IDS.incrementAndGet();
++        }
++        public synchronized boolean active(){return state!=IDLE;}
++        public synchronized boolean ready(){return state==READY;}
++        public synchronized long ticket(){return ticket;}
++        public synchronized int index(){return index;}
++        public synchronized int count(){return settings==null?0:settings.frames;}
++        public synchronized boolean valid(long token,Context current){return active()&&ticket==token&&Objects.equals(context,current);}
++        public synchronized boolean expired(long now){return active()&&now>=deadline;}
++        public synchronized void cancel(){state=IDLE;ticket=IDS.incrementAndGet();base=null;pending=null;}
++        public synchronized boolean request(long token,Context current,long now){
++            if(!ready()||!valid(token,current))return false;state=REQUEST;deadline=now+30000;return true;
++        }
++        public synchronized M9ExposurePlan1A frame(long token,Context current,M9ExposurePlan1A live,
++                long id,long now,long min,long max){
++            if(state!=REQUEST||!valid(token,current)||live==null||now<live.createdMs
++                    ||now-live.createdMs>M9ExposurePlan1A.MAX_AGE_MS)return null;
++            if(base==null)base=live;
++            double offset=settings.offsets()[index];long time=shutter(base.exposureNs,offset,min,max);
++            pending=new Frame(ticket,id,base.id,base.exposureNs,base.iso,index,settings.frames,offset,time,
++                    saveMode,unfiltered,saturation,contrast,sharpness);
++            state=SAVING;deadline=now+120000+time/1000000;
++            return project(base,live,id,now,pending,time);
++        }
++        /** 0 ignored, -1 failed, 1 next exposure, 2 complete. */
++        public synchronized int complete(Completion result,Context current,long now){
++            if(state!=SAVING||result==null||result.frame==null||pending==null
++                    ||result.frame.seriesId!=ticket||result.frame.planId!=pending.planId
++                    ||result.frame.index!=index)return 0;
++            if(result.issues!=0||!Objects.equals(context,current)){cancel();return -1;}
++            if(++index==settings.frames){cancel();return 2;}
++            pending=null;state=READY;deadline=now+20000;return 1;
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BracketRuntime.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BracketRuntime.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9BracketRuntime.java
+@@ -0,0 +1,14 @@
++package com.particlesdevs.photoncamera.m9;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++public final class M9BracketRuntime {
++    private M9BracketRuntime(){}
++    public static M9Bracket1A.Settings settings(){
++        SettingsManager manager=PhotonCamera.getSettingsManagerStatic();
++        return M9Bracket1A.Settings.read(manager==null?null:manager.getDefaultPreferences().getAll());
++    }
++    public static void enabled(boolean enabled){
++        PhotonCamera.getSettingsManagerStatic().getDefaultPreferences().edit()
++                .putString(M9Bracket1A.ENABLED,enabled?"1":"0").apply();
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java
+@@ -14,13 +14,21 @@
+     private final String shutterPreviewSnapshot1W;
+     private final String autoPlacementSnapshot2D;
+     private final String allocationSnapshot2G;
++    public final M9Bracket1A.Frame bracket;
++    public M9ExposurePlan1A withBracket(M9Bracket1A.Frame frame) {
++        return new M9ExposurePlan1A(id,createdMs,sensorTimestampNs,cameraId,mode,observedIso,
++                observedExposureNs,referenceIso,referenceExposureNs,iso,exposureNs,userEv,autoEv,
++                autoReason,manualExposureNs,manualIso,postRawBoost,shutterPreviewSnapshot1W,
++                autoPlacementSnapshot2D,allocationSnapshot2G,autoIsoControlsIdentity,
++                aeLockGeneration,aeLockSourcePlanId,frame);
++    }
+     public final long aeLockGeneration, aeLockSourcePlanId;
+     public M9ExposurePlan1A withAeLockState(long generation, long sourcePlanId) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+                 shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G,
+-                autoIsoControlsIdentity, generation, sourcePlanId);
++                autoIsoControlsIdentity, generation, sourcePlanId, bracket);
+     }
+     private final String autoIsoControlsIdentity;
+     public String getAutoIsoControlsIdentity() { return autoIsoControlsIdentity; }
+@@ -31,21 +39,21 @@
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G, identity, aeLockGeneration, aeLockSourcePlanId);
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, allocationSnapshot2G, identity, aeLockGeneration, aeLockSourcePlanId, bracket);
+     }
+     public String getAllocationSnapshot2G() { return allocationSnapshot2G; }
+     public M9ExposurePlan1A withAllocationSnapshot2G(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId);
++                shutterPreviewSnapshot1W, autoPlacementSnapshot2D, snapshot, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId, bracket);
+     }
+     public String getAutoPlacementSnapshot2D() { return autoPlacementSnapshot2D; }
+     public M9ExposurePlan1A withAutoPlacement2D(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+                 userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost,
+-                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId);
++                shutterPreviewSnapshot1W, snapshot, allocationSnapshot2G, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId, bracket);
+     }
+ 
+     public String getShutterPreviewSnapshot1W() { return shutterPreviewSnapshot1W; }
+@@ -54,7 +62,7 @@
+     public M9ExposurePlan1A withShutterPreviewSnapshot1W(String snapshot) {
+         return new M9ExposurePlan1A(id, createdMs, sensorTimestampNs, cameraId, mode,
+                 observedIso, observedExposureNs, referenceIso, referenceExposureNs, iso, exposureNs,
+-                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId);
++                userEv, autoEv, autoReason, manualExposureNs, manualIso, postRawBoost, snapshot, autoPlacementSnapshot2D, allocationSnapshot2G, autoIsoControlsIdentity, aeLockGeneration, aeLockSourcePlanId, bracket);
+     }
+ 
+     public M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+@@ -64,7 +72,7 @@
+             long manualExposureNs, int manualIso, int postRawBoost) {
+         this(id, createdMs, sensorTimestampNs, cameraId, mode, observedIso, observedExposureNs,
+                 referenceIso, referenceExposureNs, iso, exposureNs, userEv, autoEv, autoReason,
+-                manualExposureNs, manualIso, postRawBoost, null, null, null, null, 0L, 0L);
++                manualExposureNs, manualIso, postRawBoost, null, null, null, null, 0L, 0L, null);
+     }
+ 
+     private M9ExposurePlan1A(long id, long createdMs, long sensorTimestampNs,
+@@ -72,7 +80,8 @@
+             int referenceIso, long referenceExposureNs, int iso, long exposureNs,
+             double userEv, double autoEv, String autoReason,
+             long manualExposureNs, int manualIso, int postRawBoost, String snapshot, String autoSnapshot, String allocationSnapshot, String controlsIdentity,
+-            long lockGeneration, long lockSourcePlanId) {
++            long lockGeneration, long lockSourcePlanId, M9Bracket1A.Frame bracket) {
++        this.bracket=bracket;
+         this.aeLockGeneration=lockGeneration; this.aeLockSourcePlanId=lockSourcePlanId;
+         this.autoIsoControlsIdentity = controlsIdentity;
+         this.allocationSnapshot2G = allocationSnapshot;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ExposurePlanDiagnostics1A.java
+@@ -25,6 +25,17 @@
+                     o.put("shutterPreview1W", new JSONObject().put("available", false)
+                             .put("reason", "invalid_snapshot_encoding"));
+                 }
++            }
++            o.put("bracketingRevision", M9Bracket1A.REVISION);
++            o.put("bracketingFrame",plan.bracket!=null);
++            if(plan.bracket!=null) {
++                M9Bracket1A.Frame b=plan.bracket;
++                o.put("bracketingSeriesId",b.seriesId).put("bracketingBasePlanId",b.basePlanId);
++                o.put("bracketingIndex",b.index).put("bracketingCount",b.count);
++                o.put("bracketingRequestedEv",b.requestedEv).put("bracketingActualEv",b.actualEv);
++                o.put("bracketingBaseIso",b.baseIso).put("bracketingBaseExposureNs",b.baseExposureNs);
++                o.put("bracketingSeparateFiles",true).put("bracketingHdrMerge",false);
++                o.put("bracketingPreviewShowsCenter",true).put("bracketingLiveNeutralReference",true);
+             }
+             o.put("createdElapsedMs", plan.createdMs);
+             o.put("sourceSensorTimestampNs", plan.sensorTimestampNs);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9SaveStatus.java
+@@ -8,6 +8,7 @@
+     public static final int JPEG = 1, DNG = 2, PROFILE = 4, UNFILTERED = 8,
+             PUBLICATION = 16, PROCESSING = 32, QUEUE = 64;
+     public interface Observer { void changed(); }
++    public interface Completion { void finished(int issues); }
+     private final CopyOnWriteArrayList<Observer> observers = new CopyOnWriteArrayList<>();
+     private int pending, saved, failed, issues;
+     private long revision;
+@@ -24,7 +25,8 @@
+     public final class Ticket {
+         private final M9SaveSelection output;
+         private boolean done;
+-        private Ticket(M9SaveSelection output) { this.output = output; }
++        private final Completion completion;
++        private Ticket(M9SaveSelection output,Completion completion) {this.output=output;this.completion=completion;}
+ 
+         /** Called only after requested file writes, metadata and publication attempts end. */
+         public void complete(boolean jpeg, boolean dng, boolean profile, boolean unfiltered,
+@@ -50,12 +52,17 @@
+                 revision++;
+             }
+             notifyObservers();
++            if(completion!=null) {try {completion.finished(problems);} catch(RuntimeException ignored) {}}
+         }
+     }
+ 
+     public Ticket begin(M9SaveSelection output) {
+         if (output == null) throw new IllegalArgumentException("Missing save selection");
+-        Ticket ticket = new Ticket(output);
++        return begin(output,null);
++    }
++    public Ticket begin(M9SaveSelection output,Completion completion) {
++        if(output==null)throw new IllegalArgumentException("Missing save selection");
++        Ticket ticket = new Ticket(output,completion);
+         synchronized (this) { pending++; revision++; }
+         notifyObservers();
+         return ticket;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -238,12 +238,17 @@
+         final org.json.JSONObject m9CaptureAudit =
+                 com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestAudit1A.take(
+                         ownedFrame.timestamp, captureResult);
++        final com.particlesdevs.photoncamera.m9.M9ExposurePlan1A exposurePlan =
++                captureRequest!=null && captureRequest.getTag() instanceof com.particlesdevs.photoncamera.m9.M9ExposurePlan1A
++                ? (com.particlesdevs.photoncamera.m9.M9ExposurePlan1A)captureRequest.getTag():null;
++        final com.particlesdevs.photoncamera.m9.M9Bracket1A.Frame bracket=exposurePlan==null?null:exposurePlan.bracket;
+         // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
+-        final int saturationBank = M9SaturationSettings.selected();
+-        final int contrastLevel = M9ContrastSettings.selected();
+-        final int sharpnessLevel = M9SharpnessSettings.selected();
++        final int saturationBank = bracket==null?M9SaturationSettings.selected():bracket.saturation;
++        final int contrastLevel = bracket==null?M9ContrastSettings.selected():bracket.contrast;
++        final int sharpnessLevel = bracket==null?M9SharpnessSettings.selected():bracket.sharpness;
+         final M9SaveSelection output = M9SaveSelection.fromMode(
+-                PreferenceKeys.isSaveRaw(), M9OutputSettings.saveUnfilteredDng());
++                bracket==null?PreferenceKeys.isSaveRaw():bracket.saveMode,
++                bracket==null?M9OutputSettings.saveUnfilteredDng():bracket.unfiltered);
+         final long enqueueStartedNs = System.nanoTime();
+         final QueueTelemetry queueTelemetry = new QueueTelemetry(
+                 EXECUTOR.getQueue().size(),
+@@ -252,7 +257,9 @@
+                 QUEUE_FULL_COUNT.get());
+         final long queuedAtNs = System.nanoTime();
+         M9SaveFeedback.initialize();
+-        final M9SaveStatus.Ticket saveTicket = M9SaveStatus.INSTANCE.begin(output);
++        final M9SaveStatus.Ticket saveTicket = M9SaveStatus.INSTANCE.begin(output,bracket==null?null:
++                issues -> {if(processingEventsListener!=null)processingEventsListener.onProcessingFinished(
++                        new com.particlesdevs.photoncamera.m9.M9Bracket1A.Completion(bracket,issues));});
+         final M9CaptureParameters captureParameters;
+         try {
+             captureParameters = M9CaptureParameters.freeze(characteristics);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -341,7 +341,7 @@
+                                                               int height,
+                                                               int cameraRotation,
+                                                               long ownershipTransferMs,
+-                                                              int bufferedFrameCount) {
++                                                              int bufferedFrameCount, CaptureRequest captureRequest) {
+         try {
+             int rot = ((cameraRotation % 360) + 360) % 360;
+             boolean swap = rot == 90 || rot == 270;
+@@ -397,7 +397,11 @@
+             d.put("sourceFrameCount", 1);
+             d.put("hdrExposureAllocatorEnabled", false);
+             d.put("bracketingRequested", com.particlesdevs.photoncamera.settings.PreferenceKeys.getBracketingMode());
+-            d.put("bracketingEffective", false);
++            d.put("bracketingEffective", captureRequest!=null
++                    && captureRequest.getTag() instanceof com.particlesdevs.photoncamera.m9.M9ExposurePlan1A
++                    && ((com.particlesdevs.photoncamera.m9.M9ExposurePlan1A)captureRequest.getTag()).bracket!=null);
++            d.put("bracketingSeparateFiles",true);
++            d.put("bracketingHdrMerge",false);
+             d.put("isoExpoSelectorHdrEffective", false);
+             d.put("multiFrameFusion", false);
+             d.put("temporalMerge", false);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/DefaultSaver.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/DefaultSaver.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/DefaultSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/DefaultSaver.java
+@@ -71,7 +71,7 @@
+ 
+                 M9R35Renderer.preparePrimaryDiagnostics(
+                         dngFile, primaryFrame.width, primaryFrame.height, cameraRotation,
+-                        ownershipTransferMs, bufferedFrameCount);
++                        ownershipTransferMs, bufferedFrameCount, captureRequest);
+ 
+                 // Freeze the capture-specific exposure/motion/backlight JSON before the next shutter
+                 // can update shared live diagnostics. This is intentionally the only synchronous
+@@ -98,6 +98,12 @@
+             }
+             if (primaryFrame != null) primaryFrame.close();
+ 
++            if(!queued && captureRequest!=null
++                    && captureRequest.getTag() instanceof com.particlesdevs.photoncamera.m9.M9ExposurePlan1A
++                    && ((com.particlesdevs.photoncamera.m9.M9ExposurePlan1A)captureRequest.getTag()).bracket!=null) {
++                processingEventsListener.onProcessingError("Bracketing stopped: photo could not be queued for saving.");
++                return;
++            }
+             // Preserve the proven capture-rearm behavior: finished-image completion is asynchronous.
+             processingEventsListener.onProcessingFinished(
+                     queued
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+@@ -36,6 +36,10 @@
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.LIBRARY_KEY);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv.KEY);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9Bracket1A.ENABLED);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9Bracket1A.FRAMES);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9Bracket1A.STEP);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9Bracket1A.ORDER);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.MAX_ISO_KEY);
+         COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9AutoIsoSettings.SLOWEST_KEY);
+         COMMON_KEYS.add(Key.CAMERA_ID.mValue);
+@@ -548,11 +552,11 @@
+     }
+     
+     public static int getBracketingMode() {
+-        return preferenceKeys.settingsManager.getInteger(SCOPE_GLOBAL, Key.KEY_BRACKETING_MODE);
++        return com.particlesdevs.photoncamera.m9.M9BracketRuntime.settings().enabled?1:0;
+     }
+     
+     public static void setBracketingMode(int value) {
+-        preferenceKeys.settingsManager.set(SCOPE_GLOBAL, Key.KEY_BRACKETING_MODE, value);
++        com.particlesdevs.photoncamera.m9.M9BracketRuntime.enabled(value>0);
+     }
+ 
+     public static int getAeMeteringStd() {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -1904,7 +1904,7 @@
+         public void onProcessingStarted(String processName) {
+             logD("onProcessingStarted: " + processName + " Processing Started");
+             mCameraUIView.setProcessingProgressBarIndeterminate(true);
+-            mCameraUIView.activateShutterButton(true);
++            mCameraUIView.activateShutterButton(!(captureController!=null && captureController.isM9BracketActive()));
+             showNotification(processName);
+         }
+ 
+@@ -1976,6 +1976,13 @@
+ 
+         @Override
+         public void onProcessingFinished(Object obj) {
++            if(obj instanceof com.particlesdevs.photoncamera.m9.M9Bracket1A.Completion) {
++                if(captureController!=null)captureController.onM9BracketSaved(
++                        (com.particlesdevs.photoncamera.m9.M9Bracket1A.Completion)obj);
++                return;
++            }
++            // DefaultSaver releases RAW to an async writer; that is not photo completion.
++            if(captureController!=null && captureController.isM9BracketActive())return;
+             logD("onProcessingFinished: " + obj);
+             mCameraUIView.setProcessingProgressBarIndeterminate(false);
+             mCameraUIView.activateShutterButton(true);
+@@ -2002,6 +2009,7 @@
+ 
+         @Override
+         public void onProcessingError(Object obj) {
++            if(captureController!=null)captureController.cancelM9Bracket("processing_error");
+             if (obj instanceof String)
+                 showToast((String) obj);
+             mCameraUIView.lockUIForBurst(false);
+@@ -2073,7 +2081,8 @@
+             }
+             timerFrameCountViewModel.clearFrameTimeCnt();
+             mCameraUIView.resetCaptureProgressBar();
+-            mCameraUIView.lockUIForBurst(false);
++            if(captureController==null || !captureController.isM9BracketActive())
++                mCameraUIView.lockUIForBurst(false);
+             mCameraUIView.setVideoRecordingInfoVisible(false);
+             textureView.post(() -> textureView.setAlpha(1f));
+         }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java
+@@ -48,6 +48,7 @@
+         switch (view.getId()) {
+             case R.id.shutter_button:
+                 shutterButton = view;
++                if(cameraFragment.captureController.isM9BracketActive())return;
+                 switch (PhotonCamera.getSettings().selectedMode) {
+                     case PHOTO:
+                     case MOTION:
+@@ -82,6 +83,7 @@
+                 break;
+             case R.id.settings_button:
+                 resetTimer();
++                cameraFragment.captureController.cancelM9Bracket("settings");
+                 cameraFragment.launchSettings();
+                 break;
+ 
+@@ -97,6 +99,7 @@
+ 
+             case R.id.gallery_image_button:
+                 resetTimer();
++                cameraFragment.captureController.cancelM9Bracket("gallery");
+                 cameraFragment.launchGallery();
+                 break;
+ 
+@@ -228,6 +231,7 @@
+     @Override
+     public void onPause() {
+         this.resetTimer();
++        if(cameraFragment.captureController!=null)cameraFragment.captureController.cancelM9Bracket("pause");
+     }
+ 
+     private void restartCamera() {
+@@ -259,6 +263,13 @@
+         if (M9Config.isCaptureTest() && !M9PrimaryRenderQueue.preflightCaptureAdmission()) {
+             Log.d(TAG, "M9 QUEUE1B shutter refused before takePicture because primary renderer is saturated");
+             cameraFragment.showSnackBar("M9 processing queue full - try again shortly");
++            return;
++        }
++        int bracket=cameraFragment.captureController.prepareM9Bracket();
++        if(bracket<0) {
++            cameraFragment.showSnackBar(cameraFragment.getString(bracket==-2?R.string.m9_bracket_flash_blocked
++                    :bracket==-3?R.string.m9_bracket_range_unavailable
++                    :bracket==-4?R.string.m9_bracket_save_pending:R.string.m9_bracket_auto_shutter));
+             return;
+         }
+         this.shutterButton.setActivated(false);
+@@ -319,8 +330,8 @@
+                         break;
+                     case BRACKETING:
+                         PreferenceKeys.setBracketingMode((Integer) value);
+-                        // Update HDR class to use the new bracketing mode
+-                        IsoExpoSelector.HDR = (Integer) value > 0;
++                        // Leica brackets are separately saved physical exposures.
++                        IsoExpoSelector.HDR = false;
+                         break;
+                     case AE_METERING_STD:
+                         PreferenceKeys.setAeMeteringStd((Integer) value);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/SettingsBarEntryProvider.java
+@@ -155,8 +155,7 @@
+     private void createBracketingEntry() {
+         bracketingEntry.addSettingsBarButtonModels(
+                 SettingsBarButtonModel.newButtonModel(R.id.bracketing_off_button, R.drawable.ic_exposure, R.string.bracketing_off, 0, bracketingEntry),
+-                SettingsBarButtonModel.newButtonModel(R.id.bracketing_normal_button, R.drawable.ic_exposure, R.string.bracketing_normal, 1, bracketingEntry),
+-                SettingsBarButtonModel.newButtonModel(R.id.bracketing_high_button, R.drawable.ic_exposure, R.string.bracketing_high, 2, bracketingEntry)
++                SettingsBarButtonModel.newButtonModel(R.id.bracketing_normal_button, R.drawable.ic_exposure, R.string.m9_bracket_on, 1, bracketingEntry)
+         );
+     }
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9BracketUi.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9BracketUi.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9BracketUi.java
+@@ -0,0 +1,17 @@
++package com.particlesdevs.photoncamera.ui.settings;
++import androidx.preference.ListPreference;
++import androidx.preference.PreferenceFragmentCompat;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.m9.M9Bracket1A;
++import com.particlesdevs.photoncamera.m9.M9BracketRuntime;
++final class M9BracketUi {
++    static void refresh(PreferenceFragmentCompat fragment) {
++        ListPreference step=fragment.findPreference(M9Bracket1A.STEP);
++        if(step==null)return;
++        M9Bracket1A.Settings selected=M9BracketRuntime.settings();
++        step.setEntries(selected.frames==7?R.array.m9_bracket_step_seven_entries:R.array.m9_bracket_step_entries);
++        step.setEntryValues(selected.frames==7?R.array.m9_bracket_step_seven_values:R.array.m9_bracket_step_values);
++        String normalized=Integer.toString(selected.halfStops);
++        if(!normalized.equals(step.getValue()))step.setValue(normalized);
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+@@ -259,6 +259,7 @@
+             setThisDevice();
+             setFetchConfigurationsPref();
+             if (usesM9PhotoSettings()) {
++                M9BracketUi.refresh(this);
+                 m9ProfilesUi = new M9ProfilesUi(this,
+                         new com.particlesdevs.photoncamera.m9.M9ShootingProfiles(mSettingsManager.getDefaultPreferences()));
+             }
+@@ -790,6 +791,7 @@
+             
+             Log.d("SettingsFragment", "onSharedPreferenceChanged: key=" + key);
+             if (m9ProfilesUi != null) m9ProfilesUi.changed(key);
++            if(key!=null && key.startsWith("pref_m9_bracket_"))M9BracketUi.refresh(this);
+             if (com.particlesdevs.photoncamera.m9.M9OutputSettings.DIAGNOSTICS_KEY.equals(key)) {
+                 com.particlesdevs.photoncamera.m9.M9DiagnosticBurstSpool.onDiagnosticPreferenceChanged();
+                 com.particlesdevs.photoncamera.util.Log.onDiagnosticPreferenceChanged();
+diff --git a/app/src/main/res/values/arrays.xml b/app/src/main/res/values/arrays.xml
+--- a/app/src/main/res/values/arrays.xml
++++ b/app/src/main/res/values/arrays.xml
+@@ -218,4 +218,15 @@
+         <item>gradient</item>
+         <item>blur</item>
+     </string-array>
++    <string-array name="m9_bracket_enabled_entries"><item>Off</item><item>On</item></string-array>
++    <string-array name="m9_bracket_enabled_values"><item>0</item><item>1</item></string-array>
++    <string-array name="m9_bracket_frames_entries"><item>3 photographs</item><item>5 photographs</item><item>7 photographs</item></string-array>
++    <string-array name="m9_bracket_frames_values"><item>3</item><item>5</item><item>7</item></string-array>
++    <string-array name="m9_bracket_step_entries"><item>0.5 EV</item><item>1.0 EV</item><item>1.5 EV</item><item>2.0 EV</item></string-array>
++    <string-array name="m9_bracket_step_values"><item>1</item><item>2</item><item>3</item><item>4</item></string-array>
++    <string-array name="m9_bracket_step_seven_entries"><item>0.5 EV</item><item>1.0 EV</item></string-array>
++    <string-array name="m9_bracket_step_seven_values"><item>1</item><item>2</item></string-array>
++    <string-array name="m9_bracket_order_entries"><item>Centre, then alternating brighter / darker</item><item>Darkest to brightest</item></string-array>
++    <string-array name="m9_bracket_order_values"><item>0</item><item>1</item></string-array>
++
+ </resources>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -275,4 +275,16 @@
+     <string name="secure_camera_unlock_gallery_message">Unlock your device to view the gallery</string>
+     <string name="secure_camera_gallery_locked">Unlock your device to view the gallery</string>
+     <string name="secure_camera_settings_locked">Unlock your device to access settings</string>
++    <string name="m9_bracket_title">Exposure bracketing</string>
++    <string name="m9_bracket_summary">Separate photographs at different exposures</string>
++    <string name="m9_bracket_on">On</string>
++    <string name="m9_bracket_frames">Number of photographs</string>
++    <string name="m9_bracket_step">Exposure increment</string>
++    <string name="m9_bracket_order">Exposure order</string>
++    <string name="m9_bracket_info">Photo mode with automatic shutter. ISO stays fixed across the sequence. Each photo saves in your selected JPEG/RAW format before the next is taken. The timer runs once, before the sequence. Seven photographs allow 0.5 or 1.0 EV increments. Shutter limits may result in repeated exposures.</string>
++    <string name="m9_bracket_auto_shutter">Bracketing requires Photo mode and automatic shutter.</string>
++    <string name="m9_bracket_flash_blocked">Turn off flash or torch to use bracketing.</string>
++    <string name="m9_bracket_range_unavailable">Bracketing is unavailable: camera shutter limits are missing.</string>
++
++    <string name="m9_bracket_save_pending">Wait for the current photo to finish saving before bracketing.</string>
+ </resources>
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -19,6 +19,13 @@
+             <ListPreference android:key="pref_m9_auto_iso_max" android:title="@string/m9_auto_iso_max_title" android:dialogTitle="@string/m9_auto_iso_max_title" android:layout="@layout/preference_with_margin" android:entries="@array/m9_auto_iso_max_entries" android:entryValues="@array/m9_auto_iso_max_values" android:defaultValue="2500" app:useSimpleSummaryProvider="true" />
+             <ListPreference android:key="pref_m9_auto_iso_slowest" android:title="@string/m9_auto_iso_slowest_title" android:dialogTitle="@string/m9_auto_iso_slowest_title" android:layout="@layout/preference_with_margin" android:entries="@array/m9_auto_iso_slowest_entries" android:entryValues="@array/m9_auto_iso_slowest_values" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
+             <Preference android:key="m9_auto_iso_info" android:summary="@string/m9_auto_iso_info" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
++        </PreferenceScreen>
++        <PreferenceScreen android:key="pref_m9_bracket_screen" android:title="@string/m9_bracket_title" android:summary="@string/m9_bracket_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_exposure">
++            <ListPreference android:key="pref_m9_bracket_enabled" android:title="@string/m9_bracket_title" android:entries="@array/m9_bracket_enabled_entries" android:entryValues="@array/m9_bracket_enabled_values" android:defaultValue="0" app:useSimpleSummaryProvider="true" android:layout="@layout/preference_with_margin" />
++            <ListPreference android:key="pref_m9_bracket_frames" android:title="@string/m9_bracket_frames" android:entries="@array/m9_bracket_frames_entries" android:entryValues="@array/m9_bracket_frames_values" android:defaultValue="3" app:useSimpleSummaryProvider="true" android:layout="@layout/preference_with_margin" />
++            <ListPreference android:key="pref_m9_bracket_step" android:title="@string/m9_bracket_step" android:entries="@array/m9_bracket_step_entries" android:entryValues="@array/m9_bracket_step_values" android:defaultValue="1" app:useSimpleSummaryProvider="true" android:layout="@layout/preference_with_margin" />
++            <ListPreference android:key="pref_m9_bracket_order" android:title="@string/m9_bracket_order" android:entries="@array/m9_bracket_order_entries" android:entryValues="@array/m9_bracket_order_values" android:defaultValue="0" app:useSimpleSummaryProvider="true" android:layout="@layout/preference_with_margin" />
++            <Preference android:key="m9_bracket_info" android:summary="@string/m9_bracket_info" android:selectable="false" android:persistent="false" android:layout="@layout/preference_with_margin" />
+         </PreferenceScreen>
+         <ListPreference android:key="@string/pref_countdown_timer_key" android:title="@string/countdown_timer" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_timer" android:entries="@array/m9_menu_timer_entries" android:entryValues="@array/m9_menu_timer_indices" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
+         <Preference android:key="m9_ae_lock_timer_info" android:title="@string/m9_ae_lock_title" android:summary="@string/m9_ae_lock_timer_info" android:layout="@layout/preference_m9_profile" android:selectable="false" android:persistent="false" />
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java
+@@ -0,0 +1,159 @@
++package com.particlesdevs.photoncamera.m9;
++
++import org.junit.Test;
++import org.json.JSONObject;
++import java.util.HashMap;
++import java.util.Map;
++import java.util.concurrent.atomic.AtomicInteger;
++import static org.junit.Assert.*;
++
++public class M9BracketTest {
++    private M9Bracket1A.Context context(double ev,String camera,long session,long lock,String output){
++        return new M9Bracket1A.Context(new M9AeLock1A.Context(camera,"PHOTO",session,ev,0,0,"iso800","torch_off"),lock,output);
++    }
++    private M9Bracket1A.Context normal(){return context(-1.0/3,"0",1,2,"jpegraw");}
++    private M9ExposurePlan1A plan(long id,long now){
++        return new M9ExposurePlan1A(id,now,now*1000000,"0","PHOTO",200,10000000,200,10000000,
++                160,10000000,-1.0/3,0.1,"placement",0,0,100)
++                .withAutoIsoControls("iso800").withAeLockState(2,12)
++                .withAllocationSnapshot2G("{\"base\":true}").withAutoPlacement2D("{\"held\":true}");
++    }
++    private long start(M9Bracket1A.Series s,int frames,int step,int order,int mode){
++        return s.start(normal(),new M9Bracket1A.Settings(true,frames,step,order),mode,true,2,2,3,100);
++    }
++    @Test public void supportedSequencesAndSevenFrameRestriction(){
++        assertArrayEquals(new double[]{0,.5,-.5},new M9Bracket1A.Settings(true,3,1,0).offsets(),0);
++        assertArrayEquals(new double[]{0,1,-1,2,-2},new M9Bracket1A.Settings(true,5,2,0).offsets(),0);
++        assertArrayEquals(new double[]{-4,-2,0,2,4},new M9Bracket1A.Settings(true,5,4,1).offsets(),0);
++        assertArrayEquals(new double[]{-3,-2,-1,0,1,2,3},new M9Bracket1A.Settings(true,7,4,1).offsets(),0);
++        assertEquals(2,new M9Bracket1A.Settings(true,7,3,0).halfStops);
++    }
++    @Test public void defaultOffIgnoresInheritedPhotonHdrAndInvalidPreferences(){
++        Map<String,Object> m=new HashMap<>();m.put("pref_bracketing_key","2");
++        assertFalse(M9Bracket1A.Settings.read(m).enabled);
++        m.put(M9Bracket1A.ENABLED,"bad");m.put(M9Bracket1A.FRAMES,7);
++        assertFalse(M9Bracket1A.Settings.read(m).enabled);assertEquals(3,M9Bracket1A.Settings.read(m).frames);
++        m.put(M9Bracket1A.ENABLED,"1");m.put(M9Bracket1A.FRAMES,"7");m.put(M9Bracket1A.STEP,"4");
++        assertTrue(M9Bracket1A.Settings.read(m).enabled);assertEquals(2,M9Bracket1A.Settings.read(m).halfStops);
++    }
++    @Test public void everySeriesSavesRequestedCountAtFixedIsoForAllOutputModes(){
++        for(int mode=0;mode<3;mode++)for(int count:new int[]{3,5,7})for(int order=0;order<2;order++)for(int step=1;step<=4;step++) {
++            M9Bracket1A.Series s=new M9Bracket1A.Series();long token=start(s,count,step,order,mode);
++            assertTrue(token>0);assertEquals(0,start(s,count,step,order,mode));
++            double[] ev=new M9Bracket1A.Settings(true,count,step,order).offsets();
++            for(int i=0;i<count;i++) {
++                long now=100+i*2000;assertTrue(s.request(token,normal(),now));assertFalse(s.request(token,normal(),now));
++                M9ExposurePlan1A f=s.frame(token,normal(),plan(10+i,now),1000+i,now,1000,1000000000L);
++                assertNotNull(f);assertEquals(160,f.iso);assertEquals(Math.round(10000000*Math.pow(2,ev[i])),f.exposureNs);
++                assertEquals(10,f.bracket.basePlanId);assertEquals(ev[i],f.bracket.requestedEv,0);
++                assertEquals(mode,f.bracket.saveMode);assertEquals(i,f.bracket.index);assertEquals(count,f.bracket.count);
++                assertFalse(s.ready());assertNull(s.frame(token,normal(),plan(10,now),33,now,1,Long.MAX_VALUE));
++                M9Bracket1A.Completion done=new M9Bracket1A.Completion(f.bracket,0);
++                assertEquals(i==count-1?2:1,s.complete(done,normal(),now+50));
++                assertEquals(0,s.complete(done,normal(),now+51));
++            }
++            assertFalse(s.active());
++        }
++    }
++    @Test public void actualLimitsClampShutterWithoutChangingIsoOrNumberOfFiles(){
++        M9Bracket1A.Series s=new M9Bracket1A.Series();long t=start(s,3,4,1,1);
++        long[] times={8000000,10000000,12000000};
++        for(int i=0;i<3;i++){
++            assertTrue(s.request(t,normal(),100));
++            M9ExposurePlan1A f=s.frame(t,normal(),plan(10,100),20+i,100,8000000,12000000);
++            assertEquals(times[i],f.exposureNs);assertEquals(160,f.iso);
++            assertEquals(Math.log(times[i]/10000000.0)/Math.log(2),f.bracket.actualEv,1e-12);
++            assertEquals(i==2?2:1,s.complete(new M9Bracket1A.Completion(f.bracket,0),normal(),101));
++        }
++    }
++    @Test public void tc20DoesNotNormalizeBracketBrightnessBackToTheCentre(){
++        M9ExposurePlan1A base=plan(10,100);
++        double referenceGain=-1;
++        for(int stop=-3;stop<=3;stop++){
++            long time=M9Bracket1A.shutter(base.exposureNs,stop,1000,1000000000);
++            M9Bracket1A.Frame metadata=new M9Bracket1A.Frame(1,20,10,base.exposureNs,base.iso,stop+3,7,stop,time,1,false,2,2,3);
++            M9ExposurePlan1A f=M9Bracket1A.project(base,base,20,100,metadata,time);
++            double scale=f.renderIntentScale(f.iso,f.exposureNs);
++            double median=40*scale,tail=80*scale;
++            double gain=M9ExposurePlan1A.neutralBaseGain(median,scale,64);
++            if(referenceGain<0)referenceGain=gain;
++            assertEquals(referenceGain,gain,1e-12);
++            assertEquals(2.5,M9ExposurePlan1A.neutralGuardGain(tail,scale,200),1e-12);
++            assertEquals(64*scale,median*gain,1e-10);
++            assertEquals(base.userEv,f.userEv,0);assertEquals(base.autoEv,f.autoEv,0);
++        }
++    }
++    @Test public void liveReferencePreservesSceneChangesAndActualSensorExposure(){
++        M9ExposurePlan1A base=plan(10,100);
++        M9ExposurePlan1A live=new M9ExposurePlan1A(11,2000,2,"0","PHOTO",200,5000000,200,5000000,
++                160,5000000,base.userEv,0,"new scene",0,0,100);
++        M9Bracket1A.Frame meta=new M9Bracket1A.Frame(1,20,10,base.exposureNs,160,1,3,1,20000000,1,false,2,2,3);
++        M9ExposurePlan1A f=M9Bracket1A.project(base,live,20,2000,meta,20000000);
++        assertEquals(5000000,f.referenceExposureNs);assertEquals(160,f.iso);assertEquals(20000000,f.exposureNs);
++        assertEquals(3.2,f.renderIntentScale(160,20000000),1e-12);
++        assertEquals(2.4,f.renderIntentScale(160,15000000),1e-12); // HAL limited time
++        assertEquals(12,f.aeLockSourcePlanId);
++    }
++    @Test public void metadataSurvivesAllPlanCopiesAndDiagnostics() throws Exception {
++        M9Bracket1A.Series s=new M9Bracket1A.Series();long token=start(s,3,1,0,1);s.request(token,normal(),100);
++        M9ExposurePlan1A f=s.frame(token,normal(),plan(10,100),11,100,1,Long.MAX_VALUE);
++        M9ExposurePlan1A copy=f.withAutoIsoControls("x").withAutoPlacement2D("{}")
++                .withAllocationSnapshot2G("{}").withAeLockState(4,3).withShutterPreviewSnapshot1W("{}");
++        assertSame(f.bracket,copy.bracket);
++        JSONObject json=M9ExposurePlanDiagnostics1A.toJson(copy);
++        assertTrue(json.getBoolean("bracketingFrame"));assertFalse(json.getBoolean("bracketingHdrMerge"));
++        assertEquals(3,json.getInt("bracketingCount"));assertEquals(token,json.getLong("bracketingSeriesId"));
++    }
++    @Test public void cancelledAndPreviousControllerEventsCannotAdvanceNewSeries(){
++        M9Bracket1A.Series old=new M9Bracket1A.Series();long t=start(old,3,1,0,1);old.request(t,normal(),100);
++        M9ExposurePlan1A f=old.frame(t,normal(),plan(10,100),11,100,1,Long.MAX_VALUE);old.cancel();
++        assertFalse(old.request(t,normal(),200));assertNull(old.frame(t,normal(),plan(1,200),3,200,1,Long.MAX_VALUE));
++        M9Bracket1A.Series next=new M9Bracket1A.Series();long nextToken=start(next,3,1,0,1);assertNotEquals(t,nextToken);
++        next.request(nextToken,normal(),100);next.frame(nextToken,normal(),plan(10,100),11,100,1,Long.MAX_VALUE);
++        assertEquals(0,next.complete(new M9Bracket1A.Completion(f.bracket,0),normal(),110));assertTrue(next.active());
++    }
++    @Test public void contextChangesAndSaveFailureStopTheRemainingSeries(){
++        for(M9Bracket1A.Context changed:new M9Bracket1A.Context[]{context(0,"0",1,2,"jpegraw"),
++                context(-1.0/3,"1",1,2,"jpegraw"),context(-1.0/3,"0",2,2,"jpegraw"),
++                context(-1.0/3,"0",1,3,"jpegraw"),context(-1.0/3,"0",1,2,"raw")}) {
++            M9Bracket1A.Series s=new M9Bracket1A.Series();long t=start(s,3,1,0,1);s.request(t,normal(),100);
++            M9ExposurePlan1A f=s.frame(t,normal(),plan(10,100),11,100,1,Long.MAX_VALUE);
++            assertFalse(s.valid(t,changed));assertEquals(-1,s.complete(new M9Bracket1A.Completion(f.bracket,0),changed,101));
++            assertFalse(s.active());
++        }
++        M9Bracket1A.Series s=new M9Bracket1A.Series();long t=start(s,3,1,0,1);s.request(t,normal(),100);
++        M9ExposurePlan1A f=s.frame(t,normal(),plan(10,100),11,100,1,Long.MAX_VALUE);
++        assertEquals(-1,s.complete(new M9Bracket1A.Completion(f.bracket,M9SaveStatus.DNG),normal(),101));
++        assertFalse(s.active());
++    }
++    @Test public void freshnessAndDeadlinesDoNotTruncateLongExposure(){
++        M9Bracket1A.Series s=new M9Bracket1A.Series();long t=start(s,3,1,0,1);
++        assertFalse(s.expired(20099));assertTrue(s.expired(20100));s.request(t,normal(),200);
++        assertNull(s.frame(t,normal(),plan(10,100),11,1601,1,Long.MAX_VALUE));
++        assertNull(s.frame(t,normal(),plan(10,100),11,99,1,Long.MAX_VALUE));
++        M9ExposurePlan1A longPlan=new M9ExposurePlan1A(10,1000,1,"0","PHOTO",160,240000000000L,
++                160,240000000000L,160,240000000000L,-1.0/3,0,"long",0,0,100);
++        assertNotNull(s.frame(t,normal(),longPlan,11,1000,1,Long.MAX_VALUE));
++        assertFalse(s.expired(360999));assertTrue(s.expired(361000));
++    }
++    @Test public void finalOutputTicketRequiresSelectedFormatsAndCompletesExactlyOnce() throws Exception {
++        for(int mode=0;mode<3;mode++) {
++            M9SaveStatus status=new M9SaveStatus();AtomicInteger calls=new AtomicInteger(),issues=new AtomicInteger(-1);
++            M9SaveStatus.Ticket ticket=status.begin(M9SaveSelection.fromMode(mode,false),p->{calls.incrementAndGet();issues.set(p);});
++            assertEquals(0,calls.get());assertEquals(1,status.snapshot().pending);
++            ticket.complete(mode!=2,mode!=0,mode!=0,false,true);
++            ticket.complete(false,false,false,false,false);ticket.fail(32);
++            assertEquals(1,calls.get());assertEquals(0,issues.get());assertEquals(1,status.snapshot().saved);
++        }
++        M9SaveStatus status=new M9SaveStatus();AtomicInteger issues=new AtomicInteger();
++        M9SaveStatus.Ticket missing=status.begin(M9SaveSelection.fromMode(1,false),issues::set);
++        missing.complete(true,false,false,false,true);assertEquals(M9SaveStatus.DNG,issues.get());
++    }
++    @Test public void concurrentCompletionAndFailureOnlyReleaseOneEvent() throws Exception {
++        M9SaveStatus status=new M9SaveStatus();AtomicInteger calls=new AtomicInteger();
++        M9SaveStatus.Ticket ticket=status.begin(M9SaveSelection.fromMode(0,false),p->calls.incrementAndGet());
++        Thread a=new Thread(()->ticket.complete(true,false,false,false,true));
++        Thread b=new Thread(()->ticket.fail(M9SaveStatus.PROCESSING));a.start();b.start();a.join();b.join();
++        assertEquals(1,calls.get());assertEquals(0,status.snapshot().pending);
++    }
++}
