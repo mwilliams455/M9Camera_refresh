@@ -1,0 +1,784 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27243
++        versionCode 27244
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.43-m9uioverlay1e'
++        versionName '2.44-m9uioverlay1f'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.43_UIOVERLAY1E-${variant.name}.apk"
++            outputFileName = "M9Cam_2.44_UIOVERLAY1F-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+@@ -13,6 +13,7 @@
+ import android.view.View;
+ import android.view.ViewGroup;
+ import android.widget.LinearLayout;
++import android.widget.ImageButton;
+ import android.widget.PopupWindow;
+ import android.widget.TextView;
+ import android.widget.Toast;
+@@ -22,6 +23,7 @@
+ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+ import com.particlesdevs.photoncamera.R;
+ import com.particlesdevs.photoncamera.api.CameraMode;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
+ import com.particlesdevs.photoncamera.capture.CaptureController;
+ import com.particlesdevs.photoncamera.m9.M9SaveStatus;
+ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+@@ -44,7 +46,8 @@
+     private final M9LinearManualView manualRuler;
+     private volatile boolean burstLocked;
+     private boolean resumed;
+-    private PopupWindow renderPopup;
++    private PopupWindow renderPopup, quickPopup;
++    private M9ShootingControls shootingControls;
+     private Dialog settingsDialog;
+ 
+     private final Runnable tick = new Runnable() {
+@@ -158,6 +161,7 @@
+         }
+         if (!heading.contentEquals(captureStatus.getText())) captureStatus.setText(heading);
+         if (!enabled) dismissSurfaces();
++        else if (shootingControls != null) shootingControls.refresh();
+     }
+ 
+     private void mirror(int i) {
+@@ -279,46 +283,55 @@
+ 
+     private void showQuickControls() {
+         if (!allowAction()) return;
+-        dismissSurfaces();
+-        String[] items = {
+-                context.getString(R.string.m9_overlay_timer) + " · " + timerLabel(),
+-                context.getString(R.string.m9_overlay_grid),
+-                context.getString(R.string.m9_display_title),
+-                context.getString(R.string.m9_overlay_zoom_lock),
+-                context.getString(R.string.m9_overlay_more_modes)};
+-        settingsDialog = new MaterialAlertDialogBuilder(context)
+-                .setTitle(R.string.m9_overlay_quick_controls)
+-                .setItems(items, (dialog, which) -> {
+-                    if (!allowAction()) return;
+-                    switch (which) {
+-                        case 0: showTimer(); break;
+-                        case 1: root.findViewById(R.id.grid_toggle_button).performClick(); break;
+-                        case 2: root.findViewById(R.id.m9_display_aids_button).performClick(); break;
+-                        case 3: root.findViewById(R.id.zoom_lock_button).performClick(); break;
+-                        case 4: showOtherModes(); break;
+-                        default: break;
++        if (quickPopup != null && quickPopup.isShowing()) { dismissSurfaces(); return; }
++        dismissSurfaces();
++        shootingControls = new M9ShootingControls(context,
++                PhotonCamera.getSettingsManagerStatic().getDefaultPreferences(), overlayPreferences,
++                new M9ShootingControls.Host() {
++                    public boolean available() { return M9OverlayController.this.available(); }
++                    public int timer() { return PreferenceKeys.getCountdownTimerIndex(); }
++                    public void timer(int target) {
++                        for (int n = 0; n < 3 && timer() != target; n++)
++                            root.findViewById(R.id.countdown_timer_button).performClick();
+                     }
+-                }).setNegativeButton(android.R.string.cancel, null).create();
+-        settingsDialog.show();
+-    }
+-
+-    private String timerLabel() {
+-        int seconds = com.particlesdevs.photoncamera.m9.M9SelfTimer1A.seconds(PreferenceKeys.getCountdownTimerIndex());
+-        return seconds == 0 ? context.getString(R.string.off) : seconds + " s";
+-    }
+-
+-    private void showTimer() {
+-        String[] values = {context.getString(R.string.off), "2 s", "12 s"};
+-        settingsDialog = new MaterialAlertDialogBuilder(context).setTitle(R.string.m9_overlay_timer)
+-                .setSingleChoiceItems(values, PreferenceKeys.getCountdownTimerIndex(), (d, target) -> {
+-                    if (!allowAction()) return;
+-                    // Reuse the accepted timer action; at most two steps around its three states.
+-                    for (int n = 0; n < 3 && PreferenceKeys.getCountdownTimerIndex() != target; n++)
+-                        root.findViewById(R.id.countdown_timer_button).performClick();
+-                    dismissSurfaces();
+-                    refresh();
+-                }).setNegativeButton(android.R.string.cancel, null).create();
+-        settingsDialog.show();
++                    public int grid() { return PreferenceKeys.getGridValue(); }
++                    public void grid(int target) {
++                        int count = context.getResources().getStringArray(R.array.vf_grid_entries).length;
++                        for (int n = 0; n < count && grid() != target; n++)
++                            root.findViewById(R.id.grid_toggle_button).performClick();
++                    }
++                    public boolean displayAvailable() {
++                        return root.findViewById(R.id.m9_display_aids_button).getVisibility() == View.VISIBLE;
++                    }
++                    public boolean autoSwitch() { return PreferenceKeys.isAutoZoomSwitchOn(); }
++                    public boolean lockAvailable() {
++                        return autoSwitch() && fragment.cameraFragmentBinding.auxButtonsContainer.getChildCount() > 1
++                                && root.findViewById(R.id.zoom_lock_button).hasOnClickListeners();
++                    }
++                    public boolean locked() { return fragment.captureController.isLensSwitchLocked(); }
++                    public void toggleLock() { root.findViewById(R.id.zoom_lock_button).performClick(); }
++                    public void otherModes() { dismissSurfaces(); showOtherModes(); }
++                    public void dismiss() { dismissSurfaces(); }
++                });
++        int width = Math.min(root.getWidth() - dp(24), dp(420));
++        PopupWindow popup = new PopupWindow(shootingControls, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
++        quickPopup = popup;
++        popup.setBackgroundDrawable(shootingControls.getBackground());
++        popup.setOutsideTouchable(true);
++        popup.setElevation(dp(12));
++        popup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
++        popup.setOnDismissListener(() -> {
++            if (quickPopup == popup) {
++                if (shootingControls != null) shootingControls.close();
++                shootingControls = null;
++                quickPopup = null;
++                ((ImageButton) quickControls).setImageResource(R.drawable.m9_overlay_chevron_down);
++                quickControls.setContentDescription(context.getString(R.string.m9_shooting_expand));
++            }
++        });
++        ((ImageButton) quickControls).setImageResource(R.drawable.m9_overlay_chevron_up);
++        quickControls.setContentDescription(context.getString(R.string.m9_shooting_collapse));
++        popup.showAsDropDown(quickControls, (quickControls.getWidth() - width) / 2, dp(6));
+     }
+ 
+     private void showOtherModes() {
+@@ -332,6 +345,10 @@
+     }
+ 
+     private void dismissSurfaces() {
++        if (quickPopup != null) quickPopup.dismiss();
++        quickPopup = null;
++        if (shootingControls != null) shootingControls.close();
++        shootingControls = null;
+         if (renderPopup != null) renderPopup.dismiss();
+         renderPopup = null;
+         if (settingsDialog != null) settingsDialog.dismiss();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControls.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControls.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControls.java
+@@ -0,0 +1,226 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Dialog;
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.graphics.Typeface;
++import android.graphics.drawable.GradientDrawable;
++import android.view.Gravity;
++import android.view.View;
++import android.view.accessibility.AccessibilityNodeInfo;
++import android.widget.ImageView;
++import android.widget.LinearLayout;
++import android.widget.TextView;
++import androidx.core.view.ViewCompat;
++import com.google.android.material.dialog.MaterialAlertDialogBuilder;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.m9.M9DisplayAids;
++
++/** Camera-only quick panel. Its state comes from the existing controls/preferences. */
++final class M9ShootingControls extends LinearLayout implements AutoCloseable {
++    interface Host {
++        boolean available();
++        int timer();
++        void timer(int index);
++        int grid();
++        void grid(int index);
++        boolean displayAvailable();
++        boolean lockAvailable();
++        boolean locked();
++        boolean autoSwitch();
++        void toggleLock();
++        void otherModes();
++        void dismiss();
++    }
++
++    private final Host host;
++    private final SharedPreferences preferences, remembered;
++    private final Tile[] tiles = new Tile[6];
++    private final int[] labels = {R.string.m9_overlay_timer, R.string.m9_overlay_grid,
++            R.string.m9_display_histogram, R.string.m9_shooting_highlights,
++            R.string.m9_shooting_shadows, R.string.m9_shooting_lens_lock};
++    private Dialog choices;
++
++    M9ShootingControls(Context context, SharedPreferences preferences,
++                       SharedPreferences remembered, Host host) {
++        super(context);
++        this.host = host; this.preferences = preferences; this.remembered = remembered;
++        setOrientation(VERTICAL);
++        setPadding(dp(12), dp(8), dp(12), dp(12));
++        setBackground(surface(0xFF171719, 20));
++        LinearLayout heading = new LinearLayout(context);
++        TextView title = text(context.getString(R.string.m9_overlay_quick_controls), 16, 0xFFFFFFFF);
++        title.setTypeface(null, Typeface.BOLD);
++        heading.addView(title, new LayoutParams(0, dp(48), 1));
++        TextView close = text("×", 26, 0xFFFFFFFF);
++        close.setGravity(Gravity.CENTER);
++        close.setContentDescription(context.getString(R.string.m9_overlay_close));
++        close.setOnClickListener(v -> host.dismiss());
++        heading.addView(close, new LayoutParams(dp(48), dp(48)));
++        addView(heading);
++        int[] icons = {R.drawable.m9_overlay_timer, R.drawable.ic_grid_on, R.drawable.ic_m9_display_aids,
++                R.drawable.m9_overlay_highlights, R.drawable.m9_overlay_shadows, R.drawable.ic_zoom_lock};
++        for (int row = 0; row < 2; row++) {
++            LinearLayout line = new LinearLayout(context);
++            for (int column = 0; column < 3; column++) {
++                int index = row * 3 + column;
++                Tile tile = new Tile(context, labels[index], icons[index]);
++                tiles[index] = tile;
++                tile.setOnClickListener(v -> toggle(index));
++                if (index < 5) tile.setOnLongClickListener(v -> { choose(index); return true; });
++                LayoutParams lp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1);
++                lp.setMargins(dp(3), dp(3), dp(3), dp(3));
++                line.addView(tile, lp);
++            }
++            addView(line);
++        }
++        TextView hint = text(context.getString(R.string.m9_shooting_hint), 12, 0xFFB0B0B6);
++        hint.setGravity(Gravity.CENTER);
++        hint.setPadding(0, dp(10), 0, dp(6));
++        addView(hint);
++        TextView more = text(context.getString(R.string.m9_overlay_more_modes) + "  ›", 14, 0xFFFFFFFF);
++        more.setGravity(Gravity.CENTER);
++        more.setMinHeight(dp(48));
++        more.setOnClickListener(v -> { if (host.available()) host.otherModes(); });
++        addView(more);
++        refresh();
++    }
++
++    private String[] entries(int index) {
++        if (index == 0) return new String[]{getContext().getString(R.string.off), "2 s", "12 s"};
++        int[] arrays = {0, R.array.vf_grid_entries, R.array.m9_histogram_choices,
++                R.array.m9_highlight_entries, R.array.m9_shadow_entries};
++        return getResources().getStringArray(arrays[index]);
++    }
++
++    private int current(int index) {
++        M9DisplayAids.Settings aids = M9DisplayAids.read(preferences.getAll());
++        switch (index) {
++            case 0: return host.timer();
++            case 1: return host.grid();
++            case 2: return aids.histogram();
++            case 3: return aids.highlights == 0 ? 0 : 101 - aids.highlights;
++            case 4: return aids.shadows + 1;
++            default: return host.locked() ? 1 : 0;
++        }
++    }
++
++    private boolean supported(int index) {
++        return index >= 2 && index <= 4 ? host.displayAvailable()
++                : index != 5 || host.lockAvailable();
++    }
++
++    void refresh() {
++        boolean ready = host.available();
++        for (int index = 0; index < tiles.length; index++) {
++            int value = current(index);
++            boolean supported = supported(index);
++            String state = index == 5 ? getContext().getString(value == 0 ? R.string.off : R.string.on)
++                    : entries(index)[Math.max(0, Math.min(value, entries(index).length - 1))];
++            if (!supported) state = getContext().getString(index == 5 && !host.autoSwitch()
++                    ? R.string.m9_shooting_fixed_lock : R.string.m9_shooting_unavailable);
++            tiles[index].bind(value != 0, ready && supported, state);
++        }
++    }
++
++    private void toggle(int index) {
++        if (!host.available() || !supported(index)) return;
++        if (index == 5) host.toggleLock();
++        else {
++            int value = current(index);
++            if (value > 0) {
++                remembered.edit().putInt("quick_last_" + index, value).apply();
++                apply(index, 0);
++            } else {
++                int fallback = index == 2 ? 2 : 1;
++                int last = remembered.getInt("quick_last_" + index, fallback);
++                apply(index, last > 0 && last < entries(index).length ? last : fallback);
++            }
++        }
++        refresh();
++    }
++
++    private void apply(int index, int value) {
++        if (index == 0) host.timer(value);
++        else if (index == 1) host.grid(value);
++        else {
++            M9DisplayAids.Settings aids = M9DisplayAids.read(preferences.getAll());
++            String key = index == 2 ? M9DisplayAids.MODE_KEY
++                    : index == 3 ? M9DisplayAids.HIGHLIGHT_KEY : M9DisplayAids.SHADOW_KEY;
++            int stored = index == 2 ? M9DisplayAids.withHistogram(aids.mode, value)
++                    : index == 3 ? (value == 0 ? 0 : 101 - value) : value - 1;
++            preferences.edit().putString(key, Integer.toString(stored)).apply();
++        }
++    }
++
++    private void choose(int index) {
++        if (!host.available() || !supported(index)) return;
++        close();
++        choices = new MaterialAlertDialogBuilder(getContext()).setTitle(labels[index])
++                .setSingleChoiceItems(entries(index), current(index), (dialog, value) -> {
++                    if (!host.available() || !supported(index)) { close(); return; }
++                    int previous = current(index);
++                    if (value > 0 || previous > 0)
++                        remembered.edit().putInt("quick_last_" + index, value > 0 ? value : previous).apply();
++                    apply(index, value);
++                    close();
++                    refresh();
++                }).setNegativeButton(android.R.string.cancel, null).create();
++        choices.show();
++    }
++
++    @Override public void close() {
++        if (choices != null) choices.dismiss();
++        choices = null;
++    }
++
++    private TextView text(String value, int size, int color) {
++        TextView text = new TextView(getContext());
++        text.setText(value); text.setTextSize(size); text.setTextColor(color);
++        text.setGravity(Gravity.CENTER_VERTICAL);
++        return text;
++    }
++    private GradientDrawable surface(int color, int radius) {
++        GradientDrawable shape = new GradientDrawable();
++        shape.setColor(color); shape.setCornerRadius(dp(radius));
++        return shape;
++    }
++    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
++
++    private final class Tile extends LinearLayout {
++        private final TextView state;
++        private final String label;
++        Tile(Context context, int labelId, int iconId) {
++            super(context);
++            label = context.getString(labelId);
++            setOrientation(VERTICAL); setGravity(Gravity.CENTER);
++            setPadding(dp(4), dp(10), dp(4), dp(10)); setMinimumHeight(dp(100));
++            setFocusable(true); setClipToOutline(true);
++            ImageView icon = new ImageView(context);
++            icon.setImageResource(iconId); icon.setColorFilter(0xFFFFFFFF);
++            addView(icon, new LayoutParams(dp(24), dp(24)));
++            TextView name = text(label, 12, 0xFFFFFFFF);
++            name.setGravity(Gravity.CENTER); name.setPadding(0, dp(6), 0, 0);
++            addView(name);
++            state = text("", 11, 0xFFB0B0B6);
++            state.setGravity(Gravity.CENTER); addView(state);
++            for (int i = 0; i < getChildCount(); i++)
++                getChildAt(i).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
++            setContentDescription(label);
++        }
++        void bind(boolean checked, boolean enabled, String value) {
++            if (getBackground() == null || checked != isSelected())
++                setBackground(surface(checked ? 0xFF424247 : 0xFF242427, 12));
++            setSelected(checked); setEnabled(enabled); setAlpha(enabled ? 1f : .45f);
++            if (!value.contentEquals(state.getText())) {
++                state.setText(value);
++                ViewCompat.setStateDescription(this, value);
++            }
++        }
++        @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
++            super.onInitializeAccessibilityNodeInfo(info);
++            info.setClassName("android.widget.Switch");
++            info.setCheckable(true); info.setChecked(isSelected());
++        }
++    }
++}
+diff --git a/app/src/main/res/color/m9_overlay_mode_text.xml b/app/src/main/res/color/m9_overlay_mode_text.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/color/m9_overlay_mode_text.xml
+@@ -0,0 +1,4 @@
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_selected="true" android:color="#FFFFFFFF" />
++    <item android:color="#FF99999F" />
++</selector>
+diff --git a/app/src/main/res/drawable/m9_overlay_chevron_up.xml b/app/src/main/res/drawable/m9_overlay_chevron_up.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_chevron_up.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:height="24dp" android:width="24dp"
++    android:viewportWidth="24" android:viewportHeight="24">
++    <group android:pivotX="12" android:pivotY="12" android:rotation="0">
++        <path android:fillColor="@color/cam_on_surface"
++            android:pathData="M7.4,16l4.5-5h0.2l4.5,5l1.4-1.5L12.1,8h-0.2L6,14.5L7.4,16z" />
++    </group>
++</vector>
+diff --git a/app/src/main/res/drawable/m9_overlay_highlights.xml b/app/src/main/res/drawable/m9_overlay_highlights.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_highlights.xml
+@@ -0,0 +1,3 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.7" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M12,3 L21,20 L3,20 Z M12,8 L12,13 M12,16 L12,17"/>
++</vector>
+diff --git a/app/src/main/res/drawable/m9_overlay_mode_underline.xml b/app/src/main/res/drawable/m9_overlay_mode_underline.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_mode_underline.xml
+@@ -0,0 +1,8 @@
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_selected="true">
++        <layer-list><item android:gravity="bottom|center_horizontal" android:width="32dp" android:height="2dp" android:bottom="5dp">
++            <shape><solid android:color="#FFFFFFFF"/><corners android:radius="1dp"/></shape>
++        </item></layer-list>
++    </item>
++    <item><shape><solid android:color="@android:color/transparent"/></shape></item>
++</selector>
+diff --git a/app/src/main/res/drawable/m9_overlay_shadows.xml b/app/src/main/res/drawable/m9_overlay_shadows.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_shadows.xml
+@@ -0,0 +1,3 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.7" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M12,3 L21,20 L3,20 Z M8,17 L16,17 M10,13 L14,13"/>
++</vector>
+diff --git a/app/src/main/res/drawable/m9_overlay_timer.xml b/app/src/main/res/drawable/m9_overlay_timer.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_timer.xml
+@@ -0,0 +1,3 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++ <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:pathData="M10,2 L14,2 M12,5 A8,8 0,1 1,11.99 5 M12,9 L12,14 L15,16 M18,5 L20,3"/>
++</vector>
+diff --git a/app/src/main/res/layout/layout_main_bottombar.xml b/app/src/main/res/layout/layout_main_bottombar.xml
+--- a/app/src/main/res/layout/layout_main_bottombar.xml
++++ b/app/src/main/res/layout/layout_main_bottombar.xml
+@@ -7,8 +7,8 @@
+             <include android:id="@+id/m9_controls" layout="@layout/layout_m9_overlay_controls"/>
+             <include android:id="@+id/bottom_buttons" layout="@layout/layout_bottombuttons" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"/>
+             <LinearLayout android:id="@+id/m9_overlay_modes" android:layout_width="match_parent" android:layout_height="52dp" android:gravity="center" android:orientation="horizontal" android:paddingVertical="2dp">
+-                <TextView android:id="@+id/m9_overlay_photo" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_photo" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginEnd="8dp"/>
+-                <TextView android:id="@+id/m9_overlay_motion" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_motion" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginStart="8dp"/>
++                <TextView android:id="@+id/m9_overlay_photo" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_photo" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_mode_text" android:background="@drawable/m9_overlay_mode_underline" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginEnd="8dp"/>
++                <TextView android:id="@+id/m9_overlay_motion" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_motion" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_mode_text" android:background="@drawable/m9_overlay_mode_underline" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginStart="8dp"/>
+             </LinearLayout>
+             <!-- Kept as the existing mode event/state owner. Visible controls use explicit enums. -->
+             <include android:id="@+id/mode_switcher" layout="@layout/layout_modeswitcher" android:layout_width="match_parent" android:layout_height="0dp" android:visibility="gone"/>
+diff --git a/app/src/main/res/layout/layout_main_topbar.xml b/app/src/main/res/layout/layout_main_topbar.xml
+--- a/app/src/main/res/layout/layout_main_topbar.xml
++++ b/app/src/main/res/layout/layout_main_topbar.xml
+@@ -227,47 +227,44 @@
+         </androidx.constraintlayout.widget.ConstraintLayout>
+ 
+ 
+-        <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:orientation="horizontal"
+-            android:paddingHorizontal="14dp" android:gravity="center_vertical" bindViewGroupChildrenRotate="@{uimodel}"
+-            app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintBottom_toBottomOf="parent">
++        <androidx.constraintlayout.widget.ConstraintLayout android:id="@+id/m9_overlay_header"
++            android:layout_width="0dp" android:layout_height="48dp" android:paddingHorizontal="14dp"
++            bindViewGroupChildrenRotate="@{uimodel}"
++            app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
++            app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent">
+             <ImageButton android:id="@+id/m9_overlay_torch" android:layout_width="48dp" android:layout_height="48dp"
+-                android:padding="12dp" android:layout_marginEnd="4dp" android:src="@drawable/ic_torch"
++                android:padding="12dp" android:src="@drawable/ic_torch"
+                 android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true"
+                 android:tint="@color/m9_overlay_text" android:foreground="?attr/selectableItemBackgroundBorderless"
+-                android:contentDescription="@string/m9_overlay_flash" android:tooltipText="@string/m9_overlay_flash" />
++                android:contentDescription="@string/m9_overlay_flash" android:tooltipText="@string/m9_overlay_flash"
++                app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
+             <ImageButton android:id="@+id/m9_overlay_night" android:layout_width="48dp" android:layout_height="48dp"
+-                android:padding="12dp" android:src="@drawable/m9_overlay_moon"
++                android:padding="12dp" android:layout_marginStart="4dp" android:src="@drawable/m9_overlay_moon"
+                 android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true"
+                 android:tint="@color/m9_overlay_text" android:foreground="?attr/selectableItemBackgroundBorderless"
+-                android:contentDescription="@string/mode_night" android:tooltipText="@string/mode_night" />
+-            <TextView android:id="@+id/m9_overlay_capture_status" android:layout_width="0dp" android:layout_height="wrap_content"
+-                android:layout_weight="1" android:textSize="12sp" android:paddingHorizontal="8dp"
+-                android:maxLines="1" android:ellipsize="end" android:textColor="@color/cam_on_surface" />
+-            <ImageButton
+-                    android:id="@+id/m9_overlay_quick_controls"
+-                    android:layout_width="48dp"
+-                    android:layout_height="48dp"
+-                    android:padding="12dp"
+-                    android:background="?attr/selectableItemBackgroundBorderless"
+-                    android:src="@drawable/m9_overlay_chevron_down"
+-                    android:contentDescription="@string/m9_overlay_quick_controls"
+-                    android:tooltipText="@string/m9_overlay_quick_controls" />
+-            <Button
+-                    android:id="@+id/m9_ae_lock_button"
+-                    android:layout_width="64dp"
+-                    android:layout_height="48dp"
+-                    android:minWidth="0dp"
+-                    android:minHeight="48dp"
+-                    android:padding="0dp"
+-                    android:text="@string/m9_ae_lock_label"
+-                    android:singleLine="true"
+-                    android:textSize="12sp"
+-                    android:textColor="@color/m9_ae_lock_text"
+-                    android:background="@drawable/m9_ae_lock_button"
+-                    android:foreground="?attr/selectableItemBackgroundBorderless"
+-                    android:contentDescription="@string/m9_ae_lock_auto"
+-                    android:tooltipText="@string/m9_ae_lock_title"
+-                    android:onClick="@{top_bar_click_listener}" />
+-        </LinearLayout>
++                android:contentDescription="@string/mode_night" android:tooltipText="@string/mode_night"
++                app:layout_constraintStart_toEndOf="@id/m9_overlay_torch" app:layout_constraintTop_toTopOf="parent" />
++            <ImageButton android:id="@+id/m9_overlay_quick_controls"
++                android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp"
++                android:background="?attr/selectableItemBackgroundBorderless"
++                android:src="@drawable/m9_overlay_chevron_down"
++                android:contentDescription="@string/m9_overlay_quick_controls" android:tooltipText="@string/m9_overlay_quick_controls"
++                app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
++                app:layout_constraintTop_toTopOf="parent" />
++            <TextView android:id="@+id/m9_overlay_capture_status" android:layout_width="0dp" android:layout_height="48dp"
++                android:textSize="11sp" android:paddingHorizontal="4dp" android:gravity="center"
++                android:maxLines="2" android:ellipsize="end" android:textColor="@color/cam_on_surface"
++                app:layout_constraintStart_toEndOf="@id/m9_overlay_quick_controls"
++                app:layout_constraintEnd_toStartOf="@id/m9_ae_lock_button" app:layout_goneMarginEnd="64dp"
++                app:layout_constraintTop_toTopOf="parent" />
++            <Button android:id="@+id/m9_ae_lock_button" android:layout_width="64dp" android:layout_height="48dp"
++                android:minWidth="0dp" android:minHeight="48dp" android:padding="0dp"
++                android:text="@string/m9_ae_lock_label" android:singleLine="true" android:textSize="12sp"
++                android:textColor="@color/m9_ae_lock_text" android:background="@drawable/m9_ae_lock_button"
++                android:foreground="?attr/selectableItemBackgroundBorderless"
++                android:contentDescription="@string/m9_ae_lock_auto" android:tooltipText="@string/m9_ae_lock_title"
++                android:onClick="@{top_bar_click_listener}"
++                app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent" />
++        </androidx.constraintlayout.widget.ConstraintLayout>
+     </androidx.constraintlayout.widget.ConstraintLayout>
+ </layout>
+diff --git a/app/src/main/res/values/m9_shooting_controls.xml b/app/src/main/res/values/m9_shooting_controls.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/m9_shooting_controls.xml
+@@ -0,0 +1,10 @@
++<resources>
++    <string name="m9_shooting_hint">Tap to toggle · Hold for options</string>
++    <string name="m9_shooting_highlights">Highlights</string>
++    <string name="m9_shooting_shadows">Shadows</string>
++    <string name="m9_shooting_lens_lock">Lens lock</string>
++    <string name="m9_shooting_unavailable">Unavailable</string>
++    <string name="m9_shooting_fixed_lock">Auto-switch off</string>
++    <string name="m9_shooting_expand">Open shooting controls</string>
++    <string name="m9_shooting_collapse">Close shooting controls</string>
++</resources>
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java
+@@ -0,0 +1,50 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++import org.mockito.MockedStatic;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import com.particlesdevs.photoncamera.settings.PreferenceKeys;
++import android.app.Activity;
++import android.app.Application;
++import android.view.View;
++import com.particlesdevs.photoncamera.R;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.Robolectric;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.android.controller.ActivityController;
++import org.robolectric.annotation.Config;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 35, application = Application.class, qualifiers = "mdpi")
++public class M9OverlayLayoutTest {
++    @Test public void chevronStaysCentredWithAeLockVisibleOrHidden() {
++        try (ActivityController<Activity> controller = Robolectric.buildActivity(Activity.class).setup()) {
++            Activity activity = controller.get(); activity.setTheme(R.style.Theme_Photon_BaseApp);
++            // The real app initializes these before inflating Photon controls; this test
++            // supplies only that app service boundary, retaining real Android layout behavior.
++            try (MockedStatic<PhotonCamera> app = mockStatic(PhotonCamera.class)) {
++            app.when(() -> PhotonCamera.getStringStatic(anyInt())).thenAnswer(call -> activity.getString(call.getArgument(0)));
++            app.when(PhotonCamera::getSettingsManagerStatic).thenReturn(mock(SettingsManager.class));
++            PreferenceKeys.initialise(PhotonCamera.getSettingsManagerStatic());
++            View root = activity.getLayoutInflater().inflate(R.layout.layout_main_topbar, null);
++            View header = root.findViewById(R.id.m9_overlay_header);
++            View arrow = root.findViewById(R.id.m9_overlay_quick_controls);
++            View night = root.findViewById(R.id.m9_overlay_night);
++            View lock = root.findViewById(R.id.m9_ae_lock_button);
++            for (int width : new int[]{320, 360, 480}) for (int visibility : new int[]{View.VISIBLE, View.GONE}) {
++                lock.setVisibility(visibility);
++                root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
++                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
++                root.layout(0, 0, width, root.getMeasuredHeight());
++                assertEquals(header.getWidth() / 2f, (arrow.getLeft() + arrow.getRight()) / 2f, .5f);
++                assertTrue(night.getRight() <= arrow.getLeft());
++                if (visibility == View.VISIBLE) assertTrue(arrow.getRight() <= lock.getLeft());
++                assertTrue(arrow.getHeight() >= 48);
++            }
++            }
++        }
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControlsTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControlsTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9ShootingControlsTest.java
+@@ -0,0 +1,149 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import static org.junit.Assert.*;
++import android.app.Activity;
++import android.app.Application;
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.view.View;
++import android.view.ViewGroup;
++import android.view.accessibility.AccessibilityNodeInfo;
++import androidx.appcompat.app.AlertDialog;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.m9.M9DisplayAids;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.Robolectric;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.android.controller.ActivityController;
++import org.robolectric.annotation.Config;
++import org.robolectric.shadows.ShadowDialog;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 35, application = Application.class)
++public class M9ShootingControlsTest {
++    private ActivityController<Activity> controller;
++    private Activity activity;
++    private SharedPreferences preferences, remembered;
++    private FakeHost host;
++    private M9ShootingControls panel;
++
++    @Before public void setUp() {
++        controller = Robolectric.buildActivity(Activity.class).setup();
++        activity = controller.get(); activity.setTheme(R.style.Theme_Photon_BaseApp);
++        preferences = activity.getSharedPreferences("shooting_test", Context.MODE_PRIVATE);
++        remembered = activity.getSharedPreferences("shooting_test_ui", Context.MODE_PRIVATE);
++        preferences.edit().clear().commit(); remembered.edit().clear().commit();
++        host = new FakeHost();
++        panel = new M9ShootingControls(activity, preferences, remembered, host);
++        activity.setContentView(panel);
++    }
++    @After public void tearDown() { panel.close(); controller.close(); }
++
++    @Test public void timerAndGridRestoreLastChoiceAcrossPanelRecreation() {
++        host.timer = 2; host.grid = 4; panel.refresh();
++        tile(R.string.m9_overlay_timer).performClick();
++        tile(R.string.m9_overlay_grid).performClick();
++        assertEquals(0, host.timer); assertEquals(0, host.grid);
++        panel.close(); panel = new M9ShootingControls(activity, preferences, remembered, host);
++        tile(R.string.m9_overlay_timer).performClick();
++        tile(R.string.m9_overlay_grid).performClick();
++        assertEquals(2, host.timer); assertEquals(4, host.grid);
++    }
++
++    @Test public void histogramTogglePreservesCameraInfoAndRgbChoice() {
++        preferences.edit().putString(M9DisplayAids.MODE_KEY, "2").commit();
++        tile(R.string.m9_display_histogram).performClick();
++        assertEquals("1", preferences.getString(M9DisplayAids.MODE_KEY, ""));
++        tile(R.string.m9_display_histogram).performClick();
++        assertEquals("2", preferences.getString(M9DisplayAids.MODE_KEY, ""));
++    }
++
++    @Test public void clippingTogglesKeepThresholdsAndZeroPercentShadowIsOn() {
++        preferences.edit().putString(M9DisplayAids.HIGHLIGHT_KEY, "97")
++                .putString(M9DisplayAids.SHADOW_KEY, "0").commit();
++        panel.refresh();
++        assertTrue(tile(R.string.m9_shooting_shadows).isSelected());
++        tile(R.string.m9_shooting_highlights).performClick();
++        tile(R.string.m9_shooting_shadows).performClick();
++        assertEquals("0", preferences.getString(M9DisplayAids.HIGHLIGHT_KEY, ""));
++        assertEquals("-1", preferences.getString(M9DisplayAids.SHADOW_KEY, ""));
++        tile(R.string.m9_shooting_highlights).performClick();
++        tile(R.string.m9_shooting_shadows).performClick();
++        assertEquals("97", preferences.getString(M9DisplayAids.HIGHLIGHT_KEY, ""));
++        assertEquals("0", preferences.getString(M9DisplayAids.SHADOW_KEY, ""));
++    }
++
++    @Test public void busyAndUnsupportedActionsCannotChangeState() {
++        host.ready = false; panel.refresh();
++        tile(R.string.m9_overlay_timer).performClick();
++        tile(R.string.m9_shooting_highlights).performClick();
++        assertEquals(0, host.timer); assertTrue(preferences.getAll().isEmpty());
++        host.ready = true; host.display = false; host.auto = false; panel.refresh();
++        tile(R.string.m9_display_histogram).performClick();
++        tile(R.string.m9_shooting_lens_lock).performClick();
++        assertEquals(0, host.lockToggles); assertTrue(preferences.getAll().isEmpty());
++        assertFalse(tile(R.string.m9_display_histogram).isEnabled());
++    }
++
++    @Test public void lockUsesRealActionAndExposesCheckedState() {
++        tile(R.string.m9_shooting_lens_lock).performClick();
++        assertEquals(1, host.lockToggles);
++        AccessibilityNodeInfo info = tile(R.string.m9_shooting_lens_lock).createAccessibilityNodeInfo();
++        assertTrue(info.isCheckable()); assertTrue(info.isChecked());
++        assertEquals("On", info.getStateDescription().toString());
++    }
++
++    @Test public void holdChoosesTimerAndBusyStateBlocksOpenDialogAction() {
++        tile(R.string.m9_overlay_timer).performLongClick();
++        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
++        assertTrue(dialog.isShowing());
++        dialog.getListView().performItemClick(null, 2, 2);
++        assertEquals(2, host.timer); assertFalse(dialog.isShowing());
++        tile(R.string.m9_overlay_timer).performLongClick();
++        dialog = (AlertDialog) ShadowDialog.getLatestDialog();
++        host.ready = false;
++        dialog.getListView().performItemClick(null, 0, 0);
++        assertEquals(2, host.timer); assertFalse(dialog.isShowing());
++    }
++
++    @Test public void closeDismissesChoicesAndInvalidRememberedValueFallsBack() {
++        remembered.edit().putInt("quick_last_0", 99).commit();
++        tile(R.string.m9_overlay_timer).performClick();
++        assertEquals(1, host.timer);
++        tile(R.string.m9_overlay_grid).performLongClick();
++        android.app.Dialog dialog = ShadowDialog.getLatestDialog();
++        panel.close(); assertFalse(dialog.isShowing());
++    }
++
++    private View tile(int label) {
++        View result = find(panel, activity.getString(label));
++        assertNotNull(result); return result;
++    }
++    private View find(View root, String description) {
++        if (description.contentEquals(root.getContentDescription() == null ? "" : root.getContentDescription())) return root;
++        if (root instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) root).getChildCount(); i++) {
++            View found = find(((ViewGroup) root).getChildAt(i), description);
++            if (found != null) return found;
++        }
++        return null;
++    }
++    private static final class FakeHost implements M9ShootingControls.Host {
++        int timer, grid, lockToggles;
++        boolean ready = true, display = true, auto = true, locked;
++        public boolean available() { return ready; }
++        public int timer() { return timer; }
++        public void timer(int index) { timer = index; }
++        public int grid() { return grid; }
++        public void grid(int index) { grid = index; }
++        public boolean displayAvailable() { return display; }
++        public boolean lockAvailable() { return auto; }
++        public boolean locked() { return locked; }
++        public boolean autoSwitch() { return auto; }
++        public void toggleLock() { lockToggles++; locked = !locked; }
++        public void otherModes() {}
++        public void dismiss() {}
++    }
++}
