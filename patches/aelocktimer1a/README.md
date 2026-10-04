@@ -1,6 +1,6 @@
 # M9Cam 2.37 AELOCKTIMER1A
 
-Parent: `f15e38c20b55879e8a8321435c8c72e8207ac989`, M9Cam 2.36 AUTOISO1A. On 4 October 2026 Malcolm confirmed that 2.36 worked and requested AE lock and the self-timer next. This build implements both. 2.37 is built and verified locally; phone validation is pending.
+Parent: `f15e38c20b55879e8a8321435c8c72e8207ac989`, M9Cam 2.36 AUTOISO1A. On 4 October 2026 Malcolm confirmed that 2.36 worked and requested AE lock and the self-timer next. This build implements both. On the same date Malcolm reported “Both worked”, accepting AE lock and the self-timer in 2.37 on the phone.
 
 ## Photographer controls
 
@@ -36,7 +36,7 @@ Automatic exposure when unlocked is unchanged: `IsoExpoSelector` differs only by
 - All 2.36 selected regression suites remain, including 7,800 physical ISO/shutter allocation cases and profile compatibility.
 - A 28-file hash-checked patch round trip passes. 1,185 parent files are exact. The entire unlocked allocator is byte-identical after removing the two new locked-reference helpers. All saved renderer code and preview geometry/shader code are exact parent copies.
 - The package verifies all assets against accepted 2.36 and preserves all 25 native entries; compiled AE-L/timer controls, upgrade package/version/certificate, ZIP integrity and 16 KiB alignment pass.
-- No handset or emulator UI/photographic validation was performed. Existing preview gain bounds and phone camera behavior still apply. Test lock/recompose/capture and both countdown lengths on the phone.
+- No handset or emulator UI/photographic validation was performed by the build environment. Malcolm subsequently reported that both features worked on the phone; this is user acceptance, not a claim of exhaustive device or countdown-length coverage. Existing preview gain bounds and phone camera behavior still apply.
 
 ## Recovery and next work
 
@@ -44,6 +44,6 @@ Automatic exposure when unlocked is unchanged: `IsoExpoSelector` differs only by
 
 `verify_source.py <2.36-tree> <2.37-tree> <report.json>` checks complete scope, round trip, integration and XML controls. `package.py <2.37-tree> <built-apk> <accepted-2.36-apk> <build-tools-35.0.0> <delivery>` signs an in-place upgrade while retaining natives. Accepted 2.36 APK SHA256: `47e2e9a4444c62aee840e2b4cddb9ad29def80aa450eb03ec0844d36accc4d75`.
 
-Next: phone-check this pair of features, then review the remaining control/colour/framing checklist and plan the requested M9 Colour / M Monochrom single-app architecture. The 2.34 producer-transform integration remains withdrawn; do not reintroduce it during controls work. Bracketing and cross-lens colour/fringing investigations remain deferred pending prioritization.
+Next: review the remaining control/colour/framing checklist against the original M9 menu, then plan the requested M9 Colour / M Monochrom single-app architecture. Malcolm requested the menu comparison after accepting 2.37; no subsequent feature build has been requested. The 2.34 producer-transform integration remains withdrawn; do not reintroduce it during controls work. Bracketing and cross-lens colour/fringing investigations remain deferred pending prioritization.
 
 Source and recovery stay private under the inherited firmware publication restriction. No public push is attempted.
