@@ -1,0 +1,20 @@
+{
+  "revision": "M9RAWREADOUT1A",
+  "parentCommit": "c39394ab90aa3ba6c2d0fd9f61b9d574ccb1b032",
+  "photonCommit": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "patchSha256": "335dc0272cf2ac99a60c1bcbf69bea6cbaf0d40e6b1088dc055f5d1ed69e9b7f",
+  "fileOverrides": {
+    "app/build.gradle": "a2fe3f667a6657ca03aec1d081fd6f5f52d71b3f01ea2db566a3e7271e12b316",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "4abab6b4cc8e88440861c3de9c35868cf7f651ca2ff8d0c52d9e6c872872c89e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9CaptureRequestAudit1A.java": "39f11aa10a0b585ac38209a1cc15436457c92f7082a144db540c8d11f0063fc8",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/capture/M9RawReadoutAudit1A.java": "ec8cd0f02ed2c8fe73740426f34b7daa593b6fd7ca719b7ae3ad2041a32f7d63",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/capture/M9RawReadoutAuditTest.java": "83eceb29b5c356153f3d4b5423c74ce544aee2a0d0bbb674a477dee29a75ba07"
+  },
+  "readOnlyDiagnostics": true,
+  "capturePolicyUnchanged": true,
+  "jpegRendererUnchanged": true,
+  "dngPipelineUnchanged": true,
+  "inventoryMaxCameras": 16,
+  "inventoryMaxRecordChars": 49152,
+  "timestampStoreUnchanged": true
+}
