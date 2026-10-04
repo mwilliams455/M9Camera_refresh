@@ -1,0 +1,229 @@
+{
+  "firmwareSha256": "4f962bb7799ad9a6745ab36c2a3ba59757bfcbd205f50472ddf1b904a5756d20",
+  "source": {
+    "path": "LUTS/PROCESS/LUTS",
+    "size": 427744,
+    "sha256": "25debaf581d3fdbeca6ad7c6426ca5d9e597b98856c540ceddcc912b79409d8d",
+    "header_u32_0x00": 13,
+    "sharp_source_bank_offset_from_header_0x10": "0xacf8",
+    "sharp_lut_count_from_archive_0x5f4": 2050,
+    "sharp_row_bytes": 4100,
+    "iso_rows": 13,
+    "sharp_bank_total_bytes": 53300,
+    "sharp_bank_end": "0x17d2c",
+    "bank_range_fits_payload": true,
+    "matches_historical_bank_offset_0xacf8": true,
+    "matches_count_2050": true,
+    "matches_13x4100_geometry": true,
+    "row_hashes": [
+      {
+        "iso_slot": 0,
+        "offset": "0xacf8",
+        "size": 4100,
+        "sha256": "2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9"
+      },
+      {
+        "iso_slot": 1,
+        "offset": "0xbcfc",
+        "size": 4100,
+        "sha256": "2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9"
+      },
+      {
+        "iso_slot": 2,
+        "offset": "0xcd00",
+        "size": 4100,
+        "sha256": "2317595946f76c3965b7479c1c68fd66e5a9ac8be81292a91f944a6cde85f6e9"
+      },
+      {
+        "iso_slot": 3,
+        "offset": "0xdd04",
+        "size": 4100,
+        "sha256": "533add730b3082119869cdb4955274f5ff804ed51efe59824cd5987155ce924a"
+      },
+      {
+        "iso_slot": 4,
+        "offset": "0xed08",
+        "size": 4100,
+        "sha256": "533add730b3082119869cdb4955274f5ff804ed51efe59824cd5987155ce924a"
+      },
+      {
+        "iso_slot": 5,
+        "offset": "0xfd0c",
+        "size": 4100,
+        "sha256": "533add730b3082119869cdb4955274f5ff804ed51efe59824cd5987155ce924a"
+      },
+      {
+        "iso_slot": 6,
+        "offset": "0x10d10",
+        "size": 4100,
+        "sha256": "f2b692021542fceb2f9e31e5f3315a77354709f34f79715daa90b52e5c525a24"
+      },
+      {
+        "iso_slot": 7,
+        "offset": "0x11d14",
+        "size": 4100,
+        "sha256": "f2b692021542fceb2f9e31e5f3315a77354709f34f79715daa90b52e5c525a24"
+      },
+      {
+        "iso_slot": 8,
+        "offset": "0x12d18",
+        "size": 4100,
+        "sha256": "f2b692021542fceb2f9e31e5f3315a77354709f34f79715daa90b52e5c525a24"
+      },
+      {
+        "iso_slot": 9,
+        "offset": "0x13d1c",
+        "size": 4100,
+        "sha256": "75c5417aaa04568b3c7ddb894b0cf4633c86208a5ec6e4e25af694254532b995"
+      },
+      {
+        "iso_slot": 10,
+        "offset": "0x14d20",
+        "size": 4100,
+        "sha256": "75c5417aaa04568b3c7ddb894b0cf4633c86208a5ec6e4e25af694254532b995"
+      },
+      {
+        "iso_slot": 11,
+        "offset": "0x15d24",
+        "size": 4100,
+        "sha256": "75c5417aaa04568b3c7ddb894b0cf4633c86208a5ec6e4e25af694254532b995"
+      },
+      {
+        "iso_slot": 12,
+        "offset": "0x16d28",
+        "size": 4100,
+        "sha256": "6f14a5114b17aa7e94279bd4dcd1329de46a458d38c15db4fb3739e8840c75ea"
+      }
+    ],
+    "sharp_mode_table": {
+      "archive_offset": "0x5f8",
+      "layout": "5 selector rows x 13 ISO slots x u32",
+      "row_stride_bytes": 52,
+      "derived_from_set": "process+0x674 + 52*selector + 4*iso_slot -> process+0x658",
+      "rows": [
+        {
+          "selector": 0,
+          "ui_label_if_gate_b_mapping_holds": "Off",
+          "archive_offset": "0x5f8",
+          "mode_values_by_iso_slot": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "all_modes_in_loadandmodify_domain_1_to_7": true
+        },
+        {
+          "selector": 1,
+          "ui_label_if_gate_b_mapping_holds": "Low",
+          "archive_offset": "0x62c",
+          "mode_values_by_iso_slot": [
+            3,
+            3,
+            3,
+            3,
+            3,
+            3,
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            1
+          ],
+          "all_modes_in_loadandmodify_domain_1_to_7": true
+        },
+        {
+          "selector": 2,
+          "ui_label_if_gate_b_mapping_holds": "Standard",
+          "archive_offset": "0x660",
+          "mode_values_by_iso_slot": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            3,
+            3,
+            3,
+            3,
+            3,
+            2,
+            2
+          ],
+          "all_modes_in_loadandmodify_domain_1_to_7": true
+        },
+        {
+          "selector": 3,
+          "ui_label_if_gate_b_mapping_holds": "Medium high",
+          "archive_offset": "0x694",
+          "mode_values_by_iso_slot": [
+            7,
+            7,
+            7,
+            7,
+            7,
+            7,
+            6,
+            6,
+            6,
+            6,
+            6,
+            3,
+            4
+          ],
+          "all_modes_in_loadandmodify_domain_1_to_7": true
+        },
+        {
+          "selector": 4,
+          "ui_label_if_gate_b_mapping_holds": "High",
+          "archive_offset": "0x6c8",
+          "mode_values_by_iso_slot": [
+            5,
+            5,
+            5,
+            5,
+            5,
+            5,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            5
+          ],
+          "all_modes_in_loadandmodify_domain_1_to_7": true
+        }
+      ],
+      "standard_selector_2_modes": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        3,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2
+      ]
+    }
+  },
+  "baseBankSha256": "a9c60000a8ec60ce922f8715436aa45223988f16c5b00fbfc417e546cdf7a8eb",
+  "note": "Off in this app bypasses the added kernel. Table row 0 alone does not prove firmware dispatch gating."
+}

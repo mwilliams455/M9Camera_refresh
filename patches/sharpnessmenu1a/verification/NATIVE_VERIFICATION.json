@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "firmwareCoefficientComparisons": 133185,
+  "kernelPixelComparisons": 490945,
+  "rgbFixtureCases": 585,
+  "offByteExact": true,
+  "flatFieldsExact": true,
+  "neutralRgbExact": true,
+  "ratioErrorBoundHalfCode": true,
+  "inherited18PixelBorderExact": true,
+  "edgeChangedPixels": [
+    0,
+    94,
+    94,
+    94,
+    94
+  ],
+  "kernelScratchBytesAt4096": 24576.0,
+  "host12MpElapsedMs": 176.185955,
+  "scope": "Firmware integer kernel and documented AMaZE RGB adaptation; not full original Leica reconstruction or phone validation",
+  "fineEdgeLevelSeparationGreen16": [
+    [
+      12000,
+      14000
+    ],
+    [
+      11500,
+      14500
+    ],
+    [
+      11000,
+      15000
+    ],
+    [
+      10500,
+      15500
+    ],
+    [
+      10000,
+      16000
+    ]
+  ]
+}

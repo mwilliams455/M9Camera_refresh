@@ -1,0 +1,24 @@
+{
+  "counts": {
+    "tests": 83,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "classes": [
+    "com.particlesdevs.photoncamera.m9.render.M9RenderDiagnosticsTest",
+    "com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestPolicyTest",
+    "com.particlesdevs.photoncamera.m9.render.M9SharpnessSettingsTest",
+    "com.particlesdevs.photoncamera.m9.render.M9SaturationSettingsTest",
+    "com.particlesdevs.photoncamera.processing.M9DngExportMetadataTest",
+    "com.particlesdevs.photoncamera.m9.render.M9SharpnessDiagnosticsTest",
+    "com.particlesdevs.photoncamera.m9.M9SaveSelectionTest",
+    "com.particlesdevs.photoncamera.processing.M9DngNoiseStageTest",
+    "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+    "com.particlesdevs.photoncamera.processing.M9DngColorMetadataTest",
+    "com.particlesdevs.photoncamera.processing.M9DngNoiseProfileTest",
+    "com.particlesdevs.photoncamera.processing.M9Upstream2RRawPackingTest",
+    "com.particlesdevs.photoncamera.m9.capture.M9RawReadoutAuditTest",
+    "com.particlesdevs.photoncamera.m9.render.M9ContrastSettingsTest"
+  ]
+}

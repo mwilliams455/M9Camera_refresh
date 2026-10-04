@@ -1,0 +1,33 @@
+{
+  "parentCommit": "c0caaffe4e623a90731c411f0b1fedfadfbb03af",
+  "version": "2.28-m9sharpnessmenu1a",
+  "default": "Standard",
+  "defaultDecision": "User explicitly selected Leica Standard after disclosure that 2.27 bypasses legacy Sharp",
+  "patchSha256": "d5aecd5eb106b3d9fdc5363a7cb021fb603626bc84739361cdb0b444822d4b96",
+  "parentFiles": {
+    "app/build.gradle": "2346d67ce09b7061a9a9593e855cc088b11761aaa05484ce8c7c9de41396b842",
+    "app/src/main/res/xml/preferences.xml": "6059e02f75d906cef0050332f5679b5ab637dd93add5d77173afadedd0b84b53",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "31176fdd3dd459bef115ad5edb63f5956909ae6ae257b6c8d32c563080f75975",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "e0c799fb0c37b1afe5908b0b8a12fc9bf578f065867323cb31cba01aeebab9bc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "0e4409d6e904846fbf04d36f21b7ec213dbdff14cb5a0c7285df69db9d30ab5c",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java": "7571104aa206fc3bedc1002de87333c06f083ae4876f253bef3747da29a05cbe"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "8e22755278ccd10e9b8ff5666529ba9d5fcea11b6b6ce83909781c42c280bda2",
+    "app/src/main/res/xml/preferences.xml": "de56c6eda0fb2de48768b6f000af60ca34f4641636b18c288172f3841a87e273",
+    "app/src/main/res/values/m9_sharpness.xml": "54796a74c31b70d0d0dee425810d84e7ae98f99383cd251f093cbc1a6203ab9a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9Sharpness.java": "08b61d00b6e9427c5612aa0f8fe3be2c417b74c9fca73984ca3c26036ad4e5bf",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "026642f346891e7f6ae7e4b211c57110a4176861749c8ba409c6ebdffba94be9",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessSettings.java": "21c1411f698d744d0ed35f2027b2838ecfb27c6dc9196686f7ce2d89ba28d51c",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessStage.java": "35d509f4c8f474325796dc74760a92c26b9827a716aba42c0dd3b129458fae30",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "c5d1bfe37fa22d5eaf8eedf8b13c438640746b1aee50004ef1d2f58f2affef02",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "eed5f25c48a142ca4173b2289dc00aa920af867c694245de598cba643ae5f254",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryTimingWriter.java": "7ad3a69fc6169db905fc52266c358e804984401884d2fe4bcc76e52436b740a5",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessSettingsTest.java": "bd91ed160095a5f2016140c8c24b5cbc92e7ee89b888645cf7f202ef38891068",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SharpnessDiagnosticsTest.java": "1d4dac965ae0270417c2aebcee6c637110352ac5c991df5353047a13a25c63fc",
+    "app/src/main/cpp/m9_sharpness.cpp": "b3ad4d54018e39ea9453dcee4ce9093d7c2a580d3da8653ace7b3b76ccd92e23",
+    "app/src/main/cpp/m9_sharpness_bank.h": "e8a511524f6cacff00e027f257ac1e8794f2766f2743df80988b3a09f057ee53"
+  },
+  "unchangedParentFiles": 1108,
+  "nativePolicy": "Preserve all 23 accepted 2.27 native entries; add libm9sharpness.so for both supported ABIs"
+}

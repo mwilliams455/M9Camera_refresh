@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "saveModeCases": 11,
+  "saveStatusCases": 19,
+  "captureQueueCases": 5,
+  "captureQueueEvidence": "CAPTURE_QUEUE_CASES=5: mixed lenses/rotation/output modes; real render capacity; real DNG saturation and synchronous fallback; exception recovery; snapshot failure ownership.\n"
+}
