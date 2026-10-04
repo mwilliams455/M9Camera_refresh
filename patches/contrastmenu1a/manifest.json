@@ -1,13 +1,13 @@
 {
   "parentCommit": "db5538a649cba8d61feb453738053dac8d98a6c1",
   "version": "2.27-m9contrastmenu1a",
-  "patchSha256": "1988da5129e31ad83131d568f6ac42115a2aa1f81172636107de82c682427213",
+  "patchSha256": "5256f9ae013c4faa0df80bbbe45a1cbea96bc0844d16e944cfca0da11529de3e",
   "fileOverrides": {
     "app/build.gradle": "2346d67ce09b7061a9a9593e855cc088b11761aaa05484ce8c7c9de41396b842",
     "app/src/main/res/xml/preferences.xml": "6059e02f75d906cef0050332f5679b5ab637dd93add5d77173afadedd0b84b53",
     "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "31176fdd3dd459bef115ad5edb63f5956909ae6ae257b6c8d32c563080f75975",
     "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "0e4409d6e904846fbf04d36f21b7ec213dbdff14cb5a0c7285df69db9d30ab5c",
-    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "b7ba0ec4217039ee128595efd3071c12625665a83d91d9832d6a9439ed8c2372",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "e0c799fb0c37b1afe5908b0b8a12fc9bf578f065867323cb31cba01aeebab9bc",
     "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java": "d48e20dfe1383d5fe0c6b62868ee70344f822479f7a8069477a4bb1dbb44963e",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "f00462414a44c85d5608973b3e72417c82370302aa1392bd787adfd113aac483",
     "app/src/main/assets/shaders/preview/main_fs.glsl": "9eb75b34c1a3100145fd4581a8479dbb8c81c7ba177943ab99c8f8ef77d396db",
@@ -15,6 +15,7 @@
     "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ContrastSettings.java": "2efa6bd8dc30280c351b8f80862fcb07c93539cd3e56cbb25f3b055213f8270f",
     "app/src/main/assets/m9/m9_contrast_srgb_firmware.bin": "85d9f1c97fb150cb204333288a76eb7d39900f985af6a9d5cd3747cab22da1ed",
     "app/src/main/res/values/m9_contrast.xml": "8cd48f65809e05297458535369e891ce24150ac1e7289610a7c7168c13acc81b",
-    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9ContrastSettingsTest.java": "4204a3c92479fc59b7a7a5829aa389258c9984dbd887b68ab32d396a704eece2"
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9ContrastSettingsTest.java": "4204a3c92479fc59b7a7a5829aa389258c9984dbd887b68ab32d396a704eece2",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java": "6b9ac5c628211de5a9bc15e98dd88c94b186f6382f00949aee2f50f6189121ad"
   }
 }

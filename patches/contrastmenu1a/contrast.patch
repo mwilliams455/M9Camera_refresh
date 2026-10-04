@@ -148,6 +148,50 @@
                      "nativeSaturationMatrixPairActuallySelected",
                      "contrastCurve",
                      "gainMapAppliedToRender",
+@@ -1963,7 +1978,7 @@
+         d.put("targetInputAdapterReferenceSensorRole", "historical_target_domain_reference_only");
+         d.put("identityHsmApplied", false);
+         d.put("m9FirmwareCurve02Retained", true);
+-        d.put("m9FirmwareCurve02Asset", "m9/m9_curve02_firmware.bin");
++        d.put("m9FirmwareCurve02Asset", "m9/m9_contrast_srgb_firmware.bin");
+         d.put("mixedCalibrationAssetUsedByProduction", true);
+         d.put("mixedCalibrationProductionRole", "target_domain_reference_plus_H25_HSM_and_curve02_not_active_sensor_source");
+         d.put("norm030ProductionApplied", true);
+@@ -2003,8 +2018,8 @@
+         d.put("m9SaturationState", "firmware_" + M9Saturation.name(saturation().bank) + "_sRGB_nSaturation_" + saturation().bank);
+         d.put("m9SaturationMatrixPair", M9Saturation.pair(saturation().bank));
+         d.put("cobaltRuntimeDependencyRole", "historical_target_input_coordinate_reference_only_no_HueSatMap");
+-        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> selected Leica sRGB saturation -> curve02 -> BT601 -> TG1");
+-        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> selected Leica sRGB saturation -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
++        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> selected Leica sRGB saturation -> selected Leica sRGB contrast -> BT601 -> TG1");
++        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> selected Leica sRGB saturation -> selected Leica sRGB firmware contrast -> exact BT601 4:2:2 -> M9Modern TG1");
+         // TARGETDIRECT1A: production now consumes the universal common-scene
+         // coordinates directly. No historical Xiaomi/Cobalt target-input basis is
+         // evaluated or applied. Identity HSM and every downstream M9 stage remain frozen.
+@@ -2027,8 +2042,8 @@
+         d.put("identityHsmApplied", true);
+         d.put("basisHsmHsmTableIdentity", "identity_90x30");
+         d.put("architectureRevision", "TARGETDIRECT1A_M9NATIVEHSM1A_SAT2STANDARD1B_TONEBOUND050");
+-        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> curve02 -> BT601 -> TG1");
+-        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
++        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> selected Leica sRGB contrast -> BT601 -> TG1");
++        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> selected Leica sRGB firmware contrast -> exact BT601 4:2:2 -> M9Modern TG1");
+         if (!out.diagnostics.optBoolean("m9SensorTarget1ARuntimeVerified", false)) {
+             throw new IllegalStateException(
+                     "M9SENSORTARGET1A production did not traverse verified sensor-derived M9 path");
+@@ -2044,9 +2059,9 @@
+         d.put("m9SensorTarget1ATargetInputAdapterUsed", false);
+         d.put("m9SensorTarget1AHsmApplied", false);
+         d.put("m9SensorTarget1AFirmwareSaturation", "SAT" + saturation().bank + "_" + M9Saturation.pair(saturation().bank) + "_native_mode" + M9Saturation.nativeMode(saturation().bank));
+-        d.put("m9SensorTarget1AFirmwareCurve", "curve02");
+-        d.put("fullColorRenderStages", "active physical Camera2/DNG sensor -> XYZ D50 common scene -> recovered M9 A/D65 virtual sensor -> identity HSM -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> curve02 -> exact BT601 4:2:2 -> TG1");
+-        d.put("pipeline", "physical RAW/CFA/black/white + physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active Camera2/DNG dual-illuminant sensor calibration -> XYZ D50 -> recovered Leica M9 sensor calibration -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
++        d.put("m9SensorTarget1AFirmwareCurve", M9Contrast.curveName(saturation().contrast));
++        d.put("fullColorRenderStages", "active physical Camera2/DNG sensor -> XYZ D50 common scene -> recovered M9 A/D65 virtual sensor -> identity HSM -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> selected Leica sRGB contrast -> exact BT601 4:2:2 -> TG1");
++        d.put("pipeline", "physical RAW/CFA/black/white + physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active Camera2/DNG dual-illuminant sensor calibration -> XYZ D50 -> recovered Leica M9 sensor calibration -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> selected Leica sRGB firmware contrast -> exact BT601 4:2:2 -> M9Modern TG1");
+         return out;
+     }
+ 
 @@ -3916,7 +3931,7 @@
              final M9R35Calibration cal = historicalProbeCalibrationRequired
                      ? M9R35Calibration.get() : null;
@@ -394,3 +438,37 @@
 +        assertEquals(2,M9ContrastSettings.selected(s));
 +    }
 +}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java
+@@ -5,7 +5,7 @@
+ import java.security.MessageDigest;
+ import java.util.Arrays;
+ 
+-/** Capture-owned colour/tone approximation of the selected Leica saturation/curve02 renderer.
++/** Capture-owned colour/tone approximation of the selected Leica saturation/contrast renderer.
+  * Input is the active renderer's common-scene matrix, never another sensor's calibration.
+  * No Android state, RAW mutation, device names, or installed external profiles are used.
+  */
+@@ -22,7 +22,12 @@
+         .5292993150422636,.33005076065375855,.14064992430397805,
+         .0984128566140505,.8734844959421335,.028102647443815888,
+         .016846442855411464,.11768270512665131,.8654708520179372};
+-    private static final String CURVE_SHA = "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c";
++    private static final String[] CURVE_HASHES = {
++        "05ff73fc0850fcdc71fdb712e6afe68f6623e95b555ba6b33038f707511d9d17",
++        "32a861c8eac1c11727c8fa60cd94adda34a2045d076db931ee4f92713163dfc7",
++        "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c",
++        "0c8e254678c82be94e86977cf3d205721eccc314dea1feafd94c34e5bb099974",
++        "a4e2c32e7eb207ea91cde0b1ecd6ade53bba3172d1a51583a68bc02e4967ba6f"};
+     private final long[] even, odd;
+     public final int saturationBank;
+     private final double[] matrix;
+@@ -48,7 +53,7 @@
+             }
+             if (Math.abs(sum-1)>1e-5) throw new IllegalArgumentException("M9 matrix must preserve the neutral axis");
+         }
+-        if (firmwareCurve==null || firmwareCurve.length!=2048 || !sha(firmwareCurve).equals(CURVE_SHA))
++        if (firmwareCurve==null || firmwareCurve.length!=2048 || !Arrays.asList(CURVE_HASHES).contains(sha(firmwareCurve)))
+             throw new IllegalArgumentException("Unexpected M9 firmware curve");
+         matrix=multiply(commonSceneToM9,PCS); gain=renderGain; curve=firmwareCurve.clone();
+         double[] x=new double[N], wanted=new double[N];

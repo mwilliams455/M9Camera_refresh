@@ -11,7 +11,7 @@ log=subprocess.check_output(['java','-cp',str(classes),'com.particlesdevs.photon
 assert 'AUDIT_STORE_CASES=10 CONCURRENT_FRAMES=100' in log
 manifest=json.loads((HERE/'manifest.json').read_text())
 files=json.loads((HERE.parent/'upstream2r/source_manifest.json').read_text())['files']
-for folder,name in [('upstream2r_fix1','fix_manifest.json'),('perf2s_auditopt1a','perf_manifest.json'),('dngexport1b','manifest.json'),('dngstage1a','manifest.json'),('dngnoisemeta1a','manifest.json'),('dngnoisestage1a','manifest.json'),('dngcolormeta1a','manifest.json'),('dngprofile1a','manifest.json'),('dngprofile1b','manifest.json'),('dngrawpair1a','manifest.json'),('capturerequest1a','manifest.json'),('rawreadout1a','manifest.json'),('saturationmenu1a','manifest.json'),('outputmenu1a','manifest.json'),('savemode1a','manifest.json'),('settingsstatus1a','manifest.json')]:
+for folder,name in [('upstream2r_fix1','fix_manifest.json'),('perf2s_auditopt1a','perf_manifest.json'),('dngexport1b','manifest.json'),('dngstage1a','manifest.json'),('dngnoisemeta1a','manifest.json'),('dngnoisestage1a','manifest.json'),('dngcolormeta1a','manifest.json'),('dngprofile1a','manifest.json'),('dngprofile1b','manifest.json'),('dngrawpair1a','manifest.json'),('capturerequest1a','manifest.json'),('rawreadout1a','manifest.json'),('saturationmenu1a','manifest.json'),('outputmenu1a','manifest.json'),('savemode1a','manifest.json'),('settingsstatus1a','manifest.json'),('capturefreeze1a','manifest.json')]:
     files.update(json.loads((HERE.parent/folder/name).read_text())['fileOverrides'])
 count=0
 for name,digest in files.items():
