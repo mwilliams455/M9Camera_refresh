@@ -1,0 +1,917 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27238
++        versionCode 27239
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.38-m9bracket1a'
++        versionName '2.39-m9uioverlay1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.38_BRACKET1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.39_UIOVERLAY1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -193,6 +193,7 @@
+     private TouchFocus mTouchFocus;
+     public Swipe mSwipe;
+     private LensZoomBarController lensZoomBarController;
++    M9OverlayController m9OverlayController;
+     private ViewfinderEdgeBlurController edgeBlurController;
+     // Created on an AsyncTask thread in onResume and consumed from the camera
+     // callback threads; volatile + local-copy access keeps them consistent.
+@@ -461,6 +462,7 @@
+         view.getViewTreeObserver().addOnPreDrawListener(lensOffsetCorrection);
+         initSettingsBar();
+         applySecureSessionUI();
++        m9OverlayController = new M9OverlayController(this);
+     }
+ 
+     private void initSettingsBar() {
+@@ -513,7 +515,7 @@
+         }
+         m9SaveStatusView.start();
+         updateSettingsBar();
+-        lensZoomBarController.applyPosition(PreferenceKeys.getLensBarPosition(), true);
++        lensZoomBarController.applyPosition(LensZoomBarController.POSITION_CENTER, true);
+         edgeBlurController.setEnabled(PreferenceKeys.isBlurViewfinderEdgesOn());
+         textureView.setRoundCorners(PreferenceKeys.isRoundEdgeOn());
+         mSwipe.init();
+@@ -549,6 +551,7 @@
+         initTouchFocus();
+         manualModeConsole.onResume();
+         if (m9DisplayAids != null) m9DisplayAids.start();
++        if (m9OverlayController != null) m9OverlayController.start();
+     }
+ 
+     private void initTouchFocus() {
+@@ -565,6 +568,7 @@
+ 
+     @Override
+     public void onPause() {
++        if (m9OverlayController != null) m9OverlayController.stop();
+         if (m9DisplayAids != null) m9DisplayAids.stop();
+         if (m9SaveStatusView != null) m9SaveStatusView.stop();
+         PhotonCamera.getGravity().unregister();
+@@ -718,6 +722,7 @@
+         }
+         lensClusterOffset = offset;
+         cameraFragmentBinding.lensZoomBar.setTranslationY(offset);
++        cameraFragmentBinding.m9OverlayRenderer.setTranslationY(offset);
+         cameraFragmentBinding.zoomLockPill.setTranslationY(offset);
+         cameraFragmentBinding.zoomSliderContainer.setTranslationY(offset);
+         cameraFragmentBinding.zoomIndicator.setTranslationY(offset);
+@@ -998,6 +1003,8 @@
+ 
+     @Override
+     public void onDestroyView() {
++        if (m9OverlayController != null) m9OverlayController.close();
++        m9OverlayController = null;
+         if (m9DisplayAids != null) m9DisplayAids.close();
+         m9DisplayAids = null;
+         if (m9SaveStatusView != null) m9SaveStatusView.stop();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIViewImpl.java
+@@ -150,6 +150,13 @@
+         setShutterRecording(recording);
+     }
+ 
++
++    /** Explicit enum mapping: the visible Photo/Motion order does not change saved ordinals. */
++    void selectOverlayMode(CameraMode mode) {
++        if (PreferenceKeys.getCameraModeOrdinal() == mode.ordinal()) return;
++        mModePicker.setSelectedItem(mode.ordinal());
++        switchToMode(mode);
++    }
+ 
+     private void switchToMode(CameraMode cameraMode) {
+         Log.d(TAG, "Current Mode:" + cameraMode.name());
+@@ -297,6 +304,9 @@
+ 
+     @Override
+     public void lockUIForBurst(boolean locked) {
++        if (cameraFragment.m9OverlayController != null) {
++            cameraFragment.m9OverlayController.setBurstLocked(locked);
++        }
+ 
+         // Lock/unlock bottom bar buttons (except shutter button)
+         if (this.bottombuttons != null) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+@@ -0,0 +1,310 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Dialog;
++import android.content.Context;
++import android.graphics.Typeface;
++import android.graphics.drawable.GradientDrawable;
++import android.os.Handler;
++import android.os.Looper;
++import android.text.Editable;
++import android.text.TextWatcher;
++import android.view.Gravity;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.LinearLayout;
++import android.widget.PopupWindow;
++import android.widget.TextView;
++import android.widget.Toast;
++
++import androidx.core.content.ContextCompat;
++
++import com.google.android.material.dialog.MaterialAlertDialogBuilder;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.api.CameraMode;
++import com.particlesdevs.photoncamera.capture.CaptureController;
++import com.particlesdevs.photoncamera.m9.M9SaveStatus;
++import com.particlesdevs.photoncamera.settings.PreferenceKeys;
++
++/** Refreshed chrome over the accepted 2.38 camera. All real controls delegate to it. */
++final class M9OverlayController implements AutoCloseable {
++    private final CameraFragment fragment;
++    private final View root;
++    private final Context context;
++    private final Handler handler = new Handler(Looper.getMainLooper());
++    private final TextView[] source = new TextView[4];
++    private final TextView[] controls = new TextView[4];
++    private final TextWatcher[] watchers = new TextWatcher[4];
++    private final String[] labels;
++    private final View photo, motion, settings, renderer;
++    private final TextView activeRender;
++    private volatile boolean burstLocked;
++    private boolean resumed;
++    private PopupWindow renderPopup;
++    private Dialog settingsDialog;
++
++    private final Runnable tick = new Runnable() {
++        @Override public void run() {
++            if (!resumed) return;
++            refresh();
++            handler.postDelayed(this, 180);
++        }
++    };
++
++    M9OverlayController(CameraFragment fragment) {
++        this.fragment = fragment;
++        root = fragment.cameraFragmentBinding.getRoot();
++        context = root.getContext();
++        labels = new String[]{context.getString(R.string.m9_overlay_iso),
++                context.getString(R.string.m9_overlay_shutter), context.getString(R.string.m9_overlay_ev),
++                context.getString(R.string.m9_overlay_focus)};
++        int[] sources = {R.id.iso_option_tv, R.id.exposure_option_tv, R.id.ev_option_tv, R.id.focus_option_tv};
++        int[] targets = {R.id.m9_overlay_iso, R.id.m9_overlay_shutter, R.id.m9_overlay_ev, R.id.m9_overlay_focus};
++        for (int i = 0; i < source.length; i++) {
++            final int index = i;
++            source[i] = root.findViewById(sources[i]);
++            controls[i] = root.findViewById(targets[i]);
++            // Retain the original model-bound TextViews and listeners, hiding only their cells.
++            ((View) source[i].getParent()).setVisibility(View.GONE);
++            controls[i].setOnClickListener(v -> openManual(source[index], false));
++            controls[i].setOnLongClickListener(v -> { openManual(source[index], true); return true; });
++            watchers[i] = new TextWatcher() {
++                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
++                public void onTextChanged(CharSequence s, int start, int before, int count) {}
++                public void afterTextChanged(Editable s) { handler.post(() -> mirror(index)); }
++            };
++            source[i].addTextChangedListener(watchers[i]);
++        }
++        ((View) root.findViewById(R.id.wb_option_tv).getParent()).setVisibility(View.GONE);
++        photo = root.findViewById(R.id.m9_overlay_photo);
++        motion = root.findViewById(R.id.m9_overlay_motion);
++        settings = root.findViewById(R.id.m9_overlay_settings);
++        renderer = root.findViewById(R.id.m9_overlay_renderer);
++        activeRender = root.findViewById(R.id.m9_overlay_active_render);
++        photo.setOnClickListener(v -> selectMode(M9OverlayPolicy.primaryMode(false)));
++        motion.setOnClickListener(v -> selectMode(M9OverlayPolicy.primaryMode(true)));
++        settings.setOnClickListener(v -> showSettings());
++        renderer.setOnClickListener(v -> showRenderers());
++        refresh();
++    }
++
++    void start() { resumed = true; handler.removeCallbacks(tick); handler.post(tick); }
++    void stop() { resumed = false; handler.removeCallbacksAndMessages(null); dismissSurfaces(); }
++    void setBurstLocked(boolean locked) { burstLocked = locked; handler.post(this::refresh); }
++
++    private boolean available() {
++        CaptureController c = fragment.captureController;
++        return M9OverlayPolicy.controlsAvailable(c != null && source[0].hasOnClickListeners(),
++                burstLocked, CaptureController.isProcessing,
++                fragment.cameraFragmentBinding.layoutBottombar.bottomButtons.shutterButton.isHovered(),
++                c != null && c.isM9BracketActive(),
++                c != null && (c.mIsRecordingVideo || c.onUnlimited),
++                M9SaveStatus.INSTANCE.snapshot().pending);
++    }
++
++    private boolean allowAction() {
++        if (available()) return true;
++        Toast.makeText(context, R.string.m9_overlay_busy, Toast.LENGTH_SHORT).show();
++        return false;
++    }
++
++    private void refresh() {
++        boolean enabled = available();
++        for (int i = 0; i < controls.length; i++) {
++            mirror(i);
++            setAvailable(controls[i], enabled);
++        }
++        for (View v : new View[]{photo, motion, settings, renderer}) setAvailable(v, enabled);
++        CameraMode mode = CameraMode.valueOf(PreferenceKeys.getCameraModeOrdinal());
++        photo.setSelected(mode == CameraMode.PHOTO);
++        motion.setSelected(mode == CameraMode.MOTION);
++        String heading = context.getString(R.string.m9_overlay_active_render);
++        if (mode != CameraMode.PHOTO && mode != CameraMode.MOTION) {
++            heading += " · " + context.getString(CameraMode.nameIds()[mode.ordinal()]);
++        }
++        int seconds = com.particlesdevs.photoncamera.m9.M9SelfTimer1A.seconds(PreferenceKeys.getCountdownTimerIndex());
++        if (seconds != 0 && (mode == CameraMode.PHOTO || mode == CameraMode.MOTION || mode == CameraMode.NIGHT)) {
++            heading += " · " + seconds + "s";
++        }
++        if (!heading.contentEquals(activeRender.getText())) activeRender.setText(heading);
++        if (!enabled) dismissSurfaces();
++    }
++
++    private void mirror(int i) {
++        String value = source[i].getText().toString();
++        if (value.isEmpty()) value = "—";
++        String text = labels[i] + "\n" + value;
++        if (!text.contentEquals(controls[i].getText())) controls[i].setText(text);
++        controls[i].setSelected(source[i].isSelected() || source[i].isActivated());
++        controls[i].setRotation(source[i].getRotation());
++        controls[i].setContentDescription(labels[i] + ", " + value);
++    }
++
++    private void setAvailable(View v, boolean enabled) {
++        v.setEnabled(enabled);
++        v.setAlpha(enabled ? 1f : .45f);
++    }
++
++    private void openManual(TextView original, boolean reset) {
++        if (!allowAction() || !original.hasOnClickListeners()) return;
++        dismissSurfaces();
++        fragment.getCameraFragmentViewModel().getCameraFragmentModel().setSettingsBarVisibility(false);
++        fragment.getManualModeConsole().setPanelVisibility(true);
++        original.performClick(); // Refresh the model-bound long-click listener after a lens change.
++        if (reset) original.performLongClick();
++        refresh();
++    }
++
++    private void selectMode(CameraMode mode) {
++        if (!allowAction()) return;
++        dismissSurfaces();
++        ((CameraUIViewImpl) fragment.getCameraUIView()).selectOverlayMode(mode);
++        refresh();
++    }
++
++    private void showRenderers() {
++        if (!allowAction()) return;
++        if (renderPopup != null && renderPopup.isShowing()) { dismissSurfaces(); return; }
++        dismissSurfaces();
++        LinearLayout panel = new LinearLayout(context);
++        panel.setOrientation(LinearLayout.VERTICAL);
++        panel.setPadding(dp(14), dp(8), dp(14), dp(14));
++        int surface = 0xFF171719; // Camera chrome stays dark in both application themes.
++        GradientDrawable background = new GradientDrawable();
++        background.setColor(surface); background.setCornerRadius(dp(22));
++        panel.setBackground(background);
++        LinearLayout heading = new LinearLayout(context);
++        heading.setGravity(Gravity.CENTER_VERTICAL);
++        TextView title = text(context.getString(R.string.m9_overlay_rendering), 17);
++        title.setTypeface(null, Typeface.BOLD);
++        heading.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
++        TextView close = text("×", 26);
++        close.setGravity(Gravity.CENTER);
++        close.setContentDescription(context.getString(R.string.m9_overlay_close));
++        close.setOnClickListener(v -> dismissSurfaces());
++        heading.addView(close, new LinearLayout.LayoutParams(dp(48), dp(48)));
++        panel.addView(heading);
++        String[] names = {"M9", "Monochrom", "M10-R", "M11"};
++        for (int row = 0; row < 2; row++) {
++            LinearLayout line = new LinearLayout(context);
++            for (int col = 0; col < 2; col++) {
++                int index = row * 2 + col;
++                boolean installed = M9OverlayPolicy.rendererAvailable(index);
++                TextView card = text(names[index] + "\n" + context.getString(installed
++                        ? R.string.m9_overlay_selected : R.string.m9_overlay_unavailable), 15);
++                card.setPadding(dp(12), dp(12), dp(8), dp(12));
++                card.setBackgroundResource(R.drawable.m9_overlay_control_bg);
++                card.setSelected(installed);
++                card.setEnabled(installed);
++                card.setAlpha(installed ? 1f : .5f);
++                card.setContentDescription(card.getText());
++                card.setOnClickListener(v -> {
++                    if (allowAction() && M9OverlayPolicy.rendererAvailable(index)) dismissSurfaces();
++                });
++                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(84), 1);
++                lp.setMargins(dp(3), dp(3), dp(3), dp(3));
++                line.addView(card, lp);
++            }
++            panel.addView(line);
++        }
++        TextView note = text(context.getString(R.string.m9_overlay_future_info), 12);
++        note.setPadding(dp(3), dp(12), dp(3), 0);
++        panel.addView(note);
++        int width = Math.min(root.getWidth() - dp(20), dp(420));
++        panel.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
++                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
++        renderPopup = new PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
++        renderPopup.setBackgroundDrawable(background);
++        renderPopup.setOutsideTouchable(true);
++        renderPopup.setElevation(dp(12));
++        renderPopup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
++        renderPopup.showAsDropDown(renderer, renderer.getWidth() - width,
++                -renderer.getHeight() - panel.getMeasuredHeight() - dp(8));
++    }
++
++    private TextView text(String value, int sp) {
++        TextView view = new TextView(context);
++        view.setText(value); view.setTextSize(sp); view.setGravity(Gravity.CENTER_VERTICAL);
++        view.setTextColor(ContextCompat.getColorStateList(context, R.color.m9_overlay_text));
++        return view;
++    }
++
++    private void showSettings() {
++        if (!allowAction()) return;
++        dismissSurfaces();
++        String[] items = {
++                context.getString(R.string.m9_overlay_all_settings),
++                context.getString(R.string.m9_overlay_timer) + " · " + timerLabel(),
++                context.getString(R.string.m9_overlay_grid),
++                context.getString(R.string.m9_display_title),
++                context.getString(R.string.m9_overlay_flash) + " · " + context.getString(PreferenceKeys.getAeMode() == 0 ? R.string.on : R.string.off),
++                context.getString(R.string.m9_overlay_white_balance),
++                context.getString(R.string.m9_overlay_zoom_lock),
++                context.getString(R.string.m9_overlay_more_modes)};
++        settingsDialog = new MaterialAlertDialogBuilder(context)
++                .setTitle(R.string.m9_overlay_quick_controls)
++                .setItems(items, (dialog, which) -> {
++                    if (!allowAction()) return;
++                    switch (which) {
++                        case 0: fragment.cameraFragmentBinding.layoutTopbar.settingsButton.performClick(); break;
++                        case 1: showTimer(); break;
++                        case 2: root.findViewById(R.id.grid_toggle_button).performClick(); break;
++                        case 3: root.findViewById(R.id.m9_display_aids_button).performClick(); break;
++                        case 4:
++                            if (root.findViewById(R.id.flash_button).getVisibility() == View.VISIBLE) {
++                                root.findViewById(R.id.flash_button).performClick();
++                                Toast.makeText(context, context.getString(R.string.m9_overlay_flash) + " · "
++                                        + context.getString(PreferenceKeys.getAeMode() == 0 ? R.string.on : R.string.off), Toast.LENGTH_SHORT).show();
++                            } else Toast.makeText(context, R.string.m9_overlay_torch_unavailable, Toast.LENGTH_SHORT).show();
++                            break;
++                        case 5: openManual(root.findViewById(R.id.wb_option_tv), false); break;
++                        case 6: root.findViewById(R.id.zoom_lock_button).performClick(); break;
++                        case 7: showOtherModes(); break;
++                        default: break;
++                    }
++                }).setNegativeButton(android.R.string.cancel, null).create();
++        settingsDialog.show();
++    }
++
++    private String timerLabel() {
++        int seconds = com.particlesdevs.photoncamera.m9.M9SelfTimer1A.seconds(PreferenceKeys.getCountdownTimerIndex());
++        return seconds == 0 ? context.getString(R.string.off) : seconds + " s";
++    }
++
++    private void showTimer() {
++        String[] values = {context.getString(R.string.off), "2 s", "12 s"};
++        settingsDialog = new MaterialAlertDialogBuilder(context).setTitle(R.string.m9_overlay_timer)
++                .setSingleChoiceItems(values, PreferenceKeys.getCountdownTimerIndex(), (d, target) -> {
++                    if (!allowAction()) return;
++                    // Reuse the accepted timer action; at most two steps around its three states.
++                    for (int n = 0; n < 3 && PreferenceKeys.getCountdownTimerIndex() != target; n++)
++                        root.findViewById(R.id.countdown_timer_button).performClick();
++                    dismissSurfaces();
++                    refresh();
++                }).setNegativeButton(android.R.string.cancel, null).create();
++        settingsDialog.show();
++    }
++
++    private void showOtherModes() {
++        CameraMode[] modes = {CameraMode.NIGHT, CameraMode.VIDEO, CameraMode.RAWVIDEO, CameraMode.UNLIMITED};
++        String[] names = new String[modes.length];
++        for (int i = 0; i < modes.length; i++) names[i] = context.getString(CameraMode.nameIds()[modes[i].ordinal()]);
++        settingsDialog = new MaterialAlertDialogBuilder(context).setTitle(R.string.m9_overlay_more_modes)
++                .setItems(names, (d, i) -> selectMode(modes[i]))
++                .setNegativeButton(android.R.string.cancel, null).create();
++        settingsDialog.show();
++    }
++
++    private void dismissSurfaces() {
++        if (renderPopup != null) renderPopup.dismiss();
++        renderPopup = null;
++        if (settingsDialog != null) settingsDialog.dismiss();
++        settingsDialog = null;
++    }
++
++    private int dp(int value) { return Math.round(value * context.getResources().getDisplayMetrics().density); }
++
++    @Override public void close() {
++        stop();
++        for (int i = 0; i < source.length; i++) source[i].removeTextChangedListener(watchers[i]);
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicy.java
+@@ -0,0 +1,23 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import com.particlesdevs.photoncamera.api.CameraMode;
++
++/** UI-only policy. No renderer, output, exposure or saved mode ordinals are changed. */
++final class M9OverlayPolicy {
++    private M9OverlayPolicy() {}
++
++    static CameraMode primaryMode(boolean motion) {
++        return motion ? CameraMode.MOTION : CameraMode.PHOTO;
++    }
++
++    static boolean controlsAvailable(boolean ready, boolean burst, boolean processing,
++                                     boolean countdown, boolean bracket, boolean recording,
++                                     int pendingSaves) {
++        return ready && !burst && !processing && !countdown && !bracket && !recording
++                && pendingSaves == 0;
++    }
++
++    static boolean rendererAvailable(int index) {
++        return index == 0; // M9 only. Future cards never change the active renderer.
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/LensZoomBarController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/LensZoomBarController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/LensZoomBarController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/LensZoomBarController.java
+@@ -138,7 +138,7 @@
+         // The lens set changes when the facing flips or lenses load; re-evaluate
+         // whether the pill should be shown (single-lens devices hide it when collapsed).
+         auxButtons.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateBarVisibility(true));
+-        applyPosition(PreferenceKeys.getLensBarPosition(), false);
++        applyPosition(POSITION_CENTER, false);
+     }
+ 
+     /**
+@@ -148,7 +148,8 @@
+      * lock pill, slider and indicator glide to their new anchors.
+      */
+     public void applyPosition(String position, boolean animate) {
+-        String normalized = normalize(position);
++        // This UI candidate fixes the horizontal layout without changing the stored preference.
++        String normalized = POSITION_CENTER;
+         if (normalized.equals(currentPosition)) {
+             // Constraints are already correct; re-sync visibility so a pill
+             // hidden by onPause() animates back in on resume.
+@@ -251,19 +252,20 @@
+         int gap = (int) container.getResources().getDimension(R.dimen.lens_zoom_stack_gap);
+ 
+         set.connect(R.id.lens_zoom_bar, ConstraintSet.START, R.id.camera_container, ConstraintSet.START);
+-        set.connect(R.id.lens_zoom_bar, ConstraintSet.END, R.id.camera_container, ConstraintSet.END);
++        set.connect(R.id.lens_zoom_bar, ConstraintSet.END, R.id.m9_overlay_renderer, ConstraintSet.START);
++        set.constrainWidth(R.id.lens_zoom_bar, ConstraintSet.MATCH_CONSTRAINT);
+         set.setHorizontalBias(R.id.lens_zoom_bar, 0.5f);
+-        set.setMargin(R.id.lens_zoom_bar, ConstraintSet.START, 0);
+-        set.setMargin(R.id.lens_zoom_bar, ConstraintSet.END, 0);
+-
+-        set.connect(R.id.zoom_lock_pill, ConstraintSet.START, R.id.lens_zoom_bar, ConstraintSet.END);
+-        set.connect(R.id.zoom_lock_pill, ConstraintSet.TOP, R.id.lens_zoom_bar, ConstraintSet.TOP);
+-        set.connect(R.id.zoom_lock_pill, ConstraintSet.BOTTOM, R.id.lens_zoom_bar, ConstraintSet.BOTTOM);
++        set.setMargin(R.id.lens_zoom_bar, ConstraintSet.START, (int)(10 * container.getResources().getDisplayMetrics().density));
++        set.setMargin(R.id.lens_zoom_bar, ConstraintSet.END, gap);
++
++        set.connect(R.id.zoom_lock_pill, ConstraintSet.START, R.id.lens_zoom_bar, ConstraintSet.START);
++        set.clear(R.id.zoom_lock_pill, ConstraintSet.TOP);
++        set.connect(R.id.zoom_lock_pill, ConstraintSet.BOTTOM, R.id.lens_zoom_bar, ConstraintSet.TOP);
+         set.clear(R.id.zoom_lock_pill, ConstraintSet.END);
+-        set.setMargin(R.id.zoom_lock_pill, ConstraintSet.START, gap);
+-        set.setMargin(R.id.zoom_lock_pill, ConstraintSet.BOTTOM, 0);
+-
+-        set.connect(R.id.zoom_slider_container, ConstraintSet.BOTTOM, R.id.lens_zoom_bar, ConstraintSet.TOP);
++        set.setMargin(R.id.zoom_lock_pill, ConstraintSet.START, 0);
++        set.setMargin(R.id.zoom_lock_pill, ConstraintSet.BOTTOM, gap);
++
++        set.connect(R.id.zoom_slider_container, ConstraintSet.BOTTOM, R.id.zoom_lock_pill, ConstraintSet.TOP);
+         set.connect(R.id.zoom_slider_container, ConstraintSet.START, R.id.lens_zoom_bar, ConstraintSet.START);
+         set.connect(R.id.zoom_slider_container, ConstraintSet.END, R.id.lens_zoom_bar, ConstraintSet.END);
+         set.setMargin(R.id.zoom_slider_container, ConstraintSet.BOTTOM, gap);
+diff --git a/app/src/main/res/color/m9_overlay_text.xml b/app/src/main/res/color/m9_overlay_text.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/color/m9_overlay_text.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_selected="true" android:color="?attr/colorOnPrimaryContainer" />
++    <item android:color="@color/cam_on_surface" />
++</selector>
+diff --git a/app/src/main/res/drawable/ic_m9_render_selector.xml b/app/src/main/res/drawable/ic_m9_render_selector.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_m9_render_selector.xml
+@@ -0,0 +1,3 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="22dp" android:height="22dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:strokeColor="@color/cam_on_surface" android:strokeWidth="1.7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent" android:pathData="M4,20 L15,9 L18,12 L7,23 Z M14,4 L14,1 M20,7 L23,7 M19,2 L21,0 M6,9 L6,5 M4,7 L8,7 M20,18 L20,14 M18,16 L22,16"/>
++</vector>
+diff --git a/app/src/main/res/drawable/m9_overlay_control_bg.xml b/app/src/main/res/drawable/m9_overlay_control_bg.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_control_bg.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<selector xmlns:android="http://schemas.android.com/apk/res/android">
++    <item android:state_selected="true"><shape><solid android:color="?attr/colorPrimaryContainer"/><corners android:radius="12dp"/></shape></item>
++    <item><shape><solid android:color="@color/cam_panel_scrim"/><corners android:radius="12dp"/></shape></item>
++</selector>
+diff --git a/app/src/main/res/layout/camera_fragment.xml b/app/src/main/res/layout/camera_fragment.xml
+--- a/app/src/main/res/layout/camera_fragment.xml
++++ b/app/src/main/res/layout/camera_fragment.xml
+@@ -162,6 +162,7 @@
+                     app:layout_constraintEnd_toEndOf="parent"
+                     app:layout_constraintHorizontal_bias="0.5">
+ 
++                <HorizontalScrollView android:id="@+id/m9_overlay_lens_scroll" android:layout_width="match_parent" android:layout_height="wrap_content" android:fillViewport="true" android:scrollbars="none">
+                 <com.particlesdevs.photoncamera.ui.camera.views.AuxButtonsLayout
+                         android:id="@+id/aux_buttons_container"
+                         android:orientation="horizontal"
+@@ -170,7 +171,16 @@
+                         setAuxButtonModel="@{auxmodel}"
+                         setActiveId="@{auxmodel.currentCameraId}"
+                         bindViewGroupChildrenRotate="@{uimodel}" />
++                </HorizontalScrollView>
+             </LinearLayout>
++
++            <TextView android:id="@+id/m9_overlay_renderer" android:layout_width="52dp" android:layout_height="56dp"
++                android:layout_marginEnd="10dp" android:layout_marginBottom="8dp" android:text="@string/m9_overlay_render_button"
++                android:textColor="@color/cam_on_surface" android:textSize="11sp" android:gravity="center"
++                android:drawableTop="@drawable/ic_m9_render_selector" android:drawablePadding="2dp" android:padding="6dp"
++                android:background="@drawable/aux_container_background" android:foreground="?attr/selectableItemBackgroundBorderless"
++                android:clickable="true" android:focusable="true" android:contentDescription="@string/m9_overlay_rendering"
++                app:layout_constraintBottom_toTopOf="@id/layout_bottombar" app:layout_constraintEnd_toEndOf="parent" />
+ 
+             <!--    Block 1.3d-->
+             <!--    Zoom-lock pill: toggles auto lens-switch on zoom. Unlocked
+@@ -223,7 +233,7 @@
+                     android:layout_height="@dimen/arrow_size"
+                     android:background="@drawable/chevron_up"
+                     android:contentDescription="Arrow"
+-                    android:visibility="visible"
++                    android:visibility="gone"
+                     app:layout_constraintTop_toBottomOf="@id/layout_viewfinder"
+                     app:layout_constraintEnd_toEndOf="parent"
+                     app:layout_constraintStart_toStartOf="parent"
+@@ -235,10 +245,9 @@
+                     android:id="@+id/layout_bottombar"
+                     layout="@layout/layout_main_bottombar"
+                     android:layout_width="0dp"
+-                    android:layout_height="0dp"
++                    android:layout_height="wrap_content"
+                     app:layout_constraintBottom_toBottomOf="parent"
+                     app:layout_constraintEnd_toEndOf="parent"
+-                    app:layout_constraintTop_toBottomOf="@id/dummy_reference_view"
+                     app:layout_constraintStart_toStartOf="parent"
+                     app:layout_constraintHorizontal_bias="0.0" />
+ 
+@@ -287,7 +296,7 @@
+                 android:clickable="true"
+                 android:onClick="@{()-> uimodel.setSettingsBarVisibility(!uimodel.settingsBarVisibility)}"
+                 app:layout_constraintTop_toBottomOf="@+id/layout_topbar"
+-                android:visibility="@{uimodel.settingsBarVisibility ? View.INVISIBLE : View.VISIBLE}"
++                android:visibility="gone"
+                 tools:visibility="visible"
+                 app:layout_constraintBottom_toBottomOf="parent"
+                 app:layout_constraintVertical_bias="0" />
+diff --git a/app/src/main/res/layout/layout_m9_overlay_controls.xml b/app/src/main/res/layout/layout_m9_overlay_controls.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/layout/layout_m9_overlay_controls.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/m9_overlay_controls" android:layout_width="match_parent" android:layout_height="wrap_content"
++    android:orientation="horizontal" android:paddingHorizontal="10dp" android:paddingVertical="4dp" android:gravity="center_vertical">
++    <TextView android:id="@+id/m9_overlay_iso" style="@style/M9OverlayControl" android:text="@string/m9_overlay_iso" />
++    <TextView android:id="@+id/m9_overlay_shutter" style="@style/M9OverlayControl" android:text="@string/m9_overlay_shutter" />
++    <TextView android:id="@+id/m9_overlay_ev" style="@style/M9OverlayControl" android:text="@string/m9_overlay_ev" />
++    <TextView android:id="@+id/m9_overlay_focus" style="@style/M9OverlayControl" android:text="@string/m9_overlay_focus" />
++    <ImageButton android:id="@+id/m9_overlay_settings" android:layout_width="48dp" android:layout_height="52dp"
++        android:layout_marginStart="4dp" android:background="@drawable/m9_overlay_control_bg" android:padding="13dp"
++        android:src="@drawable/ic_settings" android:tint="@color/cam_on_surface"
++        android:contentDescription="@string/settings" android:foreground="?attr/selectableItemBackgroundBorderless" />
++</LinearLayout>
+diff --git a/app/src/main/res/layout/layout_main_bottombar.xml b/app/src/main/res/layout/layout_main_bottombar.xml
+--- a/app/src/main/res/layout/layout_main_bottombar.xml
++++ b/app/src/main/res/layout/layout_main_bottombar.xml
+@@ -1,56 +1,17 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<layout xmlns:tools="http://schemas.android.com/tools"
+-        xmlns:android="http://schemas.android.com/apk/res/android"
+-        xmlns:app="http://schemas.android.com/apk/res-auto">
+-
+-    <data>
+-
+-        <variable
+-                name="uimodel"
+-                type="com.particlesdevs.photoncamera.ui.camera.model.CameraFragmentModel"/>
+-    </data>
+-
+-    <androidx.constraintlayout.widget.ConstraintLayout
+-            android:layout_width="match_parent"
+-            android:layout_height="wrap_content"
+-            android:id="@+id/layout_bottombar"
+-            android:orientation="vertical">
+-
+-        <androidx.constraintlayout.widget.ConstraintLayout
+-                android:layout_width="0dp"
+-                android:layout_height="wrap_content"
+-                app:layout_constraintBottom_toBottomOf="parent"
+-                app:layout_constraintEnd_toEndOf="parent"
+-                app:layout_constraintStart_toStartOf="parent"
+-                app:layout_constraintTop_toTopOf="parent">
+-            <!--includes the Layout resource of ModeSwitcher-->
+-
+-            <!--includes the Layout resource of BottomBarButtons-->
+-
+-            <include
+-                    android:id="@+id/mode_switcher"
+-                    layout="@layout/layout_modeswitcher"
+-                    android:layout_width="wrap_content"
+-                    android:layout_height="wrap_content"
+-                    app:layout_constraintTop_toBottomOf="@+id/bottom_buttons"
+-                    app:layout_constraintBottom_toBottomOf="parent"
+-                    app:layout_constraintStart_toStartOf="parent"
+-                    app:layout_constraintEnd_toEndOf="parent"
+-                    app:layout_constraintHorizontal_bias="0.0"
+-                    android:layout_marginVertical="8dp" />
+-
+-            <include
+-                    android:id="@+id/bottom_buttons"
+-                    layout="@layout/layout_bottombuttons"
+-                    android:layout_width="0dp"
+-                    android:layout_height="wrap_content"
+-                    app:layout_constraintTop_toTopOf="parent"
+-                    app:layout_constraintStart_toStartOf="parent"
+-                    app:layout_constraintEnd_toEndOf="parent"
+-                    app:layout_constraintBottom_toTopOf="@+id/mode_switcher"
+-                    app:layout_constraintHorizontal_bias="0.0"
+-                    android:layout_marginTop="16dp" />
+-        </androidx.constraintlayout.widget.ConstraintLayout>
+-
++<layout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
++    <data><variable name="uimodel" type="com.particlesdevs.photoncamera.ui.camera.model.CameraFragmentModel"/></data>
++    <androidx.constraintlayout.widget.ConstraintLayout android:id="@+id/layout_bottombar" android:layout_width="match_parent" android:layout_height="wrap_content">
++        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:orientation="vertical"
++            app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent">
++            <include android:id="@+id/m9_controls" layout="@layout/layout_m9_overlay_controls"/>
++            <include android:id="@+id/bottom_buttons" layout="@layout/layout_bottombuttons" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"/>
++            <LinearLayout android:id="@+id/m9_overlay_modes" android:layout_width="match_parent" android:layout_height="52dp" android:gravity="center" android:orientation="horizontal" android:paddingVertical="2dp">
++                <TextView android:id="@+id/m9_overlay_photo" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_photo" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginEnd="8dp"/>
++                <TextView android:id="@+id/m9_overlay_motion" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_motion" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginStart="8dp"/>
++            </LinearLayout>
++            <!-- Kept as the existing mode event/state owner. Visible controls use explicit enums. -->
++            <include android:id="@+id/mode_switcher" layout="@layout/layout_modeswitcher" android:layout_width="match_parent" android:layout_height="0dp" android:visibility="gone"/>
++        </LinearLayout>
+     </androidx.constraintlayout.widget.ConstraintLayout>
+-</layout>
+\ No newline at end of file
++</layout>
+diff --git a/app/src/main/res/layout/layout_main_topbar.xml b/app/src/main/res/layout/layout_main_topbar.xml
+--- a/app/src/main/res/layout/layout_main_topbar.xml
++++ b/app/src/main/res/layout/layout_main_topbar.xml
+@@ -48,11 +48,12 @@
+             >
+ 
+         <androidx.constraintlayout.widget.ConstraintLayout
++                android:id="@+id/m9_legacy_top_controls"
+                 android:layout_width="0dp"
+                 android:layout_height="wrap_content"
+                 android:paddingTop="@dimen/topbar_padding"
+                 android:paddingBottom="@dimen/topbar_padding"
+-                android:visibility="visible"
++                android:visibility="gone"
+                 tools:visibility="visible"
+                 app:layout_constraintBottom_toBottomOf="parent"
+                 app:layout_constraintEnd_toEndOf="parent"
+@@ -187,10 +188,55 @@
+                     app:layout_constraintEnd_toStartOf="@id/m9_ae_lock_button"
+                     app:layout_constraintTop_toTopOf="parent" />
+ 
++
++
++            <com.particlesdevs.photoncamera.ui.camera.views.FlashButton
++                    android:id="@+id/flash_button"
++                    android:layout_width="0dp"
++                    android:layout_height="wrap_content"
++                    app:layout_constraintDimensionRatio="1:1"
++                    android:background="@drawable/ic_flash"
++                    android:backgroundTint="@color/cam_on_surface"
++                    android:foreground="?attr/selectableItemBackgroundBorderless"
++                    android:textOff=""
++                    android:textOn=""
++                    android:onClick="@{top_bar_click_listener}"
++                    app:layout_constraintBottom_toBottomOf="parent"
++                    app:layout_constraintStart_toEndOf="@id/m9_ae_lock_button"
++                    app:layout_constraintEnd_toStartOf="@id/settings_button"
++                    app:layout_constraintTop_toTopOf="parent"
++                    android:visibility='@{flash_visible ? View.VISIBLE:View.GONE, default=visible}'
++                    tools:visibility="visible"
++                    />
++
++            <ImageButton
++                    android:id="@+id/settings_button"
++                    style="@style/Widget.AppCompat.ImageButton"
++                    android:layout_width="0dp"
++                    android:layout_height="wrap_content"
++                    android:onClick="@{top_bar_click_listener}"
++                    android:background="@drawable/ic_settings"
++                    android:src="@drawable/ic_settings"
++                    android:visibility="gone"
++                    app:layout_constraintBottom_toBottomOf="parent"
++                    app:layout_constraintDimensionRatio="1:1"
++                    app:layout_constraintEnd_toEndOf="parent"
++                    app:layout_constraintStart_toEndOf="@id/flash_button"
++                    app:layout_constraintTop_toTopOf="parent"/>
++
++        </androidx.constraintlayout.widget.ConstraintLayout>
++
++
++        <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:orientation="horizontal"
++            android:paddingHorizontal="14dp" android:gravity="center_vertical" bindViewGroupChildrenRotate="@{uimodel}"
++            app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintBottom_toBottomOf="parent">
++            <TextView android:id="@+id/m9_overlay_active_render" android:layout_width="0dp" android:layout_height="wrap_content"
++                android:layout_weight="1" android:text="@string/m9_overlay_active_render" android:textSize="16sp"
++                android:textStyle="bold" android:textColor="@color/cam_on_surface" />
+             <Button
+                     android:id="@+id/m9_ae_lock_button"
+-                    android:layout_width="0dp"
+-                    android:layout_height="wrap_content"
++                    android:layout_width="56dp"
++                    android:layout_height="48dp"
+                     android:minWidth="0dp"
+                     android:minHeight="48dp"
+                     android:padding="0dp"
+@@ -201,48 +247,7 @@
+                     android:foreground="?attr/selectableItemBackgroundBorderless"
+                     android:contentDescription="@string/m9_ae_lock_auto"
+                     android:tooltipText="@string/m9_ae_lock_title"
+-                    android:onClick="@{top_bar_click_listener}"
+-                    app:layout_constraintDimensionRatio="1:1"
+-                    app:layout_constraintBottom_toBottomOf="parent"
+-                    app:layout_constraintStart_toEndOf="@id/m9_display_aids_button"
+-                    app:layout_constraintEnd_toStartOf="@id/flash_button"
+-                    app:layout_constraintTop_toTopOf="parent" />
+-
+-            <com.particlesdevs.photoncamera.ui.camera.views.FlashButton
+-                    android:id="@+id/flash_button"
+-                    android:layout_width="0dp"
+-                    android:layout_height="wrap_content"
+-                    app:layout_constraintDimensionRatio="1:1"
+-                    android:background="@drawable/ic_flash"
+-                    android:backgroundTint="@color/cam_on_surface"
+-                    android:foreground="?attr/selectableItemBackgroundBorderless"
+-                    android:textOff=""
+-                    android:textOn=""
+-                    android:onClick="@{top_bar_click_listener}"
+-                    app:layout_constraintBottom_toBottomOf="parent"
+-                    app:layout_constraintStart_toEndOf="@id/m9_ae_lock_button"
+-                    app:layout_constraintEnd_toStartOf="@id/settings_button"
+-                    app:layout_constraintTop_toTopOf="parent"
+-                    android:visibility='@{flash_visible ? View.VISIBLE:View.GONE, default=visible}'
+-                    tools:visibility="visible"
+-                    />
+-
+-            <ImageButton
+-                    android:id="@+id/settings_button"
+-                    style="@style/Widget.AppCompat.ImageButton"
+-                    android:layout_width="0dp"
+-                    android:layout_height="wrap_content"
+-                    android:onClick="@{top_bar_click_listener}"
+-                    android:background="@drawable/ic_settings"
+-                    android:src="@drawable/ic_settings"
+-                    android:visibility="gone"
+-                    app:layout_constraintBottom_toBottomOf="parent"
+-                    app:layout_constraintDimensionRatio="1:1"
+-                    app:layout_constraintEnd_toEndOf="parent"
+-                    app:layout_constraintStart_toEndOf="@id/flash_button"
+-                    app:layout_constraintTop_toTopOf="parent"/>
+-
+-        </androidx.constraintlayout.widget.ConstraintLayout>
+-
++                    android:onClick="@{top_bar_click_listener}" />
++        </LinearLayout>
+     </androidx.constraintlayout.widget.ConstraintLayout>
+ </layout>
+\ No newline at end of file
+diff --git a/app/src/main/res/values/m9_overlay.xml b/app/src/main/res/values/m9_overlay.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/m9_overlay.xml
+@@ -0,0 +1,33 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_overlay_iso">ISO</string><string name="m9_overlay_shutter">Shutter</string>
++    <string name="m9_overlay_ev">EV</string><string name="m9_overlay_focus">Focus</string>
++    <string name="m9_overlay_rendering">Leica rendering</string>
++    <string name="m9_overlay_render_button">M9</string><string name="m9_overlay_active_render">M9 Colour</string>
++    <string name="m9_overlay_unavailable">Not installed</string>
++    <string name="m9_overlay_future_info">This UI test uses the accepted M9 renderer. Monochrom, M10-R and M11 will be added separately.</string>
++    <string name="m9_overlay_busy">Finish the current capture or save first.</string>
++    <string name="m9_overlay_quick_controls">Camera settings</string>
++    <string name="m9_overlay_all_settings">All settings</string>
++    <string name="m9_overlay_more_modes">Other capture modes</string>
++    <string name="m9_overlay_white_balance">White balance</string>
++    <string name="m9_overlay_reset_manual">Reset manual controls</string>
++    <string name="m9_overlay_zoom_lock">Zoom lens lock</string>
++    <string name="m9_overlay_lens_position_summary">The refreshed UI uses the horizontal lens row. Your previous position is retained for the previous interface.</string>
++    <string name="m9_overlay_close">Close render selector</string>
++    <string name="m9_overlay_selected">Colour · Selected</string>
++    <string name="m9_overlay_timer">Self-timer</string>
++    <string name="m9_overlay_grid">Grid</string>
++    <string name="m9_overlay_flash">Torch</string>
++    <string name="m9_overlay_torch_unavailable">Torch unavailable on this camera</string>
++    <style name="M9OverlayControl">
++        <item name="android:layout_width">0dp</item><item name="android:layout_height">52dp</item>
++        <item name="android:layout_weight">1</item><item name="android:layout_marginHorizontal">2dp</item>
++        <item name="android:gravity">center</item><item name="android:textColor">@color/m9_overlay_text</item>
++        <item name="android:textSize">12sp</item><item name="android:maxLines">2</item>
++        <item name="android:paddingHorizontal">2dp</item><item name="android:ellipsize">end</item>
++        <item name="android:background">@drawable/m9_overlay_control_bg</item>
++        <item name="android:foreground">?attr/selectableItemBackground</item>
++        <item name="android:clickable">true</item><item name="android:focusable">true</item>
++    </style>
++</resources>
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -47,7 +47,7 @@
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_horizon" android:title="@string/show_horizon_on_preview" android:summary="" android:defaultValue="false" android:icon="@drawable/ic_tune_black_24dp" />
+         <Preference android:key="m9_menu_histogram_info" android:title="@string/m9_display_about" android:summary="@string/m9_display_info" android:selectable="false" android:persistent="false" android:layout="@layout/preference_m9_profile" />
+         <PreferenceCategory android:key="pref_m9_appearance_category" android:title="@string/m9_menu_appearance" android:layout="@layout/preference_category_layout">
+-            <ListPreference android:key="@string/pref_lens_bar_position_key" android:defaultValue="@string/pref_lens_bar_position_default" android:layout="@layout/preference_with_margin" android:title="@string/lens_bar_position" app:useSimpleSummaryProvider="true" android:summary="" android:entries="@array/lens_bar_position_entries" android:entryValues="@array/lens_bar_position_entryvalues" android:icon="@drawable/ic_multi_lens" />
++            <ListPreference android:key="@string/pref_lens_bar_position_key" android:enabled="false" android:defaultValue="@string/pref_lens_bar_position_default" android:layout="@layout/preference_with_margin" android:title="@string/lens_bar_position" android:summary="@string/m9_overlay_lens_position_summary" android:entries="@array/lens_bar_position_entries" android:entryValues="@array/lens_bar_position_entryvalues" android:icon="@drawable/ic_multi_lens" />
+             <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_show_roundedge_key" android:defaultValue="@bool/pref_show_roundedge_default" android:layout="@layout/preference_with_margin" android:title="@string/turn_on_round_edges" android:summary="" android:icon="@drawable/ic_rounded_corner" />
+             <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_theme_key" android:title="@string/theme" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_theme" android:entries="@array/theme_entries" android:entryValues="@array/theme_entryValues" android:defaultValue="@string/pref_theme_default_value" />
+             <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_theme_accent_key" android:title="@string/theme_accent" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" android:entries="@array/theme_accent_entries" android:entryValues="@array/theme_accent_entryValues" android:defaultValue="@string/pref_theme_accent_default_value" />
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayPolicyTest.java
+@@ -0,0 +1,42 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import com.particlesdevs.photoncamera.api.CameraMode;
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9OverlayPolicyTest {
++    @Test public void visibleOrderDoesNotReinterpretSavedPhotonModes() {
++        assertEquals(CameraMode.PHOTO, M9OverlayPolicy.primaryMode(false));
++        assertEquals(CameraMode.MOTION, M9OverlayPolicy.primaryMode(true));
++        assertEquals(CameraMode.MOTION, CameraMode.valueOf(2));
++        assertEquals(CameraMode.PHOTO, CameraMode.valueOf(3));
++        assertEquals(6, CameraMode.values().length);
++    }
++
++    @Test public void futureAndInvalidRenderersCannotBeSelected() {
++        assertTrue(M9OverlayPolicy.rendererAvailable(0));
++        for (int renderer : new int[]{-1, 1, 2, 3, 4, Integer.MAX_VALUE})
++            assertFalse(M9OverlayPolicy.rendererAvailable(renderer));
++    }
++
++    @Test public void controlsWaitThroughCountdownCaptureAndFinalPublication() {
++        assertTrue(allowed(true, false, false, false, false, false, 0));
++        assertFalse(allowed(false, false, false, false, false, false, 0)); // opening camera
++        assertFalse(allowed(true, false, false, true, false, false, 0)); // timer before shot
++        assertFalse(allowed(true, true, false, false, false, false, 0)); // burst gate
++        assertFalse(allowed(true, false, true, false, false, false, 0)); // processing
++        assertFalse(allowed(true, false, false, false, true, false, 0)); // between bracket shots
++        assertFalse(allowed(true, false, false, false, false, false, 2)); // saving two outputs
++        assertFalse(allowed(true, false, false, false, false, false, 1)); // final output pending
++        assertTrue(allowed(true, false, false, false, false, false, 0)); // publication complete
++    }
++
++    @Test public void recordingKeepsModeAndSettingsControlsLocked() {
++        assertFalse(allowed(true, false, false, false, false, true, 0));
++    }
++
++    private boolean allowed(boolean ready, boolean burst, boolean processing, boolean timer,
++                            boolean bracket, boolean recording, int pending) {
++        return M9OverlayPolicy.controlsAvailable(ready, burst, processing, timer, bracket, recording, pending);
++    }
++}
