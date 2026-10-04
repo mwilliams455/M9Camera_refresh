@@ -1,0 +1,687 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27239
++        versionCode 27240
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.39-m9uioverlay1a'
++        versionName '2.40-m9uioverlay1b'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.39_UIOVERLAY1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.40_UIOVERLAY1B-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -109,6 +109,7 @@
+ import com.particlesdevs.photoncamera.ui.camera.model.CameraFragmentModel;
+ import com.particlesdevs.photoncamera.ui.camera.viewmodel.*;
+ import com.particlesdevs.photoncamera.ui.camera.views.LensZoomBarController;
++import com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualView;
+ import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.ViewfinderEdgeBlurController;
+ import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.MainRenderer;
+ import com.particlesdevs.photoncamera.ui.camera.views.settingsbar.SettingsBarLayout;
+@@ -435,7 +436,7 @@
+         }
+         camPanelCornerPx = getResources().getDimension(R.dimen.cam_panel_corner_radius);
+         camPanelBlurPx = getResources().getDimension(R.dimen.cam_panel_blur_radius);
+-        if (manualPanelBar != null) {
++        if (manualPanelBar != null && !(manualKnobView instanceof M9LinearManualView)) {
+             // One drawable owns the palette silhouette — the bubble with the
+             // wheel's dome grown out of it — so the wheel inflates from the
+             // bubble as a single shape. Geometry is mirrored in
+@@ -663,10 +664,8 @@
+         if (textureView.isAvailable()) {
+             addRoundedBlurSpec(cameraFragmentBinding.settingsBar, camPanelCornerPx,
+                     cameraFragmentBinding.settingsBar.getAlpha());
+-            addPillBlurSpec(cameraFragmentBinding.lensZoomBar);
+-            addPillBlurSpec(cameraFragmentBinding.zoomSliderContainer);
+-            addPillBlurSpec(cameraFragmentBinding.zoomIndicator);
+-            addPillBlurSpec(cameraFragmentBinding.zoomLockPill);
++            // The refreshed controls paint their own clipped, opaque rounded backgrounds.
++            // No independent GL blur footprint can protrude where the lens row crosses the finder edge.
+             // The manual hierarchy carries its own alpha/transform on the root
+             // (show/hide slides it down and fades it out, leaving children's
+             // visibility untouched), so the region gates on the root too. One
+@@ -714,7 +713,9 @@
+                 float knobAlpha = manualKnobView != null && manualKnobView.getVisibility() == View.VISIBLE
+                         ? clampAlpha(manualKnobView.getAlpha()) : 0f;
+                 float barArea = Math.max(0f, panelHeight - knobArea);
+-                offset = -(barArea + knobArea * knobAlpha) * clampAlpha(manualPanelRoot.getAlpha());
++                offset = manualKnobView instanceof M9LinearManualView
++                        ? -panelHeight * knobAlpha * clampAlpha(manualPanelRoot.getAlpha())
++                        : -(barArea + knobArea * knobAlpha) * clampAlpha(manualPanelRoot.getAlpha());
+             }
+         }
+         if (!Float.isNaN(lensClusterOffset) && Math.abs(offset - lensClusterOffset) < 0.25f) {
+@@ -741,6 +742,8 @@
+      * lens-cluster lift read them back.
+      */
+     private void applyManualDomeHeight() {
++        // The flat ruler has a fixed compact height and no dome or reserved curved-wheel area.
++        if (manualKnobView instanceof M9LinearManualView) return;
+         if (manualPanelBar == null || manualKnobContainer == null) {
+             return;
+         }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java
+@@ -24,6 +24,7 @@
+ import com.particlesdevs.photoncamera.capture.CaptureController;
+ import com.particlesdevs.photoncamera.m9.M9SaveStatus;
+ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
++import com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualView;
+ 
+ /** Refreshed chrome over the accepted 2.38 camera. All real controls delegate to it. */
+ final class M9OverlayController implements AutoCloseable {
+@@ -37,6 +38,7 @@
+     private final String[] labels;
+     private final View photo, motion, settings, renderer;
+     private final TextView activeRender;
++    private final M9LinearManualView manualRuler;
+     private volatile boolean burstLocked;
+     private boolean resumed;
+     private PopupWindow renderPopup;
+@@ -84,11 +86,13 @@
+         motion.setOnClickListener(v -> selectMode(M9OverlayPolicy.primaryMode(true)));
+         settings.setOnClickListener(v -> showSettings());
+         renderer.setOnClickListener(v -> showRenderers());
++        manualRuler = root.findViewById(R.id.knobView);
++        manualRuler.setInteractionAllowed(this::available);
+         refresh();
+     }
+ 
+     void start() { resumed = true; handler.removeCallbacks(tick); handler.post(tick); }
+-    void stop() { resumed = false; handler.removeCallbacksAndMessages(null); dismissSurfaces(); }
++    void stop() { manualRuler.cancelTouchEvent(); resumed = false; handler.removeCallbacksAndMessages(null); dismissSurfaces(); }
+     void setBurstLocked(boolean locked) { burstLocked = locked; handler.post(this::refresh); }
+ 
+     private boolean available() {
+@@ -109,6 +113,8 @@
+ 
+     private void refresh() {
+         boolean enabled = available();
++        manualRuler.setEnabled(enabled);
++        if (!enabled) manualRuler.cancelTouchEvent();
+         for (int i = 0; i < controls.length; i++) {
+             mirror(i);
+             setAvailable(controls[i], enabled);
+@@ -134,7 +140,7 @@
+         if (value.isEmpty()) value = "—";
+         String text = labels[i] + "\n" + value;
+         if (!text.contentEquals(controls[i].getText())) controls[i].setText(text);
+-        controls[i].setSelected(source[i].isSelected() || source[i].isActivated());
++        controls[i].setSelected(source[i].isSelected());
+         controls[i].setRotation(source[i].getRotation());
+         controls[i].setContentDescription(labels[i] + ", " + value);
+     }
+@@ -149,6 +155,9 @@
+         dismissSurfaces();
+         fragment.getCameraFragmentViewModel().getCameraFragmentModel().setSettingsBarVisibility(false);
+         fragment.getManualModeConsole().setPanelVisibility(true);
++        String title = context.getString(R.string.m9_overlay_white_balance);
++        for (int i = 0; i < source.length; i++) if (source[i] == original) title = labels[i];
++        manualRuler.setControlLabel(title);
+         original.performClick(); // Refresh the model-bound long-click listener after a lens change.
+         if (reset) original.performLongClick();
+         refresh();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearManualView.java
+@@ -0,0 +1,205 @@
++package com.particlesdevs.photoncamera.ui.camera.views;
++
++import android.content.Context;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.graphics.Typeface;
++import android.os.Bundle;
++import android.util.AttributeSet;
++import android.view.KeyEvent;
++import android.view.MotionEvent;
++import android.view.ViewConfiguration;
++import android.view.accessibility.AccessibilityEvent;
++import android.view.accessibility.AccessibilityNodeInfo;
++import androidx.core.content.ContextCompat;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobInfo;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobViewChangedListener;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.Rotation;
++import java.util.List;
++import java.util.function.BooleanSupplier;
++
++/** Flat, horizontal replacement implementing the accepted manual-console view contract. */
++public final class M9LinearManualView extends KnobView {
++    private final M9LinearRulerSelection selection = new M9LinearRulerSelection();
++    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final int touchSlop;
++    private BooleanSupplier interactionAllowed = () -> false;
++    private String controlLabel = "";
++    private float position, downX, downPosition;
++    private boolean touching, dragged;
++
++    public M9LinearManualView(Context context, AttributeSet attrs) {
++        super(context, attrs);
++        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
++        paint.setTextAlign(Paint.Align.CENTER);
++        setFocusable(true);
++        setClickable(true);
++        setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
++        setBackgroundResource(R.drawable.m9_overlay_panel_bg);
++        setClipToOutline(true);
++    }
++
++    public void setInteractionAllowed(BooleanSupplier allowed) { interactionAllowed = allowed; }
++    public void setControlLabel(String label) { controlLabel = label; describe(); invalidate(); }
++
++    @Override public void setPrimaryWheel(KnobInfo info, List<KnobItemInfo> items, double value,
++                                         KnobViewChangedListener listener) {
++        cancelTouchEvent();
++        selection.bind(items, value, listener);
++        position = selection.index();
++        describe();
++        invalidate();
++    }
++
++    // One active straight ruler; the console still remembers values for the other controls.
++    @Override public void setSecondaryWheel(KnobInfo info, List<KnobItemInfo> items, double value,
++                                           KnobViewChangedListener listener) {}
++    @Override public void clearSecondaryWheel() {}
++    @Override public void setDomeProgress(float progress) {} // Visibility still uses the inherited alpha animation.
++    @Override public void setKnobItemsRotation(Rotation rotation) {} // Labels share one horizontal baseline.
++    @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {} // No circular geometry.
++    @Override public KnobItemInfo getCurrentKnobItem() { return selection.current(); }
++    @Override public int getTick() { return selection.current() == null ? 0 : selection.current().tick; }
++    @Override public void resetKnob() {
++        cancelTouchEvent();
++        selection.syncReset(); // The console's following model.resetModel() performs the real reset.
++        position = selection.index();
++        describe();
++        invalidate();
++    }
++
++    @Override protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++        if (selection.current() == null) return;
++        float centre = getWidth() / 2f;
++        float spacing = dp(20);
++        canvas.save();
++        canvas.clipRect(dp(8), 0, getWidth() - dp(8), getHeight());
++        paint.setColor(ContextCompat.getColor(getContext(), R.color.cam_on_surface));
++        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
++        paint.setTextSize(sp(16));
++        canvas.drawText(controlLabel + " · " + selection.current().text, centre, dp(26), paint);
++        paint.setTypeface(Typeface.DEFAULT);
++        paint.setTextSize(sp(12));
++        paint.setStrokeWidth(dp(1));
++        int stride = selection.item(0).tick < 0 ? 3 : 4;
++        float longest = 0;
++        for (int i = 0; i < selection.size(); i++) longest = Math.max(longest, paint.measureText(selection.item(i).text));
++        while (stride * spacing < longest + dp(14)) stride += selection.item(0).tick < 0 ? 3 : 4;
++        boolean autoFirst = selection.item(0).tick == 0 && selection.item(0).value <= 0;
++        for (int i = 0; i < selection.size(); i++) {
++            float x = centre + (i - position) * spacing;
++            if (x < -longest || x > getWidth() + longest) continue;
++            KnobItemInfo item = selection.item(i);
++            boolean major = i == 0 || i == selection.size() - 1 || (item.tick - (autoFirst ? 1 : 0)) % stride == 0;
++            paint.setColor(ContextCompat.getColor(getContext(), R.color.cam_on_surface_variant));
++            canvas.drawLine(x, dp(major ? 48 : 55), x, dp(68), paint);
++            if (major) canvas.drawText(item.text, x, dp(89), paint);
++        }
++        paint.setColor(ContextCompat.getColor(getContext(), R.color.cam_primary));
++        paint.setStrokeWidth(dp(2));
++        canvas.drawLine(centre, dp(41), centre, dp(71), paint);
++        canvas.restore();
++    }
++
++    private boolean canInteract() { return isEnabled() && selection.size() > 1 && interactionAllowed.getAsBoolean(); }
++
++    @Override public boolean onTouchEvent(MotionEvent event) {
++        if (!canInteract()) { cancelTouchEvent(); return false; }
++        switch (event.getActionMasked()) {
++            case MotionEvent.ACTION_DOWN:
++                touching = true; dragged = false;
++                downX = event.getX(); downPosition = position;
++                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
++                selection.movement(this, RotationState.STARTING);
++                return true;
++            case MotionEvent.ACTION_MOVE:
++                if (!touching) return false;
++                if (Math.abs(event.getX() - downX) > touchSlop) dragged = true;
++                if (dragged) {
++                    position = M9LinearRulerSelection.draggedPosition(downPosition, event.getX() - downX, dp(20), selection.size());
++                    selection.movement(this, RotationState.ROTATING);
++                    choose(Math.round(position));
++                    invalidate();
++                }
++                return true;
++            case MotionEvent.ACTION_UP:
++                if (!touching) return false;
++                if (!dragged) {
++                    choose(M9LinearRulerSelection.tappedIndex(position, event.getX(), getWidth() / 2f, dp(20), selection.size()));
++                    performClick();
++                }
++                cancelTouchEvent();
++                return true;
++            case MotionEvent.ACTION_CANCEL:
++                cancelTouchEvent();
++                return true;
++            default: return touching;
++        }
++    }
++
++    private boolean choose(int index) {
++        if (!canInteract()) return false; // Recheck at dispatch, including mid-gesture save/capture locks.
++        boolean changed = selection.select(index, this);
++        if (changed) { describe(); sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_SELECTED); }
++        return changed;
++    }
++
++    @Override public void cancelTouchEvent() {
++        if (touching) {
++            selection.movement(this, RotationState.STOPPING);
++            selection.movement(this, RotationState.IDLE);
++        }
++        touching = false; dragged = false;
++        position = selection.index();
++        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
++        invalidate();
++    }
++
++    @Override public void onCancelPendingInputEvents() { cancelTouchEvent(); }
++    @Override protected void onDetachedFromWindow() { cancelTouchEvent(); super.onDetachedFromWindow(); }
++    @Override public boolean performClick() { super.performClick(); return true; }
++
++    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
++        if (canInteract() && (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT)) {
++            choose(selection.index() + (keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1));
++            position = selection.index(); invalidate(); return true;
++        }
++        return super.onKeyDown(keyCode, event);
++    }
++
++    @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
++        super.onInitializeAccessibilityNodeInfo(info);
++        info.setClassName("android.widget.SeekBar");
++        if (selection.size() > 1) {
++            info.setRangeInfo(AccessibilityNodeInfo.RangeInfo.obtain(AccessibilityNodeInfo.RangeInfo.RANGE_TYPE_INT,
++                    0, selection.size() - 1, selection.index()));
++            if (canInteract()) {
++                info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);
++                info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD);
++                info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS);
++            }
++        }
++    }
++
++    @Override public boolean performAccessibilityAction(int action, Bundle args) {
++        if (!canInteract()) return false;
++        int target;
++        if (action == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) target = selection.index() + 1;
++        else if (action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) target = selection.index() - 1;
++        else if (action == AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.getId() && args != null) {
++            target = Math.round(args.getFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE, selection.index()));
++        } else return super.performAccessibilityAction(action, args);
++        boolean changed = choose(target);
++        position = selection.index(); invalidate(); return changed;
++    }
++
++    private void describe() {
++        setContentDescription(controlLabel + (selection.current() == null ? "" : ", " + selection.current().text));
++    }
++    private float dp(float value) { return value * getResources().getDisplayMetrics().density; }
++    private float sp(float value) { return value * getResources().getDisplayMetrics().scaledDensity; }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearRulerSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearRulerSelection.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearRulerSelection.java
+@@ -0,0 +1,68 @@
++package com.particlesdevs.photoncamera.ui.camera.views;
++
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobViewChangedListener;
++import java.util.ArrayList;
++import java.util.Comparator;
++import java.util.List;
++
++/** Orders the existing physical camera choices without inventing or rounding any values. */
++final class M9LinearRulerSelection {
++    private final List<KnobItemInfo> items = new ArrayList<>();
++    private KnobViewChangedListener listener;
++    private int index;
++
++    void bind(List<KnobItemInfo> source, double value, KnobViewChangedListener listener) {
++        items.clear();
++        if (source != null) items.addAll(source);
++        items.sort(Comparator.comparingInt(item -> item.tick));
++        this.listener = listener;
++        syncValue(value); // Binding/resume must not send a camera parameter change.
++    }
++
++    void syncValue(double value) {
++        index = 0;
++        double distance = Double.POSITIVE_INFINITY;
++        for (int i = 0; i < items.size(); i++) {
++            double d = Math.abs(items.get(i).value - value);
++            if (d < distance) { index = i; distance = d; }
++        }
++    }
++
++    void syncReset() {
++        for (int i = 0; i < items.size(); i++) if (items.get(i).tick == 0) { index = i; return; }
++    }
++
++    boolean select(int requestedIndex, KnobView view) {
++        if (items.isEmpty() || listener == null) return false;
++        int next = Math.max(0, Math.min(items.size() - 1, requestedIndex));
++        if (next == index) return false;
++        KnobItemInfo old = current();
++        index = next;
++        listener.onSelectedKnobItemChanged(view, old, current());
++        return true;
++    }
++
++    void movement(KnobView view, KnobView.RotationState state) {
++        if (listener != null) listener.onRotationStateChanged(view, state);
++    }
++
++    int size() { return items.size(); }
++    int index() { return index; }
++    KnobItemInfo item(int i) { return items.get(i); }
++    KnobItemInfo current() { return items.isEmpty() ? null : items.get(index); }
++
++    static float clampPosition(float position, int count) {
++        if (!Float.isFinite(position) || count <= 1) return 0f;
++        return Math.max(0f, Math.min(count - 1, position));
++    }
++
++    static float draggedPosition(float start, float deltaX, float spacing, int count) {
++        return clampPosition(start - deltaX / Math.max(1f, spacing), count);
++    }
++
++    static int tappedIndex(float position, float x, float centre, float spacing, int count) {
++        return Math.round(clampPosition(position + (x - centre) / Math.max(1f, spacing), count));
++    }
++}
+diff --git a/app/src/main/res/drawable/m9_overlay_panel_bg.xml b/app/src/main/res/drawable/m9_overlay_panel_bg.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_panel_bg.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <solid android:color="#FF161719" />
++    <corners android:radius="18dp" />
++</shape>
+diff --git a/app/src/main/res/drawable/m9_overlay_pill_bg.xml b/app/src/main/res/drawable/m9_overlay_pill_bg.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/m9_overlay_pill_bg.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
++    <solid android:color="#FF161719" />
++    <corners android:radius="50dp" />
++</shape>
+diff --git a/app/src/main/res/layout/camera_fragment.xml b/app/src/main/res/layout/camera_fragment.xml
+--- a/app/src/main/res/layout/camera_fragment.xml
++++ b/app/src/main/res/layout/camera_fragment.xml
+@@ -83,7 +83,7 @@
+                     android:id="@+id/zoom_indicator"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+-                    android:background="@drawable/aux_container_background"
++                    android:background="@drawable/m9_overlay_pill_bg" android:clipToOutline="true"
+                     android:paddingStart="10dp"
+                     android:paddingEnd="10dp"
+                     android:paddingTop="3dp"
+@@ -113,7 +113,7 @@
+                     android:id="@+id/zoom_slider_container"
+                     android:layout_width="@dimen/lens_zoom_slider_width"
+                     android:layout_height="wrap_content"
+-                    android:background="@drawable/aux_container_background"
++                    android:background="@drawable/m9_overlay_pill_bg" android:clipToOutline="true"
+                     android:layout_marginBottom="8dp"
+                     android:visibility="gone"
+                     tools:visibility="visible"
+@@ -152,7 +152,7 @@
+                     android:id="@+id/lens_zoom_bar"
+                     android:orientation="horizontal"
+                     android:gravity="center"
+-                    android:background="@drawable/aux_container_background"
++                    android:background="@drawable/m9_overlay_pill_bg" android:clipToOutline="true"
+                     android:padding="2dp"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+@@ -178,7 +178,7 @@
+                 android:layout_marginEnd="10dp" android:layout_marginBottom="8dp" android:text="@string/m9_overlay_render_button"
+                 android:textColor="@color/cam_on_surface" android:textSize="11sp" android:gravity="center"
+                 android:drawableTop="@drawable/ic_m9_render_selector" android:drawablePadding="2dp" android:padding="6dp"
+-                android:background="@drawable/aux_container_background" android:foreground="?attr/selectableItemBackgroundBorderless"
++                android:background="@drawable/m9_overlay_pill_bg" android:clipToOutline="true" android:foreground="?attr/selectableItemBackgroundBorderless"
+                 android:clickable="true" android:focusable="true" android:contentDescription="@string/m9_overlay_rendering"
+                 app:layout_constraintBottom_toTopOf="@id/layout_bottombar" app:layout_constraintEnd_toEndOf="parent" />
+ 
+@@ -190,7 +190,7 @@
+                     android:id="@+id/zoom_lock_pill"
+                     android:orientation="horizontal"
+                     android:gravity="center"
+-                    android:background="@drawable/aux_container_background"
++                    android:background="@drawable/m9_overlay_pill_bg" android:clipToOutline="true"
+                     android:padding="2dp"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+@@ -214,7 +214,7 @@
+             <!--   includes the Layout resource of Manual Mode palette-->
+             <include
+                     android:id="@+id/manual_mode"
+-                    layout="@layout/manual_palette"
++                    layout="@layout/layout_m9_linear_manual"
+                     android:layout_width="0dp"
+                     android:layout_height="wrap_content"
+                     app:layout_constraintBottom_toTopOf="@+id/layout_bottombar"
+diff --git a/app/src/main/res/layout/layout_m9_linear_manual.xml b/app/src/main/res/layout/layout_m9_linear_manual.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/layout/layout_m9_linear_manual.xml
+@@ -0,0 +1,30 @@
++<?xml version="1.0" encoding="utf-8"?>
++<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/manual_mode" android:layout_width="match_parent" android:layout_height="wrap_content"
++    android:visibility="gone">
++    <!-- Model-bound labels remain available to Photon; they reserve no space and paint no panel. -->
++    <LinearLayout android:id="@+id/buttons_container" android:layout_width="match_parent"
++        android:layout_height="0dp" android:orientation="horizontal" android:visibility="gone">
++        <FrameLayout android:id="@+id/focus_option_cell" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
++            <TextView android:id="@+id/focus_option_tv" android:layout_width="0dp" android:layout_height="0dp" />
++        </FrameLayout>
++        <FrameLayout android:id="@+id/exposure_option_cell" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
++            <TextView android:id="@+id/exposure_option_tv" android:layout_width="0dp" android:layout_height="0dp" />
++        </FrameLayout>
++        <FrameLayout android:id="@+id/iso_option_cell" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
++            <TextView android:id="@+id/iso_option_tv" android:layout_width="0dp" android:layout_height="0dp" />
++        </FrameLayout>
++        <FrameLayout android:id="@+id/ev_option_cell" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
++            <TextView android:id="@+id/ev_option_tv" android:layout_width="0dp" android:layout_height="0dp" />
++        </FrameLayout>
++        <FrameLayout android:id="@+id/wb_option_cell" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone">
++            <TextView android:id="@+id/wb_option_tv" android:layout_width="0dp" android:layout_height="0dp" />
++        </FrameLayout>
++    </LinearLayout>
++    <FrameLayout android:id="@+id/knobViewContainer" android:layout_width="match_parent" android:layout_height="104dp"
++        android:layout_marginStart="10dp" android:layout_marginEnd="10dp" android:layout_marginBottom="8dp"
++        android:layout_alignParentTop="true">
++        <com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualView android:id="@+id/knobView"
++            android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone" />
++    </FrameLayout>
++</RelativeLayout>
+diff --git a/app/src/main/res/layout/layout_m9_overlay_controls.xml b/app/src/main/res/layout/layout_m9_overlay_controls.xml
+--- a/app/src/main/res/layout/layout_m9_overlay_controls.xml
++++ b/app/src/main/res/layout/layout_m9_overlay_controls.xml
+@@ -7,7 +7,7 @@
+     <TextView android:id="@+id/m9_overlay_ev" style="@style/M9OverlayControl" android:text="@string/m9_overlay_ev" />
+     <TextView android:id="@+id/m9_overlay_focus" style="@style/M9OverlayControl" android:text="@string/m9_overlay_focus" />
+     <ImageButton android:id="@+id/m9_overlay_settings" android:layout_width="48dp" android:layout_height="52dp"
+-        android:layout_marginStart="4dp" android:background="@drawable/m9_overlay_control_bg" android:padding="13dp"
++        android:layout_marginStart="4dp" android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true" android:padding="13dp"
+         android:src="@drawable/ic_settings" android:tint="@color/cam_on_surface"
+         android:contentDescription="@string/settings" android:foreground="?attr/selectableItemBackgroundBorderless" />
+ </LinearLayout>
+diff --git a/app/src/main/res/layout/layout_main_bottombar.xml b/app/src/main/res/layout/layout_main_bottombar.xml
+--- a/app/src/main/res/layout/layout_main_bottombar.xml
++++ b/app/src/main/res/layout/layout_main_bottombar.xml
+@@ -7,8 +7,8 @@
+             <include android:id="@+id/m9_controls" layout="@layout/layout_m9_overlay_controls"/>
+             <include android:id="@+id/bottom_buttons" layout="@layout/layout_bottombuttons" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp"/>
+             <LinearLayout android:id="@+id/m9_overlay_modes" android:layout_width="match_parent" android:layout_height="52dp" android:gravity="center" android:orientation="horizontal" android:paddingVertical="2dp">
+-                <TextView android:id="@+id/m9_overlay_photo" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_photo" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginEnd="8dp"/>
+-                <TextView android:id="@+id/m9_overlay_motion" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_motion" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginStart="8dp"/>
++                <TextView android:id="@+id/m9_overlay_photo" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_photo" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginEnd="8dp"/>
++                <TextView android:id="@+id/m9_overlay_motion" android:layout_width="96dp" android:layout_height="48dp" android:text="@string/mode_motion" android:gravity="center" android:textSize="15sp" android:textColor="@color/m9_overlay_text" android:background="@drawable/m9_overlay_control_bg" android:clipToOutline="true" android:foreground="?attr/selectableItemBackground" android:clickable="true" android:focusable="true" android:layout_marginStart="8dp"/>
+             </LinearLayout>
+             <!-- Kept as the existing mode event/state owner. Visible controls use explicit enums. -->
+             <include android:id="@+id/mode_switcher" layout="@layout/layout_modeswitcher" android:layout_width="match_parent" android:layout_height="0dp" android:visibility="gone"/>
+diff --git a/app/src/main/res/layout/layout_main_topbar.xml b/app/src/main/res/layout/layout_main_topbar.xml
+--- a/app/src/main/res/layout/layout_main_topbar.xml
++++ b/app/src/main/res/layout/layout_main_topbar.xml
+@@ -235,12 +235,13 @@
+                 android:textStyle="bold" android:textColor="@color/cam_on_surface" />
+             <Button
+                     android:id="@+id/m9_ae_lock_button"
+-                    android:layout_width="56dp"
++                    android:layout_width="64dp"
+                     android:layout_height="48dp"
+                     android:minWidth="0dp"
+                     android:minHeight="48dp"
+                     android:padding="0dp"
+                     android:text="@string/m9_ae_lock_label"
++                    android:singleLine="true"
+                     android:textSize="12sp"
+                     android:textColor="@color/m9_ae_lock_text"
+                     android:background="@drawable/m9_ae_lock_button"
+diff --git a/app/src/main/res/values/m9_overlay.xml b/app/src/main/res/values/m9_overlay.xml
+--- a/app/src/main/res/values/m9_overlay.xml
++++ b/app/src/main/res/values/m9_overlay.xml
+@@ -27,6 +27,7 @@
+         <item name="android:textSize">12sp</item><item name="android:maxLines">2</item>
+         <item name="android:paddingHorizontal">2dp</item><item name="android:ellipsize">end</item>
+         <item name="android:background">@drawable/m9_overlay_control_bg</item>
++        <item name="android:clipToOutline">true</item>
+         <item name="android:foreground">?attr/selectableItemBackground</item>
+         <item name="android:clickable">true</item><item name="android:focusable">true</item>
+     </style>
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearRulerSelectionTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearRulerSelectionTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/M9LinearRulerSelectionTest.java
+@@ -0,0 +1,89 @@
++package com.particlesdevs.photoncamera.ui.camera.views;
++
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobItemInfo;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobView;
++import com.particlesdevs.photoncamera.circularbarlib.ui.views.knobview.KnobViewChangedListener;
++import org.junit.Test;
++import java.util.Arrays;
++import java.util.ArrayList;
++import java.util.List;
++import static org.junit.Assert.*;
++
++public class M9LinearRulerSelectionTest {
++    static KnobItemInfo item(String label, int tick, double value) {
++        return new KnobItemInfo(null, label, tick, value);
++    }
++    static class Recorder implements KnobViewChangedListener {
++        int calls;
++        KnobItemInfo oldItem, selected;
++        public void onRotationStateChanged(KnobView view, KnobView.RotationState state) {}
++        public void onSelectedKnobItemChanged(KnobView view, KnobItemInfo old, KnobItemInfo value) {
++            calls++; oldItem = old; selected = value;
++        }
++    }
++
++    @Test public void evRunsNegativeToPositiveAndRetainsExactThirds() {
++        KnobItemInfo zero = item("0.0", 0, 0), plus = item("+0.3", 1, 1.0/3), minus = item("−0.3", -1, -1.0/3);
++        List<KnobItemInfo> original = new ArrayList<>(Arrays.asList(zero, plus, minus));
++        Recorder recorder = new Recorder(); M9LinearRulerSelection selection = new M9LinearRulerSelection();
++        selection.bind(original, 0, recorder);
++        assertEquals(1, selection.index()); assertEquals(0, recorder.calls);
++        assertEquals(Arrays.asList(zero, plus, minus), original); // No mutations of Photon models' order.
++        selection.select(0, null);
++        assertSame(minus, recorder.selected); assertSame(zero, recorder.oldItem);
++        assertEquals(-1.0/3, recorder.selected.value, 0);
++        selection.select(2, null); assertSame(plus, recorder.selected);
++    }
++
++    @Test public void shutterSelectionPassesOriginalNanosecondsWithoutRounding() {
++        KnobItemInfo auto = item("A", 0, 0), fast = item("1/125", 1, 7999999), slow = item("24s", 2, 24000123456d);
++        Recorder recorder = new Recorder(); M9LinearRulerSelection selection = new M9LinearRulerSelection();
++        selection.bind(Arrays.asList(auto, fast, slow), fast.value, recorder);
++        assertEquals(0, recorder.calls);
++        assertFalse(selection.select(1, null));
++        assertTrue(selection.select(2, null));
++        assertSame(slow, recorder.selected); assertEquals(24000123456d, recorder.selected.value, 0);
++    }
++
++    @Test public void autofocusAndDescendingFocusDistancesKeepTheirDeviceOrder() {
++        KnobItemInfo auto = item("A", 0, -1), near = item("8.0", 1, 8), far = item("0.0", 2, 0);
++        Recorder recorder = new Recorder(); M9LinearRulerSelection selection = new M9LinearRulerSelection();
++        selection.bind(Arrays.asList(far, auto, near), -1, recorder);
++        selection.select(1, null); assertSame(near, recorder.selected);
++        selection.select(2, null); assertSame(far, recorder.selected);
++        selection.select(0, null); assertSame(auto, recorder.selected);
++    }
++
++    @Test public void dragTapAndEndpointsUseHorizontalDistance() {
++        assertEquals(7, M9LinearRulerSelection.draggedPosition(5, -40, 20, 20), 0);
++        assertEquals(3, M9LinearRulerSelection.draggedPosition(5, 40, 20, 20), 0);
++        assertEquals(0, M9LinearRulerSelection.draggedPosition(0, 5000, 20, 20), 0);
++        assertEquals(19, M9LinearRulerSelection.draggedPosition(19, -5000, 20, 20), 0);
++        assertEquals(7, M9LinearRulerSelection.tappedIndex(5, 240, 200, 20, 20));
++        assertEquals(3, M9LinearRulerSelection.tappedIndex(5, 160, 200, 20, 20));
++        assertEquals(0, M9LinearRulerSelection.clampPosition(Float.NaN, 20), 0);
++    }
++
++    @Test public void lensRebindAndVisualResetCannotApplyStaleChoices() {
++        Recorder previous = new Recorder(), active = new Recorder();
++        M9LinearRulerSelection selection = new M9LinearRulerSelection();
++        selection.bind(Arrays.asList(item("A", 0, 0), item("1600", 1, 1600)), 1600, previous);
++        KnobItemInfo auto = item("A", 0, 0), upper = item("800", 1, 800);
++        selection.bind(Arrays.asList(auto, upper), 0, active);
++        selection.select(999, null); assertSame(upper, active.selected);
++        assertEquals(0, previous.calls);
++        selection.syncReset(); assertSame(auto, selection.current());
++        assertEquals(1, active.calls); // Console owns the actual reset, not this visual sync.
++        assertFalse(selection.select(0, null));
++    }
++
++    @Test public void missingAndSingleValueControlsAreSafe() {
++        M9LinearRulerSelection selection = new M9LinearRulerSelection();
++        selection.bind(null, 0, null); assertNull(selection.current()); assertFalse(selection.select(1, null));
++        Recorder recorder = new Recorder();
++        KnobItemInfo fixed = item("Fixed", 0, -1);
++        selection.bind(Arrays.asList(fixed), -1, recorder);
++        assertFalse(selection.select(Integer.MAX_VALUE, null)); assertEquals(0, recorder.calls);
++        assertEquals(0, M9LinearRulerSelection.draggedPosition(0, -100, 20, 1), 0);
++    }
++}
