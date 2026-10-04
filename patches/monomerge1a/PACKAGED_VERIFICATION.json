@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "version": "2.45-monomerge1a",
+  "versionCode": 27245,
+  "bytes": 119569205,
+  "sha256": "afeeebbed2e200a9edd564fa412b0e9ea0fa8ff1e8e414b39314256c297ed24d",
+  "acceptedM9NativeLibrariesPreserved": [
+    "lib/arm64-v8a/liballocator.so",
+    "lib/arm64-v8a/libarchive-jni.so",
+    "lib/arm64-v8a/libc++_shared.so",
+    "lib/arm64-v8a/libcamera2native.so",
+    "lib/arm64-v8a/libdngCreator.so",
+    "lib/arm64-v8a/libflacRecorder.so",
+    "lib/arm64-v8a/libhalidealign.so",
+    "lib/arm64-v8a/libm9color.so",
+    "lib/arm64-v8a/libm9dngnoise.so",
+    "lib/arm64-v8a/libm9sharpness.so",
+    "lib/arm64-v8a/libmcraw.so",
+    "lib/arm64-v8a/libncnnMl.so",
+    "lib/arm64-v8a/libopencv_java4.so",
+    "lib/armeabi-v7a/liballocator.so",
+    "lib/armeabi-v7a/libarchive-jni.so",
+    "lib/armeabi-v7a/libc++_shared.so",
+    "lib/armeabi-v7a/libcamera2native.so",
+    "lib/armeabi-v7a/libdngCreator.so",
+    "lib/armeabi-v7a/libflacRecorder.so",
+    "lib/armeabi-v7a/libm9color.so",
+    "lib/armeabi-v7a/libm9dngnoise.so",
+    "lib/armeabi-v7a/libm9sharpness.so",
+    "lib/armeabi-v7a/libmcraw.so",
+    "lib/armeabi-v7a/libncnnMl.so",
+    "lib/armeabi-v7a/libopencv_java4.so"
+  ],
+  "addedMonochromNativeLibraries": {
+    "lib/arm64-v8a/libmonocolor.so": "a9e30781a836b16972d609255e3f593f5c75c3461a73939054ff6b4403cc8384",
+    "lib/armeabi-v7a/libmonocolor.so": "7ca45718e85961fb190f122be819e560e3049555d104118baef992656da3f5b0"
+  },
+  "existingM9AssetsUnchanged": true,
+  "addedAssets": [
+    "assets/mono/mono_contrast_curves.bin",
+    "assets/mono/mono_curve02_gl2a.bin",
+    "assets/mono/mono_sharpness5.bin",
+    "assets/monochrom/m9_r35_calibration.bin",
+    "assets/shaders/preview/monochrom_fs.glsl"
+  ],
+  "signatureMatchesAcceptedM9": true,
+  "zipAlignment16KiB": true,
+  "monochromElfAlignment16KiB": true,
+  "bothCompiledMenusVerified": true,
+  "phoneValidationPending": true
+}
