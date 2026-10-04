@@ -1,6 +1,6 @@
 # M9Cam 2.38 BRACKET1A
 
-Parent: phone-accepted 2.37 AELOCKTIMER1A. Malcolm selected exposure bracketing as the next feature and asked to continue on 4 October 2026. White-balance presets are deferred; automatic image review and JPEG size/quality controls are outside this work. The M9 Colour / M Monochrom app merger remains a later task.
+Parent: phone-accepted 2.37 AELOCKTIMER1A. Malcolm selected exposure bracketing as the next feature and asked to continue on 4 October 2026. White-balance presets are deferred; automatic image review and JPEG size/quality controls are outside this work. The M9 Colour / M Monochrom app merger remains a later task. Malcolm subsequently confirmed “Exposure bracketing works” on 4 October 2026 and requested a handoff. This makes 2.38 the current phone-accepted baseline.
 
 ## Controls
 
@@ -27,7 +27,7 @@ Leaving/closing the camera or changing session/settings cancels remaining releas
 - Existing AE lock, timer, Auto ISO (including 7,800 allocations), EV, preview brightness, profiles, output and rendering diagnostics tests pass.
 - 20-file patch round trip passes, with 1,197 parent files exact. All assets, native sources, preview geometry, exposure allocator, AE-lock/timer helpers and photographic renderer arithmetic remain unchanged. Renderer edits are diagnostic only.
 - Packaging checks native/asset preservation, compiled controls/defaults, upgrade package/version/signature and 16 KiB ZIP alignment.
-- Phone validation is pending. No handset or emulator run was performed here. Actual capture duration, sensor limits, autofocus and storage timing require the phone check.
+- Malcolm confirmed “Exposure bracketing works” on 4 October 2026. No handset or emulator run was performed by the build environment. This is user acceptance, not proof of exhaustive coverage of every bracket length, output mode, lens or failure scenario. The original build/package reports retain their historical pending status; this acceptance supersedes it.
 
 ## Recovery
 
