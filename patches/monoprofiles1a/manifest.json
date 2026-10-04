@@ -1,0 +1,31 @@
+{
+  "parentCommit": "7ba30325fb42a28d11dc2b5b6e232c0d8cc96613",
+  "monochromCommit": "cf5e00e23ea47920fb863eb7abb0fa423885786a",
+  "version": "2.48-monoprofiles1a",
+  "parentFiles": {
+    "app/build.gradle": "bf06cb36e44f1131ac7b7253ff8ecdec15e4c68aeb84ecca00d8b4797d128d26",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "00294e0d52a87c7e6878b6c7401090fb07a55f964f0724b65fa6541c2ae40228",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "54580c5d7d973e3bbd3ec8d6ba2fa660389141e069b5d101635c4120b1f83924",
+    "app/src/main/res/xml/preferences_monochrom.xml": "6bc677e066591b247183b1f00e4b7e111a16328ab1b30062ca76ae4af65ce601"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "07f007e60be91e6de5b14edad328d26ddb05474d567bef0dd38e5da79b66f043",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/MonoImageProfiles.java": "808c604047f5ac601a3d11eddf7d33f9426afc3ccac31e22a7ae316c62f75b06",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "daa32a5a8c6a55ae7adfeb9316a08045e131dcda6cb9afc02c0b5fc8f1e2ec4e",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/MonoProfilesUi.java": "1d3a19ec2ee98481abdfa5a1970e4fa7410921e8f71762352f316e27a5b0e01b",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": "cdbdffea21195d7131a9c7d1c60148702d6e0bf79bb60ff63d5ee90bdb4899d7",
+    "app/src/main/res/values/mono_profiles.xml": "7e3dcbb74680263c0be9fa821104a771a1ecc21d001bcabe2928ff690b58fc77",
+    "app/src/main/res/xml/preferences_monochrom.xml": "c3e0a968a84af994d177c7d2cb7145a58658fad9e11e0d24418a8feccb2f7141",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoImageProfilesTest.java": "8f82889847408733b028ea7fbeac78761715a83bc02ec7de5b97581aeb6f7bf5",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/settings/MonoProfilesUiTest.java": "3beab52ba9f8880af155753926e23f662f5e48b42f54be6ef9db6bacea37f02c"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/MonoImageProfiles.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/MonoProfilesUi.java",
+    "app/src/main/res/values/mono_profiles.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoImageProfilesTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/settings/MonoProfilesUiTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "b891a3a10272a34b8869ff166b5c934417fbfa1095b61f010d1a94a9a91246f4"
+}

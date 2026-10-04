@@ -1,0 +1,44 @@
+M9Cam 2.48 MONOPROFILES1A — Monochrom image profiles
+
+Build: 2.48-monoprofiles1a (versionCode 27248)
+APK: M9Cam_2.48_MONOPROFILES1A.apk
+Bytes: 119577397
+SHA-256: a915bfb2922e16db7cec918dcccaccf3b0bdd23fa4f64011f1957219185ee9bb
+Application ID: com.m9project.m9cam.photon
+Same signing certificate as 2.47; install over the existing app without clearing settings.
+
+ACCEPTED BASELINE
+Malcolm confirmed M9/Monochrom switching and photo capture on 2.46. Version 2.47 changed only the circular renderer label to Mono. This update builds on main 7ba30325fb42a28d11dc2b5b6e232c0d8cc96613 (PR 65).
+
+NEW BEHAVIOR
+Settings > Image > Monochrom profiles (while Mono is selected).
+Save up to 20 named profiles, each containing contrast, sharpness, toning hue and toning strength. Apply, update from current settings, rename or delete a profile. Manual changes display the active name as modified and do not overwrite the saved profile.
+Reset current look restores Standard contrast, Standard sharpness, Sepia remembered and toning Off. Saved profiles remain. Reset, overwrite and delete are confirmed in the app.
+When toning is Off, its hue remains remembered and the hue control is disabled. Saved profile summaries show both the Off state and remembered hue.
+
+ISOLATION AND PERSISTENCE
+M9 and Monochrom have separate profile collections and active markers; the same profile name can exist in both. Mono profiles do not include EV, Auto ISO, shutter, timer, brackets, output, diagnostics or M9 controls. They affect the existing preview/JPEG image preferences, not the linear Monochrom DNG.
+The existing shutter snapshot keeps queued photographs tied to their selected look. Profile metadata is app-wide rather than per lens. Stale per-lens imports cannot overwrite the collection, active marker or four image values. Profiles use default preferences and therefore participate in the existing settings backup/restore mechanism.
+
+VERIFICATION
+Android assembly passed. All 114 tests across 17 suites passed with zero failures or skips. Includes 12 new profile/store/UI tests, the 16 existing M9 profile tests and the 86 prior integration/control regressions.
+Tests cover atomic look recall, isolation from M9 and non-image controls, remembered toning hue, reset/cancel, explicit update, rename/delete, modified state, default-preference restoration, stale per-lens import, capture snapshot isolation, malformed data and the real XML settings UI/dialogs.
+Exact source reconstruction passed for all 1,331 compared source files. Nine source files differ from 2.47 (four existing, five new); all renderer, capture and save code is unchanged.
+Signed APK identity/version, accepted certificate, 16-KiB ZIP alignment, Monochrom ELF alignment and both compiled settings menus passed. All 27 native libraries and 285 assets are unchanged from 2.47.
+No rendering-speed improvement is claimed. Phone validation of this new profile feature is pending.
+
+PHONE CHECKS
+1. Select Mono. Save two contrasting looks under Settings > Image > Monochrom profiles, e.g. Standard with toning Off and High contrast with weak Selenium.
+2. Apply each and confirm the controls, preview and resulting JPEG follow the look.
+3. Try updating, renaming and deleting. Cancel then confirm Reset current look and check saved profiles remain.
+4. Switch M9/Mono, change lenses and restart; verify each renderer retains its own profiles.
+
+SOURCE RECOVERY
+Repository: https://github.com/mwilliams455/M9Camera_refresh
+Branch: feature/mono-profiles1a
+Recovery folder: patches/monoprofiles1a
+Includes README, exact source patch/manifest, assembly/build/test/package tools, source/reconstruction/test/package evidence.
+Use package.py with M9Cam_2.47_MONOLABEL1A.apk to restore accepted native libraries. Do not distribute the raw Gradle APK.
+
+NEXT
+Obtain phone acceptance for profiles. Then measure preview frame timing and shutter-to-save stages before selecting performance optimizations. Avoid changing the accepted photographic output without evidence.
