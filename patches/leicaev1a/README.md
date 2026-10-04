@@ -58,3 +58,7 @@ Keep the source and recovery bundle private. The inherited firmware publication 
 6. Return to any remaining preview colour/framing work; then architectural review of one app containing M9 Colour and M Monochrom with shared camera/UI infrastructure and separate accepted photographic pipelines, exposure policies, DNG handling and per-mode settings.
 
 Cross-lens colour calibration and fringing investigation remain parked. Optional M9 B&W/Vintage work remains behind the merger review.
+
+## Subsequent acceptance and priority update — 4 October 2026
+
+Malcolm has now confirmed that 2.33 works. His only EV critique was fraction labels; he requested decimals and preview colour/framing next. The new 2.34 `previewcolourframe1a` patch implements that display correction and starts the requested preview work. The earlier “Remaining order” above is historical; Auto ISO/slowest shutter and other Leica-control stages are deferred behind the user's revised priority.

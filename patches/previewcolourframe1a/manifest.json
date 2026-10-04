@@ -1,0 +1,37 @@
+{
+  "parentCommit": "a74a8ea7e824b57886cccb066eab9bdfec1d7f72",
+  "version": "2.34-m9previewcolourframe1a",
+  "parentFiles": {
+    "app/build.gradle": "f94df6fa9a7a7b4808feaf2a93767180af296fcfd100b88317b1ab69892f7270",
+    "app/src/main/assets/shaders/preview/blur_oes_fs.glsl": "74a6e2ebf4a4f19c9868e5842d8691f09aba47387a37f5afabaae50ecd186b45",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "14cc1e074dd5eaa40d97f94631cfc1338b4d7b7ebfc52204139e43f85605940b",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java": "9d95662fd26746e381339e2a18200fbd45aa4caef0859531cc7195209a326898",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "f66987e82add735bdc1e5f0a3f2cb1912af8b8ced34b1cfeaabb893aef407c56",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java": "8072d04cab83a8dd2a73e1997a8369cf7606693217766afb33c6178ea5e5cb4a",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "c44fcd781c01d683770fc14e6d1c59e987de862f654c308453bd2e7f5f98f8c4",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java": "81b8d9eeed01fef93dd1b967e1944e0e21858af0f3c23e3cb3564bc69a034d76",
+    "app/src/main/res/values/m9_ev.xml": "0abd28fb252960731311f191920af8883ccd1cfdb6f1ea4b51de801af3d2f625",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9LeicaEvTest.java": "81152ccc9ccf56cf05b08b231d0608b9d174ebcfd5abe0fd391cd8e91c4ac823",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/LeicaEv.java": "87c794d71067f114d58b6f10478f726a494213c9dd3c20247a133533fec2e503",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java": "0690c6b035f78c9e649a909fc5dadcd124c02bf7ecda158bf3b8681be33c427d"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "78c04ec1a4f9000dcd0aceefe88b28933bac9aa740a63c1409c88dbe0662b0b7",
+    "app/src/main/assets/shaders/preview/blur_oes_fs.glsl": "02fcc693f1c53d75388bf71f9f767a945af3345a14c0807a9609be2ace160311",
+    "app/src/main/assets/shaders/preview/main_fs.glsl": "9f4a81d124700b14fb4dcf8d41a1fbba24f5eca87fd546bdf6360f975f202f35",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java": "557a86daa0ab26ed887e1352aa26eb506820c7f4022bb83e57a0247b0519d48f",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "1af77b0cb09c7b1264f17ac378ef56cf6b26c71e1719525aff7821b002fb98cf",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java": "bcc6cfc0ffee0015b457a6beb5c964e60f08513198246c30bcfbc26eec74f773",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "ba89e9f229436b3fe796e1ac2f36d678ec89a60bddfab379073cde02e752baf9",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java": "06121b272e0f50f5589677a05192c4e64acfe5f13385ec38abaf9de1a5768b95",
+    "app/src/main/res/values/m9_ev.xml": "aabd4e11600f408ce72f53a29b63487a608738b4d04ffa22d12f98e882cb120f",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9LeicaEvTest.java": "1cb0472b593c5030ef697dd31ac4eaa32ae0c1a1086811b392df7c977b403d23",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/M9PreviewFramingTest.java": "1630d0e90c455ffd81fa85fca8969d4044773781327093cd3a7ab3ef4826d903",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/LeicaEv.java": "4172de0469cf2e078ddf1c69374ee8fdaf43ed49776a636a3a7d5e1e93ff4aa3",
+    "circularbarlib/src/main/java/com/particlesdevs/photoncamera/circularbarlib/control/models/EvModel.java": "db8e92618b0130a054e76b5e8847b6fa47fc80fbdbfe738e8b03150e18cd99d8"
+  },
+  "patchSha256": "2b81dd75dd1039828db6b78ed8d2443af8fd7dba7c53bd37c8782d410099341e",
+  "nativePolicy": "Preserve all 25 native entries from phone-accepted 2.33",
+  "photoPolicy": "Saved JPEG/DNG, allocation, metering policy and preview colour math unchanged. EV display uses tenths; exact thirds retained. Preview now samples producer-transformed texture.",
+  "scope": "Decimal EV plus first preview framing correction and colour audit. Auto ISO, slowest shutter, AE-L, timer and bracketing deferred by revised user priority."
+}
