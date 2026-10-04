@@ -1,0 +1,396 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27226
++        versionCode 27227
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.26-m9capturefreeze1a'
++        versionName '2.27-m9contrastmenu1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.26_CAPTUREFREEZE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.27_CONTRASTMENU1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -365,6 +365,16 @@
+                 android:dialogTitle="@string/m9_saturation_title"
+                 android:entries="@array/m9_saturation_entries"
+                 android:entryValues="@array/m9_saturation_values"
++                android:defaultValue="2"
++                app:useSimpleSummaryProvider="true"
++                android:icon="@drawable/ic_saturation"/>
++        <ListPreference
++                android:key="pref_m9_contrast"
++                android:layout="@layout/preference_with_margin"
++                android:title="@string/m9_contrast_title"
++                android:dialogTitle="@string/m9_contrast_title"
++                android:entries="@array/m9_contrast_entries"
++                android:entryValues="@array/m9_contrast_values"
+                 android:defaultValue="2"
+                 app:useSimpleSummaryProvider="true"
+                 android:icon="@drawable/ic_saturation"/>
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
+@@ -23,6 +23,8 @@
+             if(!rendererSucceeded||frozenRenderer==null) throw new IllegalStateException("No successful capture renderer result");
+             JSONObject renderer=new JSONObject(frozenRenderer);
+             int saturationBank=renderer.getInt("nativeSaturationBankActuallySelected");
++            int contrastLevel=renderer.getInt("nativeContrastLevelActuallySelected");
++            if(!M9Contrast.isValid(contrastLevel)) throw new IllegalStateException("Invalid capture contrast");
+             if(!M9Saturation.isValid(saturationBank)||!renderer.getBoolean("identityHsmApplied")
+                     ||renderer.optBoolean("skyDiagnosticAny1A",false))
+                 throw new IllegalStateException("Unsupported rendering mode");
+@@ -34,10 +36,11 @@
+                 JSONArray row=rows.getJSONArray(r);if(row.length()!=3) throw new IllegalArgumentException("Invalid matrix columns");
+                 for(int c=0;c<3;c++) matrix[r*3+c]=row.getDouble(c);
+             }
+-            M9DngProfile profile=new M9DngProfile(matrix,target.getDouble("effectiveRenderGain"),M9TargetFirmwareCalibration.get().curve02,saturationBank);
+-            String name="M9 App1B "+M9Saturation.name(saturationBank)+" "+UUID.randomUUID().toString().replace("-","").substring(0,16);
++            M9DngProfile profile=new M9DngProfile(matrix,target.getDouble("effectiveRenderGain"),M9TargetFirmwareCalibration.get().contrastCurve(contrastLevel),saturationBank);
++            String name="M9 App1B "+M9Saturation.name(saturationBank)+" C:"+M9Contrast.name(contrastLevel)+" "+UUID.randomUUID().toString().replace("-","").substring(0,16);
+             M9DngProfileWriter.Result result=M9DngProfileWriter.embed(path,profile,name);
+             report.put("leicaSaturationBank",saturationBank);report.put("leicaSaturationLevel",M9Saturation.name(saturationBank));
++            report.put("leicaContrastIndex",contrastLevel);report.put("leicaContrastLevel",M9Contrast.name(contrastLevel));
+             report.put("status","embedded");report.put("profileName",result.name);report.put("profileDigest",result.digest);
+             report.put("generationElapsedMs",profile.elapsedMs);report.put("addedBytes",result.addedBytes);
+             report.put("renderGain",profile.gain);report.put("source","capture_owned_common_scene_to_m9");
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -240,6 +240,7 @@
+                         ownedFrame.timestamp, captureResult);
+         // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
+         final int saturationBank = M9SaturationSettings.selected();
++        final int contrastLevel = M9ContrastSettings.selected();
+         final M9SaveSelection output = M9SaveSelection.fromMode(
+                 PreferenceKeys.isSaveRaw(), M9OutputSettings.saveUnfilteredDng());
+         final long enqueueStartedNs = System.nanoTime();
+@@ -279,7 +280,7 @@
+                 long renderStartedNs = System.nanoTime();
+                 M9PhotonBoundary2Q.frame(ownedFrame, "rendererEntry", captureResult, null);
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+-                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, output.jpeg);
++                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, output.jpeg);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
+                 if (renderResult != null && renderResult.diagnostics != null) {
+                     try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -6,6 +6,7 @@
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlanDiagnostics1A;
+ 
+ import com.particlesdevs.photoncamera.processing.M9Saturation;
++import com.particlesdevs.photoncamera.processing.M9Contrast;
+ 
+ import android.graphics.Bitmap;
+ import android.graphics.Point;
+@@ -92,8 +93,11 @@
+     // M9SATURATIONMENU1A: render-owned selection, isolated from later menu changes.
+     private static final class SaturationState {
+         final int bank;
++        final int contrast;
+         final long[] even, odd;
+-        SaturationState(int bank) {
++        SaturationState(int bank) { this(bank, M9Contrast.STANDARD); }
++        SaturationState(int bank, int contrast) {
++            this.contrast = M9Contrast.normalize(contrast);
+             this.bank = M9Saturation.normalize(bank);
+             even = M9Saturation.matrix(this.bank, true);
+             odd = M9Saturation.matrix(this.bank, false);
+@@ -522,8 +526,16 @@
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+             boolean saveJpeg) {
++        return renderAndSavePrimary(dngPath, frame, characteristics, captureResult,
++                captureRequest, cameraRotation, saturationBank, M9ContrastSettings.selected(), saveJpeg);
++    }
++
++    public static Result renderAndSavePrimary(Path dngPath, ImageFrame frame,
++            CameraCharacteristics characteristics, CaptureResult captureResult,
++            CaptureRequest captureRequest, int cameraRotation, int saturationBank,
++            int contrastLevel, boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        RENDER_SATURATION.set(new SaturationState(saturationBank));
++        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel));
+         try {
+             return renderAndSaveInternal(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, true, saveJpeg);
+@@ -544,7 +556,7 @@
+             CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute,
+             boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected()));
++        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected()));
+         try {
+             return renderAndSaveSelected(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, primaryRoute, saveJpeg);
+@@ -1559,6 +1571,9 @@
+                     "baselineExposureEv",
+                     "satBank",
+                     "nativeSaturationBankActuallySelected",
++                    "nativeContrastLevelActuallySelected",
++                    "leicaContrastLevel",
++                    "leicaContrastRevision",
+                     "nativeSaturationMatrixPairActuallySelected",
+                     "contrastCurve",
+                     "gainMapAppliedToRender",
+@@ -3916,7 +3931,7 @@
+             final M9R35Calibration cal = historicalProbeCalibrationRequired
+                     ? M9R35Calibration.get() : null;
+             final byte[] firmwareCurve02 = historicalProbeCalibrationRequired
+-                    ? cal.curve02 : M9TargetFirmwareCalibration.get().curve02;
++                    ? cal.curve02 : M9TargetFirmwareCalibration.get().contrastCurve(saturation().contrast);
+             NativeProspectiveSource nativeSource = buildNativeProspectiveSource(
+                     nativeCharacteristics, nativeCaptureResult);
+             ColorContext ctx = nativeSource.ctx;
+@@ -5079,6 +5094,11 @@
+                     ? (nativeSaturationMode1A == 9 ? 2 : nativeSaturationMode1A == 10 ? 4 : 3)
+                     : saturation().bank;
+             d.put("nativeSaturationBankActuallySelected", actualBank);
++            final int actualContrast = historicalProbeCalibrationRequired ? M9Contrast.STANDARD : saturation().contrast;
++            d.put("nativeContrastLevelActuallySelected", actualContrast);
++            d.put("leicaContrastLevel", M9Contrast.name(actualContrast));
++            d.put("leicaContrastRevision", "M9CONTRASTMENU1A");
++            d.put("contrastCurve", M9Contrast.curveName(actualContrast) + " normal-ISO sRGB " + M9Contrast.name(actualContrast));
+             d.put("leicaSaturationLevel", M9Saturation.name(actualBank));
+             d.put("leicaSaturationMenuBank", saturation().bank);
+             d.put("leicaSaturationRevision", "M9SATURATIONMENU1A");
+@@ -5093,7 +5113,7 @@
+             }
+             if (bridgeProbeMode == 0) {
+                 d.put("mixedCalibrationAssetUsage", "none_production");
+-                d.put("targetCalibrationAsset", "m9/m9_curve02_firmware.bin");
++                d.put("targetCalibrationAsset", "m9/m9_contrast_srgb_firmware.bin");
+                 d.put("m9SensorTarget1ARuntimeVerified", true);
+                 d.put("m9SensorTarget1ACommonScene", "XYZ_D50_from_active_physical_Camera2_DNG");
+                 d.put("m9SensorTarget1ATarget", "Leica_M9_recovered_sensor_calibration_A_D65");
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFirmwareCalibration.java
+@@ -4,14 +4,19 @@
+ import java.io.ByteArrayOutputStream;
+ import java.io.InputStream;
+ 
+-/** Production Leica-M9 target calibration: firmware curve02 only. */
++/** Production Leica-M9 target calibration: five normal-ISO sRGB firmware contrast curves. */
+ public final class M9TargetFirmwareCalibration {
+-    private static final String ASSET = "m9/m9_curve02_firmware.bin";
++    private static final String ASSET = "m9/m9_contrast_srgb_firmware.bin";
+     private static volatile M9TargetFirmwareCalibration INSTANCE;
+     public final byte[] curve02;
+-    private M9TargetFirmwareCalibration(byte[] curve02) {
+-        if (curve02 == null || curve02.length != 2048) throw new IllegalArgumentException("curve02 must contain exactly 2048 bytes");
+-        this.curve02 = curve02;
++    private final byte[][] curves = new byte[5][];
++    public byte[] contrastCurve(int level) {
++        return curves[com.particlesdevs.photoncamera.processing.M9Contrast.normalize(level)].clone();
++    }
++    private M9TargetFirmwareCalibration(byte[] bank) {
++        if (bank == null || bank.length != 5 * 2048) throw new IllegalArgumentException("Five 2048-byte contrast curves required");
++        for (int i=0;i<5;i++) curves[i] = java.util.Arrays.copyOfRange(bank,i*2048,(i+1)*2048);
++        this.curve02 = curves[2].clone();
+     }
+     public static M9TargetFirmwareCalibration get() throws Exception {
+         M9TargetFirmwareCalibration c = INSTANCE;
+@@ -29,7 +34,7 @@
+             while ((n = in.read(tmp)) >= 0) out.write(tmp, 0, n);
+             bytes = out.toByteArray();
+         }
+-        if (bytes.length != 2048) throw new IllegalStateException("unexpected M9 firmware curve02 length: " + bytes.length);
++        if (bytes.length != 5 * 2048) throw new IllegalStateException("unexpected M9 firmware contrast bank length: " + bytes.length);
+         return new M9TargetFirmwareCalibration(bytes);
+     }
+ }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -352,6 +352,8 @@
+         GLES20.glUniform1i(enablePeak, getPeakEnabled());
+         GLES20.glUniform1i(mirror, mMirrorPreview ? 1 : 0);
+         GLES20.glUniform1i(uM9Enabled, mM9CurveTex != 0 ? 1 : 0);
++        GLES20.glUniform1i(uM9ContrastLevel,
++                com.particlesdevs.photoncamera.m9.render.M9ContrastSettings.selected());
+         GLES20.glUniform1i(uM9SaturationBank,
+                 com.particlesdevs.photoncamera.m9.render.M9SaturationSettings.selected());
+         GLES20.glUniform1f(uM9ExposureScale1B, frame1W.exposureScale);
+@@ -608,6 +610,7 @@
+     private com.particlesdevs.photoncamera.m9.preview.M9RootCausePixels1A mM9ShutterPixels;
+ 
+     private int uM9SaturationBank;
++    private int uM9ContrastLevel;
+     private int mM9CurveTex, uM9Enabled, uM9Curve, uM9ExposureScale1B, uM9PreviewTc20Gain1A;
+     private int mInverseTex2A, uSourceReady2A, uInputToSensor2A, uSensorToPp2A, uPpToTarget2A;
+     private int uClipWhite2A, uTungsten2A;
+@@ -696,6 +699,7 @@
+                 mirror = GLES20.glGetUniformLocation(mSharpProgram, "mirror");
+                 uM9EvidenceStage2E = GLES20.glGetUniformLocation(mSharpProgram, "uM9EvidenceStage2E");
+                 uM9Enabled = GLES20.glGetUniformLocation(mSharpProgram, "uM9Enabled");
++                uM9ContrastLevel = GLES20.glGetUniformLocation(mSharpProgram, "uM9ContrastLevel");
+                 uM9SaturationBank = GLES20.glGetUniformLocation(mSharpProgram, "uM9SaturationBank");
+                 uM9Curve = GLES20.glGetUniformLocation(mSharpProgram, "uM9Curve");
+                 uM9ExposureScale1B = GLES20.glGetUniformLocation(mSharpProgram, "uM9ExposureScale1B");
+@@ -841,9 +845,9 @@
+ 
+     private void initM9CurveTexture1A() {
+         mM9CurveTex = 0;
+-        final byte[] curve = new byte[2048];
++        final byte[] curve = new byte[5 * 2048];
+         try (java.io.InputStream in = mView.getContext().getAssets()
+-                .open("m9/m9_curve02_firmware.bin")) {
++                .open("m9/m9_contrast_srgb_firmware.bin")) {
+             int off = 0;
+             while (off < curve.length) {
+                 int n = in.read(curve, off, curve.length - off);
+@@ -851,7 +855,7 @@
+                 off += n;
+             }
+             if (off != curve.length) {
+-                Log.e("M9LiveGL1A", "curve02 size=" + off + " expected=2048");
++                Log.e("M9LiveGL1A", "contrast bank size=" + off + " expected=10240");
+                 return;
+             }
+         } catch (java.io.IOException e) {
+@@ -869,7 +873,7 @@
+         GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mM9CurveTex);
+         GLES30.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES30.GL_R8,
+-                2048, 1, 0, GLES30.GL_RED, GLES20.GL_UNSIGNED_BYTE, data);
++                2048, 5, 0, GLES30.GL_RED, GLES20.GL_UNSIGNED_BYTE, data);
+         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -4,6 +4,7 @@
+ // M9LIVEGL2C_INVERSEPRECISION: no display-domain residual fitting.
+ uniform highp samplerExternalOES sTexture;
+ uniform highp sampler2D uM9Curve;
++uniform int uM9ContrastLevel;
+ uniform highp sampler2D uM9Inverse2A;
+ uniform vec2 resolution;
+ uniform bool enablePeak;
+@@ -85,9 +86,9 @@
+         }
+     }
+     ivec3 index=clamp(a>>16,ivec3(0),ivec3(2047));
+-    return vec3(texelFetch(uM9Curve,ivec2(index.r,0),0).r,
+-        texelFetch(uM9Curve,ivec2(index.g,0),0).r,
+-        texelFetch(uM9Curve,ivec2(index.b,0),0).r);
++    return vec3(texelFetch(uM9Curve,ivec2(index.r,clamp(uM9ContrastLevel,0,4)),0).r,
++        texelFetch(uM9Curve,ivec2(index.g,clamp(uM9ContrastLevel,0,4)),0).r,
++        texelFetch(uM9Curve,ivec2(index.b,clamp(uM9ContrastLevel,0,4)),0).r);
+ }
+ vec3 tungsten2A(vec3 rgb) {
+     // Same integer BT.601/TG1 for a flat pixel pair; no extra preview chroma subsampling.
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Contrast.java
+@@ -0,0 +1,17 @@
++package com.particlesdevs.photoncamera.processing;
++
++/** Leica M9 1.216 normal-ISO sRGB contrast bank; no synthetic curve scaling. */
++public final class M9Contrast {
++    public static final int STANDARD = 2;
++    private M9Contrast() {}
++    public static boolean isValid(int level) { return level >= 0 && level < 5; }
++    public static int normalize(int level) { return isValid(level) ? level : STANDARD; }
++    public static int parse(String value) {
++        try { return normalize(Integer.parseInt(value)); }
++        catch (RuntimeException invalid) { return STANDARD; }
++    }
++    public static String name(int level) {
++        return new String[]{"Low", "Medium low", "Standard", "Medium high", "High"}[normalize(level)];
++    }
++    public static String curveName(int level) { return "curve0" + normalize(level); }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ContrastSettings.java
+@@ -0,0 +1,19 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.processing.M9Contrast;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/** Global across cameras; default SharedPreferences is also the settings UI's store. */
++public final class M9ContrastSettings {
++    public static final String KEY = "pref_m9_contrast";
++    private M9ContrastSettings() {}
++    public static int selected() {
++        return selected(PhotonCamera.getSettingsManagerStatic());
++    }
++    static int selected(SettingsManager settings) {
++        if (settings == null) return M9Contrast.STANDARD;
++        try { return M9Contrast.parse(settings.getString(SettingsManager.SCOPE_GLOBAL, KEY, "2")); }
++        catch (ClassCastException invalidType) { return M9Contrast.STANDARD; }
++    }
++}
+--- /dev/null
++++ b/app/src/main/res/values/m9_contrast.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_contrast_title">Leica M9 contrast</string>
++    <string-array name="m9_contrast_entries">
++        <item>Low</item>
++        <item>Medium low</item>
++        <item>Standard</item>
++        <item>Medium high</item>
++        <item>High</item>
++    </string-array>
++    <string-array name="m9_contrast_values" translatable="false">
++        <item>0</item>
++        <item>1</item>
++        <item>2</item>
++        <item>3</item>
++        <item>4</item>
++    </string-array>
++</resources>
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9ContrastSettingsTest.java
+@@ -0,0 +1,34 @@
++package com.particlesdevs.photoncamera.m9.render;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import com.particlesdevs.photoncamera.processing.M9Contrast;
++import org.junit.Test;
++import org.mockito.MockMakers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9ContrastSettingsTest {
++    private SettingsManager settings() {
++        return mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++    }
++    @Test public void installationWithoutPreferenceUsesAcceptedStandard() {
++        assertEquals(2, M9ContrastSettings.selected(null));
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9ContrastSettings.KEY,"2")).thenReturn("2");
++        assertEquals(2,M9ContrastSettings.selected(s));
++    }
++    @Test public void allFiveLevelsCanChangeWithoutRestart() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9ContrastSettings.KEY,"2")).thenReturn("0","1","2","3","4","2");
++        for(int n:new int[]{0,1,2,3,4,2}) assertEquals(n,M9ContrastSettings.selected(s));
++    }
++    @Test public void corruptOrFuturePreferenceFallsBackToStandard() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9ContrastSettings.KEY,"2")).thenReturn("broken","-1","5",null);
++        for(int n=0;n<4;n++) assertEquals(2,M9ContrastSettings.selected(s));
++    }
++    @Test public void wrongStoredTypeDoesNotPreventCapture() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9ContrastSettings.KEY,"2")).thenThrow(new ClassCastException());
++        assertEquals(2,M9ContrastSettings.selected(s));
++    }
++}
