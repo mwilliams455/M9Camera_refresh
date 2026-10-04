@@ -1,0 +1,16 @@
+{
+  "parentCommit": "775989a0009faee89104e13e532c14506e39e945",
+  "monochromCommit": "cf5e00e23ea47920fb863eb7abb0fa423885786a",
+  "version": "2.47-monolabel1a",
+  "parentFiles": {
+    "app/build.gradle": "5ac02804db7e0272e10ced0f2fbe467c5a1328945d2a5bdf93b191b0cf410c9a",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "df86127a2c04c0978d3739e4be672c0712c1f493b01ff57a9d7ac9019bb448ef"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "bf06cb36e44f1131ac7b7253ff8ecdec15e4c68aeb84ecca00d8b4797d128d26",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java": "17223d4b8ea5dfbf4f8fa072dcadfba787fd3c7d6a839ea2cb6a528d6c9927d0"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "1e347a98684a415529911d2ede7d1a9fea1cc897f3dc5515215e079adac55702"
+}

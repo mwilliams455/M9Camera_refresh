@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "parent": "2.46-monoswitch1a",
+  "version": "2.47-monolabel1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayController.java"
+  ],
+  "allOtherSourceFilesUnchanged": 1324,
+  "onlyCircleLabelAndVersionChanged": true,
+  "fullMonochromPickerAndSettingsRetained": true
+}
