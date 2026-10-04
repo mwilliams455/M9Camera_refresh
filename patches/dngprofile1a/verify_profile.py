@@ -8,7 +8,7 @@ HERE=Path(__file__).resolve().parent
 root=Path(sys.argv[1]).resolve();out=Path(sys.argv[2]).resolve();out.mkdir(parents=True,exist_ok=True)
 classes=out/'classes';classes.mkdir(exist_ok=True)
 src=root/'app/src/main/java/com/particlesdevs/photoncamera/processing'
-subprocess.run(['java','com.sun.tools.javac.Main','-d',str(classes),str(src/'M9DngProfile.java'),str(src/'M9DngProfileWriter.java'),str(HERE/'ProfileHostProbe.java')],check=True)
+subprocess.run(['java','com.sun.tools.javac.Main','-d',str(classes),*map(str,src.glob('M9Saturation.java')),str(src/'M9DngProfile.java'),str(src/'M9DngProfileWriter.java'),str(HERE/'ProfileHostProbe.java')],check=True)
 curve=root/'app/src/main/assets/m9/m9_curve02_firmware.bin'
 def run(gain,*args):
  return subprocess.check_output(['java','-Xmx128m','-cp',str(classes),'com.particlesdevs.photoncamera.processing.ProfileHostProbe',str(curve),str(gain),*map(str,args)],text=True).strip()

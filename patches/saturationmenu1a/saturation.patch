@@ -1,0 +1,660 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27221
++        versionCode 27222
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.21-m9rawreadout1a'
++        versionName '2.22-m9saturationmenu1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.21_RAWREADOUT1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.22_SATURATIONMENU1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/assets/shaders/preview/main_fs.glsl b/app/src/main/assets/shaders/preview/main_fs.glsl
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -11,6 +11,7 @@
+ uniform int uM9EvidenceStage2E;
+ uniform bool mirror;
+ uniform bool uM9Enabled;
++uniform int uM9SaturationBank;
+ uniform float uM9ExposureScale1B;
+ // M9PREVIEWTC20NEG1A: preview-only bounded TC20 darkening prediction.
+ uniform float uM9PreviewTc20Gain1A;
+@@ -49,15 +50,39 @@
+     return mix(inverseTexel2C(left,channel),inverseTexel2C(min(left+1,1023),channel),fract(x));
+ }
+ vec3 curveSat2M9(vec3 m9) {
+-    // Exact production order: 14-bit nearest-even -> branch -> signed integer SAT2 -> >>16 -> LUT.
++    // Exact production order: 14-bit nearest-even -> branch -> selected signed integer firmware matrix -> >>16 -> LUT.
+     ivec3 c=ivec3(clamp(roundEven(m9*16383.0),vec3(0),vec3(16383)));
+     ivec3 a;
+-    if (c.r>=c.g) {
+-        a=ivec3(13659*c.r-4457*c.g-1004*c.b,
+-            -2244*c.r+13469*c.g-3033*c.b,-199*c.r-6014*c.g+14398*c.b);
++    if (uM9SaturationBank==0) {
++        if (c.r>=c.g) {
++            a=ivec3(10563*c.r-1281*c.g-1085*c.b,-1363*c.r+12163*c.g-2607*c.b,169*c.r-2448*c.g+10465*c.b);
++        } else {
++            a=ivec3(11461*c.r-2173*c.g-1085*c.b,-1487*c.r+12295*c.g-2607*c.b,648*c.r-2911*c.g+10465*c.b);
++        }
++    } else if (uM9SaturationBank==1) {
++        if (c.r>=c.g) {
++            a=ivec3(12420*c.r-3186*c.g-1036*c.b,-1891*c.r+12946*c.g-2862*c.b,-51*c.r-4587*c.g+12825*c.b);
++        } else {
++            a=ivec3(13471*c.r-4231*c.g-1036*c.b,-2068*c.r+13130*c.g-2862*c.b,495*c.r-5117*c.g+12825*c.b);
++        }
++    } else if (uM9SaturationBank==3) {
++        if (c.r>=c.g) {
++            a=ivec3(16754*c.r-7632*c.g-922*c.b,-3124*c.r+14774*c.g-3458*c.b,-567*c.r-9579*c.g+18330*c.b);
++        } else {
++            a=ivec3(18160*c.r-9034*c.g-922*c.b,-3422*c.r+15080*c.g-3458*c.b,137*c.r-10264*c.g+18330*c.b);
++        }
++    } else if (uM9SaturationBank==4) {
++        if (c.r>=c.g) {
++            a=ivec3(19850*c.r-10808*c.g-840*c.b,-4004*c.r+16080*c.g-3884*c.b,-936*c.r-13144*c.g+22262*c.b);
++        } else {
++            a=ivec3(21509*c.r-12464*c.g-840*c.b,-4389*c.r+16473*c.g-3884*c.b,-117*c.r-13940*c.g+22262*c.b);
++        }
+     } else {
+-        a=ivec3(14811*c.r-5604*c.g-1004*c.b,
+-            -2455*c.r+13688*c.g-3033*c.b,393*c.r-6588*c.g+14398*c.b);
++        if (c.r>=c.g) {
++            a=ivec3(13659*c.r-4457*c.g-1004*c.b,-2244*c.r+13469*c.g-3033*c.b,-199*c.r-6014*c.g+14398*c.b);
++        } else {
++            a=ivec3(14811*c.r-5604*c.g-1004*c.b,-2455*c.r+13688*c.g-3033*c.b,393*c.r-6588*c.g+14398*c.b);
++        }
+     }
+     ivec3 index=clamp(a>>16,ivec3(0),ivec3(2047));
+     return vec3(texelFetch(uM9Curve,ivec2(index.r,0),0).r,
+diff --git a/app/src/main/cpp/m9color_jni.cpp b/app/src/main/cpp/m9color_jni.cpp
+--- a/app/src/main/cpp/m9color_jni.cpp
++++ b/app/src/main/cpp/m9color_jni.cpp
+@@ -34,6 +34,11 @@
+ 
+ // SKYSAT1A: exact recovered authentic Leica sRGB saturation-family neighbours.
+ // SAT2 / 04-05 = Standard; SAT3 / 06-07 = current colourful production; SAT4 / 08-09 = High.
++// M9SATURATIONMENU1A: exact firmware Low / Medium low sRGB pairs.
++constexpr std::array<int64_t, 9> Q0E = {10563,-1281,-1085,-1363,12163,-2607,169,-2448,10465};
++constexpr std::array<int64_t, 9> Q0O = {11461,-2173,-1085,-1487,12295,-2607,648,-2911,10465};
++constexpr std::array<int64_t, 9> Q1E = {12420,-3186,-1036,-1891,12946,-2862,-51,-4587,12825};
++constexpr std::array<int64_t, 9> Q1O = {13471,-4231,-1036,-2068,13130,-2862,495,-5117,12825};
+ constexpr std::array<int64_t, 9> Q2E = {
+         13659, -4457, -1004,
+         -2244, 13469, -3033,
+@@ -594,6 +599,8 @@
+     const std::array<int64_t, 9>* qPtr = &(evenBranch ? QE : QO);
+     if (ctx.skyChromaMode1A == 9) qPtr = &(evenBranch ? Q2E : Q2O);
+     else if (ctx.skyChromaMode1A == 10) qPtr = &(evenBranch ? Q4E : Q4O);
++    else if (ctx.skyChromaMode1A == 11) qPtr = &(evenBranch ? Q0E : Q0O);
++    else if (ctx.skyChromaMode1A == 12) qPtr = &(evenBranch ? Q1E : Q1O);
+     const auto& q = *qPtr;
+     const int64_t a0 = q[0] * r + q[1] * g + q[2] * b;
+     const int64_t a1 = q[3] * r + q[4] * g + q[5] * b;
+@@ -1619,8 +1626,8 @@
+     if (cwLen != 3 || camLen != 9 || m9Len != 9 || adaptLen != 9 || ppXyzLen != 9
+             || xyzSrgbLen != 9 || curveLen != 2048
+             || hueDivisions < 2 || satDivisions < 2
+-            // SKYDOWN1A-FIX1 + SKYSAT1A: modes 5..10 are diagnostic-only; production remains mode 0.
+-            || skyChromaMode1A < 0 || skyChromaMode1A > 10
++            // Modes 0,9,10,11,12 select the five Leica saturation banks; 1..8 retain legacy diagnostics.
++            || skyChromaMode1A < 0 || skyChromaMode1A > 12
+             || hsmLen != hueDivisions * satDivisions * 3) {
+         throwIllegalArgument(env, "M9 JNI context dimensions do not match PRIMARY2.2 calibration");
+         return 0;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -217,6 +217,8 @@
+         final org.json.JSONObject m9CaptureAudit =
+                 com.particlesdevs.photoncamera.m9.capture.M9CaptureRequestAudit1A.take(
+                         ownedFrame.timestamp, captureResult);
++        // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
++        final int saturationBank = M9SaturationSettings.selected();
+         final long enqueueStartedNs = System.nanoTime();
+         final QueueTelemetry queueTelemetry = new QueueTelemetry(
+                 EXECUTOR.getQueue().size(),
+@@ -244,7 +246,7 @@
+                 long renderStartedNs = System.nanoTime();
+                 M9PhotonBoundary2Q.frame(ownedFrame, "rendererEntry", captureResult, null);
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+-                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation);
++                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
+                 if (renderResult != null && renderResult.diagnostics != null) {
+                     try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -2,6 +2,8 @@
+ 
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlan1A;
+ import com.particlesdevs.photoncamera.m9.M9ExposurePlanDiagnostics1A;
++
++import com.particlesdevs.photoncamera.processing.M9Saturation;
+ 
+ import android.graphics.Bitmap;
+ import android.graphics.Point;
+@@ -85,7 +87,22 @@
+     // to PRIMARY2's already-validated colour stage. Each worker reads through its
+     // own ShortBuffer duplicate and writes a disjoint row range into norm16.
+     private static final int PARALLEL_NORMALIZE_WORKERS = Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors()));
+-    public static final int SATURATION_BANK = 2;
++    // M9SATURATIONMENU1A: render-owned selection, isolated from later menu changes.
++    private static final class SaturationState {
++        final int bank;
++        final long[] even, odd;
++        SaturationState(int bank) {
++            this.bank = M9Saturation.normalize(bank);
++            even = M9Saturation.matrix(this.bank, true);
++            odd = M9Saturation.matrix(this.bank, false);
++        }
++    }
++    private static final SaturationState STANDARD_SATURATION = new SaturationState(M9Saturation.STANDARD);
++    private static final ThreadLocal<SaturationState> RENDER_SATURATION = new ThreadLocal<>();
++    private static SaturationState saturation() {
++        SaturationState state = RENDER_SATURATION.get();
++        return state != null ? state : STANDARD_SATURATION;
++    }
+     public static final int JPEG_QUALITY = 95;
+     public static final boolean SAVE_PARITY_PNG = false;
+     // DEMOSAICMHCNEUTRAL1A-FROZEN1A: validation bank retained in source only as a
+@@ -118,18 +135,6 @@
+     private static final double TG_FULL_K = 3200.0;
+     private static final double TG_NEG_CB_COMPRESSION = 0.25;
+     private static final double TG_NEG_CR_COMPRESSION = 0.16;
+-
+-    // SAT2 / Leica M9 Standard sRGB: firmware ColorMatrix M04/M05 piecewise pair, selected by R >= G.
+-    private static final long[] QE = {
+-            13659, -4457, -1004,
+-            -2244, 13469, -3033,
+-            -199, -6014, 14398
+-    };
+-    private static final long[] QO = {
+-            14811, -5604, -1004,
+-            -2455, 13688, -3033,
+-            393, -6588, 14398
+-    };
+ 
+     private static final double[] M9_CM_A = {
+             .8560, -.2034, -.0066,
+@@ -504,7 +509,33 @@
+         }
+     }
+ 
+-    private static Result renderAndSaveInternal(Path dngPath,
++    public static Result renderAndSavePrimary(Path dngPath, ImageFrame frame,
++            CameraCharacteristics characteristics, CaptureResult captureResult,
++            CaptureRequest captureRequest, int cameraRotation, int saturationBank) {
++        SaturationState previous = RENDER_SATURATION.get();
++        RENDER_SATURATION.set(new SaturationState(saturationBank));
++        try {
++            return renderAndSaveInternal(dngPath, frame, characteristics,
++                    captureResult, captureRequest, cameraRotation, true);
++        } finally {
++            if (previous == null) RENDER_SATURATION.remove(); else RENDER_SATURATION.set(previous);
++        }
++    }
++
++    private static Result renderAndSaveInternal(Path dngPath, ImageFrame frame,
++            CameraCharacteristics characteristics, CaptureResult captureResult,
++            CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute) {
++        SaturationState previous = RENDER_SATURATION.get();
++        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected()));
++        try {
++            return renderAndSaveSelected(dngPath, frame, characteristics,
++                    captureResult, captureRequest, cameraRotation, primaryRoute);
++        } finally {
++            if (previous == null) RENDER_SATURATION.remove();
++        }
++    }
++
++    private static Result renderAndSaveSelected(Path dngPath,
+                                                 ImageFrame frame,
+                                                 CameraCharacteristics characteristics,
+                                                 CaptureResult captureResult,
+@@ -1938,12 +1969,12 @@
+         d.put("historicalBasisHsmTargetBehaviorApplied", false);
+         d.put("identityHsmApplied", true);
+         d.put("basisHsmHsmTableIdentity", "identity_90x30");
+-        d.put("m9SaturationBank", 2);
+-        d.put("m9SaturationState", "firmware_Standard_sRGB_nSaturation_2");
+-        d.put("m9SaturationMatrixPair", "M04_M05");
++        d.put("m9SaturationBank", saturation().bank);
++        d.put("m9SaturationState", "firmware_" + M9Saturation.name(saturation().bank) + "_sRGB_nSaturation_" + saturation().bank);
++        d.put("m9SaturationMatrixPair", M9Saturation.pair(saturation().bank));
+         d.put("cobaltRuntimeDependencyRole", "historical_target_input_coordinate_reference_only_no_HueSatMap");
+-        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> SAT2 M04/M05 -> curve02 -> BT601 -> TG1");
+-        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> SAT2 M04/M05 -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
++        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> selected Leica sRGB saturation -> curve02 -> BT601 -> TG1");
++        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> TARGETINPUTADAPTER1A -> identity HSM -> M9 bridge -> TC20 -> selected Leica sRGB saturation -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
+         // TARGETDIRECT1A: production now consumes the universal common-scene
+         // coordinates directly. No historical Xiaomi/Cobalt target-input basis is
+         // evaluated or applied. Identity HSM and every downstream M9 stage remain frozen.
+@@ -1966,8 +1997,8 @@
+         d.put("identityHsmApplied", true);
+         d.put("basisHsmHsmTableIdentity", "identity_90x30");
+         d.put("architectureRevision", "TARGETDIRECT1A_M9NATIVEHSM1A_SAT2STANDARD1B_TONEBOUND050");
+-        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> SAT2 M04/M05 -> curve02 -> BT601 -> TG1");
+-        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> SAT2 M04/M05 -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
++        d.put("fullColorRenderStages", "active physical Camera2 SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> curve02 -> BT601 -> TG1");
++        d.put("pipeline", "NORM030 physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active physical-sensor SOURCECAL2A -> common scene -> identity HSM -> M9 bridge -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
+         if (!out.diagnostics.optBoolean("m9SensorTarget1ARuntimeVerified", false)) {
+             throw new IllegalStateException(
+                     "M9SENSORTARGET1A production did not traverse verified sensor-derived M9 path");
+@@ -1982,10 +2013,10 @@
+         d.put("m9SensorTarget1ACobaltAssetUsedByRender", false);
+         d.put("m9SensorTarget1ATargetInputAdapterUsed", false);
+         d.put("m9SensorTarget1AHsmApplied", false);
+-        d.put("m9SensorTarget1AFirmwareSaturation", "SAT2_M04_M05_native_mode9");
++        d.put("m9SensorTarget1AFirmwareSaturation", "SAT" + saturation().bank + "_" + M9Saturation.pair(saturation().bank) + "_native_mode" + M9Saturation.nativeMode(saturation().bank));
+         d.put("m9SensorTarget1AFirmwareCurve", "curve02");
+-        d.put("fullColorRenderStages", "active physical Camera2/DNG sensor -> XYZ D50 common scene -> recovered M9 A/D65 virtual sensor -> identity HSM -> TC20/TONEBOUND050 -> SAT2 M04/M05 native mode9 -> curve02 -> exact BT601 4:2:2 -> TG1");
+-        d.put("pipeline", "physical RAW/CFA/black/white + physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active Camera2/DNG dual-illuminant sensor calibration -> XYZ D50 -> recovered Leica M9 sensor calibration -> TC20/TONEBOUND050 -> SAT2 M04/M05 -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
++        d.put("fullColorRenderStages", "active physical Camera2/DNG sensor -> XYZ D50 common scene -> recovered M9 A/D65 virtual sensor -> identity HSM -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> curve02 -> exact BT601 4:2:2 -> TG1");
++        d.put("pipeline", "physical RAW/CFA/black/white + physical LensShadingMap -> DEMOSAICMHCNEUTRAL1A -> active Camera2/DNG dual-illuminant sensor calibration -> XYZ D50 -> recovered Leica M9 sensor calibration -> TC20/TONEBOUND050 -> selected Leica sRGB saturation -> firmware curve02 -> exact BT601 4:2:2 -> M9Modern TG1");
+         return out;
+     }
+ 
+@@ -2414,7 +2445,7 @@
+             d.put("tc20TailCurvature", tail.curvature);
+             d.put("tc20TailIsolated", tail.isolated);
+             d.put("tc20TailValue", tail.tailValue);
+-            d.put("satBank", SATURATION_BANK);
++            d.put("satBank", saturation().bank);
+             d.put("contrastCurve", "curve02 normal-ISO sRGB Standard");
+             d.put("branchEvenOccurrence", even / (double)pixels);
+             d.put("rgb8ClipFraction", edge / (double)(pixels * 3L));
+@@ -2776,7 +2807,7 @@
+ 
+         // G/H/I/J. Firmware Standard branch and exact signed Q13 accumulator semantics.
+         boolean even = q14[0] >= q14[1];
+-        long[] q = even ? QE : QO;
++        long[] q = even ? saturation().even : saturation().odd;
+         long[] accum = {
+                 q[0] * q14[0] + q[1] * q14[1] + q[2] * q14[2],
+                 q[3] * q14[0] + q[4] * q14[1] + q[5] * q14[2],
+@@ -2788,7 +2819,7 @@
+                 (int)clipLong(shifted[1], 0, LUT_MAX),
+                 (int)clipLong(shifted[2], 0, LUT_MAX)
+         };
+-        o.put("G_sat2Branch", even ? "M04_r_ge_g" : "M05_r_lt_g");
++        o.put("G_sat2Branch", M9Saturation.pair(saturation().bank) + (even ? "_r_ge_g" : "_r_lt_g"));
+         o.put("H_signedSat2Accumulator", targetDomainLongVec1A(accum));
+         o.put("I_postShift16BeforeClamp", targetDomainLongVec1A(shifted));
+         o.put("J_curve02Indices", targetDomainIntVec1A(indices));
+@@ -2927,7 +2958,7 @@
+         root.put("m9ColorMatrix",targetDomainMatrix1A(ctx.m9cm));
+         root.put("m9WhiteVector",targetDomainVec1A(ctx.mwhite));
+         root.put("currentPpToM9Composed",targetDomainMatrix1A(ctx.ppToM9));
+-        root.put("stageOrder","A source linear -> B metadata common-scene D50 -> C current target-input -> D M9 CM pre-white -> E mwhite normalization -> F gained 14-bit SAT2 input -> G M04/M05 -> H signed accumulator -> I >>16 -> J 0..2047 -> K curve02 -> L exact pairwise BT601/TG1");
++        root.put("stageOrder","A source linear -> B metadata common-scene D50 -> C current target-input -> D M9 CM pre-white -> E mwhite normalization -> F gained 14-bit input -> G selected Leica sRGB matrix pair -> H signed accumulator -> I >>16 -> J 0..2047 -> K curve02 -> L exact pairwise BT601/TG1");
+ 
+         JSONArray samples=new JSONArray();
+         double[] neutralProbe={nativeSource.neutral[0],nativeSource.neutral[1],nativeSource.neutral[2]};
+@@ -3299,7 +3330,7 @@
+                 if (ys[4][p] >= 0.98) nearWhite[4]++;
+ 
+                 boolean even = r14 >= g14;
+-                long[] q = even ? QE : QO;
++                long[] q = even ? saturation().even : saturation().odd;
+                 long a0 = q[0] * r14 + q[1] * g14 + q[2] * b14;
+                 long a1 = q[3] * r14 + q[4] * g14 + q[5] * b14;
+                 long a2 = q[6] * r14 + q[7] * g14 + q[8] * b14;
+@@ -3361,6 +3392,8 @@
+             case 8: return "BT601_BYPASS";
+             case 9: return "SAT2_STANDARD_M04_M05";
+             case 10: return "SAT4_HIGH_M08_M09";
++            case 11: return "SAT0_LOW_M00_M01";
++            case 12: return "SAT1_MEDIUM_LOW_M02_M03";
+             default: return "CONTROL_PRODUCTION_CLIP";
+         }
+     }
+@@ -3899,13 +3932,13 @@
+             if (skyDiagnosticEncodedAny1A) bridgeProbeMode = 3;
+ 
+             // SAT2STANDARD1B NATIVEFIX: the native scalar renderer already contains
+-            // firmware SAT2/SAT3/SAT4 banks. Mode 9 selects SAT2 M04/M05.
++            // firmware SAT2/SAT3/SAT4 banks. Mode 9 selects selected Leica sRGB saturation.
+             // SAT2STANDARD1A changed Java telemetry while ordinary production still
+             // passed native mode 0 (SAT3). Keep explicit diagnostic modes untouched,
+             // but bind ordinary production rendering to the selected firmware bank.
+             final int nativeSaturationMode1A = skyDiagnosticEncodedAny1A
+                     ? skyChromaMode1A
+-                    : (SATURATION_BANK == 2 ? 9 : (SATURATION_BANK == 4 ? 10 : 0));
++                    : M9Saturation.nativeMode(saturation().bank);
+ 
+             if (bridgeProbeMode == 1) {
+                 bridgeProbeName = "native_plus_historical_hsm";
+@@ -4278,7 +4311,7 @@
+             toneBound1AJson.put("curve02Mutation", false);
+             toneBound1AJson.put("saturationColorMutation", false);
+             toneBound1AJson.put("identityHsmRetained", true);
+-            toneBound1AJson.put("saturationBank", "SAT2_M04_M05");
++            toneBound1AJson.put("saturationBank", "SAT" + saturation().bank + "_" + M9Saturation.pair(saturation().bank));
+             toneBound1AJson.put("authorityLimitEv", toneBoundLimitEv1A);
+             toneBound1AJson.put("selfMeterEligible", toneBoundEligible1A);
+             toneBound1AJson.put("fixedPrimaryPathBypassed", !meterParitySelfMeter);
+@@ -4636,7 +4669,7 @@
+             d.put("tc20TailValue", tail.tailValue);
+             d.put("toneForensics1A", toneForensics1AJson);
+             d.put("toneBound1A", toneBound1AJson);
+-                        d.put("satBank", SATURATION_BANK);
++                        d.put("satBank", saturation().bank);
+             d.put("satDomain1A", skySatDiagnosticEncoded1A || qualityGate1BSatAuditEnabled);
+             d.put("qualityGate1B", "M9QUALITYGATE1B_SATDOMAIN_READONLY");
+             d.put("qualityGate1BPhotographicPixelChange", false);
+@@ -5012,10 +5045,15 @@
+             d.put("skyChromaModeName1A", skyChromaModeName1A(skyChromaMode1A));
+             d.put("nativeSaturationMode1A", nativeSaturationMode1A);
+             d.put("nativeSaturationModeName1A", skyChromaModeName1A(nativeSaturationMode1A));
+-            d.put("nativeSaturationBankActuallySelected", SATURATION_BANK);
++            int actualBank = skyDiagnosticEncodedAny1A
++                    ? (nativeSaturationMode1A == 9 ? 2 : nativeSaturationMode1A == 10 ? 4 : 3)
++                    : saturation().bank;
++            d.put("nativeSaturationBankActuallySelected", actualBank);
++            d.put("leicaSaturationLevel", M9Saturation.name(actualBank));
++            d.put("leicaSaturationMenuBank", saturation().bank);
++            d.put("leicaSaturationRevision", "M9SATURATIONMENU1A");
+             d.put("nativeSaturationMatrixPairActuallySelected",
+-                    nativeSaturationMode1A == 9 ? "M04_M05"
+-                            : nativeSaturationMode1A == 10 ? "M08_M09" : "M06_M07");
++                    M9Saturation.pair(actualBank));
+             d.put("skyChromaHsmHueOff1A", skyChromaHsmHueOff1A);
+             d.put("skyChromaProductionBehaviorChanged",
+                     skyDiagnosticEncodedAny1A && skyChromaMode1A != 0);
+@@ -5638,7 +5676,7 @@
+             long r = clipLong((long)Math.rint(m9[c] * gain * RAW_MAX), 0, RAW_MAX);
+             long g = clipLong((long)Math.rint(m9[c + 1] * gain * RAW_MAX), 0, RAW_MAX);
+             long b = clipLong((long)Math.rint(m9[c + 2] * gain * RAW_MAX), 0, RAW_MAX);
+-            long[] q = r >= g ? QE : QO;
++            long[] q = r >= g ? saturation().even : saturation().odd;
+             if (r >= g) even++;
+             long a0 = q[0] * r + q[1] * g + q[2] * b;
+             long a1 = q[3] * r + q[4] * g + q[5] * b;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettings.java
+@@ -0,0 +1,19 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.processing.M9Saturation;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/** Global across cameras; default SharedPreferences is also the settings UI's store. */
++public final class M9SaturationSettings {
++    public static final String KEY = "pref_m9_saturation";
++    private M9SaturationSettings() {}
++    public static int selected() {
++        return selected(PhotonCamera.getSettingsManagerStatic());
++    }
++    static int selected(SettingsManager settings) {
++        if (settings == null) return M9Saturation.STANDARD;
++        try { return M9Saturation.parse(settings.getString(SettingsManager.SCOPE_GLOBAL, KEY, "2")); }
++        catch (ClassCastException invalidType) { return M9Saturation.STANDARD; }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfile.java
+@@ -5,7 +5,7 @@
+ import java.security.MessageDigest;
+ import java.util.Arrays;
+ 
+-/** Capture-owned colour/tone approximation of the accepted SAT2/curve02 renderer.
++/** Capture-owned colour/tone approximation of the selected Leica saturation/curve02 renderer.
+  * Input is the active renderer's common-scene matrix, never another sensor's calibration.
+  * No Android state, RAW mutation, device names, or installed external profiles are used.
+  */
+@@ -22,13 +22,20 @@
+         .5292993150422636,.33005076065375855,.14064992430397805,
+         .0984128566140505,.8734844959421335,.028102647443815888,
+         .016846442855411464,.11768270512665131,.8654708520179372};
+-    private static final int[][] EVEN = {{13659,-4457,-1004},{-2244,13469,-3033},{-199,-6014,14398}};
+-    private static final int[][] ODD = {{14811,-5604,-1004},{-2455,13688,-3033},{393,-6588,14398}};
+     private static final String CURVE_SHA = "5b303ff7d9d47ecb8e193a648ddf0570fef46ad29a62d112993d37d52f8c135c";
++    private final long[] even, odd;
++    public final int saturationBank;
+     private final double[] matrix;
+     private final byte[] curve;
+ 
+     public M9DngProfile(double[] commonSceneToM9, double renderGain, byte[] firmwareCurve) {
++        this(commonSceneToM9, renderGain, firmwareCurve, M9Saturation.STANDARD);
++    }
++
++    public M9DngProfile(double[] commonSceneToM9, double renderGain, byte[] firmwareCurve, int bank) {
++        if (!M9Saturation.isValid(bank)) throw new IllegalArgumentException("Invalid Leica saturation bank");
++        saturationBank=bank;
++        even=M9Saturation.matrix(bank,true); odd=M9Saturation.matrix(bank,false);
+         long start=System.nanoTime();
+         if (commonSceneToM9==null || commonSceneToM9.length!=9 || !Double.isFinite(renderGain)
+                 || renderGain<1.0/256 || renderGain>256) throw new IllegalArgumentException("Invalid M9 profile inputs");
+@@ -110,9 +117,9 @@
+         int qr=quant(matrix[0]*r+matrix[1]*g+matrix[2]*b);
+         int qg=quant(matrix[3]*r+matrix[4]*g+matrix[5]*b);
+         int qb=quant(matrix[6]*r+matrix[7]*g+matrix[8]*b);
+-        int[][] m=qr>=qg?EVEN:ODD;
++        long[] m=qr>=qg?even:odd;
+         for (int c=0;c<3;c++) {
+-            int index=Math.max(0,Math.min(2047,(m[c][0]*qr+m[c][1]*qg+m[c][2]*qb)>>16));
++            int index=Math.max(0,Math.min(2047,(int)((m[c*3]*qr+m[c*3+1]*qg+m[c*3+2]*qb)>>16)));
+             out[c]=(curve[index]&255)/255.0;
+         }
+     }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java
+@@ -22,7 +22,9 @@
+             report.put("crossLensExperimentalOverride",false);
+             if(!jpegRendered||frozenRenderer==null) throw new IllegalStateException("No successful capture renderer result");
+             JSONObject renderer=new JSONObject(frozenRenderer);
+-            if(renderer.getInt("nativeSaturationBankActuallySelected")!=2||!renderer.getBoolean("identityHsmApplied"))
++            int saturationBank=renderer.getInt("nativeSaturationBankActuallySelected");
++            if(!M9Saturation.isValid(saturationBank)||!renderer.getBoolean("identityHsmApplied")
++                    ||renderer.optBoolean("skyDiagnosticAny1A",false))
+                 throw new IllegalStateException("Unsupported rendering mode");
+             JSONObject target=renderer.getJSONObject("targetDomainTrace1A");
+             JSONArray rows=target.getJSONArray("currentPpToM9Composed");
+@@ -32,9 +34,10 @@
+                 JSONArray row=rows.getJSONArray(r);if(row.length()!=3) throw new IllegalArgumentException("Invalid matrix columns");
+                 for(int c=0;c<3;c++) matrix[r*3+c]=row.getDouble(c);
+             }
+-            M9DngProfile profile=new M9DngProfile(matrix,target.getDouble("effectiveRenderGain"),M9TargetFirmwareCalibration.get().curve02);
+-            String name="M9 App1B "+UUID.randomUUID().toString().replace("-","").substring(0,16);
++            M9DngProfile profile=new M9DngProfile(matrix,target.getDouble("effectiveRenderGain"),M9TargetFirmwareCalibration.get().curve02,saturationBank);
++            String name="M9 App1B "+M9Saturation.name(saturationBank)+" "+UUID.randomUUID().toString().replace("-","").substring(0,16);
+             M9DngProfileWriter.Result result=M9DngProfileWriter.embed(path,profile,name);
++            report.put("leicaSaturationBank",saturationBank);report.put("leicaSaturationLevel",M9Saturation.name(saturationBank));
+             report.put("status","embedded");report.put("profileName",result.name);report.put("profileDigest",result.digest);
+             report.put("generationElapsedMs",profile.elapsedMs);report.put("addedBytes",result.addedBytes);
+             report.put("renderGain",profile.gain);report.put("source","capture_owned_common_scene_to_m9");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/M9Saturation.java
+@@ -0,0 +1,37 @@
++package com.particlesdevs.photoncamera.processing;
++
++/** Leica M9 1.216 sRGB nSaturation 0..4; signed Q13 M00..M09 at PROCESS/LUTS+0xB44.
++ * Each pair branches on quantized R >= G, before the unchanged curve02 lookup.
++ * No estimated saturation multiplier or source-camera calibration is used here.
++ */
++public final class M9Saturation {
++    public static final int STANDARD = 2;
++    private static final String[] NAMES = {"Low", "Medium low", "Standard", "Medium high", "High"};
++    private static final String[] PAIRS = {"M00_M01", "M02_M03", "M04_M05", "M06_M07", "M08_M09"};
++    private static final int[] MODES = {11, 12, 9, 0, 10};
++    private static final long[][] MATRICES = {
++        {10563,-1281,-1085,-1363,12163,-2607,169,-2448,10465},
++        {11461,-2173,-1085,-1487,12295,-2607,648,-2911,10465},
++        {12420,-3186,-1036,-1891,12946,-2862,-51,-4587,12825},
++        {13471,-4231,-1036,-2068,13130,-2862,495,-5117,12825},
++        {13659,-4457,-1004,-2244,13469,-3033,-199,-6014,14398},
++        {14811,-5604,-1004,-2455,13688,-3033,393,-6588,14398},
++        {16754,-7632,-922,-3124,14774,-3458,-567,-9579,18330},
++        {18160,-9034,-922,-3422,15080,-3458,137,-10264,18330},
++        {19850,-10808,-840,-4004,16080,-3884,-936,-13144,22262},
++        {21509,-12464,-840,-4389,16473,-3884,-117,-13940,22262}
++    };
++    private M9Saturation() {}
++    public static boolean isValid(int bank) { return bank >= 0 && bank < 5; }
++    public static int normalize(int bank) { return isValid(bank) ? bank : STANDARD; }
++    public static int parse(String value) {
++        try { return normalize(Integer.parseInt(value)); }
++        catch (NumberFormatException invalid) { return STANDARD; }
++    }
++    public static String name(int bank) { return NAMES[normalize(bank)]; }
++    public static String pair(int bank) { return PAIRS[normalize(bank)]; }
++    public static int nativeMode(int bank) { return MODES[normalize(bank)]; }
++    public static long[] matrix(int bank, boolean even) {
++        return MATRICES[2 * normalize(bank) + (even ? 0 : 1)].clone();
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -352,6 +352,8 @@
+         GLES20.glUniform1i(enablePeak, getPeakEnabled());
+         GLES20.glUniform1i(mirror, mMirrorPreview ? 1 : 0);
+         GLES20.glUniform1i(uM9Enabled, mM9CurveTex != 0 ? 1 : 0);
++        GLES20.glUniform1i(uM9SaturationBank,
++                com.particlesdevs.photoncamera.m9.render.M9SaturationSettings.selected());
+         GLES20.glUniform1f(uM9ExposureScale1B, frame1W.exposureScale);
+         GLES20.glUniform1f(uM9PreviewTc20Gain1A, previewTc20Gain1A);
+         GLES20.glUniform1i(uM9EvidenceStage2E, 0);
+@@ -605,6 +607,7 @@
+     private int uM9EvidenceStage2E;
+     private com.particlesdevs.photoncamera.m9.preview.M9RootCausePixels1A mM9ShutterPixels;
+ 
++    private int uM9SaturationBank;
+     private int mM9CurveTex, uM9Enabled, uM9Curve, uM9ExposureScale1B, uM9PreviewTc20Gain1A;
+     private int mInverseTex2A, uSourceReady2A, uInputToSensor2A, uSensorToPp2A, uPpToTarget2A;
+     private int uClipWhite2A, uTungsten2A;
+@@ -693,6 +696,7 @@
+                 mirror = GLES20.glGetUniformLocation(mSharpProgram, "mirror");
+                 uM9EvidenceStage2E = GLES20.glGetUniformLocation(mSharpProgram, "uM9EvidenceStage2E");
+                 uM9Enabled = GLES20.glGetUniformLocation(mSharpProgram, "uM9Enabled");
++                uM9SaturationBank = GLES20.glGetUniformLocation(mSharpProgram, "uM9SaturationBank");
+                 uM9Curve = GLES20.glGetUniformLocation(mSharpProgram, "uM9Curve");
+                 uM9ExposureScale1B = GLES20.glGetUniformLocation(mSharpProgram, "uM9ExposureScale1B");
+                 uM9PreviewTc20Gain1A = GLES20.glGetUniformLocation(mSharpProgram, "uM9PreviewTc20Gain1A");
+diff --git a/app/src/main/res/values/m9_saturation.xml b/app/src/main/res/values/m9_saturation.xml
+--- /dev/null
++++ b/app/src/main/res/values/m9_saturation.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_saturation_title">Leica M9 saturation</string>
++    <string-array name="m9_saturation_entries">
++        <item>Low</item>
++        <item>Medium low</item>
++        <item>Standard</item>
++        <item>Medium high</item>
++        <item>High</item>
++    </string-array>
++    <string-array name="m9_saturation_values" translatable="false">
++        <item>0</item>
++        <item>1</item>
++        <item>2</item>
++        <item>3</item>
++        <item>4</item>
++    </string-array>
++</resources>
+diff --git a/app/src/main/res/xml/preferences.xml b/app/src/main/res/xml/preferences.xml
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -346,6 +346,16 @@
+             android:layout="@layout/preference_category_layout"
+             android:key="@string/pref_category_photo_key"
+             android:title="@string/photo_settings">
++        <ListPreference
++                android:key="pref_m9_saturation"
++                android:layout="@layout/preference_with_margin"
++                android:title="@string/m9_saturation_title"
++                android:dialogTitle="@string/m9_saturation_title"
++                android:entries="@array/m9_saturation_entries"
++                android:entryValues="@array/m9_saturation_values"
++                android:defaultValue="2"
++                app:useSimpleSummaryProvider="true"
++                android:icon="@drawable/ic_saturation"/>
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
+                 android:key="@string/pref_frame_count_key"
+                 android:layout="@layout/preference_seekbar"
+@@ -455,18 +465,7 @@
+                 app:stepPerUnit="20"
+                 android:icon="@drawable/ic_grain_black_24dp"
+                 />
+-        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
+-                android:key="@string/pref_saturation_seekbar_key"
+-                android:layout="@layout/preference_seekbar"
+-                android:title="@string/saturation"
+-                android:summary=""
+-                android:defaultValue="@string/pref_saturation_seekbar_default"
+-                app:maxValue="3"
+-                app:minValue="0"
+-                app:isFloat="true"
+-                app:stepPerUnit="10"
+-                android:icon="@drawable/ic_saturation"
+-                />
++
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
+                 android:key="@string/pref_contrast_seekbar_key"
+                 android:layout="@layout/preference_seekbar"
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SaturationSettingsTest.java
+@@ -0,0 +1,38 @@
++package com.particlesdevs.photoncamera.m9.render;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import com.particlesdevs.photoncamera.processing.M9Saturation;
++import org.junit.Test;
++import org.mockito.MockMakers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++public class M9SaturationSettingsTest {
++    private SettingsManager settings() {
++        return mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++    }
++    @Test public void installationWithoutPreferenceUsesAcceptedStandard() {
++        assertEquals(2, M9SaturationSettings.selected(null));
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SaturationSettings.KEY,"2")).thenReturn("2");
++        assertEquals(2,M9SaturationSettings.selected(s));
++    }
++    @Test public void allFiveLevelsCanChangeWithoutRestart() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SaturationSettings.KEY,"2")).thenReturn("0","1","2","3","4","2");
++        for(int n:new int[]{0,1,2,3,4,2}) assertEquals(n,M9SaturationSettings.selected(s));
++    }
++    @Test public void corruptOrFuturePreferenceFallsBackToStandard() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SaturationSettings.KEY,"2")).thenReturn("broken","-1","5",null);
++        for(int n=0;n<4;n++) assertEquals(2,M9SaturationSettings.selected(s));
++    }
++    @Test public void wrongStoredTypeDoesNotPreventCapture() {
++        SettingsManager s=settings();
++        when(s.getString(SettingsManager.SCOPE_GLOBAL,M9SaturationSettings.KEY,"2")).thenThrow(new ClassCastException());
++        assertEquals(2,M9SaturationSettings.selected(s));
++    }
++    @Test public void callerCannotModifyFirmwareTables() {
++        long[] a=M9Saturation.matrix(0,true);a[0]=0;
++        assertEquals(10563,M9Saturation.matrix(0,true)[0]);
++    }
++}
