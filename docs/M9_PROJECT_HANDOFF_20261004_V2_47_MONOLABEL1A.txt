@@ -1,0 +1,34 @@
+M9Cam 2.47 MONOLABEL1A — Mono circle label
+
+Build: 2.47-monolabel1a (versionCode 27247)
+APK: M9Cam_2.47_MONOLABEL1A.apk
+Bytes: 119556917
+SHA-256: aa30b6af58fe098ff1182bc118cf35a54bc1d866f480ed152fc4c0d15be0a8b9
+Application ID: com.m9project.m9cam.photon
+Same signing certificate as the accepted M9 APK; install over 2.46 without clearing settings.
+
+USER FEEDBACK — 2.46
+On 2026-10-04 Malcolm confirmed that the app works after the renderer-switch repair and that photos are captured well. This accepts the reported switching/capture behavior. No further unreported device checks or photographic acceptance are inferred.
+
+CHANGE — 2.47
+The camera's circular renderer button now reads Mono when Monochrom is selected. The renderer picker and settings retain the full Monochrom name. The M9 button label stays M9.
+Only M9OverlayController.java's visible button string and app/build.gradle's version/output name change from 2.46. All other 1,324 source files are unchanged. The switch-lifecycle fix remains intact. No changes to image processing, capture, settings values or profile handling.
+All 27 native libraries and all 285 assets are preserved byte-for-byte from the delivered 2.46 APK.
+
+VERIFICATION
+Android debug assembly passed (60 tasks, 14 executed and 46 up-to-date).
+Exact source reconstruction and label/version-only source comparison passed.
+APK signature, application ID/version, 16-KiB ZIP alignment, Monochrom ELF alignment and both compiled settings menus passed.
+No new unit tests were added or run for this text-only change. The 86 tests recorded for 2.46 remain parent-version evidence, not a claimed rerun.
+The 2.47 label has not yet been checked on the phone.
+
+FOLLOW-UP WORK
+Monochrom profiles: explore saved looks within Monochrom's existing Image settings, with its own renderer-specific controls and stored values. Settle profile contents and behavior before implementation.
+Rendering speed: measure preview frame timing and capture-to-save stages on the target phone, identify the limiting stage, then assess optimizations against the accepted visual output. No performance improvement is claimed for this label revision.
+
+SOURCE RECOVERY
+Repository: https://github.com/mwilliams455/M9Camera_refresh
+Parent main: 775989a0009faee89104e13e532c14506e39e945 (2.46, PR 64)
+Branch: ui/mono-label1a
+Recovery: patches/monolabel1a/README.md, assemble.py, build.py, package.py, freeze_patch.py, verify_source.py, manifest.json, monolabel1a.patch.gz and verification JSON files.
+Packaging restores the exact 2.46 native libraries. Do not distribute the raw Gradle APK.

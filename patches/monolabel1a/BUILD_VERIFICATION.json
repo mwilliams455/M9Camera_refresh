@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "version": "2.47-monolabel1a",
+  "task": ":app:assembleDebug",
+  "actionableTasks": 60,
+  "executed": 14,
+  "upToDate": 46,
+  "unitTestsRun": false,
+  "reason": "Only the circle label and version change; source isolation and signed package checks verify this revision.",
+  "parentUnitTestEvidence": "patches/monoswitch1a/TEST_VERIFICATION.json",
+  "parent246DeviceFeedback": "User confirmed switching works and photos are captured well on 2026-10-04.",
+  "version247PhoneValidationPending": true
+}
