@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "revision": "MONOMERGE1A",
+  "existingM9AssetsUnchanged": 280,
+  "existingM9PhotographicJavaUnchanged": 97,
+  "monochromJavaExactAfterNamespaceMove": 62,
+  "monochromNativeMathExact": true,
+  "monochromNativeLutsExact": true,
+  "monochromShaderExact": true,
+  "monochromExposureAllocatorExact": true,
+  "sharedSettingsHierarchy": true,
+  "independentImageKeys": true,
+  "m9MenuUnchanged": true,
+  "shutterSettingsFrozen": true,
+  "finalOutputGatesRendererSwitch": true,
+  "phoneValidationPending": true
+}

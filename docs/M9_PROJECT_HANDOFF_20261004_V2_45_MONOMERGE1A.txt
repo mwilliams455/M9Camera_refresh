@@ -1,0 +1,68 @@
+M9 CAMERA — 2.45 MONOMERGE1A HANDOFF
+Date: 2026-10-04
+Status: compiled, signed integration candidate; phone validation pending.
+
+WHAT CHANGED
+M9 and Monochrom are installed choices in the lower-right rendering picker.
+M10-R and M11 remain unavailable. The existing M9 camera overlay stays in place.
+Switching renderers recreates the camera view and clears renderer-specific live state.
+Renderer switching waits for countdown/capture/bracket/final-save completion.
+
+SETTINGS
+There is one settings hierarchy with the selected renderer's relevant controls.
+M9 Image: existing saturation, contrast, sharpness and presets.
+Monochrom Image: contrast, sharpness, toning hue (Sepia/Cool/Selenium), strength (Off/Weak/Strong).
+M9 and Monochrom remember independent image settings. Monochrom Auto ISO and bracket controls use their own keys.
+Display uses luminance for Monochrom, including clipping warnings. Shared M9 RGB preferences are retained.
+Monochrom AE-L and planned bracketing are Photo-mode features, as in its imported exposure planner.
+Photo/Motion remain independent capture choices. No HDR or multi-frame image merging was added.
+
+OUTPUT
+JPEG, DNG+JPEG, and DNG work through the selected renderer.
+Monochrom DNG retains the original linear SOURCE1D export; JPEG contrast/sharpness/toning are not baked into its pixels.
+Monochrom Original Sensor RAW is an independent optional Bayer/color DNG, default off.
+M9's accepted optional unfiltered-DNG behavior is retained.
+Diagnostics are optional/default off. Enabled Monochrom runs include capture/renderer evidence and _MONO_PRIMARY.json.
+The imported dark-frame policy uses supported hot-pixel metadata and guarded corrections on the derived path, with no second exposure, artificial delay or sensor-RAW edits.
+
+CAPTURE OWNERSHIP
+Requests bind immutable renderer/settings snapshots without replacing exposure-plan request tags.
+The Monochrom save queue also freezes physical-camera parameters, owns one RAW per photograph, and closes it before waiting on durable DNG publication.
+Final save tickets include JPEG metadata, selected DNG publication and optional sensor RAW.
+Brackets advance only after their photograph's final-output ticket completes.
+
+BASELINES
+M9 base: 212e8857aa1fc7840cc307a875693070e3c5480c — UI 2.44; accepted photographic baseline remains 2.38.
+Monochrom: cf5e00e23ea47920fb863eb7abb0fa423885786a — research/mono-darkframe1a.
+Monochrom recovery and its source/policy checks passed before integration.
+The latest dark-frame addition is included as a candidate; this merge does not claim new on-phone acceptance.
+
+VALIDATION
+84 regression tests passed; assembleDebug and testDebugUnitTest succeeded.
+Independent reconstruction from the frozen patch and binary payloads passed.
+97 existing M9 photographic Java files and all 280 existing assets are byte-identical.
+All 25 accepted 2.38 native libraries are preserved in the signed APK.
+Two isolated libmonocolor.so ABI libraries are added. Imported native math, LUTs, shader and exposure allocator match source after namespace relocation.
+Both compiled settings menus, APK identity, signer, ZIP integrity, 16 KiB APK alignment and new native ELF alignment passed.
+
+APK
+File: M9Cam_2.45_MONOMERGE1A.apk
+Application: com.m9project.m9cam.photon
+Version name: 2.45-monomerge1a
+Version code: 27245
+Bytes: 119569205
+SHA-256: afeeebbed2e200a9edd564fa412b0e9ea0fa8ff1e8e414b39314256c297ed24d
+
+SOURCE RECOVERY
+M9Camera_refresh/patches/monomerge1a contains README.md, assembly/build/package scripts,
+manifest.json, monomerge1a.patch.gz, binary payloads and verification reports.
+Use the packaging script: the raw Gradle APK does not preserve the accepted native baseline.
+Git integration branch: integration/m9-monochrom1a. Consult the PR history for merge state.
+
+FIRST PHONE CHECK
+1. Install over M9, select Monochrom, then switch back to M9.
+2. Confirm independent image settings survive switches, restart and physical lens changes.
+3. Compare preview and saved JPEG exposure/toning; check physical ISO and shutter metadata.
+4. Exercise JPEG/DNG+JPEG/DNG with Original Sensor RAW off and on.
+5. Test tap metering, AE-L in Photo, timer cancellation and one serial bracket.
+6. Check Photo/Motion and each physical lens normally used.
