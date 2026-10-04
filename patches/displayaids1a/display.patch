@@ -1,0 +1,770 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -42,13 +42,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27230
++        versionCode 27231
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.30-m9shootingprofiles1a'
++        versionName '2.31-m9displayaids1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -96,7 +96,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.30_SHOOTINGPROFILES1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.31_DISPLAYAIDS1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DisplayAids.java
+@@ -0,0 +1,90 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.util.Map;
++
++/** Display-code measurements only. This class cannot change camera or renderer settings. */
++public final class M9DisplayAids {
++    // Extend the existing shared display selector, retaining meanings of values 0..3.
++    public static final String MODE_KEY = "pref_show_afdata_key";
++    public static final String HIGHLIGHT_KEY = "pref_m9_highlight_warning";
++    public static final String SHADOW_KEY = "pref_m9_shadow_warning";
++    public static final int BINS = 64;
++    public static final int RED = 0xD0FF3030, BLUE = 0xD04080FF;
++    private M9DisplayAids() {}
++
++    public static final class Settings {
++        public final int mode, highlights, shadows;
++        public Settings(int mode, int highlights, int shadows) {
++            this.mode = mode >= 0 && mode <= 6 ? mode : 0;
++            this.highlights = highlights >= 95 && highlights <= 100 ? highlights : 0;
++            this.shadows = shadows >= 0 && shadows <= 5 ? shadows : -1;
++        }
++        public int histogram() { return mode == 2 || mode == 5 ? 2 : mode == 4 || mode == 6 ? 1 : 0; }
++        public int hud() { return mode == 3 ? 3 : mode == 1 || mode == 2 || mode == 6 ? 1 : 0; }
++        public boolean enabled() { return histogram() != 0 || highlights != 0 || shadows >= 0; }
++    }
++
++    public static Settings read(Map<String,?> values) {
++        return new Settings(integer(values,MODE_KEY,0),integer(values,HIGHLIGHT_KEY,0),integer(values,SHADOW_KEY,-1));
++    }
++    private static int integer(Map<String,?> values,String key,int fallback) {
++        Object value = values.get(key);
++        if (!(value instanceof String)) return fallback;
++        try { return Integer.parseInt((String)value); }
++        catch (NumberFormatException invalid) { return fallback; }
++    }
++    public static int withHistogram(int mode,int histogram) {
++        boolean info = mode == 1 || mode == 2 || mode == 6;
++        if (histogram == 1) return info ? 6 : 4;
++        if (histogram == 2) return info ? 2 : 5;
++        return info ? 1 : mode == 3 ? 3 : 0;
++    }
++    public static int highlightCode(int percent) { return percent == 0 ? 256 : Math.round(255f*percent/100f); }
++    public static int shadowCode(int percent) { return percent < 0 ? -1 : Math.round(255f*percent/100f); }
++
++    public static final class Sample {
++        public final int[][] rgb = new int[3][BINS];
++        public final int[] luminance = new int[BINS];
++        public final int[] mask;
++        public final int width,height;
++        public int measured,highlightCount,shadowCount;
++        Sample(int width,int height) { this.width=width; this.height=height; mask=new int[width*height]; }
++        public boolean hasWarnings() { return highlightCount != 0 || shadowCount != 0; }
++    }
++
++    /** Same 128x96 sampled-overlay approach as Monochrom; retain real RGB colours in M9. */
++    public static Sample analyze(int[] pixels,int width,int height,Settings settings,
++                                 float cornerRadiusX,float cornerRadiusY) {
++        if (width <= 0 || height <= 0 || pixels.length != width*height) throw new IllegalArgumentException("geometry");
++        Sample sample = new Sample(width,height);
++        int high = highlightCode(settings.highlights), low = shadowCode(settings.shadows);
++        for (int y=0;y<height;y++) for (int x=0;x<width;x++) {
++            int i=y*width+x, pixel=pixels[i];
++            if ((pixel>>>24)==0 || outsideCorner(x,y,width,height,cornerRadiusX,cornerRadiusY)) continue;
++            int r=(pixel>>>16)&255, g=(pixel>>>8)&255, b=pixel&255;
++            sample.rgb[0][r>>2]++; sample.rgb[1][g>>2]++; sample.rgb[2][b>>2]++;
++            int luma=(77*r+150*g+29*b+128)>>8;
++            sample.luminance[luma>>2]++; sample.measured++;
++            int maximum=Math.max(r,Math.max(g,b));
++            // Any high channel warns about colour-channel clipping; shadows require all channels low.
++            if (maximum >= high) { sample.mask[i]=RED; sample.highlightCount++; }
++            else if (maximum <= low) { sample.mask[i]=BLUE; sample.shadowCount++; }
++        }
++        return sample;
++    }
++
++    static boolean outsideCorner(int x,int y,int width,int height,float rx,float ry) {
++        if (rx<=0 || ry<=0) return false;
++        rx=Math.min(rx,width/2f); ry=Math.min(ry,height/2f);
++        double dx=Math.max(0,rx-Math.min(x+0.5,width-x-0.5))/rx;
++        double dy=Math.max(0,ry-Math.min(y+0.5,height-y-0.5))/ry;
++        return dx*dx+dy*dy>1.0;
++    }
++
++    /** Translate a photo frame into surface-local pixels; never stretch a partial intersection. */
++    public static int[] photoRect(int sx,int sy,int sw,int sh,int fx,int fy,int fw,int fh) {
++        int left=fx-sx,top=fy-sy;
++        if (fw<=0 || fh<=0 || sw<=0 || sh<=0 || left<0 || top<0 || left+fw>sw || top+fh>sh) return null;
++        return new int[]{left,top,left+fw,top+fh};
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DisplaySampleGate.java
+@@ -0,0 +1,17 @@
++package com.particlesdevs.photoncamera.m9;
++
++/** Main-thread lifecycle guard: one copy at a time, with stale callbacks rejected after changes. */
++public final class M9DisplaySampleGate {
++    private long generation;
++    private boolean running, busy;
++    public void start() { running=true; generation++; }
++    public void stop() { running=false; generation++; }
++    public void invalidate() { generation++; }
++    public long begin() {
++        if (!running || busy) return -1;
++        busy=true; return generation;
++    }
++    public boolean accepts(long ticket) { return running && busy && ticket==generation; }
++    public void finish() { busy=false; }
++    public boolean isBusy() { return busy; }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java
+@@ -39,6 +39,8 @@
+         COMMON_KEYS.add(Key.KEY_SAVE_PER_LENS_SETTINGS.mValue);
+         COMMON_KEYS.add(Key.KEY_PRESERVE_MANUAL_WB.mValue);
+         COMMON_KEYS.add(Key.KEY_SHOW_AF_DATA.mValue);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9DisplayAids.HIGHLIGHT_KEY);
++        COMMON_KEYS.add(com.particlesdevs.photoncamera.m9.M9DisplayAids.SHADOW_KEY);
+         COMMON_KEYS.add(Key.KEY_THEME_ACCENT.mValue);
+         COMMON_KEYS.add(Key.KEY_THEME.mValue);
+         COMMON_KEYS.add(Key.KEY_SHOW_GRID.mValue);
+@@ -203,6 +205,8 @@
+             // Also ignore profile metadata in imported/older per-lens snapshots.
+             if (com.particlesdevs.photoncamera.m9.M9ShootingProfiles.LIBRARY_KEY.equals(key)
+                     || com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ACTIVE_KEY.equals(key)) continue;
++            if (com.particlesdevs.photoncamera.m9.M9DisplayAids.HIGHLIGHT_KEY.equals(key)
++                    || com.particlesdevs.photoncamera.m9.M9DisplayAids.SHADOW_KEY.equals(key)) continue;
+             Object value = e.getValue();
+             // Normalize boolean values to the "1"/"0" String convention used by
+             // SettingsManager/ManagedSwitchPreference. This also fixes up legacy
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -208,6 +208,7 @@
+     public float displayAspectRatio;
+     private HorizonIndicatorView mHorizonIndicatorView;
+     private ViewfinderHudView mViewfinderHudView;
++    private M9DisplayAidsController m9DisplayAids;
+     /**
+      * True while running over the keyguard. Gallery shows no pre-lock content and
+      * settings entry points are disabled until {@link #onSecureSessionChanged(boolean)}
+@@ -281,6 +282,10 @@
+         surfaceView = cameraFragmentBinding.layoutViewfinder.surfaceView;
+         textureView = cameraFragmentBinding.texture;
+         mViewfinderHudView = cameraFragmentBinding.layoutViewfinder.viewfinderHudView;
++        m9DisplayAids = new M9DisplayAidsController(requireContext(), textureView,
++                cameraFragmentBinding.layoutViewfinder.viewfinderFrame,
++                cameraFragmentBinding.layoutTopbar.m9DisplayAidsButton,
++                cameraFragmentBinding.layoutViewfinder.m9DisplayAidsOverlay);
+     }
+ 
+     private void setModelsToLayout() {
+@@ -543,6 +548,7 @@
+         captureController.resumeCamera();
+         initTouchFocus();
+         manualModeConsole.onResume();
++        if (m9DisplayAids != null) m9DisplayAids.start();
+     }
+ 
+     private void initTouchFocus() {
+@@ -559,6 +565,7 @@
+ 
+     @Override
+     public void onPause() {
++        if (m9DisplayAids != null) m9DisplayAids.stop();
+         if (m9SaveStatusView != null) m9SaveStatusView.stop();
+         PhotonCamera.getGravity().unregister();
+         PhotonCamera.getGyro().unregister();
+@@ -991,6 +998,8 @@
+ 
+     @Override
+     public void onDestroyView() {
++        if (m9DisplayAids != null) m9DisplayAids.close();
++        m9DisplayAids = null;
+         if (m9SaveStatusView != null) m9SaveStatusView.stop();
+         m9SaveStatusView = null;
+         if (textureView != null) {
+@@ -1180,6 +1189,12 @@
+                 mTouchFocus.setState(result.get(CaptureResult.CONTROL_AF_STATE));
+             }
+             int afDataMode = PreferenceKeys.getAfDataValue();
++            if (m9DisplayAids != null && m9DisplayAids.isSupportedMode()) {
++                afDataMode = m9DisplayAids.hudMode();
++                m9DisplayAids.setOrientation(orientation);
++            } else if (afDataMode >= 4 && afDataMode <= 6) {
++                afDataMode = 2; // Legacy modes retain their combined HUD/histogram.
++            }
+             if (mViewfinderHudView != null) {
+                 mViewfinderHudView.setHudMode(afDataMode);
+             }
+@@ -1476,6 +1491,7 @@
+     private final int[][] mHistData = new int[3][64];
+ 
+     private void requestLiveHistogram() {
++        if (m9DisplayAids != null && m9DisplayAids.isSupportedMode()) return;
+         if (textureView == null || surfaceView == null) return;
+         long now = android.os.SystemClock.uptimeMillis();
+         if (now - lastHistTime < HIST_INTERVAL_MS) {
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/M9DisplayAidsController.java
+@@ -0,0 +1,165 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.graphics.Bitmap;
++import android.graphics.Rect;
++import android.os.Handler;
++import android.os.Looper;
++import android.view.PixelCopy;
++import android.view.SurfaceView;
++import android.view.View;
++import androidx.appcompat.app.AlertDialog;
++import com.google.android.material.dialog.MaterialAlertDialogBuilder;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.api.CameraMode;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.m9.M9Config;
++import com.particlesdevs.photoncamera.m9.M9DisplayAids;
++import com.particlesdevs.photoncamera.m9.M9DisplaySampleGate;
++import com.particlesdevs.photoncamera.settings.PreferenceKeys;
++import com.particlesdevs.photoncamera.ui.camera.views.viewfinder.M9DisplayAidsView;
++import com.particlesdevs.photoncamera.util.BlurSupport;
++import java.util.Arrays;
++import java.util.Objects;
++
++/** Small asynchronous readback of the visible photo area; no camera requests or GL writes. */
++final class M9DisplayAidsController implements SharedPreferences.OnSharedPreferenceChangeListener {
++    private static final int WIDTH=128,HEIGHT=96,INTERVAL=150;
++    private final Context context;
++    private final SurfaceView source;
++    private final View frame,button;
++    private final M9DisplayAidsView overlay;
++    private final SharedPreferences preferences;
++    private final Handler main=new Handler(Looper.getMainLooper());
++    private final M9DisplaySampleGate gate=new M9DisplaySampleGate();
++    private final int[] pixels=new int[WIDTH*HEIGHT];
++    private M9DisplayAids.Settings settings;
++    private Bitmap bitmap;
++    private boolean running,destroyed,wasPhoto;
++    private String cameraId;
++    private AlertDialog dialog;
++
++    M9DisplayAidsController(Context context,SurfaceView source,View frame,View button,M9DisplayAidsView overlay) {
++        this.context=context; this.source=source; this.frame=frame; this.button=button; this.overlay=overlay;
++        preferences=PhotonCamera.getSettingsManagerStatic().getDefaultPreferences();
++        preferences.registerOnSharedPreferenceChangeListener(this);
++        button.setOnClickListener(v -> showControls()); refresh();
++    }
++    boolean isSupportedMode() {
++        if (!M9Config.isM9Modern() || PhotonCamera.getSettings()==null) return false;
++        CameraMode mode=PhotonCamera.getSettings().selectedMode;
++        return mode==CameraMode.PHOTO || mode==CameraMode.NIGHT || mode==CameraMode.MOTION || mode==CameraMode.VIDEO;
++    }
++    int hudMode() { return settings.hud(); }
++    void setOrientation(int orientation) { overlay.setOrientation(orientation); }
++    void start() {
++        if (destroyed || running) return;
++        running=true; gate.start(); refresh(); main.post(tick);
++    }
++    void stop() {
++        running=false; gate.stop(); main.removeCallbacks(tick); overlay.clear(); overlay.setVisibility(View.GONE);
++        if (dialog!=null) dialog.dismiss();
++    }
++    void close() {
++        stop(); destroyed=true; preferences.unregisterOnSharedPreferenceChangeListener(this);
++        button.setOnClickListener(null); releaseBitmap();
++    }
++    private void releaseBitmap() {
++        // PixelCopy owns its destination until the callback. Never recycle it while a copy is active.
++        if (!gate.isBusy() && bitmap!=null) { bitmap.recycle(); bitmap=null; }
++    }
++    @Override public void onSharedPreferenceChanged(SharedPreferences prefs,String key) {
++        if (key==null || key.equals(M9DisplayAids.MODE_KEY) || key.equals(M9DisplayAids.HIGHLIGHT_KEY)
++                || key.equals(M9DisplayAids.SHADOW_KEY) || key.equals(PreferenceKeys.Key.KEY_SHOW_ROUND_EDGE.mValue)) refresh();
++    }
++    private void refresh() {
++        settings=M9DisplayAids.read(preferences.getAll()); gate.invalidate(); overlay.setSettings(settings);
++        button.setAlpha(settings.enabled()?1f:0.65f);
++        button.setContentDescription(context.getString(R.string.m9_display_quick_description,
++                histogramName(),highlightName(),shadowName()));
++    }
++
++    private final Runnable tick=new Runnable() {
++        @Override public void run() {
++            if (!running || destroyed) return;
++            boolean photo=isSupportedMode(); String nextCamera=PreferenceKeys.getCameraID();
++            if (photo!=wasPhoto || !Objects.equals(cameraId,nextCamera)) {
++                wasPhoto=photo; cameraId=nextCamera; gate.invalidate(); overlay.clear();
++            }
++            button.setVisibility(photo?View.VISIBLE:View.GONE);
++            overlay.setVisibility(photo && settings.enabled()?View.VISIBLE:View.GONE);
++            if (photo && settings.enabled()) request();
++            if (running) main.postDelayed(this,INTERVAL);
++        }
++    };
++
++    private int[] rect() {
++        if (!source.isAttachedToWindow() || !frame.isShown()) return null;
++        int[] surfacePosition=new int[2],framePosition=new int[2];
++        source.getLocationInWindow(surfacePosition); frame.getLocationInWindow(framePosition);
++        return M9DisplayAids.photoRect(surfacePosition[0],surfacePosition[1],source.getWidth(),source.getHeight(),
++                framePosition[0],framePosition[1],frame.getWidth(),frame.getHeight());
++    }
++    private void request() {
++        int[] bounds=rect();
++        if (bounds==null || !source.getHolder().getSurface().isValid()) { overlay.clear(); return; }
++        long ticket=gate.begin(); if (ticket<0) return;
++        final M9DisplayAids.Settings requested=settings;
++        final String requestedCamera=cameraId;
++        final float corner=PreferenceKeys.isRoundEdgeOn()?context.getResources().getDimension(R.dimen.viewfinder_round_corner_radius):0;
++        try {
++            if (bitmap==null) bitmap=Bitmap.createBitmap(WIDTH,HEIGHT,Bitmap.Config.ARGB_8888);
++            PixelCopy.request(source,new Rect(bounds[0],bounds[1],bounds[2],bounds[3]),bitmap,result -> {
++                try {
++                    if (!gate.accepts(ticket) || destroyed || !isSupportedMode()
++                            || !Objects.equals(requestedCamera,PreferenceKeys.getCameraID())
++                            || !Arrays.equals(bounds,rect())) return;
++                    if (result!=PixelCopy.SUCCESS) { overlay.clear(); return; }
++                    bitmap.getPixels(pixels,0,WIDTH,0,0,WIDTH,HEIGHT);
++                    M9DisplayAids.Sample sample=M9DisplayAids.analyze(pixels,WIDTH,HEIGHT,requested,
++                            corner*WIDTH/(bounds[2]-bounds[0]),corner*HEIGHT/(bounds[3]-bounds[1]));
++                    overlay.setSample(sample);
++                } catch (RuntimeException failedSample) {
++                    overlay.clear();
++                } finally {
++                    gate.finish(); if (destroyed) releaseBitmap();
++                }
++            },main);
++        } catch (RuntimeException unavailableSurface) {
++            gate.finish(); overlay.clear(); if (destroyed) releaseBitmap();
++        }
++    }
++
++    private String histogramName() { return context.getResources().getStringArray(R.array.m9_histogram_choices)[settings.histogram()]; }
++    private String highlightName() { return settings.highlights==0?context.getString(R.string.off):settings.highlights+"%"; }
++    private String shadowName() { return settings.shadows<0?context.getString(R.string.off):settings.shadows+"%"; }
++    private void showControls() {
++        CharSequence[] rows={context.getString(R.string.m9_display_histogram_row,histogramName()),
++                context.getString(R.string.m9_display_highlight_row,highlightName()),
++                context.getString(R.string.m9_display_shadow_row,shadowName())};
++        show(new MaterialAlertDialogBuilder(context).setTitle(R.string.m9_display_title)
++                .setItems(rows,(d,which) -> choose(which))
++                .setNeutralButton(R.string.m9_display_all_off,(d,w) -> preferences.edit()
++                        .putString(M9DisplayAids.MODE_KEY,Integer.toString(M9DisplayAids.withHistogram(settings.mode,0)))
++                        .putString(M9DisplayAids.HIGHLIGHT_KEY,"0").putString(M9DisplayAids.SHADOW_KEY,"-1").apply())
++                .setPositiveButton(R.string.m9_display_done,null).create());
++    }
++    private void choose(int which) {
++        String[] entries=context.getResources().getStringArray(which==0?R.array.m9_histogram_choices:
++                which==1?R.array.m9_highlight_entries:R.array.m9_shadow_entries);
++        int selected=which==0?settings.histogram():which==1?(settings.highlights==0?0:101-settings.highlights):settings.shadows+1;
++        show(new MaterialAlertDialogBuilder(context)
++                .setTitle(which==0?R.string.m9_display_histogram:which==1?R.string.m9_display_highlights:R.string.m9_display_shadows)
++                .setSingleChoiceItems(entries,selected,(d,index) -> {
++                    if (which==0) preferences.edit().putString(M9DisplayAids.MODE_KEY,
++                            Integer.toString(M9DisplayAids.withHistogram(settings.mode,index))).apply();
++                    else preferences.edit().putString(which==1?M9DisplayAids.HIGHLIGHT_KEY:M9DisplayAids.SHADOW_KEY,
++                            Integer.toString(which==1?(index==0?0:101-index):index-1)).apply();
++                    d.dismiss(); showControls();
++                }).setNegativeButton(android.R.string.cancel,null).create());
++    }
++    private void show(AlertDialog next) {
++        dialog=next; next.setOnDismissListener(d -> { if (dialog==next) dialog=null; }); BlurSupport.show(next);
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/M9DisplayAidsView.java
+@@ -0,0 +1,111 @@
++package com.particlesdevs.photoncamera.ui.camera.views.viewfinder;
++
++import android.content.Context;
++import android.graphics.Bitmap;
++import android.graphics.Canvas;
++import android.graphics.Color;
++import android.graphics.Paint;
++import android.graphics.Path;
++import android.graphics.RectF;
++import android.os.SystemClock;
++import android.util.AttributeSet;
++import android.view.View;
++import com.particlesdevs.photoncamera.R;
++import com.particlesdevs.photoncamera.m9.M9DisplayAids;
++
++/** Separate View overlay: masks never enter the sampled preview surface or saved image. */
++public final class M9DisplayAidsView extends View {
++    private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private final Paint maskPaint = new Paint();
++    private final Path graph = new Path();
++    private final RectF destination = new RectF();
++    private M9DisplayAids.Settings settings = new M9DisplayAids.Settings(0,0,-1);
++    private M9DisplayAids.Sample sample;
++    private Bitmap mask;
++    private long sampledAt;
++    private int orientation;
++    private final float density;
++
++    public M9DisplayAidsView(Context context,AttributeSet attrs) {
++        super(context,attrs); density=getResources().getDisplayMetrics().density;
++        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(density);
++        maskPaint.setFilterBitmap(false);
++        setClickable(false); setFocusable(false); setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
++    }
++    public void setSettings(M9DisplayAids.Settings next) {
++        settings=next; clear();
++    }
++    public void setOrientation(int value) {
++        int normalized=(value%360+360)%360;
++        if (orientation!=normalized) { orientation=normalized; invalidate(); }
++    }
++    public void setSample(M9DisplayAids.Sample value) {
++        sample=value; sampledAt=SystemClock.uptimeMillis();
++        if (value.hasWarnings()) {
++            if (mask==null || mask.getWidth()!=value.width || mask.getHeight()!=value.height) {
++                if (mask!=null) mask.recycle();
++                mask=Bitmap.createBitmap(value.width,value.height,Bitmap.Config.ARGB_8888);
++            }
++            mask.setPixels(value.mask,0,value.width,0,0,value.width,value.height);
++        }
++        invalidate();
++    }
++    public void clear() { sample=null; invalidate(); }
++
++    @Override protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++        if (sample==null || SystemClock.uptimeMillis()-sampledAt>750) return;
++        if (sample.hasWarnings() && mask!=null && ((SystemClock.uptimeMillis()/350)&1)==0) {
++            destination.set(0,0,getWidth(),getHeight());
++            canvas.drawBitmap(mask,null,destination,maskPaint);
++        }
++        if (settings.histogram()!=0) histogram(canvas);
++        // Expire stale data and continue the Monochrom-style flash without a constant animation loop.
++        postInvalidateDelayed(sample.hasWarnings()?175:750);
++    }
++
++    private void histogram(Canvas canvas) {
++        float width=96*density,height=44*density,margin=14*density,label=13*density;
++        boolean landscape=orientation==90 || orientation==270;
++        float pivotX=getWidth()-margin-(landscape?(height+label)/2:width/2);
++        float pivotY=margin+(landscape?width/2:(height+label)/2);
++        float left=pivotX-width/2,top=pivotY-(height+label)/2+label,bottom=top+height;
++        canvas.save(); canvas.rotate(orientation,pivotX,pivotY);
++        fill.setColor(0xB0000000); fill.setStyle(Paint.Style.FILL);
++        canvas.drawRect(left-3*density,top-label-2*density,left+width+3*density,bottom+3*density,fill);
++        fill.setColor(Color.WHITE); fill.setTextSize(10*density);
++        canvas.drawText(getResources().getString(R.string.m9_display_preview_label),left,top-3*density,fill);
++        line.setColor(0x70FFFFFF); canvas.drawRect(left,top,left+width,bottom,line);
++        for (int i=1;i<11;i++) canvas.drawLine(left+width*i/11,top,left+width*i/11,bottom,line);
++        int channels=settings.histogram()==2?3:1,maximum=1;
++        for (int channel=0;channel<channels;channel++) {
++            int[] bins=channels==3?sample.rgb[channel]:sample.luminance;
++            for (int value:bins) maximum=Math.max(maximum,value);
++        }
++        for (int channel=0;channel<channels;channel++) {
++            int[] bins=channels==3?sample.rgb[channel]:sample.luminance;
++            fill.setColor(channels==1?0xE8FFFFFF:new int[]{0xB8FF5050,0xB84CE06A,0xB85C8CFF}[channel]);
++            graph.reset(); graph.moveTo(left,bottom);
++            for (int i=0;i<M9DisplayAids.BINS;i++) {
++                float amount=(float)Math.sqrt(bins[i]/(double)maximum);
++                graph.lineTo(left+width*i/(M9DisplayAids.BINS-1),bottom-height*amount);
++            }
++            graph.lineTo(left+width,bottom); graph.close(); canvas.drawPath(graph,fill);
++        }
++        if (settings.highlights>0) {
++            line.setColor(Color.RED); float x=left+width*M9DisplayAids.highlightCode(settings.highlights)/255;
++            canvas.drawLine(x,top,x,bottom,line);
++        }
++        if (settings.shadows>=0) {
++            line.setColor(0xFF4080FF); float x=left+width*M9DisplayAids.shadowCode(settings.shadows)/255;
++            canvas.drawLine(x,top,x,bottom,line);
++        }
++        canvas.restore();
++    }
++    @Override protected void onDetachedFromWindow() {
++        clear();
++        if (mask!=null) { mask.recycle(); mask=null; }
++        super.onDetachedFromWindow();
++    }
++}
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_m9_display_aids.xml
+@@ -0,0 +1,5 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:fillColor="#FFFFFFFF" android:pathData="M3,3h18v18H3zM5,5v14h14V5z" android:fillType="evenOdd" />
++    <path android:fillColor="#FFFFFFFF" android:pathData="M6,15h2v3H6zM9,11h2v7H9zM12,7h2v11h-2zM15,12h3v6h-3z" />
++</vector>
+--- a/app/src/main/res/layout/layout_main_topbar.xml
++++ b/app/src/main/res/layout/layout_main_topbar.xml
+@@ -166,10 +166,26 @@
+                     android:onClick="@{top_bar_click_listener}"
+                     app:layout_constraintBottom_toBottomOf="parent"
+                     app:layout_constraintStart_toEndOf="@id/fps_toggle_button"
++                    app:layout_constraintEnd_toStartOf="@id/m9_display_aids_button"
++                    app:layout_constraintTop_toTopOf="parent"
++                    tools:visibility="visible"
++                    />
++
++            <ImageButton
++                    android:id="@+id/m9_display_aids_button"
++                    android:layout_width="0dp"
++                    android:layout_height="wrap_content"
++                    android:background="@drawable/ic_m9_display_aids"
++                    android:backgroundTint="@color/cam_on_surface"
++                    android:foreground="?attr/selectableItemBackgroundBorderless"
++                    android:contentDescription="@string/m9_display_title"
++                    android:tooltipText="@string/m9_display_title"
++                    android:visibility="gone"
++                    app:layout_constraintDimensionRatio="1:1"
++                    app:layout_constraintBottom_toBottomOf="parent"
++                    app:layout_constraintStart_toEndOf="@id/grid_toggle_button"
+                     app:layout_constraintEnd_toStartOf="@id/flash_button"
+-                    app:layout_constraintTop_toTopOf="parent"
+-                    tools:visibility="visible"
+-                    />
++                    app:layout_constraintTop_toTopOf="parent" />
+ 
+             <com.particlesdevs.photoncamera.ui.camera.views.FlashButton
+                     android:id="@+id/flash_button"
+@@ -183,7 +199,7 @@
+                     android:textOn=""
+                     android:onClick="@{top_bar_click_listener}"
+                     app:layout_constraintBottom_toBottomOf="parent"
+-                    app:layout_constraintStart_toEndOf="@id/grid_toggle_button"
++                    app:layout_constraintStart_toEndOf="@id/m9_display_aids_button"
+                     app:layout_constraintEnd_toStartOf="@id/settings_button"
+                     app:layout_constraintTop_toTopOf="parent"
+                     android:visibility='@{flash_visible ? View.VISIBLE:View.GONE, default=visible}'
+--- a/app/src/main/res/layout/layout_main_viewfinder.xml
++++ b/app/src/main/res/layout/layout_main_viewfinder.xml
+@@ -69,6 +69,19 @@
+                     app:layout_constraintEnd_toEndOf="@id/texture"
+                     app:layout_constraintStart_toStartOf="@id/texture"
+                     app:layout_constraintTop_toTopOf="@id/texture" />
++
++            <com.particlesdevs.photoncamera.ui.camera.views.viewfinder.M9DisplayAidsView
++                    android:id="@+id/m9_display_aids_overlay"
++                    android:layout_width="0dp"
++                    android:layout_height="0dp"
++                    android:visibility="gone"
++                    android:clickable="false"
++                    android:focusable="false"
++                    android:importantForAccessibility="no"
++                    app:layout_constraintBottom_toBottomOf="@id/viewfinder_frame"
++                    app:layout_constraintEnd_toEndOf="@id/viewfinder_frame"
++                    app:layout_constraintStart_toStartOf="@id/viewfinder_frame"
++                    app:layout_constraintTop_toTopOf="@id/viewfinder_frame" />
+ 
+             <com.particlesdevs.photoncamera.ui.camera.views.FocusCircleView
+                     android:id="@+id/touchFocus"
+--- /dev/null
++++ b/app/src/main/res/values/m9_display_aids.xml
+@@ -0,0 +1,39 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="m9_display_title">Display aids</string>
++    <string name="m9_display_histogram">Histogram</string>
++    <string name="m9_display_mode">Histogram and camera info</string>
++    <string name="m9_display_highlights">Highlight warning</string>
++    <string name="m9_display_shadows">Shadow warning</string>
++    <string name="m9_display_clipping">Clipping warnings</string>
++    <string name="m9_display_about">About display aids</string>
++    <string name="m9_display_info">Red warns when any colour channel reaches the highlight threshold. Blue marks areas where all channels are at or below the shadow threshold. These aids sample the preview; saved JPEG and RAW may differ. Focus peaking can affect readings.</string>
++    <string name="m9_display_preview_label">Preview</string>
++    <string name="m9_display_quick_description">Display aids. Histogram: %1$s. Highlights: %2$s. Shadows: %3$s.</string>
++    <string name="m9_display_histogram_row">Histogram · %1$s</string>
++    <string name="m9_display_highlight_row">Highlights · %1$s</string>
++    <string name="m9_display_shadow_row">Shadows · %1$s</string>
++    <string name="m9_display_all_off">Aids off</string>
++    <string name="m9_display_done">Done</string>
++    <string-array name="m9_histogram_choices"><item>@string/off</item><item>Luminance</item><item>RGB</item></string-array>
++    <string-array name="m9_display_mode_entries">
++        <item>@string/off</item><item>Luminance histogram</item><item>RGB histogram</item>
++        <item>Camera info</item><item>Camera info + luminance histogram</item>
++        <item>Camera info + RGB histogram</item><item>Full debug</item>
++    </string-array>
++    <string-array name="m9_display_mode_values" translatable="false">
++        <item>0</item><item>4</item><item>5</item><item>1</item><item>6</item><item>2</item><item>3</item>
++    </string-array>
++    <string-array name="m9_highlight_entries">
++        <item>@string/off</item><item>100%</item><item>99%</item><item>98%</item><item>97%</item><item>96%</item><item>95%</item>
++    </string-array>
++    <string-array name="m9_highlight_values" translatable="false">
++        <item>0</item><item>100</item><item>99</item><item>98</item><item>97</item><item>96</item><item>95</item>
++    </string-array>
++    <string-array name="m9_shadow_entries">
++        <item>@string/off</item><item>0% (black)</item><item>1%</item><item>2%</item><item>3%</item><item>4%</item><item>5%</item>
++    </string-array>
++    <string-array name="m9_shadow_values" translatable="false">
++        <item>-1</item><item>0</item><item>1</item><item>2</item><item>3</item><item>4</item><item>5</item>
++    </string-array>
++</resources>
+--- a/app/src/main/res/values/m9_menu.xml
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -7,7 +7,7 @@
+     <string name="m9_menu_output">Output</string>
+     <string name="m9_menu_output_summary">JPEG, RAW and aspect ratio</string>
+     <string name="m9_menu_display">Display</string>
+-    <string name="m9_menu_display_summary">Grid, focus peaking, histogram and appearance</string>
++    <string name="m9_menu_display_summary">Histogram, clipping warnings, grid and appearance</string>
+     <string name="m9_menu_advanced">Advanced</string>
+     <string name="m9_menu_advanced_summary">Diagnostics, sensor settings, video and backup</string>
+     <string name="m9_menu_appearance">Appearance</string>
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -25,11 +25,13 @@
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_wide169_key" android:defaultValue="@bool/pref_wide169_default" android:layout="@layout/preference_with_margin" android:title="@string/wide169" android:summary="" android:icon="@drawable/ic_burst_mode_black_24dp" />
+     </PreferenceScreen>
+     <PreferenceScreen android:key="pref_m9_display_screen" android:title="@string/m9_menu_display" android:summary="@string/m9_menu_display_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_settings_grid" android:orderingFromXml="true">
++        <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_show_afdata_key" android:title="@string/m9_display_mode" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_developer" android:entries="@array/m9_display_mode_entries" android:entryValues="@array/m9_display_mode_values" android:defaultValue="0" />
++        <ListPreference android:key="pref_m9_highlight_warning" android:title="@string/m9_display_highlights" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_m9_display_aids" android:entries="@array/m9_highlight_entries" android:entryValues="@array/m9_highlight_values" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
++        <ListPreference android:key="pref_m9_shadow_warning" android:title="@string/m9_display_shadows" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_m9_display_aids" android:entries="@array/m9_shadow_entries" android:entryValues="@array/m9_shadow_values" android:defaultValue="-1" app:useSimpleSummaryProvider="true" />
+         <ListPreference android:key="@string/pref_show_grid_key" android:defaultValue="@string/pref_show_grid_default" android:layout="@layout/preference_with_margin" android:title="@string/turn_on_grid" app:useSimpleSummaryProvider="true" android:summary="" android:entries="@array/vf_grid_entries" android:entryValues="@array/vf_grid_entryvalues" android:icon="@drawable/ic_settings_grid" />
+         <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_peak_method_key" app:useSimpleSummaryProvider="true" android:title="@string/focus_peaking" android:icon="@drawable/ic_focus" android:entries="@array/focuspeakset_entries" android:entryValues="@array/focuspeakset_entryValues" android:defaultValue="2" />
+-        <ListPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_show_afdata_key" android:title="@string/m9_menu_hud_title" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_developer" android:entries="@array/afdata_entries" android:entryValues="@array/afdata_entryValues" android:defaultValue="0" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:layout="@layout/preference_with_margin" android:key="@string/pref_horizon" android:title="@string/show_horizon_on_preview" android:summary="" android:defaultValue="false" android:icon="@drawable/ic_tune_black_24dp" />
+-        <Preference android:key="m9_menu_histogram_info" android:title="@string/m9_menu_histogram_title" android:summary="@string/m9_menu_histogram_info" android:selectable="false" android:persistent="false" android:layout="@layout/preference_with_margin" />
++        <Preference android:key="m9_menu_histogram_info" android:title="@string/m9_display_about" android:summary="@string/m9_display_info" android:selectable="false" android:persistent="false" android:layout="@layout/preference_m9_profile" />
+         <PreferenceCategory android:key="pref_m9_appearance_category" android:title="@string/m9_menu_appearance" android:layout="@layout/preference_category_layout">
+             <ListPreference android:key="@string/pref_lens_bar_position_key" android:defaultValue="@string/pref_lens_bar_position_default" android:layout="@layout/preference_with_margin" android:title="@string/lens_bar_position" app:useSimpleSummaryProvider="true" android:summary="" android:entries="@array/lens_bar_position_entries" android:entryValues="@array/lens_bar_position_entryvalues" android:icon="@drawable/ic_multi_lens" />
+             <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="@string/pref_show_roundedge_key" android:defaultValue="@bool/pref_show_roundedge_default" android:layout="@layout/preference_with_margin" android:title="@string/turn_on_round_edges" android:summary="" android:icon="@drawable/ic_rounded_corner" />
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9DisplayAidsTest.java
+@@ -0,0 +1,116 @@
++package com.particlesdevs.photoncamera.m9;
++
++import org.junit.Test;
++import java.util.Arrays;
++import java.util.HashMap;
++import java.util.Map;
++import static org.junit.Assert.*;
++
++public class M9DisplayAidsTest {
++    private static M9DisplayAids.Sample sample(int[] pixels,int high,int low) {
++        return M9DisplayAids.analyze(pixels,pixels.length,1,new M9DisplayAids.Settings(5,high,low),0,0);
++    }
++    @Test public void legacyHudValuesPreserveTheirDisplayMeaningAndDefaultsAreOff() {
++        assertFalse(M9DisplayAids.read(new HashMap<>()).enabled());
++        assertEquals(0,new M9DisplayAids.Settings(0,0,-1).hud());
++        assertEquals(1,new M9DisplayAids.Settings(1,0,-1).hud());
++        assertEquals(2,new M9DisplayAids.Settings(2,0,-1).histogram());
++        assertEquals(1,new M9DisplayAids.Settings(2,0,-1).hud());
++        assertEquals(3,new M9DisplayAids.Settings(3,0,-1).hud());
++        assertEquals(0,new M9DisplayAids.Settings(3,0,-1).histogram());
++    }
++    @Test public void standaloneHistogramDoesNotRequireCameraInfo() {
++        assertEquals(1,new M9DisplayAids.Settings(4,0,-1).histogram());
++        assertEquals(0,new M9DisplayAids.Settings(4,0,-1).hud());
++        assertEquals(2,new M9DisplayAids.Settings(5,0,-1).histogram());
++        assertEquals(0,new M9DisplayAids.Settings(5,0,-1).hud());
++        assertEquals(1,new M9DisplayAids.Settings(6,0,-1).histogram());
++        assertEquals(1,new M9DisplayAids.Settings(6,0,-1).hud());
++    }
++    @Test public void quickHistogramChoiceKeepsTheExistingInfoPreference() {
++        for (int mode:new int[]{1,2,6}) {
++            assertEquals(1,M9DisplayAids.withHistogram(mode,0));
++            assertEquals(6,M9DisplayAids.withHistogram(mode,1));
++            assertEquals(2,M9DisplayAids.withHistogram(mode,2));
++        }
++        for (int mode:new int[]{0,4,5}) {
++            assertEquals(0,M9DisplayAids.withHistogram(mode,0));
++            assertEquals(4,M9DisplayAids.withHistogram(mode,1));
++            assertEquals(5,M9DisplayAids.withHistogram(mode,2));
++        }
++        assertEquals(3,M9DisplayAids.withHistogram(3,0));
++    }
++    @Test public void thresholdOptionsMapToExpectedEightBitCodes() {
++        assertEquals(256,M9DisplayAids.highlightCode(0)); assertEquals(-1,M9DisplayAids.shadowCode(-1));
++        int[] high={242,245,247,250,252,255},low={0,3,5,8,10,13};
++        for (int i=0;i<6;i++) {
++            assertEquals(high[i],M9DisplayAids.highlightCode(95+i));
++            assertEquals(low[i],M9DisplayAids.shadowCode(i));
++        }
++    }
++    @Test public void eachHighlightThresholdIncludesBoundaryAndExcludesCodeBelow() {
++        for (int percent=95;percent<=100;percent++) {
++            int code=M9DisplayAids.highlightCode(percent);
++            M9DisplayAids.Sample s=sample(new int[]{0xFF000000|((code-1)<<16),0xFF000000|(code<<16)},percent,-1);
++            assertEquals(1,s.highlightCount); assertEquals(0,s.mask[0]); assertEquals(M9DisplayAids.RED,s.mask[1]);
++        }
++    }
++    @Test public void eachShadowThresholdRequiresEveryChannelAtOrBelowBoundary() {
++        for (int percent=0;percent<=5;percent++) {
++            int code=M9DisplayAids.shadowCode(percent);
++            M9DisplayAids.Sample s=sample(new int[]{0xFF000000|code|(code<<8)|(code<<16),0xFF000000|((code+1)<<8)},0,percent);
++            assertEquals(1,s.shadowCount); assertEquals(M9DisplayAids.BLUE,s.mask[0]); assertEquals(0,s.mask[1]);
++        }
++    }
++    @Test public void colourClippingIsNotMistakenForLuminanceClipping() {
++        M9DisplayAids.Sample s=sample(new int[]{0xFFFF0000,0xFF0000FF,0xFF000000,0xFF808080},100,0);
++        assertEquals(2,s.highlightCount); assertEquals(1,s.shadowCount);
++        assertEquals(M9DisplayAids.RED,s.mask[0]); assertEquals(M9DisplayAids.RED,s.mask[1]);
++        assertEquals(M9DisplayAids.BLUE,s.mask[2]); assertEquals(0,s.mask[3]);
++    }
++    @Test public void realMagentaIsMeasuredWithoutTheMonochromPeakingSubtraction() {
++        int[] pixels={0xFFFF00FF,0xFF000000,0xFFFFFFFF,0xFF808080};int[] original=pixels.clone();
++        M9DisplayAids.Sample s=sample(pixels,0,-1);
++        assertArrayEquals(original,pixels);
++        assertEquals(2,s.rgb[0][63]); assertEquals(2,s.rgb[2][63]); assertEquals(2,s.rgb[1][0]);
++        assertEquals(1,s.luminance[26]); // rounded display-code luma of magenta is 106
++        assertEquals(0,s.highlightCount); assertEquals(0,s.shadowCount);
++        for (int[] channel:s.rgb) assertEquals(4,Arrays.stream(channel).sum());
++        assertEquals(4,Arrays.stream(s.luminance).sum());
++    }
++    @Test public void transparentAndRoundedCornerBackgroundPixelsDoNotWarn() {
++        int[] pixels=new int[16];Arrays.fill(pixels,0xFF000000);pixels[5]=0;
++        M9DisplayAids.Sample s=M9DisplayAids.analyze(pixels,4,4,new M9DisplayAids.Settings(4,100,0),2,2);
++        assertEquals(0,s.mask[0]); assertEquals(0,s.mask[3]); assertEquals(0,s.mask[12]); assertEquals(0,s.mask[15]);
++        assertEquals(0,s.mask[5]); assertEquals(11,s.measured); assertEquals(11,s.shadowCount);
++    }
++    @Test public void sourceRectExcludesFullBleedBordersAndRejectsPartialFrames() {
++        assertArrayEquals(new int[]{0,120,1080,1560},M9DisplayAids.photoRect(0,0,1080,2400,0,120,1080,1440));
++        assertArrayEquals(new int[]{0,0,1080,1440},M9DisplayAids.photoRect(0,120,1080,1440,0,120,1080,1440));
++        assertArrayEquals(new int[]{120,0,1560,1080},M9DisplayAids.photoRect(0,0,2400,1080,120,0,1440,1080));
++        assertNull(M9DisplayAids.photoRect(0,0,100,100,-1,0,100,100));
++        assertNull(M9DisplayAids.photoRect(0,0,100,100,0,0,0,100));
++        assertNull(M9DisplayAids.photoRect(0,0,100,100,0,0,101,100));
++    }
++    @Test public void corruptPreferencesFallBackWithoutMutation() {
++        Map<String,Object> values=new HashMap<>();values.put(M9DisplayAids.MODE_KEY,true);
++        values.put(M9DisplayAids.HIGHLIGHT_KEY,"NaN");values.put(M9DisplayAids.SHADOW_KEY,"50");
++        Map<String,Object> original=new HashMap<>(values);
++        assertFalse(M9DisplayAids.read(values).enabled());assertEquals(original,values);
++    }
++    @Test public void samplesOwnTheirDataAndCannotBeMutatedByTheNextReadback() {
++        int[] pixels={0xFFFFFFFF}; M9DisplayAids.Sample first=sample(pixels,100,0);
++        pixels[0]=0xFF000000; M9DisplayAids.Sample second=sample(pixels,100,0);
++        assertEquals(M9DisplayAids.RED,first.mask[0]); assertEquals(M9DisplayAids.BLUE,second.mask[0]);
++        assertEquals(1,first.rgb[0][63]);assertEquals(1,second.rgb[0][0]);
++    }
++    @Test public void samplerDoesNotOverlapAndRejectsPauseAndSettingChangeCallbacks() {
++        M9DisplaySampleGate gate=new M9DisplaySampleGate();assertEquals(-1,gate.begin());gate.start();
++        long first=gate.begin();assertTrue(gate.accepts(first));assertEquals(-1,gate.begin());
++        gate.invalidate();assertFalse(gate.accepts(first));assertEquals(-1,gate.begin());
++        gate.finish();long second=gate.begin();assertTrue(gate.accepts(second));
++        gate.stop();assertFalse(gate.accepts(second));gate.start();assertEquals(-1,gate.begin());
++        gate.finish();long third=gate.begin();assertTrue(gate.accepts(third));gate.finish();
++        assertFalse(gate.isBusy());
++    }
++}
