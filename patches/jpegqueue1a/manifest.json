@@ -1,0 +1,17 @@
+{
+  "parentCommit": "5d8994f0266557747d1120764a88edd2f88d3ca4",
+  "version": "2.53-jpegqueue1a",
+  "parentFiles": {
+    "app/build.gradle": "0a6dabe0cd67eb4b3843109a4a49fbf42231346585bd1bfce627a99373a528ac",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java": "a78e07b6e9d2769d7e67e49a9e5238ec849fca174dd813ea9a2c79bd041e62f4",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "5b784a7fcc19eef698d4554f30df355e3e14b56e781c25cf6556c6a8487eb9bb"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "c5fa0315b658eb8fee2c540d15070bd0084fa6330a3ec84aa6591cecd6fe3a0f",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java": "959e17a4ce8fb0595ca503e530f92ae1b98a28ed2e64d15df04609d89cf14106",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": "34ca2a55ae898b2c0c00d494f11563378afdbf93e7e8cd5252a2d40017238d4d"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "2c1ad14a49d47fe689de8f231315badcaef4eb8f5b0fc3ef7fbdcda7d053707b"
+}
