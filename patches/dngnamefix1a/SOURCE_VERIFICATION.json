@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "parent": "2.51-m9perf1b",
+  "version": "2.52-dngnamefix1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java"
+  ],
+  "unchangedScopedFiles": 1328,
+  "onlyFunctionalEdit": "Profile name uses C- instead of forbidden C:",
+  "profileGeneratorAndWriterByteIdentical": true,
+  "rendererAndExposureByteIdentical": true,
+  "nativeSourcesAndAssetsByteIdentical": true,
+  "monochromByteIdentical": true,
+  "previousPerformanceChangesRetained": true
+}

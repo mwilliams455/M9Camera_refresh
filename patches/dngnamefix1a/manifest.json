@@ -1,0 +1,15 @@
+{
+  "parentCommit": "b8a21870f5ff6457b3cf9a347afff14da908cd48",
+  "version": "2.52-dngnamefix1a",
+  "parentFiles": {
+    "app/build.gradle": "3688f3559bf885e9254b089bb9db3c015d2372549c9d85d707760743db310640",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "026642f346891e7f6ae7e4b211c57110a4176861749c8ba409c6ebdffba94be9"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "0a6dabe0cd67eb4b3843109a4a49fbf42231346585bd1bfce627a99373a528ac",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/M9DngProfileExport.java": "1419e9e53972334b8786cf7a785f8dc71cc779e681f07846157d6e0d12c5a15c"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "057edeeb7db1602eae40bfcb227d990a4b8cfb26ed22bbaccb234bd1ede83d78"
+}
