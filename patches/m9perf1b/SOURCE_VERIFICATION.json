@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "parent": "2.50-m9perf1a",
+  "version": "2.51-m9perf1b",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DevicePortAudit1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RawShadingAudit1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SourceCalibrationAudit1A.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9SetupAuditGateTest.java"
+  ],
+  "unchangedScopedFiles": 1324,
+  "allPhotographicOperationsUnchanged": true,
+  "enabledAuditBodiesUnchanged": true,
+  "allNativeSourcesAndAssetsUnchanged": true,
+  "monochromSourceUnchanged": true,
+  "exposureMeteringShadingAndDngProfileSourceUnchanged": true,
+  "fallbackPixelCallsAndCommitOrderUnchanged": true
+}
