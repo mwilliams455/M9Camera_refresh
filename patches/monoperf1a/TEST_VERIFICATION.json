@@ -1,0 +1,53 @@
+{
+  "status": "PASS",
+  "totalTests": 28,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9RenderDiagnosticsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9SharpnessDiagnosticsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoImageProfilesTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.RendererSwitchLifecycleTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.settings.MonoProfilesUiTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "failures": 0,
+  "skipped": 0,
+  "buildSucceeded": true,
+  "hostStageParityCases": 265,
+  "phoneValidationPending": true
+}

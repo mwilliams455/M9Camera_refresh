@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "parent": "2.48-monoprofiles1a",
+  "version": "2.49-monoperf1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java"
+  ],
+  "unchangedSourceFiles": 1327,
+  "m9SourceUnchanged": true,
+  "nativeSourcesAndAssetsUnchanged": true,
+  "monochromPhotographicOperationsUnchanged": true,
+  "removedAuditsHaveNoConsumerBeforeMonochromReturn": true,
+  "profilesCaptureAndDngUnchanged": true
+}

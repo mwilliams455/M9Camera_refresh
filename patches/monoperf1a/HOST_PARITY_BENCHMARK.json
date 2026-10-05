@@ -1,0 +1,37 @@
+{
+  "candidateStageMs": [
+    295.187922,
+    260.217699,
+    286.925228,
+    272.487097,
+    265.055566,
+    359.667918,
+    333.928416
+  ],
+  "parentMedianMs": 1354.66909,
+  "candidateMedianMs": 286.925228,
+  "stageReductionPercent": 78.81953385383585,
+  "parityCases": 265,
+  "warmups": 3,
+  "rawCloneAllocationBytesAvoidedPerFrame": 50331648,
+  "scope": "Actual pre-demosaic Java blocks with read-only Camera2 host adapters; unchanged downstream math and native binaries checked separately. Not a whole-JPEG or phone benchmark.",
+  "parentStageMs": [
+    1275.980014,
+    1354.66909,
+    1453.500901,
+    1320.947622,
+    1276.616588,
+    1449.844257,
+    1475.450656
+  ],
+  "phoneValidationPending": true,
+  "rawAndRepresentationStatsExact": true,
+  "hostJava": "17.0.20",
+  "medianSavedMs": 1067.743862,
+  "rounds": 7,
+  "status": "PASS",
+  "mapUnmodified": true,
+  "dimensions": "4096x3072",
+  "parentRendererSha256": "0c50a8d4e83fe8fb1c57123c820554f550b92efc9d4379c4af2a079fbdb04b04",
+  "candidateRendererSha256": "3511907f1681bf5e4e826327cb3bb9094ed12d0c5f51a8355a412b9ab8acfa32"
+}

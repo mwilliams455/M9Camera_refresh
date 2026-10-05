@@ -1,0 +1,15 @@
+{
+  "parentCommit": "9e38c4a6e762a76c1c03d23586ffd83c6de03b7f",
+  "version": "2.49-monoperf1a",
+  "parentFiles": {
+    "app/build.gradle": "07f007e60be91e6de5b14edad328d26ddb05474d567bef0dd38e5da79b66f043",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java": "0c50a8d4e83fe8fb1c57123c820554f550b92efc9d4379c4af2a079fbdb04b04"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "3bdd5a4818a530ec69d3b64fff6234aa3e19fd98917b398e8668ff687096db67",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java": "3511907f1681bf5e4e826327cb3bb9094ed12d0c5f51a8355a412b9ab8acfa32"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "3d82864b4c861ee49b715b5437914c5f2f3ee5433ab90299a49304cc24e1ce83"
+}

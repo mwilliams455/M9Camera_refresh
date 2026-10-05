@@ -1,17 +1,16 @@
-M9Cam 2.44 UIOVERLAY1F
+M9Cam 2.49 MONOPERF1A — phone comparison build
 
-Current M9 controls and refreshed camera UI, based on the accepted 2.38 photographic baseline.
-
-Photo/Motion uses a text strip below the shutter. A centred chevron opens labelled shooting-control icons. Torch and Night are at the top left; WB is beside the app settings gear. Only the M9 render profile is enabled. Monochrom integration is next.
+M9 and Monochrom camera with the 2.48 Monochrom image profiles. This revision removes four unused inherited M9 shading reports from Monochrom rendering. Actual photographic operations and all accepted native libraries/assets remain unchanged.
 
 Start here:
-- docs/M9_UI_HANDOFF_20261004_V2_44.txt — current state, decisions, limitations and next steps
-- patches/uioverlay1f/README.md — build, verification and recovery instructions
-- patches/uioverlay1f/assemble.py — assemble the complete pinned source chain into a fresh directory
-- patches/uioverlay1f/TEST_VERIFICATION.json — 62 passing local checks
-- patches/uioverlay1f/PACKAGED_VERIFICATION.json — delivered APK identity and integrity
+- patches/monoperf1a/README.md — findings, limits, build and phone comparison
+- patches/monoperf1a/assemble.py — reconstruct the complete pinned source chain
+- patches/monoperf1a/SOURCE_VERIFICATION.json — exact source-change boundary
+- patches/monoperf1a/HOST_PARITY_BENCHMARK.json — 265 stage parity checks and host timings
+- patches/monoperf1a/TEST_VERIFICATION.json — app regression results
+- patches/monoperf1a/PACKAGED_VERIFICATION.json — delivered APK identity and integrity
 
-This is an incremental source assembly/recovery repository. It is not an already-assembled Android project. Historical workflows and research branches remain for reproducibility; use the latest entry point above. Device validation of the final 2.44 UI remains pending.
+This is an incremental source assembly/recovery repository, not an already-assembled Android project. Use the latest entry point above. Phone speed and visual confirmation of 2.49 remain pending. Host stage timings are not total phone-render timings.
 
-Delivered APK: M9Cam_2.44_UIOVERLAY1F.apk
-SHA-256: abbf263a9d67d33ade5b2d7c7c584907ecbd39e8432b1010227bd590b1c2c300
+Comparison baseline: M9Cam_2.48_MONOPROFILES1A.apk
+Candidate package: M9Cam_2.49_MONOPERF1A.apk
