@@ -1,16 +1,18 @@
-M9Cam 2.49 MONOPERF1A — phone comparison build
+M9Cam 2.50 M9PERF1A — phone comparison build
 
-M9 and Monochrom camera with the 2.48 Monochrom image profiles. This revision removes four unused inherited M9 shading reports from Monochrom rendering. Actual photographic operations and all accepted native libraries/assets remain unchanged.
+M9 and Monochrom camera with independent profiles. Monochrom's 2.49 speed improvement is retained; Malcolm confirmed it is faster on his phone. This revision makes three M9 report-only image analyses optional under the existing Extended M9 colour diagnostics switch. Photographic calculations and all accepted native libraries/assets are preserved.
 
 Start here:
-- patches/monoperf1a/README.md — findings, limits, build and phone comparison
-- patches/monoperf1a/assemble.py — reconstruct the complete pinned source chain
-- patches/monoperf1a/SOURCE_VERIFICATION.json — exact source-change boundary
-- patches/monoperf1a/HOST_PARITY_BENCHMARK.json — 265 stage parity checks and host timings
-- patches/monoperf1a/TEST_VERIFICATION.json — app regression results
-- patches/monoperf1a/PACKAGED_VERIFICATION.json — delivered APK identity and integrity
+- patches/m9perf1a/README.md — findings, timing limits, build and phone comparison
+- patches/m9perf1a/assemble.py — reconstruct the complete pinned source chain
+- patches/m9perf1a/SOURCE_VERIFICATION.json — exact source-change boundary
+- patches/m9perf1a/HOST_PARITY_BENCHMARK.json — 523 stage/report parity cases and isolated host timings
+- patches/m9perf1a/INITIAL_TWO_CLASS_TIMING.json — retained contradictory initial timing; not a speedup claim
+- patches/m9perf1a/TEST_VERIFICATION.json — app regression results
+- patches/m9perf1a/PACKAGED_VERIFICATION.json — signed APK identity and integrity
 
-This is an incremental source assembly/recovery repository, not an already-assembled Android project. Use the latest entry point above. Phone speed and visual confirmation of 2.49 remain pending. Host stage timings are not total phone-render timings.
+This is an incremental source assembly/recovery repository, not an already-assembled Android project. Use the latest entry point above. Host diagnostic-work savings do not establish total phone speed. M9 2.50 performance and visual acceptance remain pending.
 
-Comparison baseline: M9Cam_2.48_MONOPROFILES1A.apk
-Candidate package: M9Cam_2.49_MONOPERF1A.apk
+Parent source: 2.49, 45a88fdc28ced19419b7bc0cb4cf9a388bb91e3f (PR #67, not merged).
+Comparison baseline: M9Cam_2.49_MONOPERF1A.apk
+Candidate package: M9Cam_2.50_M9PERF1A.apk

@@ -1,0 +1,17 @@
+{
+  "parentCommit": "45a88fdc28ced19419b7bc0cb4cf9a388bb91e3f",
+  "version": "2.50-m9perf1a",
+  "parentFiles": {
+    "app/build.gradle": "3bdd5a4818a530ec69d3b64fff6234aa3e19fd98917b398e8668ff687096db67",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "9c9adadad32fe4612420bf93e4262b7f0e9e23d8b8113c3a2e6fa9de1b886a89",
+    "app/src/main/res/values/m9_diagnostics.xml": "33f37d6c9f830c8c8de6bdc7098b0d8f7f6577409014e075998c08b586148583"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "9679084c17d17b7e04c377ffb8acd2b83cf2ffdc7b6cf857aaadd3ff096ecf07",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "6599fc62ec5d8ac6fc7cb63728a1feda1476d29daac466366686ebaa0e5756d1",
+    "app/src/main/res/values/m9_diagnostics.xml": "dbd2100340551dce581466e7dc737e51e820dcc911b46330803a71d3f5d3f57b"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "0164cfa9472b5dd1a3ac9983bf89a0b0d95208d128c511364410aa5178d40d25"
+}
