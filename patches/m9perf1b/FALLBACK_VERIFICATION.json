@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "routingCases": 244,
+  "normal4096WideFallbackAllocationBeforeBytes": 6291456,
+  "normal4096WideFallbackAllocationAfterBytes": 0,
+  "scope": "Actual source orchestration; deterministic native and Bitmap adapters. No photographic JNI or phone benchmark.",
+  "covers": [
+    "direct success",
+    "first/middle/final block rejection",
+    "pre-declined bitmap",
+    "copied-input fallback",
+    "four rotations",
+    "odd widths and partial final blocks",
+    "one buffer reused after rejection",
+    "rolled-back scheduler remains disabled"
+  ]
+}
