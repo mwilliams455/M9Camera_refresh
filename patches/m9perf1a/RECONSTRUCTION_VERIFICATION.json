@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "parent": "2.49-monoperf1a",
+  "candidate": "2.50-m9perf1a",
+  "verifiedParentFileHashes": true,
+  "verifiedPatchHash": true,
+  "verifiedCandidateFileHashes": true,
+  "freshParentCopyUsed": true,
+  "sourceDeltaVerification": {
+    "status": "PASS",
+    "parent": "2.49-monoperf1a",
+    "version": "2.50-m9perf1a",
+    "changedFiles": [
+      "app/build.gradle",
+      "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java",
+      "app/src/main/res/values/m9_diagnostics.xml"
+    ],
+    "unchangedSourceFiles": 1326,
+    "photographicOperationsUnchanged": true,
+    "normalizationProbeRetained": true,
+    "allNativeSourcesAndAssetsUnchanged": true,
+    "monochromSourceUnchanged": true,
+    "captureProfilesDngAndExposureControllersUnchanged": true,
+    "reportAlgorithmsPreservedForOptIn": true
+  }
+}
