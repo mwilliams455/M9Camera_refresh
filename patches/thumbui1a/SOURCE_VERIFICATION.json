@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "parent": "2.54-switchview1a",
+  "version": "2.55-thumbui1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/model/CameraFragmentModel.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/CameraFragmentViewModel.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RendererSwitchLifecycleTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/GalleryThumbnailThreadTest.java"
+  ],
+  "unchangedScopedFiles": 1325,
+  "totalScopedFiles": 1331,
+  "photographicRenderingAndExposureByteIdentical": true,
+  "nativeSourcesAndAssetsByteIdentical": true,
+  "saveQueuesAndRawProfileFixByteIdentical": true,
+  "liveLensGeometryMathUnchanged": true,
+  "previewAndCaptureCallbacksUnchanged": true
+}
