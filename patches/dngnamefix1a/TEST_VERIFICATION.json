@@ -1,0 +1,62 @@
+{
+  "status": "PASS",
+  "tests": 34,
+  "suites": [
+    {
+      "suite": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.m9.render.M9RenderDiagnosticsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.m9.render.M9SetupAuditGateTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.m9.render.M9SharpnessDiagnosticsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.monochrom.MonoImageProfilesTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.ui.camera.RendererSwitchLifecycleTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.ui.settings.MonoProfilesUiTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}
