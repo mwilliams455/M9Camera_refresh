@@ -1,0 +1,20 @@
+M9Cam 2.49 MONOPERF1A — 5 October 2026
+
+Parent: 2.48 Monochrom profiles, main 9e38c4a6e762a76c1c03d23586ffd83c6de03b7f (PR #66).
+APK: M9Cam_2.49_MONOPERF1A.apk
+Version code: 27249; same app ID/signing certificate as 2.48.
+SHA-256: d8ea3059ddf8b088194a3714b54b1118754392a307b655aa5fdeba18286260fa
+
+Finding: Monochrom calculated four inherited M9 shading reports then returned before any report consumer. Two reports each cloned and shaded a full RAW. The work happened even when diagnostic files were off.
+
+Change: skip those four unused reports under the existing constant Monochrom gate; add diagnostic timings for normalization, physical shading, demosaic and native weighted render. Existing total render/JPEG timings remain. Only app/build.gradle and the Monochrom M9R35Renderer.java differ from 2.48. All 1,327 other source/assets files in the verification scope are identical. All 27 native libraries and 285 assets in the final APK match 2.48 byte for byte. Capture, profiles, M9 colour/AMaZE/noise pipeline, Monochrom MHC, contrast, toning, sharpening and DNG output are unchanged.
+
+Evidence: 28 passing app checks in six suites; 265 host stage-parity cases. The harness compiles actual before/after pre-demosaic Java code with read-only Camera2 adapters. Corrected RAW samples and shading representation statistics are exact. It is not a whole-JPEG comparison.
+
+Host benchmark (4096 x 3072, three warmups, seven alternating paired runs): median 1354.67 ms before, 286.93 ms after for the tested shading preparation stage (78.8% less elapsed time). The host was also preparing the Android build; these numbers are indicative, not a controlled phone benchmark. Two RAW clones avoided = 50,331,648 bytes (48 MiB) of allocations per shot; this is not a peak-RSS measurement.
+
+Phone speed and visual confirmation remain pending. Compare 2.48 and 2.49 with the same scene, lens, exposure, profile and output selection. Use one warmup plus at least five shots and compare median renderCoreElapsedMs/renderElapsedMs/jpegEncodeWriteElapsedMs. Keep DNG settings fixed. Check shadows, bright edges, detail and toning; check M9 and switching too.
+
+M9 review: preparation and phase-noise optimisations are already present. Persistent colour-frame processing remains rolled back after the earlier phone colour regression. No M9 speed claim or pipeline change is made in this build. Use current phone timings to select its next target.
+
+Recovery entry point: patches/monoperf1a/assemble.py. See that directory's README and verification JSON files. Never distribute the raw Gradle APK; package.py restores every accepted native library, including libm9sharpness.so missing from a clean Gradle build, and checks assets, signing, resources and alignment.
