@@ -1,17 +1,15 @@
-M9Cam 2.52 DNGNAMEFIX1A — RAW profile-embedding repair
+M9Cam 2.53 JPEGQUEUE1A — M9 JPEG-only save queue test candidate
 
-The contrast menu added a colon to embedded profile names, but the DNG writer rejects colons. RAW was saved without its Leica look. This revision changes C: to C-. Profile generation, the writer and all photographic processing are unchanged. The 2.51 diagnostic early exits and lazy fallback allocation are included, along with Monochrom's confirmed speed improvement.
+2.52 is the phone-confirmed main baseline: the RAW profile fix works and rendering is faster. PRs #67–#70 were merged into main at 5d8994f0266557747d1120764a88edd2f88d3ca4.
+
+This candidate releases the M9 JPEG-only render worker while EXIF and gallery publication finish on the existing bounded background worker. Save status remains pending until finalization completes. Full queues retain the synchronous preservation fallback. Image processing, JPEG quality, native libraries and assets are unchanged; RAW modes and Monochrom retain their established routing.
 
 Start here:
-- patches/dngnamefix1a/README.md — cause, verification limits, recovery/build and phone checks
-- patches/dngnamefix1a/assemble.py — reconstruct the complete pinned source chain
-- patches/dngnamefix1a/SOURCE_VERIFICATION.json — exact source-change boundary
-- patches/dngnamefix1a/EXPORT_VERIFICATION.json — real exporter/writer: 50 successful setting/output cases plus RAW preservation on failures
-- patches/dngnamefix1a/TEST_VERIFICATION.json — 34 app tests in eight suites
-- patches/dngnamefix1a/PACKAGED_VERIFICATION.json — signed APK identity and integrity
+- patches/jpegqueue1a/README.md — behaviour, validation limits, recovery/build, phone checks
+- patches/jpegqueue1a/assemble.py — reconstruct complete source from pinned parent chain
+- patches/jpegqueue1a/QUEUE_VERIFICATION.json — 13 queue/failure scenarios plus 250 rapid callbacks
+- patches/jpegqueue1a/SOURCE_VERIFICATION.json — photographic code and DNG path preservation
+- patches/jpegqueue1a/TEST_VERIFICATION.json — 34 app regressions
+- patches/jpegqueue1a/PACKAGED_VERIFICATION.json — signed APK identity/integrity
 
-This is an incremental source assembly/recovery repository, not an already-assembled Android project. The previous contrast test substituted a writer without name validation; the new integration test uses the actual writer. Synthetic host DNGs verify export behaviour. Phone filesystem/editor confirmation remains pending.
-
-Parent source: 2.51, b8a21870f5ff6457b3cf9a347afff14da908cd48 (draft PR #69, stacked on #68 and #67).
-Candidate package: M9Cam_2.52_DNGNAMEFIX1A.apk
-Install 2.52 directly; there is no need to install 2.51 first. Previously saved RAWs are not automatically rewritten.
+This is an incremental source assembly/recovery repository, not an already-assembled Android project. Build candidate: M9Cam_2.53_JPEGQUEUE1A.apk. Phone validation is pending; main remains the accepted 2.52 baseline until the candidate is reviewed.

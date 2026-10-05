@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "cases": [
+    "delayed_exif",
+    "delayed_publish",
+    "saturation",
+    "raw_jpeg",
+    "raw_only",
+    "bracket",
+    "fast_completions",
+    "callback_failure",
+    "exif_failure",
+    "publish_failure",
+    "render_failure",
+    "render_throw",
+    "missing_exif"
+  ],
+  "caseCount": 13,
+  "fastFinalizations": 250,
+  "productionClasses": [
+    "M9PrimaryRenderQueue",
+    "M9JpegFinalizeQueue",
+    "M9SaveStatus",
+    "M9SaveSelection"
+  ],
+  "adapters": "Android, renderer, EXIF storage, DNG storage, diagnostic IO",
+  "limits": "Host concurrency/ownership verification, not device timing or photographic output verification"
+}
