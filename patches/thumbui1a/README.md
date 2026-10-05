@@ -1,6 +1,8 @@
 # M9Cam 2.55 — THUMBUI1A
 
-Gallery-thumbnail UI threading and lifecycle fix, based on 2.54 SWITCHVIEW1A (`f3d6467330d95d7412f0d0216c3dddff28fc41b4`, draft PR #72). Phone validation of this fix is pending. Main remains the accepted 2.52 baseline; the 2.53 JPEG queue and 2.54 redraw fixes remain included.
+Gallery-thumbnail UI threading and lifecycle fix, based on 2.54 SWITCHVIEW1A (`f3d6467330d95d7412f0d0216c3dddff28fc41b4`, PR #72). Accepted into main with PRs #71–73; the 2.53 JPEG queue and 2.54 redraw fixes remain included.
+
+On **5 October 2026**, Malcolm reported that he could not reproduce the bug in 2.55 and authorised the merge. This is a successful retest of the reported crash, not a guarantee against unrelated failures. The APK and verification reports are unchanged; statements about pending phone validation below describe the build-time test state.
 
 ## Confirmed logcat cause
 
