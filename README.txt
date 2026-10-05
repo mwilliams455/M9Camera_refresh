@@ -1,17 +1,16 @@
-M9Cam 2.55 THUMBUI1A — accepted baseline
+M9Cam 2.56 SHADINGPERF1A — lens-shading speed candidate
 
-The logcat identified a gallery thumbnail completing on AsyncTask and triggering lens animations off the UI thread. The regression reproduces that failure against unchanged 2.54 production code. 2.55 starts thumbnail requests on main, rejects obsolete work, owns/releases the Glide target and retires lens model observers with their views. On 5 October 2026, Malcolm reported that he could not reproduce the bug in 2.55 and authorised merging into main. This confirms the reported phone retest; it does not establish that every possible crash is resolved.
+Both renderers now precompute horizontal lens-shading lookup coordinates once per correction pass instead of recalculating them for every row. Shading strength, interpolation, headroom and rounding are unchanged. Actual before/after helpers matched exactly across 4,600 cases and 203,980,112 RAW samples, with 76 matching invalid-input cases.
 
-All photographic rendering, exposure, JPEG/DNG saving, native libraries and assets are unchanged by 2.55. The 2.54 redraw fix, 2.53 JPEG-only queue improvement and 2.52 RAW fix remain included. Lens-shading correction is the next planned task.
+The isolated 12 MP host shading pass used about 58% less time on the standard M9 path and 46% less on Monochrom. This is not a claim about total rendering time or phone performance. Only two renderer files and the version change; all subsequent photographic calculations, output, queues and crash fixes remain unchanged. Added coordinate storage is 64 KiB of array payload at width 4096.
 
 Start here:
-- patches/thumbui1a/README.md — logcat cause, scope, recovery/build and phone retest
-- patches/thumbui1a/LOGCAT_EVIDENCE.json — relevant M9 crash stack
-- patches/thumbui1a/PARENT_REPRODUCTION.json — failing cached-thumbnail case against 2.54
-- patches/thumbui1a/TEST_VERIFICATION.json — 44 app tests, including seven thumbnail and five lifecycle cases
-- patches/thumbui1a/SOURCE_VERIFICATION.json — photographic/save code preserved
-- patches/thumbui1a/assemble.py — reconstruct the complete pinned source chain
-- patches/thumbui1a/PACKAGED_VERIFICATION.json — signed APK integrity
+- patches/shadingperf1a/README.md — scope, results, recovery/build and phone comparison
+- patches/shadingperf1a/HOST_PARITY_BENCHMARK.json — exact corrected RAW and host timing evidence
+- patches/shadingperf1a/SOURCE_VERIFICATION.json — exact reversible optimisation and source boundaries
+- patches/shadingperf1a/TEST_VERIFICATION.json — 44 app regression tests
+- patches/shadingperf1a/assemble.py — reconstruct the complete pinned source chain
+- patches/shadingperf1a/PACKAGED_VERIFICATION.json — native/assets/signature integrity
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Accepted APK: M9Cam_2.55_THUMBUI1A.apk.
-Main includes 2.53 save-queue PR #71, 2.54 redraw PR #72 and 2.55 thumbnail PR #73. Three-shot admission/recovery and the 2.55 crash retest were confirmed on the phone. Build-time verification reports remain unchanged; their pending-phone-validation fields describe the state when the APK was packaged.
+This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.56_SHADINGPERF1A.apk. Phone confirmation is pending.
+Main remains accepted 2.55 at e8b1a4979cc9e20237b1d42a66037a006f127b85, including merged PRs #71–73. Three-shot admission/recovery and the 2.55 crash retest were confirmed on the phone. The accepted APK is M9Cam_2.55_THUMBUI1A.apk.

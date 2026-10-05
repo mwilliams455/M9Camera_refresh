@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "version": "2.56-shadingperf1a",
+  "scopedFilesCompared": 1331,
+  "allScopedFilesByteIdentical": true,
+  "parent": "2.55-thumbui1a",
+  "patchSha256": "366d09d996781913c634b39810dec36aca63fdae3f716af83b6cf6cb7414859e"
+}

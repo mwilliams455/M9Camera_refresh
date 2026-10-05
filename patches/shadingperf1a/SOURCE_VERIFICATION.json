@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "parent": "2.55-thumbui1a",
+  "version": "2.56-shadingperf1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java"
+  ],
+  "unchangedScopedFiles": 1328,
+  "totalScopedFiles": 1331,
+  "reverseCoordinateReuseExactlyRestoresParentRenderers": true,
+  "allShadingGainAndInterpolationArithmeticUnchanged": true,
+  "liveMapAndAlphaSelectionUnchanged": true,
+  "cfaAndCropMappingUnchanged": true,
+  "downstreamDemosaicColorToneExposureNoiseSharpnessUnchanged": true,
+  "nativeSourcesAndAssetsByteIdentical": true,
+  "saveQueuesRawEmbeddingAndCrashFixesByteIdentical": true,
+  "additionalCoordinateArrayPayloadBytesAtWidth4096": 65536
+}

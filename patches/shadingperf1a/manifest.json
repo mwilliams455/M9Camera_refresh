@@ -1,0 +1,17 @@
+{
+  "parentCommit": "e8b1a4979cc9e20237b1d42a66037a006f127b85",
+  "version": "2.56-shadingperf1a",
+  "parentFiles": {
+    "app/build.gradle": "c9af1307399ef8ae08ec548ac7e06f5bad1d23b5afd779914b4c4c38cfb55c36",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "3e7ccf3c0670a1bdf547b5627911b4ff2481213b22a19520da6182eaa313131f",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java": "3511907f1681bf5e4e826327cb3bb9094ed12d0c5f51a8355a412b9ab8acfa32"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "428313c8c7649a647dee7be1263143552b2cf3e490be200e59919f0d706f8c16",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": "68f096cec2127a2098c24f992b5b2d2058e0b884da7ade798598892281af937d",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java": "58a76df32a432ac2e84de70a3eaf5be26cb8bae5aa84053e20f14a7173a3b091"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "366d09d996781913c634b39810dec36aca63fdae3f716af83b6cf6cb7414859e"
+}

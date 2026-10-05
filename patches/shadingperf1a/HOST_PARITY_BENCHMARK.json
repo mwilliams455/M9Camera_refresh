@@ -1,0 +1,144 @@
+{
+  "pairedRounds": 9,
+  "mapCopyCountUnchanged": true,
+  "rejectionCases": 76,
+  "parityCases": 4600,
+  "warmups": 5,
+  "scope": "Actual before/after Java shading helpers; read-only Camera2 adapter. Shading-stage host benchmark, not whole-JPEG or phone timing.",
+  "phoneValidationPending": true,
+  "hostJava": "17.0.20",
+  "benchmarks": [
+    {
+      "stageReductionPercent": 57.94224403221819,
+      "renderer": "M9",
+      "helper": 1,
+      "parentMedianMs": 305.90051,
+      "candidateMedianMs": 128.65489,
+      "parentMs": [
+        317.352774,
+        305.665515,
+        305.90051,
+        301.065512,
+        298.903004,
+        325.698637,
+        314.196114,
+        309.913303,
+        305.75462
+      ],
+      "candidateMs": [
+        128.709086,
+        128.65489,
+        128.557442,
+        130.8062,
+        139.293988,
+        124.364663,
+        126.219155,
+        118.31997,
+        132.615293
+      ],
+      "medianSavedMs": 177.24562
+    },
+    {
+      "stageReductionPercent": 45.70154603791082,
+      "renderer": "Monochrom",
+      "helper": 0,
+      "parentMedianMs": 359.894991,
+      "candidateMedianMs": 195.417416,
+      "parentMs": [
+        302.336306,
+        305.000984,
+        331.667657,
+        357.495773,
+        359.894991,
+        382.650567,
+        367.82816,
+        379.928903,
+        454.995104
+      ],
+      "candidateMs": [
+        187.078994,
+        165.375045,
+        163.304905,
+        195.417416,
+        197.648334,
+        198.143206,
+        203.094247,
+        190.120753,
+        305.742109
+      ],
+      "medianSavedMs": 164.477575
+    },
+    {
+      "stageReductionPercent": 54.62974108380936,
+      "renderer": "M9",
+      "helper": 3,
+      "parentMedianMs": 343.854974,
+      "candidateMedianMs": 156.007892,
+      "parentMs": [
+        342.907952,
+        306.811224,
+        387.168768,
+        361.206935,
+        343.854974,
+        365.256394,
+        388.164393,
+        338.256779,
+        340.16758
+      ],
+      "candidateMs": [
+        166.741179,
+        169.230974,
+        138.149133,
+        186.431299,
+        156.007892,
+        143.737259,
+        180.132239,
+        151.339316,
+        143.613232
+      ],
+      "medianSavedMs": 187.84708200000003
+    },
+    {
+      "stageReductionPercent": 56.4357845243996,
+      "renderer": "Monochrom",
+      "helper": 2,
+      "parentMedianMs": 352.554089,
+      "candidateMedianMs": 153.587423,
+      "parentMs": [
+        359.293946,
+        370.340725,
+        352.554089,
+        414.119848,
+        378.988782,
+        308.226884,
+        317.381979,
+        345.67866,
+        340.496348
+      ],
+      "candidateMs": [
+        192.992479,
+        183.212107,
+        187.121297,
+        180.71587,
+        132.085996,
+        153.587423,
+        144.580991,
+        137.399289,
+        144.525882
+      ],
+      "medianSavedMs": 198.96666599999998
+    }
+  ],
+  "rawSamplesAndStatsBitExact": true,
+  "sourceMapsUnmodified": true,
+  "rawSamplesCompared": 203980112,
+  "status": "PASS",
+  "dimensions": "4096x3072",
+  "additionalCoordinateArrayPayloadBytesAtWidth4096": 65536,
+  "sourceSha256": {
+    "BeforeM9": "3e7ccf3c0670a1bdf547b5627911b4ff2481213b22a19520da6182eaa313131f",
+    "AfterM9": "68f096cec2127a2098c24f992b5b2d2058e0b884da7ade798598892281af937d",
+    "BeforeMonochrom": "3511907f1681bf5e4e826327cb3bb9094ed12d0c5f51a8355a412b9ab8acfa32",
+    "AfterMonochrom": "58a76df32a432ac2e84de70a3eaf5be26cb8bae5aa84053e20f14a7173a3b091"
+  }
+}
