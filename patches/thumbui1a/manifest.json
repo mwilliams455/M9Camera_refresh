@@ -1,0 +1,24 @@
+{
+  "parentCommit": "f3d6467330d95d7412f0d0216c3dddff28fc41b4",
+  "version": "2.55-thumbui1a",
+  "parentFiles": {
+    "app/build.gradle": "95e7247d41ade33c19c7be634dc36e734915b69755553607dff289dfce60ae2a",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "adc2e0cd760c54f10d84f9c6f39429af2596462b1e6d9016e89069c8063e4716",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/model/CameraFragmentModel.java": "8128730be247cd5bebc00e425baed13d5edf5c3bebd27456902eecb87cdb2865",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/CameraFragmentViewModel.java": "586afd912cd4accc64337027a840a66167f28a4998bb4e7774aa0a0aae487dfe",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RendererSwitchLifecycleTest.java": "66c249da8d6fda8649a7ee72b792bb479eb5bdf826c40748485d95b2ee9803b1"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "c9af1307399ef8ae08ec548ac7e06f5bad1d23b5afd779914b4c4c38cfb55c36",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "89635a01cf15d26628bad39a8c59d440012148a5fc354f28f5bee4bf37d05f3f",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/model/CameraFragmentModel.java": "f5e5c8ea09b7485273ff9fb1322884b15613a4f79e0794bf4f99c1708add1038",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/CameraFragmentViewModel.java": "9de3c1a3341d793230906a3f83bc608dd0c33c1c373e9565c04bdadf82a9b3c1",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RendererSwitchLifecycleTest.java": "bfdd1744e49295f5ab9a201e03f14ff11212332d9c052d240057abe7c632ef3e",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/GalleryThumbnailThreadTest.java": "004df9fe8f8ca615efaf82b62ad4f6f94fd177878c8c5bdcb6796857cfb87386"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/viewmodel/GalleryThumbnailThreadTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "37caf26c03f2a5e2792832dd25ab1848c6aac2f2b44af2e9f86819500f5c21ba"
+}

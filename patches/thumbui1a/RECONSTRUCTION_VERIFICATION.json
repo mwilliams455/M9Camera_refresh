@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "version": "2.55-thumbui1a",
+  "scopedFilesCompared": 1331,
+  "allScopedFilesByteIdentical": true,
+  "parent": "2.54-switchview1a",
+  "patchSha256": "37caf26c03f2a5e2792832dd25ab1848c6aac2f2b44af2e9f86819500f5c21ba"
+}
