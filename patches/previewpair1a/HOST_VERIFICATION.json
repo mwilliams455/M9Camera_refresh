@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "scope": "metadata join and isolated exposure multiplication; synthetic frames, not phone validation",
+  "sourceSha256": {
+    "com/particlesdevs/photoncamera/m9/M9ExposurePlan1A.java": "53571789d3cc84b05e56ebf471e4b292d9441c6c8b1454df7e3cf6621c55861c",
+    "com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameHistory1A.java": "83df6badbc2ff99998a3652d40445011ed02601defe4adc0391ae52f1b93c3e0",
+    "com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java": "f66987e82add735bdc1e5f0a3f2cb1912af8b8ced34b1cfeaabb893aef407c56",
+    "com/particlesdevs/photoncamera/m9/preview/M9PreviewTc20Math1A.java": "f89dd041e9dbf097783e83857c7ed3cf7006bd0e6521b9e54df0e78fc6477371"
+  },
+  "results": [
+    {
+      "linearExposureCases": 112,
+      "worstParentMismatchEv": 2.0,
+      "worstCandidateMismatchEv": 0.0
+    },
+    {
+      "assertions": 272,
+      "status": "PASS"
+    }
+  ]
+}
