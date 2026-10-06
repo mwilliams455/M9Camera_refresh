@@ -1,16 +1,17 @@
-M9Cam 2.56 SHADINGPERF1A — lens-shading speed candidate
+M9Cam 2.57 PREVIEWPROBE1A — M9 preview probe scheduling candidate
 
-Both renderers now precompute horizontal lens-shading lookup coordinates once per correction pass instead of recalculating them for every row. Shading strength, interpolation, headroom and rounding are unchanged. Actual before/after helpers matched exactly across 4,600 cases and 203,980,112 RAW samples, with 76 matching invalid-input cases.
+The Auto exposure readback could repeatedly resubmit before the preview brightness probe had a turn during slow frames or GPU readbacks. The Auto probe now yields its completion frame. Existing single-readback scheduling, metering policy and freshness rules remain intact.
 
-The isolated 12 MP host shading pass used about 58% less time on the standard M9 path and 46% less on Monochrom. This is not a claim about total rendering time or phone performance. Only two renderer files and the version change; all subsequent photographic calculations, output, queues and crash fixes remain unchanged. Added coordinate storage is 64 KiB of array payload at width 4096.
+Host tests reproduce starvation in 2.56 and show both probes progressing in 2.57. Normal-frame-rate controls and manual EV are unchanged. Very slow frames can still trigger the existing stale-brightness reset, so this is a focused test candidate, not a claim that all phone flicker is fixed.
+
+Only one probe source file and app version metadata change. Saved JPEG/DNG processing, Monochrom, queues and crash fixes are byte-identical to 2.56. The user reported 2.56 rendering faster and saved images good; 2.57 needs phone validation.
 
 Start here:
-- patches/shadingperf1a/README.md — scope, results, recovery/build and phone comparison
-- patches/shadingperf1a/HOST_PARITY_BENCHMARK.json — exact corrected RAW and host timing evidence
-- patches/shadingperf1a/SOURCE_VERIFICATION.json — exact reversible optimisation and source boundaries
-- patches/shadingperf1a/TEST_VERIFICATION.json — 44 app regression tests
-- patches/shadingperf1a/assemble.py — reconstruct the complete pinned source chain
-- patches/shadingperf1a/PACKAGED_VERIFICATION.json — native/assets/signature integrity
+- patches/previewprobe1a/README.md — diagnosis, limitations, recovery and phone comparison
+- patches/previewprobe1a/HOST_VERIFICATION.json — actual probe and scheduler regression results
+- patches/previewprobe1a/SOURCE_VERIFICATION.json — source boundaries
+- patches/previewprobe1a/assemble.py — complete pinned source reconstruction
+- patches/previewprobe1a/PACKAGED_VERIFICATION.json — native/assets/signature integrity
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.56_SHADINGPERF1A.apk. Phone confirmation is pending.
-Main remains accepted 2.55 at e8b1a4979cc9e20237b1d42a66037a006f127b85, including merged PRs #71–73. Three-shot admission/recovery and the 2.55 crash retest were confirmed on the phone. The accepted APK is M9Cam_2.55_THUMBUI1A.apk.
+This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.57_PREVIEWPROBE1A.apk.
+Parent is 2.56 at 15fcb07fae6e2aa6ca4149dc2e190731a72379bc, including the shading speed improvement in PR #74. Main remains accepted 2.55 at e8b1a4979cc9e20237b1d42a66037a006f127b85 until requested merge.

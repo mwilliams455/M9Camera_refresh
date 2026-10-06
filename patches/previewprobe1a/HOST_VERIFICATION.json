@@ -1,0 +1,127 @@
+{
+  "scope": "host scheduling regression; synthetic GL readback, not phone validation",
+  "runs": {
+    "parent": {
+      "sourceSha256": {
+        "M9PreviewMeter2D.java": "452775f0b97509e4a543411301edce2d49b4d42bb8639900e59a7a4166352968",
+        "M9PreviewEvidence2E.java": "9d95662fd26746e381339e2a18200fbd45aa4caef0859531cc7195209a326898",
+        "M9PreviewTc20Math1A.java": "f89dd041e9dbf097783e83857c7ed3cf7006bd0e6521b9e54df0e78fc6477371",
+        "MainRendererSchedule": "79a8fb30a3bd9cd1c42381885a36df62318b6c3a7005dee1c68aa2a1c34c1e01"
+      },
+      "result": {
+        "scenarios": [
+          {
+            "case": "30fps",
+            "autoSubmissions": 10,
+            "toneSubmissions": 10,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "10fps",
+            "autoSubmissions": 27,
+            "toneSubmissions": 27,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "4fps",
+            "autoSubmissions": 80,
+            "toneSubmissions": 0,
+            "lastToneGain": 1.0,
+            "maxToneGain": 1.0,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "slow_350ms",
+            "autoSubmissions": 80,
+            "toneSubmissions": 0,
+            "lastToneGain": 1.0,
+            "maxToneGain": 1.0,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "gpu_300ms",
+            "autoSubmissions": 27,
+            "toneSubmissions": 0,
+            "lastToneGain": 1.0,
+            "maxToneGain": 1.0,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "manual_ev",
+            "autoSubmissions": 0,
+            "toneSubmissions": 80,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          }
+        ],
+        "checks": 602
+      }
+    },
+    "candidate": {
+      "sourceSha256": {
+        "M9PreviewMeter2D.java": "6acfe1488610c2b04752070cf9e982a75c206c65e23913f11483912175520bf6",
+        "M9PreviewEvidence2E.java": "9d95662fd26746e381339e2a18200fbd45aa4caef0859531cc7195209a326898",
+        "M9PreviewTc20Math1A.java": "f89dd041e9dbf097783e83857c7ed3cf7006bd0e6521b9e54df0e78fc6477371",
+        "MainRendererSchedule": "79a8fb30a3bd9cd1c42381885a36df62318b6c3a7005dee1c68aa2a1c34c1e01"
+      },
+      "result": {
+        "scenarios": [
+          {
+            "case": "30fps",
+            "autoSubmissions": 10,
+            "toneSubmissions": 10,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "10fps",
+            "autoSubmissions": 27,
+            "toneSubmissions": 27,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "4fps",
+            "autoSubmissions": 40,
+            "toneSubmissions": 40,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          },
+          {
+            "case": "slow_350ms",
+            "autoSubmissions": 40,
+            "toneSubmissions": 40,
+            "lastToneGain": 1.0,
+            "maxToneGain": 1.0905077,
+            "staleUnityFramesAfterLift": 39
+          },
+          {
+            "case": "gpu_300ms",
+            "autoSubmissions": 14,
+            "toneSubmissions": 13,
+            "lastToneGain": 1.0905077,
+            "maxToneGain": 1.0905077,
+            "staleUnityFramesAfterLift": 36
+          },
+          {
+            "case": "manual_ev",
+            "autoSubmissions": 0,
+            "toneSubmissions": 80,
+            "lastToneGain": 1.4142135,
+            "maxToneGain": 1.4142135,
+            "staleUnityFramesAfterLift": 0
+          }
+        ],
+        "checks": 645
+      }
+    }
+  }
+}
