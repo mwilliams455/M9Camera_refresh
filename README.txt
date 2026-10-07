@@ -1,17 +1,17 @@
-M9Cam 2.59 PREVIEWSETTLE1A — confirmed lower-target exposure settling
+M9Cam 2.60 PREVIEWRECOVER1A — confirm recovery after protective exposure cuts
 
-The ordinary Auto exposure descent previously waited for two fresh samples before every quarter-stop reduction toward the same target. This candidate keeps the initial confirmation, then continues at the existing 0.25 EV per fresh sample until that target changes or is reached. Invalid evidence and manual EV clear the transition. Highlight safety remains immediate.
+Outdoor phone testing still shows brightness swings when panning near the sun. Source tests reproduce a controller rebound: a protective headroom cut can be undone by the next permissive probe. This candidate keeps the cut immediate, then requires two consecutive fresh probes supporting a rise and bounds the first recovered step to a quarter-stop.
 
-A synthetic 0.75-to-0 EV transition now takes four fresh meter samples instead of six. Candidate host checks pass: 1,472 assertions/checks across inherited exposure policy, highlight protection, subject headroom and new Photo/Motion transition tests. These are host checks, not phone timing measurements.
+Candidate host checks pass: 1,772 checks through the complete production Auto/tap classes. In the synthetic mapped backlit case, alternating permissive/restrictive probes no longer cause repeated +0.5-to-+1.25 EV rebounds. Sustained safe evidence reaches the same +1.75 EV target. These are synthetic controller checks, not phone validation or proof that every observed swing has the same cause.
 
-Only the Auto transition logic and version metadata change. Targets, positive acquisition, frame pairing, probe cadence/freshness, ISO allocation, AE-L, WB, saved JPEG/DNG rendering, native code/assets, Monochrom, queues and crash fixes remain unchanged. A capture during settling can use a different exposure because the shutter continues to follow the displayed plan.
+Only Auto recovery timing and version metadata change. All exposure targets and highlight budgets remain intact. Saved JPEG/DNG processing, colour, WB, shaders, native sources/assets, Monochrom, frame pairing, ISO allocation, AE-L and queue fixes remain unchanged. Captures during recovery continue to follow the displayed exposure plan.
 
 Start here:
-- patches/previewsettle1a/README.md — evidence, scope, recovery and phone comparison
-- patches/previewsettle1a/HOST_VERIFICATION.json — production Auto/tap class results
-- patches/previewsettle1a/SOURCE_VERIFICATION.json — exact source boundaries
-- patches/previewsettle1a/assemble.py — complete pinned source reconstruction
-- patches/previewsettle1a/PACKAGED_VERIFICATION.json — APK integrity checks
+- patches/previewrecover1a/README.md — evidence, behavior, trade-off and phone comparison
+- patches/previewrecover1a/HOST_VERIFICATION.json — production controller results
+- patches/previewrecover1a/SOURCE_VERIFICATION.json — source boundaries
+- patches/previewrecover1a/assemble.py — pinned source recovery
+- patches/previewrecover1a/PACKAGED_VERIFICATION.json — final APK integrity checks
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.59_PREVIEWSETTLE1A.apk.
-Parent is 2.58 at fc4e53099c939e93be3bbe4fd3686ec9c5698a8e, including PR #76 and its #75/#74 predecessors. Full Android build and packaged APK integrity checks passed. Phone validation is pending. This candidate does not merge main.
+This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.60_PREVIEWRECOVER1A.apk.
+Parent is 2.59 at cced095b9134255fa7883584a7ba186a77d81a70, draft PR #77, retaining its predecessors. Full Android build and package checks passed. Phone validation is pending. Main is unchanged.
