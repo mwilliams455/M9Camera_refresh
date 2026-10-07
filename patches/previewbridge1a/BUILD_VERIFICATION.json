@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "exitCode": 0,
+  "elapsedSeconds": 18.01,
+  "command": [
+    "bash",
+    "gradlew",
+    ":app:assembleDebug",
+    "--no-daemon",
+    "--max-workers=2",
+    "--init-script",
+    "<build-output-init.gradle>"
+  ],
+  "initialFullBuildSeconds": 144.29,
+  "initialFullBuildTasks": 60,
+  "finalRebuildReason": "Final version/output metadata and source state rechecked by Gradle after boundary review",
+  "finalTaskSummary": "60 tasks: 10 executed, 50 up-to-date"
+}

@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "parent": "2.60-previewrecover1a",
+  "version": "2.61-previewbridge1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java"
+  ],
+  "unchangedScopedFiles": 1330,
+  "totalScopedFiles": 1332,
+  "reversePatchExactlyRestoresParent": true,
+  "validSampleDecisionsUnchanged": true,
+  "targetsAndHighlightBudgetsUnchanged": true,
+  "probeValidationTolerancesUnchanged": true,
+  "isoAllocationAeLockTapPolicyAfAndControlsByteIdentical": true,
+  "framePairingProbeSchedulingAndTc20ByteIdentical": true,
+  "whiteBalanceColourSavedRenderersNativeSourcesAssetsMonochromByteIdentical": true,
+  "queuesAndRecentCrashFixesByteIdentical": true,
+  "behaviorChange": "short energy-capped transition on rejected reference-energy mismatch only; capture follows resulting displayed plan"
+}
