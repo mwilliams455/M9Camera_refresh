@@ -1,18 +1,18 @@
-M9Cam 2.62 SHUTTEREXPORT1A — recover and prioritize shutter-trace exports
+M9Cam 2.63 PREVIEWRECOVER1B — sustain conservative recovery after exposure reductions
 
-Current phone manifests confirm that shutter traces were staged internally, but their public export was queued behind roughly 1,700 historical diagnostics. Burst manifests are indexes and do not contain the trace payloads.
+The recovered phone trace shows a 1.5-EV M9 correction drop in 266 ms while sensor energy changes only 0.026 EV and focus remains stationary. It also shows the rapid recovery pattern allowed by 2.62: after the first confirmed quarter-stop rise, the guard is cleared and fast acquisition resumes.
 
-This candidate gives shutter traces a dedicated single-writer exporter. It selects the newest eligible trace first, coalesces repeated updates, recovers existing staged traces, retries failed writes and preserves payloads during active export. No new backlog purge is introduced. Diagnostic saving and foreground visibility still gate export.
+This candidate keeps all post-cut rises at 0.25 EV per fresh probe until the target is reached and four fresh probes agree over at least 750 ms. Protective cuts and all targets/limits are unchanged. Stable final exposure is unchanged; transient captures follow the slower displayed recovery. Crop diagnostics now retain actual tone gain and draw snapshots include the existing Auto reason.
 
-The production spool passes 225 host assertions with real files/executors and a controlled storage provider. A 12-MB recovered trace exports despite a blocked historical ordinary export. Failure/retry, sixty in-flight updates, lifecycle transitions and PRIMARY export pass. Only the diagnostic spool and version metadata change; all other 1,330 scoped files match 2.61. Reconstruction, Android build and APK package checks pass.
+Complete production Auto/tap tests pass 2,852 assertions. A synthetic reproduction changes the old recovery [0.5, 0.75, 1.5, 2.0] to [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], with unchanged immediate safety cuts. All other 1,327 scoped source files match 2.62. Reconstruction, Android build and signed APK checks pass. Native libraries and assets remain byte-identical.
 
 Start here:
-- patches/shutterexport1a/README.md — evidence, recovery instructions and build steps
-- patches/shutterexport1a/EVIDENCE.json — supplied diagnostic-manifest observations
-- patches/shutterexport1a/HOST_VERIFICATION.json — production spool results
-- patches/shutterexport1a/SOURCE_VERIFICATION.json — source boundaries
-- patches/shutterexport1a/assemble.py — pinned source recovery
-- patches/shutterexport1a/PACKAGED_VERIFICATION.json — final APK checks
+- patches/previewrecover1b/README.md — evidence, limits, test and build instructions
+- patches/previewrecover1b/TRACE_ANALYSIS.json — measured timeline and diagnostic limitations
+- patches/previewrecover1b/HOST_VERIFICATION.json — parent/candidate production-controller results
+- patches/previewrecover1b/SOURCE_VERIFICATION.json — exact source boundaries
+- patches/previewrecover1b/assemble.py — pinned source recovery
+- patches/previewrecover1b/PACKAGED_VERIFICATION.json — final APK verification
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.62_SHUTTEREXPORT1A.apk.
-Parent: 2.61 at 87a62f9a1a51dd12fb3510df921e8cfe88c17728, draft PR #79. Main remains unchanged. Phone delivery validation and brightness-pumping diagnosis are pending; exposure and AF are unchanged.
+This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate: M9Cam_2.63_PREVIEWRECOVER1B.apk.
+Parent: 2.62 at 36cf2726c96cf2b03afd7f2016d6565d85b21cb2, draft PR #80. Main remains unchanged. Phone validation is pending; the exact changing cap behind every pulse is not yet known. Pre-shutter AF CANCEL repetition is recorded separately for follow-up; Continuous Picture AF is unchanged here.

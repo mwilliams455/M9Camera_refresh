@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "exitCode": 0,
+  "elapsedSeconds": 63.99,
+  "tasks": 60,
+  "buildTool": "Gradle 8.11.1 / AGP 8.10.1 / JDK 17",
+  "target": ":app:assembleDebug"
+}

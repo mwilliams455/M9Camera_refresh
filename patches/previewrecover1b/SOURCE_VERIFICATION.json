@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "parent": "2.62-shutterexport1a",
+  "version": "2.63-previewrecover1b",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RootCausePixels1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java"
+  ],
+  "unchangedScopedFiles": 1327,
+  "totalScopedFiles": 1332,
+  "reversePatchExactlyRestoresParent": true,
+  "classificationMeterStatisticsTargetsAndHeadroomLimitsUnchanged": true,
+  "renderGlCommandsUnchangedExceptPassingExistingGainToDiagnosticRecorder": true,
+  "afWbColourToneShadersNativeAssetsSavedRenderersAndMonochromUnchanged": true,
+  "shutterExporterAndPhotoQueuesUnchanged": true,
+  "behaviorChange": "all post-cut recovery rises capped at .25EV until target reached and four fresh probes agree over >=750ms; transient capture exposure follows displayed plan"
+}
