@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "version": "2.59-previewsettle1a",
+  "task": ":app:assembleDebug",
+  "gradle": "8.11.1",
+  "agp": "8.10.1",
+  "jdk": "17.0.20.1+1",
+  "compileSdk": 36,
+  "buildTools": "35.0.0",
+  "cmake": "3.22.1",
+  "ndk": "27.0.12077973",
+  "actionableTasks": 60,
+  "buildDuration": "3m 23s",
+  "rawBuildApkSha256": "1f3c0092142cae07031201a8299ec696c35ecd39237cbd5ac31c4b11e3d9b356",
+  "hostRegression": "HOST_VERIFICATION.json",
+  "androidInstrumentationTestsRun": false,
+  "phoneValidationPending": true,
+  "notes": [
+    "Existing Java deprecation/unchecked and upstream native compiler warnings remain.",
+    "Package with package.py to preserve all accepted native libraries; raw Gradle APK is not the deliverable."
+  ]
+}
