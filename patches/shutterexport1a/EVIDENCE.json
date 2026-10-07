@@ -1,0 +1,78 @@
+{
+  "source": "User diagnostic manifests supplied 2026-10-07",
+  "files": [
+    {
+      "filename": "M9_DIAGNOSTICS_BURST_1791390383400_1.json",
+      "sha256": "09afe8cd35eb0b264aa5937a8275ff8aa9162071e2be5c8e2a52c4324788a3a0",
+      "traceEntries": [
+        {
+          "role": "shutter_trace",
+          "publicFilename": "M9_SHUTTERTRACE_20261007_172418_456_31056809392393.json",
+          "payloadBytes": 7746989,
+          "payloadInline": false,
+          "payloadDelivery": "individual_stream_export"
+        }
+      ],
+      "telemetry": {
+        "appVisible": true,
+        "privateStageFailed": 0,
+        "pendingIndividualEntries": 1714,
+        "individualWrites": 4,
+        "individualFailed": 0,
+        "recoveredEntries": 1709,
+        "recoveredPayloadBytesReferenced": 1642252456,
+        "recoveredPayloadBytesHeldInJavaHeap": 0,
+        "bundleLastPersistElapsedMs": 25552.587022
+      }
+    },
+    {
+      "filename": "M9_DIAGNOSTICS_BURST_1791390399263_8.json",
+      "sha256": "67144075bccd9c7af34c99c4c118d5dc66158261b2fa4a3e63a6c7dc7bff9970",
+      "traceEntries": [
+        {
+          "role": "shutter_trace",
+          "publicFilename": "M9_SHUTTERTRACE_20261007_172628_428_31186781418542.json",
+          "payloadBytes": 9358761,
+          "payloadInline": false,
+          "payloadDelivery": "individual_stream_export"
+        }
+      ],
+      "telemetry": {
+        "appVisible": true,
+        "privateStageFailed": 0,
+        "pendingIndividualEntries": 1722,
+        "individualWrites": 4,
+        "individualFailed": 0,
+        "recoveredEntries": 1709,
+        "recoveredPayloadBytesReferenced": 1642252456,
+        "recoveredPayloadBytesHeldInJavaHeap": 0,
+        "bundleLastPersistElapsedMs": 10179.190673
+      }
+    },
+    {
+      "filename": "M9_DIAGNOSTICS_BURST_1791390409213_1.json",
+      "sha256": "0b085c68379f29c4b72001396d064cb588ec1a8caf4d19b6f6feafab79422670",
+      "traceEntries": [
+        {
+          "role": "shutter_trace",
+          "publicFilename": "M9_SHUTTERTRACE_20261007_172628_428_31186781418542.json",
+          "payloadBytes": 12013236,
+          "payloadInline": false,
+          "payloadDelivery": "individual_stream_export"
+        }
+      ],
+      "telemetry": {
+        "appVisible": true,
+        "privateStageFailed": 0,
+        "pendingIndividualEntries": 1722,
+        "individualWrites": 4,
+        "individualFailed": 0,
+        "recoveredEntries": 1709,
+        "recoveredPayloadBytesReferenced": 1642252456,
+        "recoveredPayloadBytesHeldInJavaHeap": 0,
+        "bundleLastPersistElapsedMs": 9944.785725
+      }
+    }
+  ],
+  "limits": "Manifests reference private payloads; they do not contain the shutter trace. Supplied LIVEPAIR is dated 2026-10-05 and cannot diagnose this run. Queue delivery failure is evidenced; brightness-pumping cause remains unresolved."
+}

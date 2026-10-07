@@ -1,17 +1,18 @@
-M9Cam 2.61 PREVIEWBRIDGE1A — bound temporary exposure-reference mismatches
+M9Cam 2.62 SHUTTEREXPORT1A — recover and prioritize shutter-trace exports
 
-The latest woodland recording shows substantial brightness pumping. A production-controller reproduction identifies one possible contributor: a 0.30 EV movement of the camera's metering reference can immediately erase an accepted +1.75 EV correction, then cycle between +0.75 EV and zero as probes match and mismatch.
+Current phone manifests confirm that shutter traces were staged internally, but their public export was queued behind roughly 1,700 historical diagnostics. Burst manifests are indexes and do not contain the trace payloads.
 
-The candidate retains a recent validated exposure through a small reference mismatch for at most 500 ms and 0.5 EV. Its temporary correction never exceeds the accepted correction or accepted absolute exposure energy. The accepted baseline is preserved; duplicate reads cannot renew the deadline or ratchet it. Fresh highlight warnings and larger, stale, invalid or foreign changes still take effect immediately. This is a demonstrated source fix, not proof that every phone fluctuation has the same cause.
+This candidate gives shutter traces a dedicated single-writer exporter. It selects the newest eligible trace first, coalesces repeated updates, recovers existing staged traces, retries failed writes and preserves payloads during active export. No new backlog purge is introduced. Diagnostic saving and foreground visibility still gate export.
 
-Candidate host checks pass: 2,414 assertions through complete production Auto/tap classes. Only Auto continuity and version metadata change; all other 1,330 scoped files match 2.60. Continuous Picture, colour, WB, tone curves, JPEG/DNG rendering, native assets, Monochrom, frame pairing, TC20, ISO allocation, AE-L and queue fixes are unchanged. Captures during the short transition follow the displayed exposure plan.
+The production spool passes 225 host assertions with real files/executors and a controlled storage provider. A 12-MB recovered trace exports despite a blocked historical ordinary export. Failure/retry, sixty in-flight updates, lifecycle transitions and PRIMARY export pass. Only the diagnostic spool and version metadata change; all other 1,330 scoped files match 2.61. Reconstruction, Android build and APK package checks pass.
 
 Start here:
-- patches/previewbridge1a/README.md — evidence, limits, build instructions and phone comparison
-- patches/previewbridge1a/HOST_VERIFICATION.json — production controller results
-- patches/previewbridge1a/SOURCE_VERIFICATION.json — exact source boundaries
-- patches/previewbridge1a/assemble.py — pinned source recovery
-- patches/previewbridge1a/PACKAGED_VERIFICATION.json — final APK checks
+- patches/shutterexport1a/README.md — evidence, recovery instructions and build steps
+- patches/shutterexport1a/EVIDENCE.json — supplied diagnostic-manifest observations
+- patches/shutterexport1a/HOST_VERIFICATION.json — production spool results
+- patches/shutterexport1a/SOURCE_VERIFICATION.json — source boundaries
+- patches/shutterexport1a/assemble.py — pinned source recovery
+- patches/shutterexport1a/PACKAGED_VERIFICATION.json — final APK checks
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.61_PREVIEWBRIDGE1A.apk.
-Parent: 2.60 at d309662ccaed319174dcd3f05e0e4be0c1145a12, draft PR #78. Phone validation is pending. Main is unchanged.
+This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.62_SHUTTEREXPORT1A.apk.
+Parent: 2.61 at 87a62f9a1a51dd12fb3510df921e8cfe88c17728, draft PR #79. Main remains unchanged. Phone delivery validation and brightness-pumping diagnosis are pending; exposure and AF are unchanged.
