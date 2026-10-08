@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "parent": "2.65-anchorsettle1a",
+  "version": "2.66-exposuresettle1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ExposureRise1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MeterDecisionHistory1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewToneContinuity1A.java"
+  ],
+  "unchangedScopedFiles": 1331,
+  "totalScopedFiles": 1337,
+  "reversePatchExactlyRestoresParent": true,
+  "neutralProbeStatisticsSpatialBodyAndAnchorDetectionTargetsRawHeadroomAndTapCalculationsUnchanged": true,
+  "immediateHardClippingCutOrdinaryDescentAndRawPlacementRequestBlocksByteIdentical": true,
+  "tc20PixelMathAndGlSamplingByteIdentical": true,
+  "afSensorMeteringWbColourToneShadersNativeAssetsSavedRenderersAndMonochromUnchanged": true,
+  "shutterExporterAndPhotoQueuesUnchanged": true,
+  "behaviorChange": "After initial acquisition all Auto rises require four fresh probes spanning >=750ms and slew at .25 EV. Tone rises use the same qualification and existing .125 EV slew; Auto/user EV changes interrupt pending tone rises. Qualified tone survives a <=1s metadata gap only with valid same-owner sources and reference energy within .25 EV.",
+  "diagnosticChange": "M9METERHISTORY1C retains base/last-safe/first-rejected highlight field summaries plus placement and tone coordination columns in existing bounded rings"
+}

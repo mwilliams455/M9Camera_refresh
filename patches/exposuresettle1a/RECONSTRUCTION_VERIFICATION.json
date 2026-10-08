@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "method": "assemble.py --parent using the independently verified complete 2.65 tree; exact scoped fingerprints before and after patch; fresh reconstructed 2.66 tree used for final host run",
+  "parentScopedSha256": "36d84bc84bebb355b41b2afc45f99b15d3cad39fcd4d6d943539e0b387053c3a",
+  "candidateScopedSha256": "c4c2b4b8b2d77d573b4148ded09bd86bff2ed72d1fbe6972005d607a1f04a408",
+  "hostStatus": "PASS"
+}
