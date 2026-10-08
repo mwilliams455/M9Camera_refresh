@@ -1,19 +1,19 @@
-M9Cam 2.64 BACKGROUNDSETTLE1A — stabilize background qualification separately from clipping limits
+M9Cam 2.65 ANCHORSETTLE1A — stabilize open-anchor classification separately from clipping limits
 
-The October 8 trace shows app exposure moving while the sensor reference stays nearly constant. The complete shutter bracket also shows a background allowance dominated by a small TV field: one fewer clipped sample can change its raw cap by a quarter stop. Previously that semantic change received an immediate safety cut.
+The latest October 8 trace shows two half-stop Auto cuts caused by the open-anchor rule while the qualified background allowance stays unchanged. The TV also changes actual room light. This candidate addresses the remaining abrupt scene-classification cut while preserving responses to real exposure and tone evidence.
 
-This draft requires four fresh, consistent probes over at least 750 ms before changing the background allowance. Background-only decreases then settle in quarter-stop steps. Actual headroom/highlight protection remains immediate. Separate bounded Auto and tone histories explain target changes and freshness resets in the next shutter trace.
+Open-anchor appearance, disappearance and tier changes now require four fresh, spatially coherent probes over at least 750 ms. Semantic decreases use the existing quarter-stop settling path; actual headroom/highlight protection remains immediate. The trace records raw/qualified anchor caps, masks and confirmation state.
 
-Full controller/qualification/history tests pass 3,622 assertions. A synthetic sequence based on the recorded room holds +1.75 EV, where 2.63 moves between +1.0 and +1.5 EV. Sustained changes still settle to the existing final target. This does not prove phone stability or identify every source of the observed pumping.
+Full controller/qualification/history tests pass 4,111 assertions. A synthetic threshold sequence based on the actual shutter bracket holds +0.50 EV where 2.64 pulses between +0.25 and +0.50. Sustained changes still settle to the existing final target. Phone validation remains pending.
 
 Start here:
-- patches/backgroundsettle1a/README.md — evidence, limits, phone check and reproduction
-- patches/backgroundsettle1a/HOST_VERIFICATION.json — production controller and history checks
-- patches/backgroundsettle1a/SOURCE_VERIFICATION.json — exact source boundaries
-- patches/backgroundsettle1a/BASELINE_RECOVERY.json — two stale local files restored from the unchanged source chain
-- patches/backgroundsettle1a/assemble.py — pinned recovery with complete source fingerprints
-- patches/backgroundsettle1a/PACKAGED_VERIFICATION.json — signed APK verification
+- patches/anchorsettle1a/README.md — evidence, limits, phone check and reproduction
+- patches/anchorsettle1a/HOST_VERIFICATION.json — production controller and history checks
+- patches/anchorsettle1a/SOURCE_VERIFICATION.json — exact source boundaries
+- patches/anchorsettle1a/RECORDED_EVIDENCE.json — observed cuts and analysis limits
+- patches/anchorsettle1a/assemble.py — pinned recovery with complete source fingerprints
+- patches/anchorsettle1a/PACKAGED_VERIFICATION.json — signed APK verification
 
 This is an incremental source-recovery repository, not an assembled Android project.
-Parent: 2.63 at 36f57c9d0013d2b1eb34a94d9121d939fc517005, draft PR #81.
-Candidate: M9Cam_2.64_BACKGROUNDSETTLE1A.apk. Phone validation is pending. Main remains unchanged.
+Parent: 2.64 at 3e471d95860e0434ec1db051ee902782fd98fb70, draft PR #82.
+Candidate: M9Cam_2.65_ANCHORSETTLE1A.apk. Phone validation is pending. Main remains unchanged.
