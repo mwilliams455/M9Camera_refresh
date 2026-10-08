@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "parent": "2.66-exposuresettle1a",
+  "candidate": "2.67-regionalclip1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MeterDecisionHistory1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RegionalClipQualification1A.java"
+  ],
+  "unchangedScopedFiles": 1334,
+  "totalScopedFiles": 1338,
+  "reversePatchExactlyRestoresParent": true,
+  "rawHeadroomBodyTargetsAnchorAndTapRulesByteIdentical": true,
+  "existingImmediateCutAndRisePoliciesByteIdentical": true,
+  "gpuSamplingToneMathSensorMeteringAfWbAndSavedRenderersUnchanged": true,
+  "nativeAssetsMonochromAndExportQueuesUnchanged": true,
+  "change": "Regional channel clipping enters at the same thresholds, with one-sampled-pixel clearance before releasing a field; bounded per-step masks are traced."
+}

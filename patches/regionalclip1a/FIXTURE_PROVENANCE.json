@@ -1,0 +1,16 @@
+{
+  "traceSha256": "87ef3eacc0af9204b4521e2bc2c182d48f95b460cc4a77019ce726ee7631b910",
+  "sceneConfirmedFromEmbeddedCrops": true,
+  "embeddedImagesPublished": false,
+  "fixtureContents": "Complete 11-step shutter bracket and two independently recorded baseline/+0.50-EV pairs, from +4.187773592s and +4.409150467s. Numeric field summaries only.",
+  "temporalTest": "Repeat the two recorded pairs with synthetic neutral +0.25 and globally clipped >=+0.75 steps; eight cycles with 250ms probes. This isolates regional entry/release. It is not a replay of all 57 Auto decisions or a camera simulation.",
+  "result": {
+    "parentCuts": 8,
+    "parentRises": 8,
+    "candidateCuts": 1,
+    "candidateRises": 0,
+    "clearanceRecoveryPassed": true,
+    "unmodifiedShutterBracketAutoEvBoth": 0.75
+  },
+  "deviceValidationPending": true
+}

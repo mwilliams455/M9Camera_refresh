@@ -1,0 +1,147 @@
+{
+  "captureId": "20261008_094822_062_6934593999115",
+  "jpegFilename": "IMG_20261008_094822_1791449302515_00.jpg",
+  "traceSha256": "87ef3eacc0af9204b4521e2bc2c182d48f95b460cc4a77019ce726ee7631b910",
+  "sourceSha256": "e6a2a264024806718e75278058b9c405c364887b09340cc13f0e51235574f315",
+  "autoRows": 57,
+  "toneRows": 56,
+  "toneAppliedEvValues": [
+    0
+  ],
+  "steadyAutoEvValues": [
+    0.25,
+    0.5,
+    0.75
+  ],
+  "steadyReferenceEnergyEvSpan": 0.03125093398443986,
+  "previewRecordedToneGains": [
+    1
+  ],
+  "previewRecordedExposureScales": [
+    1.1892070770263672,
+    1.4142135381698608,
+    1.6817928552627563
+  ],
+  "steadyCuts": [
+    {
+      "seconds": -2.415488593,
+      "fromEv": 0.75,
+      "toEv": 0.5,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        10,
+        11
+      ],
+      "bodyMask": 0
+    },
+    {
+      "seconds": -2.146615312,
+      "fromEv": 0.5,
+      "toEv": 0.25,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        9,
+        11
+      ],
+      "bodyMask": 0
+    },
+    {
+      "seconds": 0.976904374,
+      "fromEv": 0.75,
+      "toEv": 0.5,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        9,
+        10
+      ],
+      "bodyMask": 8140739
+    },
+    {
+      "seconds": 2.565044374,
+      "fromEv": 0.5,
+      "toEv": 0.25,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        9,
+        10
+      ],
+      "bodyMask": 0
+    },
+    {
+      "seconds": 4.409150467,
+      "fromEv": 0.5,
+      "toEv": 0.25,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        9,
+        10
+      ],
+      "bodyMask": 0
+    },
+    {
+      "seconds": 6.000073331,
+      "fromEv": 0.5,
+      "toEv": 0.25,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        9,
+        10
+      ],
+      "bodyMask": 8140739
+    },
+    {
+      "seconds": 8.603948642,
+      "fromEv": 0.75,
+      "toEv": 0.5,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        10,
+        12
+      ],
+      "bodyMask": 0
+    },
+    {
+      "seconds": 8.868509371,
+      "fromEv": 0.5,
+      "toEv": 0.25,
+      "stop": "regional_channel_clip_growth",
+      "firstRejectedFieldsZeroBased": [
+        12,
+        17
+      ],
+      "bodyMask": 0
+    }
+  ],
+  "gateReplay": {
+    "recordedChecks": 100,
+    "counterfactualChecks": 1,
+    "output": "101 assertions passed"
+  },
+  "onePixelExample": {
+    "secondsBefore": 4.187773592,
+    "secondsAfter": 4.409150467,
+    "testedEv": 0.5,
+    "fieldIndexZeroBased": 10,
+    "fieldSamples": 30,
+    "clippedSamplesBefore": 2,
+    "clippedSamplesAfter": 3,
+    "countedFieldsBefore": [
+      9
+    ],
+    "countedFieldsAfter": [
+      9,
+      10
+    ],
+    "oneStatisticCounterfactualAccepted": true,
+    "limit": "Other scene statistics also changed. This isolates predicate sensitivity, not the physical cause of the changed pixel."
+  },
+  "export": {
+    "snapshotSequence": 37,
+    "lastEvent": "post_jpeg_window_complete",
+    "droppedDiagnosticTasks": 0
+  },
+  "limitations": [
+    "Gate-level replay only; no new app build or device validation.",
+    "No evidence here that the file backlog causes exposure pumping."
+  ]
+}
