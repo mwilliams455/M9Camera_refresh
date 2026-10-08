@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "exitCode": 0,
+  "elapsedSeconds": 87.4,
+  "tasks": 60,
+  "executedTasks": 26,
+  "upToDateTasks": 34,
+  "buildTool": "Gradle 8.11.1 / AGP 8.10.1 / Temurin JDK 17.0.20.1+1",
+  "androidSdk": 36,
+  "buildTools": "35.0.0",
+  "ndk": "27.0.12077973",
+  "cmake": "3.22.1",
+  "target": ":app:assembleDebug",
+  "candidateScopedSha256": "4226b7628d12d1ae915cd912da43666d20c1e77f6c48515d80e4b5457e43c671",
+  "phoneValidationPending": true
+}

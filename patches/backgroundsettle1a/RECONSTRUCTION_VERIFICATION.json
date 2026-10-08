@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "method": "complete unmodified pinned 2.63 chain plus new 2.64 patch; all scoped files compared",
+  "parentScopedFiles": 1332,
+  "candidateScopedFiles": 1334,
+  "parentScopedSha256": "5d1cfae7151de20eb08d9e760ded3df640753110f714a2fb63e947e2de01a30f",
+  "candidateScopedSha256": "4226b7628d12d1ae915cd912da43666d20c1e77f6c48515d80e4b5457e43c671",
+  "allScopedFilesMatch": true
+}
