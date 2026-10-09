@@ -33,8 +33,13 @@ version metadata and two test files differ; 1,332 scoped files remain identical.
 - All 225 inherited real-file/executor spool assertions pass with Android/JSON stubs.
 - Mono transport test covers priority despite a blocked ordinary exporter, existing
   report preservation, disabled behavior, background/resume and no retained byte array.
-- Source fingerprint and reverse patch checks pass. Android widget tests and build
-  status are recorded separately; no phone validation is claimed.
+- Source fingerprint and reverse patch checks pass.
+- Android build and all 14 selected Robolectric tests pass, including five tests
+  exercising the actual ManagedSwitchPreference and live/frozen export gates.
+  See `ANDROID_VERIFICATION.json` for the pinned CI run and test results.
+- Signed APK packaging passes: accepted signing certificate, 16 KiB alignment,
+  both compiled settings menus, all 27 native libraries and all 285 assets match
+  2.67. See `PACKAGED_VERIFICATION.json`. Phone validation remains pending.
 
 ## Reproduce
 
@@ -53,7 +58,7 @@ build-tools 35.0.0 / NDK 27.0.12077973 / CMake 3.22.1 toolchain.
 The final packager verifies the exact parent APK and preserves all 27 native
 libraries and 285 assets. The raw Gradle APK must not be distributed.
 
-## Phone check after a packaged APK is available
+## Phone check with M9Cam_2.68_MONODIAG1A.apk
 
 Keep Save diagnostic files enabled and Original Sensor RAW off unless desired.
 Take one Mono Motion 3x photo of the same scene, remain in the camera briefly,
