@@ -23,3 +23,15 @@ For the recorded target and preferred shutter, the corrected allocation is ISO 1
 `MonoRawGainTest` exercises the actual Mono allocator, routing gate, immutable plan and request setter with Android metadata mocks. `MonoPrimaryEvidenceTest` verifies the embedded Motion identity and capture-owned sensor budget. CI performs Android compilation and these tests plus inherited diagnostic preference/output tests.
 
 The exact patch changes nine scoped files. All rendering, shaders, firmware assets, native libraries, AF/WB logic and colour M9 allocation code remain unchanged. Package against the verified 2.69 APK to retain all 27 accepted native libraries and 285 assets. Phone validation remains pending; no full WYSIWYG parity claim is made.
+
+## Completed candidate verification
+
+- Android run 37947936866 at source commit `d06bb65f88f0bf5200b50092d2d7a161d9af0aef`: build PASS, 29 tests PASS, no failures/errors/skips.
+- Host allocator replay and bounds sweep: 12,795 checks PASS.
+- Exact source reconstruction and reverse-patch audit PASS; source fingerprint `c962691aa14d43d3ce532c42cf704566ad832c29acce81ff36fc701af15236dd`.
+- Signed APK: `M9Cam_2.70_MONORAWGAIN1A.apk`, version code 27270, SHA-256 `b40e1ae85d99a175c42bde8f0547a8fb8108f023687f609487dfad189a8f57fe`.
+- Package signature matches the accepted app; all 27 native libraries and 285 assets are byte-identical to 2.69; compiled menus and 16 KiB alignment pass.
+
+The first CI attempt compiled successfully but one test could not mock Android's final `CaptureRequest.Builder`. The passing revision creates a real Robolectric camera request builder and verifies its submitted ISO, shutter, AE, compensation and immutable plan tag. This was a test-harness repair, not a skipped test.
+
+Phone acceptance is still pending. Install this candidate over 2.69, select Mono / Motion / 3× with Auto ISO and Auto shutter at EV 0, and provide the saved JPEG and embedded primary JSON for a dim scene. Inspect requested/result energy agreement, sensor budget, plan identity and preview/save brightness. A longer automatic shutter near the gain ceiling can introduce more motion blur. Keep PR #88 as a draft until device validation.

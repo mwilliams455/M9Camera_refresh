@@ -1,0 +1,58 @@
+{
+  "status": "PASS",
+  "commit": "d06bb65f88f0bf5200b50092d2d7a161d9af0aef",
+  "runId": 37947936866,
+  "jobId": 113878968584,
+  "artifactId": 11623989743,
+  "artifactSha256": "b5be05e52e9300c76c84e080d815feb669c67b7a3a58d8bc17cbe19ac18df4dd",
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoPrimaryEvidenceTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.render.M9SetupAuditGateTest",
+      "tests": "0",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.MonoDiagnosticPreferenceTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoRawGainTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "totalTests": 29,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "scope": "Android compilation; production automatic allocator, shared plan request, diagnostic and output regressions under Robolectric. Not a hardware camera test.",
+  "phoneValidationPending": true
+}
