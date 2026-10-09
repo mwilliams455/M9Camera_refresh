@@ -17,16 +17,16 @@
     "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoExposurePlan1A.java": "b67183da94ed9325e69b809e02d63b556ddf18d16f975a918ea8461ff168e056",
     "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoRawExposure1A.java": "f36a6217bbc339ba791063181adb702a0794d32100a07df415542fdcbbe59909",
     "app/src/main/java/com/particlesdevs/photoncamera/monochrom/preview/MonoLivePairExport1D.java": "6d9a7786788166eaff8d119859a0a574c9c3569a16d3c778e1a5701e2108066b",
-    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/MonoIsoExpoSelector.java": "b586f6c28db7bd64311af9a4f801f6e5f3892fcb2213100bfba756e5dd9df1ad",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/MonoIsoExpoSelector.java": "05b75aeef5ee4099c2ab6ec4b3decba1d99748a29651a484efc9771e83ba0b68",
     "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoPrimaryEvidenceTest.java": "0986f7d7bf5b0900c7e9bd37ce636f123a192e71457e2bab2bef7fe529d6d5f6",
-    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoRawGainTest.java": "7820ea7891dc973119e3abcd7febc818aec74e8c4af0e7ae239af9b6293315d9"
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoRawGainTest.java": "839c652d7472bef7a11dbaf6432e9bfe26523a71143a7aaf9b88ac2a0f834e0a"
   },
   "newFiles": [
     "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoRawExposure1A.java",
     "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoRawGainTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "42c9413f3d48a0c694d97bf264e18a2d0361095d5bf609e1a2e5200f3ac1034d",
+  "patchSha256": "36b2635998d03f5d15930a3e8e17632e6edeb4fff89756dec7546ad1b30e485f",
   "parentScopedSha256": "57abbfa7341311b54933cfa37219b7b66f6ba3951d564cc03537bd2f7ac9364b",
-  "candidateScopedSha256": "23e5e8c140614e84d992749d24d322b5f15b2319ff41901f055f86446e3af91e"
+  "candidateScopedSha256": "c962691aa14d43d3ce532c42cf704566ad832c29acce81ff36fc701af15236dd"
 }

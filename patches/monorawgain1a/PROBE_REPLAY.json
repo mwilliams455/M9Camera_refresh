@@ -1,0 +1,8 @@
+{
+  "probeAgeBeforeShutterMs": 291.367604,
+  "probeIsExactShutterFrame": false,
+  "predictedMeanFromProbe": 84.39848888019053,
+  "predictedMeanAtRecordedGain": 64.07756083205669,
+  "savedBitmapMean": 60.07367950784464,
+  "interpretation": "Exposure shortfall accounts for most of the mean brightness gap; probe precedes shutter and scene can move; not a pixel-parity proof."
+}

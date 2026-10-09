@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoExposureDiagnostics1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoExposurePlan1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoRawExposure1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/preview/MonoLivePairExport1D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/MonoIsoExpoSelector.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoPrimaryEvidenceTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoRawGainTest.java"
+  ],
+  "unchangedScopedFiles": 1333,
+  "reversePatchExactlyRestoresParent": true,
+  "exactReconstructionVerified": true,
+  "allRenderersShadersFirmwareAssetsNativesAndColourM9Unchanged": true,
+  "afWbLogicUnchanged": true,
+  "phoneValidationPending": true
+}

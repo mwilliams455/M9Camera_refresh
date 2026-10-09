@@ -37,6 +37,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/packaging-tools/lib"
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$ANDROID_HOME/build-tools/35.0.0/aapt2" "$RUNNER_TEMP/packaging-tools/"
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/packaging-tools/lib/"
+          cp -r "$ANDROID_HOME/build-tools/35.0.0/lib64" "$RUNNER_TEMP/packaging-tools/"
       - name: Retain build and test results for final packaging
         if: always()
         uses: actions/upload-artifact@v4
