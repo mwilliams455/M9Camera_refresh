@@ -1,0 +1,5 @@
+{
+  "status": "PASS",
+  "output": "PASS: string/native Boolean reads, malformed values, independent switches, frozen/nested/worker scopes; checks=69",
+  "limits": "Typed store adapter; complete ProfileCapture/RenderProfile, unchanged extracted PreferenceKeys reader methods. Not Android storage or device validation."
+}

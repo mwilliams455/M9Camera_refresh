@@ -1,0 +1,28 @@
+{
+  "parentCommit": "5774ba40d640495d226a1500f35abbe3d5ccb219",
+  "version": "2.68-monodiag1a",
+  "parentFiles": {
+    "app/build.gradle": "e45831ad58df90fd5f1e27ff53240f3c4d47d5e741322f5c6c9290c1e720b5ad",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "f90171e76ed75a2d60b4a1e1eed7d0fd10a9bfcef098003251035f654511f872",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/M9DiagnosticBurstSpool.java": "5707020fbc5cb5c77c61f90da896e2575f9e54ded15f5f9983323fcba2f141f1",
+    "app/src/main/java/com/particlesdevs/photoncamera/renderprofile/ProfileCapture.java": "79d5a1bb46af4d016c306dc7d8ce7f179863ab8ce1614c0826ef9f96ae5be7e7",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "daa32a5a8c6a55ae7adfeb9316a08045e131dcda6cb9afc02c0b5fc8f1e2ec4e",
+    "app/src/test/java/com/particlesdevs/photoncamera/renderprofile/ProfileCaptureTest.java": "d62acfdba19732a151688ebe550942246ad4571d7b70adcd49a9649e617261d0"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "20c28f388085215fa7b0f0578bb482898def9c4748859d80c85c12343a0c8b96",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "398607f0c40081af1b3ecb14fcad6353d2a72d5be59221d374706f01172a5e91",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/M9DiagnosticBurstSpool.java": "7d4c07233fa56927095a330afb900f560a490ca768e96bab913c2aaa9068caf0",
+    "app/src/main/java/com/particlesdevs/photoncamera/renderprofile/ProfileCapture.java": "7cf6e9b69f328ca45b1cbcb0c62265137544f8653138e177b0a949ac3f0f286d",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "28149bd0a49a6c0ae4d414595603182be1b50e04fe049f1669ab7798369d1826",
+    "app/src/test/java/com/particlesdevs/photoncamera/renderprofile/MonoDiagnosticPreferenceTest.java": "ef85037c9bf83356f81e9bb2e491bf2282a66e2c8b54204fdce0f9dee27b9582",
+    "app/src/test/java/com/particlesdevs/photoncamera/renderprofile/ProfileCaptureTest.java": "5be41d44ecc7393271e784284b2dd012b8c59cb870d6487aabbd4da128dd9bf0"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/renderprofile/MonoDiagnosticPreferenceTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "2361eaf6aee74fef658ca9785e0f4b4e8cbedc31b06e47d6a9f33a75ec6a74af",
+  "parentScopedSha256": "85dad2fd0807099fefebcb8e5256e7610c24014bd3cdb3c7073ccbca318c102c",
+  "candidateScopedSha256": "73c35e79626c5c760523407817c3eef11af198276c5ef0a260e5cdb3f18da3ef"
+}

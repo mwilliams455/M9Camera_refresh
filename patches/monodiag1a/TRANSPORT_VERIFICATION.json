@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "productionClass": "M9DiagnosticBurstSpool.java",
+  "realFilesystemAndExecutors": true,
+  "androidSafAndJsonSerializationStubbed": true,
+  "scenarios": [
+    {
+      "scenario": "monochrom",
+      "status": "PASS",
+      "assertions": 15
+    }
+  ],
+  "assertions": 15,
+  "phoneStorageProviderUntested": true,
+  "productionAdapter": "monochrom.M9DiagnosticBurstSpool",
+  "preferenceReadAdapterStubbed": true
+}

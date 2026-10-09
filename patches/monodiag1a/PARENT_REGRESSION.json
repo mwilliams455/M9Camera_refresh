@@ -1,0 +1,5 @@
+{
+  "status": "REPRODUCED",
+  "output": "REPRODUCED: enabled switch reads false in capture snapshot and throws on live export read; checks=2",
+  "limits": "Typed store adapter; complete ProfileCapture/RenderProfile, unchanged extracted PreferenceKeys reader methods. Not Android storage or device validation."
+}

@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "parent": "2.67-regionalclip1a",
+  "candidate": "2.68-monodiag1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/M9DiagnosticBurstSpool.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/renderprofile/ProfileCapture.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/renderprofile/MonoDiagnosticPreferenceTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/renderprofile/ProfileCaptureTest.java"
+  ],
+  "unchangedScopedFiles": 1332,
+  "totalScopedFiles": 1339,
+  "reversePatchExactlyRestoresParent": true,
+  "photographicRenderersExposureAfWbShadersNativeAssetsUnchanged": true,
+  "scope": "Two preference readers, the Mono diagnostic adapter, shared priority classification, version metadata and two regression test files."
+}
