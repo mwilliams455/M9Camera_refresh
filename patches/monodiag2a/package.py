@@ -1,4 +1,4 @@
-"""Preserve every 2.68 native library and asset for Monochrom diagnostic preference repair."""
+"""Preserve every 2.68 native library and asset for Monochrom diagnostic delivery repair."""
 from pathlib import Path
 import copy,hashlib,json,re,subprocess,sys,zipfile
 root,built,control,bt,out=map(lambda p:Path(p).resolve(),sys.argv[1:]);here=Path(__file__).resolve().parent;out.mkdir(parents=True,exist_ok=True)

@@ -29,8 +29,13 @@ reports, verifies newest recovered Mono evidence and blocks the ordinary worker
 while checking fresh primary and live-pair delivery. It also retains the existing
 preference-off/background/resume preservation checks. Android tests verify exact
 capture association, separate-sidecar rejection, camera mismatch, missing metadata,
-and compatibility for existing metadata callers. Build/test/package results are
-recorded separately once complete. Phone acceptance remains pending.
+and compatibility for existing metadata callers. All 19 Android/Robolectric tests
+pass, including the five new association/embedding tests; the Android build passes.
+The 19 Mono transport assertions and 225 inherited spool assertions pass, and CI
+also passes the 69 inherited preference assertions. The signed package passes its
+certificate, version, compiled-menu, and 16 KiB alignment checks. All 27 native
+libraries and 285 assets match the 2.68 APK byte for byte. See the accompanying
+verification JSON files. Phone acceptance remains pending.
 
 ## Reproduce
 
