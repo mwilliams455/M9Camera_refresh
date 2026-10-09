@@ -1,7 +1,7 @@
 name: M9Cam 2.69 Mono diagnostic delivery
 on:
   pull_request:
-    branches: ['codex/monodiag2a-v2.68']
+    branches: ['codex/monodiag1a-v2.68']
     paths: ['patches/monodiag2a/**', '.github/workflows/build-m9cam-monodiag2a.yml']
   workflow_dispatch:
 permissions:
