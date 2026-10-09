@@ -1,0 +1,71 @@
+{
+  "source": "IMG_20261009_145447_1791554087309_00_MONO_PRIMARY.json",
+  "sha256": "1d465ae02f72d5d2787a85ba2bff7f7e2b5bb40be68048da762270743c8328d4",
+  "pairAssociation": "exact_camera_id_and_raw_sensor_timestamp",
+  "cameraId": "4",
+  "mode": "MOTION",
+  "previewExposureAuthority": {
+    "authoritySource": "Photon_GL_IsoExpoSelector_current_pair",
+    "representedIntendedIso": 1031,
+    "representedIntendedExposureTimeNs": 3191076,
+    "representedIntendedShutter": "1/313s",
+    "shutterSelectorIso": 1040,
+    "shutterSelectorExposureTimeNs": 3164983,
+    "shutterSelectorShutter": "1/316s",
+    "previewResultIso": 329,
+    "previewResultExposureTimeNs": 10000000,
+    "previewResultShutter": "1/100s",
+    "uMonoExposureScale1A": 0.9999998042553192,
+    "previewSensorTimestampNs": 76240275473455,
+    "previewAeState": 2,
+    "previewAwbState": 2,
+    "previewAfState": 2,
+    "representedVsShutterSelectorEv": 0.0006939773656746677
+  },
+  "requested": {
+    "iso": 1600,
+    "exposureTimeNs": 2056250,
+    "postRawSensitivityBoost": 100,
+    "aeMode": 0,
+    "exposureCompensation": 0
+  },
+  "recorded": {
+    "iso": 1119,
+    "exposureTimeNs": 2056250,
+    "postRawSensitivityBoost": 100,
+    "aperture": 1.8,
+    "focalLengthMm": 11.5,
+    "aeState": 0,
+    "afState": 0,
+    "awbState": 2,
+    "aeMode": 0,
+    "awbMode": 1,
+    "sensorFrameDurationNs": 33277870,
+    "neutralColorPoint": [
+      0.5107421875,
+      1,
+      0.5693359375
+    ]
+  },
+  "exposureParity": {
+    "representedIntentVsRecordedEv": -0.5158615863984229,
+    "shutterSelectorVsRecordedEv": -0.5165555637640975,
+    "previewResultVsRecordedEv": -0.5158618687983308,
+    "captureRequestVsRecordedEv": -0.5158618687983308
+  },
+  "historicalCamera4SensorRange": [
+    50,
+    6400
+  ],
+  "historicalCamera4AnalogMaximum": 1118,
+  "historicalSources": [
+    "IMG_20260915_192303_1789496583508_00_M9.json",
+    "IMG_20260915_204031_1789501231637_00_M9.json"
+  ],
+  "sameCaptureSensorLimitsAvailable": false,
+  "predictedCorrection": {
+    "iso": 1118,
+    "exposureNs": 2942755
+  },
+  "phoneCorrectionValidated": false
+}
