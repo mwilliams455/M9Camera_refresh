@@ -1,0 +1,13 @@
+{
+  "diagnosticManifest": "M9_DIAGNOSTICS_BURST_1791541171986_5.json",
+  "manifestSha256": "e11e528260f7cc71260ad5d6142c77d99ce47201c1430a06b824675be18bf3de",
+  "captureStem": "IMG_20261009_111927_1791541167404_00",
+  "primaryAvailable": true,
+  "matchingLivePairUserReportsAbsent": true,
+  "matchingLivePairPrivateStagedBytes": 87615,
+  "pendingIndividualEntriesAtBundle": 1673,
+  "recoveredEntries": 1670,
+  "manifestPayloadInline": false,
+  "publicDeliveryProvenByManifest": false,
+  "imageBrightnessFixClaimed": false
+}
