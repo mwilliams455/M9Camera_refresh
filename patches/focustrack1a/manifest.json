@@ -16,7 +16,7 @@
     "app/src/main/res/xml/preferences_monochrom.xml": "c3e0a968a84af994d177c7d2cb7145a58658fad9e11e0d24418a8feccb2f7141"
   },
   "fileOverrides": {
-    "app/build.gradle": "0f005f40df9506ae5817d9db112e86b575b59f2938b283db6f97649281e6c4ee",
+    "app/build.gradle": "e6d4abe76a01295c6a7b5d5850687140031efe0ef00b4587f2597adced4592a9",
     "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "000ab6d4712a6120d544ee5355c7521a0182d8d264b47c7a992a5e4ec25dcb75",
     "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "58cf39121eb13c5d69c5a8175fe4e6ee0a12af67484b3d5c167084467a4f4f4b",
     "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "e36670e15ec00b0ab64828e8b74127341c9b5c1d679310f88203ed166d6ba3d2",
@@ -32,7 +32,7 @@
     "app/src/main/res/values/strings.xml": "1aa8d0c5d62a0e938a946410138cef057a30c356e1ed132fb563e7b7dbf93167",
     "app/src/main/res/xml/preferences_m9.xml": "0715b10f715c9f70ba210c26f2504807ac1a8eab6c49fd9ae92659fa2e8b443d",
     "app/src/main/res/xml/preferences_monochrom.xml": "d15f9e6ba8d496f19bb0eadb46b3073a939c48fa8d153c6063aef6e55ce9e9a9",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "b4454e4faf515377dc2354e667ada11bdac3ab5350310950dde9ce80d741ecf3",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "f35421bd71a3d816b6b1f607f3a847c50094fdc1b31c5bca9c4f1726ee83eb86",
     "app/src/test/java/com/particlesdevs/photoncamera/control/tracking/FocusTrackingTest.java": "0872779bfadc6c95d52b9dff344c39135594be828070175e04ae0ce18fd51fd5",
     "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java": "0bab7ab34937bfc407995e41535172672c72bee51175c1237413207d26922c12"
   },
@@ -46,7 +46,7 @@
     "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "a123e4b6c9646bcab925d73c787302243c6e740eb9cadea304862d525dd59072",
+  "patchSha256": "08ae1239c68a379e231701786e48ed415f4f64cd31abc42df7a2a175b926e8f9",
   "parentScopedSha256": "87024bfab4bd2594170fa52a626089388106915738acda469415cf35744d1b22",
-  "candidateScopedSha256": "1531223f1c8eadfd62c910fbdc6369dccaa60d58c4fafa98cd2ce43534be32a0"
+  "candidateScopedSha256": "e6b83b94984a6690182c80031e6621f2fe6e6a7627ffb94e0aa67c462512d323"
 }
