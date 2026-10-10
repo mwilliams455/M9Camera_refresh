@@ -1,0 +1,15 @@
+{
+  "parentCommit": "87a62f9a1a51dd12fb3510df921e8cfe88c17728",
+  "version": "2.62-shutterexport1a",
+  "parentFiles": {
+    "app/build.gradle": "3a622b7e89bc303398ec831f12ea108e49004507663c92560fa510ccc9850936",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "31a6c93f2bce05b169ae7054dd4b9c645c5d84d6e8df4899b30c5e79fc69a8a5"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "f4571f877f34e8e1b1d15dc35afd5e7c6e834079ab8846a4bd8c7c8498b67718",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "f90171e76ed75a2d60b4a1e1eed7d0fd10a9bfcef098003251035f654511f872"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "aabac00fa6e716ac13135e051ce8c8596cf1265687b16f09ffeca4d2a832726b"
+}
