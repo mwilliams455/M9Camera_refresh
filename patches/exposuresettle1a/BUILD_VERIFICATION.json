@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "exitCode": 0,
+  "elapsedSeconds": 70.44,
+  "command": [
+    "bash",
+    "gradlew",
+    ":app:assembleDebug",
+    "--no-daemon",
+    "--max-workers=2",
+    "--init-script",
+    "/workspace/scratch/74a6bfded37a/build266.init.gradle",
+    "-Dhttp.proxyHost=127.0.0.1",
+    "-Dhttps.proxyHost=127.0.0.1",
+    "-Dhttp.proxyPort=41557",
+    "-Dhttps.proxyPort=41557",
+    "-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
+  ]
+}

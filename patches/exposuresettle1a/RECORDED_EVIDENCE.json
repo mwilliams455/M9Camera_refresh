@@ -1,0 +1,102 @@
+{
+  "trace": "M9_SHUTTERTRACE_20261008_082643_581_2036112512447.json",
+  "sha256": "3e9c14298c5453ee419a26d1b8597e34067c116cdfbca5fa19cb959d74eb7e31",
+  "revision": "M9ANCHORSETTLE1A",
+  "hardwareRows": 292,
+  "autoRows": 38,
+  "toneRows": 40,
+  "previewFrames": 30,
+  "hardwareEnergySpanEv": 0.12092478225960651,
+  "autoRangeEv": [
+    0.25,
+    1
+  ],
+  "toneRangeEv": [
+    0,
+    0.322749734220583
+  ],
+  "anchorMasksAllZero": true,
+  "anchorCapsAllNonbinding": true,
+  "backgroundCapsAllNonbinding": true,
+  "provenStableInputDrop": {
+    "before": {
+      "seconds": 5.86801031,
+      "autoEv": 0.75,
+      "toneEv": 0.2979415655416717,
+      "iso": 198,
+      "exposureNs": 10000000,
+      "textureResultDeltaMs": 33.268542,
+      "reason": "rendered_multifield_body_readability_target",
+      "incomingOes0": 28,
+      "incomingOes1": 35,
+      "incomingOes2": 55,
+      "referenceRender0": 15,
+      "referenceRender1": 22,
+      "referenceRender2": 45,
+      "displayRender0": 27,
+      "displayRender1": 38,
+      "displayRender2": 82
+    },
+    "after": {
+      "seconds": 6.672924893,
+      "autoEv": 0.25,
+      "toneEv": 0.12541552010858076,
+      "iso": 198,
+      "exposureNs": 10000000,
+      "textureResultDeltaMs": 33.268542,
+      "reason": "rendered_low_key_scene_target",
+      "incomingOes0": 28,
+      "incomingOes1": 35,
+      "incomingOes2": 56,
+      "referenceRender0": 13,
+      "referenceRender1": 19,
+      "referenceRender2": 42,
+      "displayRender0": 16,
+      "displayRender1": 23,
+      "displayRender2": 51
+    },
+    "combinedAppGainDropEv": 0.672526045433091
+  },
+  "toneReasons": {
+    "fresh_neutral_probe": 36,
+    "fresh_positive_lift_blocked": 3,
+    "unity_result_timestamp_mismatch": 1
+  },
+  "bodyMasks": {
+    "15765296": 10,
+    "0": 11,
+    "16600880": 2,
+    "16584496": 15
+  },
+  "shutterBracketFindings": {
+    "neutralDarkComponentSize": 16,
+    "subjectComponentMaximum": 14,
+    "firstUnsafeStepEv": 1.25,
+    "limitEv": 1.0,
+    "limitingReason": "regional_channel_clip_growth",
+    "emergingClippedFields": [
+      11,
+      15
+    ],
+    "fieldLocationCaveat": "Paired visual panel is about 215ms newer than the complete Auto bracket; highlighted fields cover window areas, not the TV."
+  },
+  "confirmedFreshLiftBlockTextureDeltasMs": [
+    166.342709,
+    332.685625,
+    199.61125
+  ],
+  "sourceFindings": [
+    "Anchor and background qualification do not bind in this trace.",
+    "Highlight ceiling produces the later .75 -> .5 -> .25 Auto reduction.",
+    "Subject/whole-scene ownership switches also produce .25EV excursions.",
+    "Preview TC20 bright-tail target moves on fresh probes.",
+    "A fresh but >150ms texture/result mismatch immediately zeroes positive TC20; recorded after shutter and again at +4.012s.",
+    "Sensor exposure is effectively stationary during the demonstrated later drop."
+  ],
+  "limits": [
+    "Complete scalar trace covers about 10.26s, not the full 42.33s video.",
+    "Exact video-to-trace frame alignment not established; contact sheet reviewed.",
+    "Only one full Auto bracket retained; later highlight-limiting spatial fields cannot be identified from scalar history.",
+    "This numerical investigation describes the shipped 2.65 trace; candidate behavior is verified separately."
+  ]
+}

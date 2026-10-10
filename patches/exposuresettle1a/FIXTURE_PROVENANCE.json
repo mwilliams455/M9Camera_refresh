@@ -1,0 +1,13 @@
+{
+  "trace": "M9_SHUTTERTRACE_20261008_082643_581_2036112512447.json",
+  "traceSha256": "3e9c14298c5453ee419a26d1b8597e34067c116cdfbca5fa19cb959d74eb7e31",
+  "bracketJsonPath": "shutterSnapshot.exposurePlan1A.renderedAutoPlacement2D.bracket",
+  "bracketSteps": 11,
+  "toneRows": 40,
+  "limits": [
+    "Full preceding and subsequent Auto brackets were not retained.",
+    "Tone replay uses recorded Auto output as an external input, not a recomputed candidate Auto trajectory.",
+    "First tone state is seeded by synthetic stable probes; prehistory is unavailable.",
+    "Nearest preceding Auto row supplies coordination/energy context; first tone row precedes first Auto row by ~72ms and uses that row."
+  ]
+}

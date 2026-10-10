@@ -1,0 +1,402 @@
+[
+  {
+    "now": 2033113856406,
+    "sample": 2033108519531,
+    "requested": 0.0554847594063737,
+    "paired": true,
+    "oldApplied": 0.08627639766350403,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2033379967031,
+    "sample": 2033358920885,
+    "requested": 0.04294393288616905,
+    "paired": true,
+    "oldApplied": 0.04294393288616905,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2033643118541,
+    "sample": 2033622855573,
+    "requested": 0.1576371547635068,
+    "paired": true,
+    "oldApplied": 0.1576371547635068,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2033916641666,
+    "sample": 2033890000937,
+    "requested": 0.21769358741711162,
+    "paired": true,
+    "oldApplied": 0.21769358741711162,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2034180866249,
+    "sample": 2034154215312,
+    "requested": 0.12431875284853341,
+    "paired": true,
+    "oldApplied": 0.12431875284853341,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2034444741979,
+    "sample": 2034421472968,
+    "requested": 0.28265375774962137,
+    "paired": true,
+    "oldApplied": 0.24931875284853341,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2034716298124,
+    "sample": 2034685909999,
+    "requested": 0.17541528128182235,
+    "paired": true,
+    "oldApplied": 0.17541528128182235,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2034959753593,
+    "sample": 2034954709374,
+    "requested": 0.17477690516760105,
+    "paired": true,
+    "oldApplied": 0.17541528128182235,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2035242897187,
+    "sample": 2035217821249,
+    "requested": 0.23786525107028306,
+    "paired": true,
+    "oldApplied": 0.23786525107028306,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2035511432759,
+    "sample": 2035483539530,
+    "requested": 0.2379841804058602,
+    "paired": true,
+    "oldApplied": 0.23786525107028306,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2035779759218,
+    "sample": 2035749794061,
+    "requested": 0.21160565664925832,
+    "paired": true,
+    "oldApplied": 0.23786525107028306,
+    "auto": 0.75,
+    "energy": 1990000020,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2036035455884,
+    "sample": 2036015197343,
+    "requested": 0.1637951311142584,
+    "paired": true,
+    "oldApplied": 0.1637951311142584,
+    "auto": 1,
+    "energy": 1990000020,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2036309660155,
+    "sample": 2036278559634,
+    "requested": 0.2711655247791963,
+    "paired": false,
+    "oldApplied": 0,
+    "auto": 0.75,
+    "energy": 1990000020,
+    "reason": "fresh_positive_lift_blocked"
+  },
+  {
+    "now": 2036548245624,
+    "sample": 2036530555311,
+    "requested": 0.1475605916040143,
+    "paired": false,
+    "oldApplied": 0,
+    "auto": 0.75,
+    "energy": 1990000020,
+    "reason": "fresh_positive_lift_blocked"
+  },
+  {
+    "now": 2036765136717,
+    "sample": 2036530555311,
+    "requested": 0.1475605916040143,
+    "paired": false,
+    "oldApplied": 0,
+    "auto": 0.75,
+    "energy": 1990000020,
+    "reason": "unity_result_timestamp_mismatch"
+  },
+  {
+    "now": 2036844922967,
+    "sample": 2036813772811,
+    "requested": 0.072749734220583,
+    "paired": true,
+    "oldApplied": 0.072749734220583,
+    "auto": 0.75,
+    "energy": 1990000020,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2037086763436,
+    "sample": 2037079513905,
+    "requested": 0.330541345912406,
+    "paired": true,
+    "oldApplied": 0.197749734220583,
+    "auto": 0.75,
+    "energy": 1960000001,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2037361660467,
+    "sample": 2037344421717,
+    "requested": 0.3405998130822127,
+    "paired": true,
+    "oldApplied": 0.322749734220583,
+    "auto": 0.75,
+    "energy": 1860000016,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2037615541248,
+    "sample": 2037610827811,
+    "requested": 0.3253271358974147,
+    "paired": true,
+    "oldApplied": 0.322749734220583,
+    "auto": 0.75,
+    "energy": 1886597856,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2037907776717,
+    "sample": 2037876003436,
+    "requested": 0.305479882451096,
+    "paired": true,
+    "oldApplied": 0.322749734220583,
+    "auto": 0.75,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2038140310883,
+    "sample": 2038134836092,
+    "requested": 0.04053916867041351,
+    "paired": true,
+    "oldApplied": 0.197749734220583,
+    "auto": 1,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2038420286248,
+    "sample": 2038388849373,
+    "requested": 0.3013802301533489,
+    "paired": true,
+    "oldApplied": 0.3013802301533489,
+    "auto": 1,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2038679909789,
+    "sample": 2038667788592,
+    "requested": 0.3042263305333466,
+    "paired": true,
+    "oldApplied": 0.3013802301533489,
+    "auto": 0.75,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2038934260310,
+    "sample": 2038921977185,
+    "requested": 0.2827949303641682,
+    "paired": true,
+    "oldApplied": 0.3013802301533489,
+    "auto": 0.75,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2039208274373,
+    "sample": 2039177564060,
+    "requested": 0.13598534888194466,
+    "paired": true,
+    "oldApplied": 0.17638023015334892,
+    "auto": 0.75,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2039448575310,
+    "sample": 2039437563747,
+    "requested": 0.18577712442933067,
+    "paired": true,
+    "oldApplied": 0.17638023015334892,
+    "auto": 0.75,
+    "energy": 1949999973,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2039731893279,
+    "sample": 2039710756560,
+    "requested": 0.16863031835028414,
+    "paired": true,
+    "oldApplied": 0.17638023015334892,
+    "auto": 0.75,
+    "energy": 1985542320,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2040124202497,
+    "sample": 2040089687966,
+    "requested": 0.31428491579015744,
+    "paired": false,
+    "oldApplied": 0,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_positive_lift_blocked"
+  },
+  {
+    "now": 2040355191716,
+    "sample": 2040345919164,
+    "requested": 0.3113696936685026,
+    "paired": true,
+    "oldApplied": 0.125,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2040626578382,
+    "sample": 2040602803851,
+    "requested": 0.17294163055591566,
+    "paired": true,
+    "oldApplied": 0.17294163055591566,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2040871739372,
+    "sample": 2040867477966,
+    "requested": 0.30916485660301624,
+    "paired": true,
+    "oldApplied": 0.29794163055591566,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2041191000934,
+    "sample": 2041186457288,
+    "requested": 0.3059083641945672,
+    "paired": true,
+    "oldApplied": 0.29794163055591566,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2041520424632,
+    "sample": 2041485169684,
+    "requested": 0.305588021986591,
+    "paired": true,
+    "oldApplied": 0.29794163055591566,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2041750204632,
+    "sample": 2041740908903,
+    "requested": 0.30864769525875296,
+    "paired": true,
+    "oldApplied": 0.29794163055591566,
+    "auto": 0.75,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2042003306976,
+    "sample": 2041998888747,
+    "requested": 0.14960318333751332,
+    "paired": true,
+    "oldApplied": 0.17294163055591566,
+    "auto": 0.5,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2042267873746,
+    "sample": 2042264166715,
+    "requested": 0.14836248803763968,
+    "paired": true,
+    "oldApplied": 0.17294163055591566,
+    "auto": 0.5,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2042538037496,
+    "sample": 2042529991403,
+    "requested": 0.12541557486048163,
+    "paired": true,
+    "oldApplied": 0.12541557486048163,
+    "auto": 0.25,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2042815515309,
+    "sample": 2042796289215,
+    "requested": 0.18785051396578648,
+    "paired": true,
+    "oldApplied": 0.18785051396578648,
+    "auto": 0.25,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2043081678277,
+    "sample": 2043076442600,
+    "requested": 0.14118717509648143,
+    "paired": true,
+    "oldApplied": 0.14118717509648143,
+    "auto": 0.25,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  },
+  {
+    "now": 2043369590100,
+    "sample": 2043342679996,
+    "requested": 0.18803085778852432,
+    "paired": true,
+    "oldApplied": 0.18803085778852432,
+    "auto": 0.25,
+    "energy": 1980000000,
+    "reason": "fresh_neutral_probe"
+  }
+]
