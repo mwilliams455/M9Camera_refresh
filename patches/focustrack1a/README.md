@@ -51,3 +51,19 @@ motion or a large change in subject size may intentionally require another tap.
 
 This feature does not resolve the separately reported exposure pumping or the
 screen-recorder/shutter limitation.
+
+## Verified delivery
+
+Android [run 38080675440](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38080675440)
+on source commit `83a421a4b47533135628b8d69c9f92338dea2ac6` passed the build and
+all **71 tests** (zero failures, errors or skips). See `BUILD_VERIFICATION.json`.
+The AF tests observe builder state at session submission because Robolectric's
+request-builder shadow does not populate the native metadata of built requests.
+Actual HAL response, focus accuracy and phone performance remain device checks.
+
+The signed `M9Cam_2.72_FOCUSTRACK1A.apk` is 119,618,357 bytes, version code 27272.
+It preserves all 27 native libraries and all 285 assets from 2.71, matches the
+accepted certificate, and passes 16 KiB ZIP alignment. Both compiled Capture
+menus contain the new setting. See `PACKAGED_VERIFICATION.json`.
+
+SHA-256: `3018e5eac4869ba2c1a3470f12a830ccdcff3aa29fd2f055472fcc0f43f2bdfb`.
