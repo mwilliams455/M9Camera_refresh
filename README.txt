@@ -1,18 +1,19 @@
-M9Cam 2.63 PREVIEWRECOVER1B — sustain conservative recovery after exposure reductions
+M9Cam 2.64 BACKGROUNDSETTLE1A — stabilize background qualification separately from clipping limits
 
-The recovered phone trace shows a 1.5-EV M9 correction drop in 266 ms while sensor energy changes only 0.026 EV and focus remains stationary. It also shows the rapid recovery pattern allowed by 2.62: after the first confirmed quarter-stop rise, the guard is cleared and fast acquisition resumes.
+The October 8 trace shows app exposure moving while the sensor reference stays nearly constant. The complete shutter bracket also shows a background allowance dominated by a small TV field: one fewer clipped sample can change its raw cap by a quarter stop. Previously that semantic change received an immediate safety cut.
 
-This candidate keeps all post-cut rises at 0.25 EV per fresh probe until the target is reached and four fresh probes agree over at least 750 ms. Protective cuts and all targets/limits are unchanged. Stable final exposure is unchanged; transient captures follow the slower displayed recovery. Crop diagnostics now retain actual tone gain and draw snapshots include the existing Auto reason.
+This draft requires four fresh, consistent probes over at least 750 ms before changing the background allowance. Background-only decreases then settle in quarter-stop steps. Actual headroom/highlight protection remains immediate. Separate bounded Auto and tone histories explain target changes and freshness resets in the next shutter trace.
 
-Complete production Auto/tap tests pass 2,852 assertions. A synthetic reproduction changes the old recovery [0.5, 0.75, 1.5, 2.0] to [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], with unchanged immediate safety cuts. All other 1,327 scoped source files match 2.62. Reconstruction, Android build and signed APK checks pass. Native libraries and assets remain byte-identical.
+Full controller/qualification/history tests pass 3,622 assertions. A synthetic sequence based on the recorded room holds +1.75 EV, where 2.63 moves between +1.0 and +1.5 EV. Sustained changes still settle to the existing final target. This does not prove phone stability or identify every source of the observed pumping.
 
 Start here:
-- patches/previewrecover1b/README.md — evidence, limits, test and build instructions
-- patches/previewrecover1b/TRACE_ANALYSIS.json — measured timeline and diagnostic limitations
-- patches/previewrecover1b/HOST_VERIFICATION.json — parent/candidate production-controller results
-- patches/previewrecover1b/SOURCE_VERIFICATION.json — exact source boundaries
-- patches/previewrecover1b/assemble.py — pinned source recovery
-- patches/previewrecover1b/PACKAGED_VERIFICATION.json — final APK verification
+- patches/backgroundsettle1a/README.md — evidence, limits, phone check and reproduction
+- patches/backgroundsettle1a/HOST_VERIFICATION.json — production controller and history checks
+- patches/backgroundsettle1a/SOURCE_VERIFICATION.json — exact source boundaries
+- patches/backgroundsettle1a/BASELINE_RECOVERY.json — two stale local files restored from the unchanged source chain
+- patches/backgroundsettle1a/assemble.py — pinned recovery with complete source fingerprints
+- patches/backgroundsettle1a/PACKAGED_VERIFICATION.json — signed APK verification
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate: M9Cam_2.63_PREVIEWRECOVER1B.apk.
-Parent: 2.62 at 36cf2726c96cf2b03afd7f2016d6565d85b21cb2, draft PR #80. Main remains unchanged. Phone validation is pending; the exact changing cap behind every pulse is not yet known. Pre-shutter AF CANCEL repetition is recorded separately for follow-up; Continuous Picture AF is unchanged here.
+This is an incremental source-recovery repository, not an assembled Android project.
+Parent: 2.63 at 36f57c9d0013d2b1eb34a94d9121d939fc517005, draft PR #81.
+Candidate: M9Cam_2.64_BACKGROUNDSETTLE1A.apk. Phone validation is pending. Main remains unchanged.

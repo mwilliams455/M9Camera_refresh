@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "parent": "2.63-previewrecover1b",
+  "version": "2.64-backgroundsettle1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9BackgroundQualification1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MeterDecisionHistory1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewEvidence2E.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java"
+  ],
+  "unchangedScopedFiles": 1328,
+  "totalScopedFiles": 1334,
+  "reversePatchExactlyRestoresParent": true,
+  "neutralProbeStatisticsSpatialBodyClassificationTargetsAndRawHeadroomCalculationsUnchanged": true,
+  "tc20MathFreshnessResetSlewAndGlCommandsUnchanged": true,
+  "afSensorMeteringWbColourToneShadersNativeAssetsSavedRenderersAndMonochromUnchanged": true,
+  "shutterExporterAndPhotoQueuesUnchanged": true,
+  "behaviorChange": "background qualification requires four fresh probes agreeing within .25 EV over >=750ms; raw clipping/headroom limits remain immediate; background-only lower targets use existing ordinary confirmation and .25EV settling",
+  "diagnosticChange": "separate Auto and TC20 scalar histories, 128 rows each, copied and serialized on existing asynchronous trace worker"
+}
