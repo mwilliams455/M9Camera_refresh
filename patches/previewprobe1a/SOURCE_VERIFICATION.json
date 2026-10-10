@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "parent": "2.56-shadingperf1a",
+  "version": "2.57-previewprobe1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java"
+  ],
+  "unchangedScopedFiles": 1329,
+  "totalScopedFiles": 1331,
+  "reverseProbeYieldExactlyRestoresParent": true,
+  "exposurePolicyAndToneMathByteIdentical": true,
+  "savedRenderersShadersNativeSourcesAndAssetsByteIdentical": true,
+  "monochromQueuesRawEmbeddingAndCrashFixesByteIdentical": true
+}

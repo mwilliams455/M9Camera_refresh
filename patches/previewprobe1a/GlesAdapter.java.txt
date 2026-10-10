@@ -1,0 +1,40 @@
+ public static int autoReads,toneReads,maxInFlight,waitCalls;
+ public static long latencyNs;public static boolean failFence,invalidMap;
+ private static long serial;
+ private static final Map<Long,Long> fences=new HashMap<>();
+ public static void reset(long latency){autoReads=toneReads=maxInFlight=waitCalls=0;
+ latencyNs=latency;fences.clear();serial=0;failFence=invalidMap=false;}
+ public static int active(){return fences.size();}
+ public static long glFenceSync(int c,int f){long id=++serial;
+ fences.put(id,android.os.SystemClock.now+Math.max(1,latencyNs));maxInFlight=Math.max(maxInFlight,fences.size());return id;}
+ public static int glClientWaitSync(long id,int flags,long timeout){
+ if(flags!=0||timeout!=0)throw new AssertionError("blocking GL wait");waitCalls++;
+ if(failFence)return -1;
+ return android.os.SystemClock.now>=fences.get(id)?GL_ALREADY_SIGNALED:GL_TIMEOUT_EXPIRED;}
+ public static void glDeleteSync(long id){fences.remove(id);}
+ public static Buffer glMapBufferRange(int t,int o,int n,int flags){
+ if(invalidMap)return null;
+ ByteBuffer b=ByteBuffer.allocate(n);
+ // Constant neutral luma 0.05 and max-RGB headroom 0.1: positive tone correction.
+ for(int i=0;i<n;i+=4){b.put((byte)0x0c);b.put((byte)0xcd);b.put((byte)0x19);b.put((byte)0x9a);}
+ b.rewind();return b;}
+ public static void glReadPixels(int x,int y,int w,int h,int f,int t,int o){
+ if(w==32*11)autoReads++;else if(w==32*4)toneReads++;else throw new AssertionError("probe size");}
+ public static boolean glUnmapBuffer(int t){return true;}
+ public static void glGetIntegerv(int p,int[] v,int o){Arrays.fill(v,0);if(p==GL_VIEWPORT){v[2]=1024;v[3]=768;}}
+ public static int glGetError(){return GL_NO_ERROR;}
+ public static boolean glIsEnabled(int p){return false;}
+ public static int glCheckFramebufferStatus(int p){return GL_FRAMEBUFFER_COMPLETE;}
+ public static void glGenTextures(int n,int[] a,int o){a[o]=1;}
+ public static void glGenFramebuffers(int n,int[] a,int o){a[o]=2;}
+ public static void glGenBuffers(int n,int[] a,int o){a[o]=3;}
+ public static void glActiveTexture(int a){} public static void glBindBuffer(int a,int b){}
+ public static void glBindFramebuffer(int a,int b){} public static void glBindTexture(int a,int b){}
+ public static void glBufferData(int a,int b,Buffer c,int d){}
+ public static void glDisable(int a){} public static void glEnable(int a){}
+ public static void glDrawArrays(int a,int b,int c){} public static void glFlush(){}
+ public static void glFramebufferTexture2D(int a,int b,int c,int d,int e){}
+ public static void glTexImage2D(int a,int b,int c,int d,int e,int f,int g,int h,Buffer i){}
+ public static void glTexParameteri(int a,int b,int c){}
+ public static void glUniform1f(int a,float b){} public static void glUniform1i(int a,int b){}
+ public static void glViewport(int a,int b,int c,int d){}
