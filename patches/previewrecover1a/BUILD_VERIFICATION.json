@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "version": "2.60-previewrecover1a",
+  "exitCode": 0,
+  "elapsedSeconds": 391.87,
+  "build": ":app:assembleDebug",
+  "gradle": "8.11.1",
+  "agp": "8.10.1",
+  "java": "17.0.20.1+1",
+  "androidSdk": 36,
+  "androidBuildTools": "35.0.0",
+  "ndk": "27.0.12077973",
+  "cmake": "3.22.1",
+  "tasks": "60 actionable tasks: 60 executed",
+  "sourceChangesForBuildEnvironment": false
+}

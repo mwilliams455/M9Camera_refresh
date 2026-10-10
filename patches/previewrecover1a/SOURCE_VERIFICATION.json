@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "parent": "2.59-previewsettle1a",
+  "version": "2.60-previewrecover1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java"
+  ],
+  "unchangedScopedFiles": 1330,
+  "totalScopedFiles": 1332,
+  "reversePatchExactlyRestoresParent": true,
+  "targetsAndHighlightBudgetsUnchanged": true,
+  "isoAllocationAndAeLockAndTapPolicyByteIdentical": true,
+  "framePairingAndProbeSchedulingAndFreshnessGuardsByteIdentical": true,
+  "whiteBalanceColourSavedRenderersNativeSourcesAssetsMonochromByteIdentical": true,
+  "queuesAndRecentCrashFixesByteIdentical": true
+}
