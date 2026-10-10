@@ -1,0 +1,48 @@
+name: M9Cam 2.71 pre-shutter trace history
+on:
+  pull_request:
+    branches: ['codex/monorawgain1a-v2.70']
+    paths: ['patches/tracerewind1a/**', '.github/workflows/build-m9cam-tracerewind1a.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Reconstruct pinned source
+        run: python3 patches/tracerewind1a/assemble.py "$RUNNER_TEMP/PhotonCamera_271"
+      - name: Build Android and test pre-shutter history and inherited diagnostics
+        working-directory: ${{ runner.temp }}/PhotonCamera_271
+        run: |
+          bash gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*M9TraceRewindTest' --tests '*MonoRawGainTest' --tests '*MonoPrimaryEvidenceTest' --tests '*MonoDiagnosticPreferenceTest' --tests '*ProfileCaptureTest' --tests '*M9OutputSettingsTest' --no-daemon --max-workers=2
+      - name: Retain packaging tools
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/packaging-tools/lib"
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$ANDROID_HOME/build-tools/35.0.0/aapt2" "$RUNNER_TEMP/packaging-tools/"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/packaging-tools/lib/"
+          cp -r "$ANDROID_HOME/build-tools/35.0.0/lib64" "$RUNNER_TEMP/packaging-tools/"
+      - name: Retain build and test results for final packaging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracerewind1a-android-build
+          path: |
+            ${{ runner.temp }}/packaging-tools/**
+            ${{ runner.temp }}/PhotonCamera_271/app/build/outputs/apk/debug/*.apk
+            ${{ runner.temp }}/PhotonCamera_271/app/build/test-results/testDebugUnitTest/**
+            ${{ runner.temp }}/PhotonCamera_271/app/build/reports/tests/testDebugUnitTest/**
+          retention-days: 7

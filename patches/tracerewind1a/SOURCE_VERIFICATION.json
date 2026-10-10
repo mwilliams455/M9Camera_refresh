@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TraceRewindTest.java"
+  ],
+  "unchangedScopedFiles": 1340,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "c962691aa14d43d3ce532c42cf704566ad832c29acce81ff36fc701af15236dd",
+  "candidateScopedSha256": "16661db8044da51e57198067d1392d8b3c470396e5a8d7bfdebd95ac9dd3400b",
+  "existingSamplingRatesAndRingCapacitiesUnchanged": true,
+  "photographicPolicyAndCaptureGatesUnchanged": true,
+  "phoneValidationPending": true
+}

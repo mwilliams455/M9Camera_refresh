@@ -1,0 +1,20 @@
+{
+  "parentCommit": "301a80733145f7d88decefdde7fc0388df1210a7",
+  "version": "2.71-tracerewind1a",
+  "parentFiles": {
+    "app/build.gradle": "86bbae935479b8311d2a50341b73501015635c2988340cf86d6a7ffbd986843b",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java": "f20a6594b346e1ea0be8b976cbaec39de313c3eca355dc59ff7a4ad1ecc8faa2"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "86e4087ae1e9937642e8f3ec9a91f644097f81f2eaff8728ffed75ae13949686",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java": "0ba79ad3db4e22cea7fcee08c65ae9f84f149fda48ceaa0d1e6e27184f5d4ad4",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TraceRewindTest.java": "a136e3e96a4e6f47bf07510f28a31d4e435ecf7350d261c7b6691ec44ad63fce"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TraceRewindTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "0587201bf23366533dbc2c6ccd5c7690e443e955ce0b06e5d4deb4de70bbc876",
+  "parentScopedSha256": "c962691aa14d43d3ce532c42cf704566ad832c29acce81ff36fc701af15236dd",
+  "candidateScopedSha256": "16661db8044da51e57198067d1392d8b3c470396e5a8d7bfdebd95ac9dd3400b"
+}
