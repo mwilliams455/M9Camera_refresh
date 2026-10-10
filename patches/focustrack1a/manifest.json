@@ -1,0 +1,50 @@
+{
+  "parentCommit": "80f69945c7472c47446e1716e45a2428498e12e6",
+  "version": "2.72-focustrack1a",
+  "parentFiles": {
+    "app/build.gradle": "6e53d639db1a42beb8e53f08c0290f02c370ac51230ce08c5d76151f2ee06f24",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "7dd3d515bcebf416a22cdedfc410f20df27633d2f62dc5646b667549e0fe1614",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "9d4ba1fca7877e1f81c387a922d222548c4689f6803d20075b422f7c33ca3f4d",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "ebeebbb43fda68b3712af7cc2293fd3561a9e7b844e31f21a4ea613149d0ff2e",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "89635a01cf15d26628bad39a8c59d440012148a5fc354f28f5bee4bf37d05f3f",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "7246deeca7ab1f05ae0af6f3c7d4228453532ae9b778b6fa8d43e049fa9e4270",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MonoRenderer.java": "b408824057984740e0a33d2e07ac2a58279e798a02b97dfb84104cfe3d0dfd6f",
+    "app/src/main/res/layout/layout_main_viewfinder.xml": "a1c8a77127bff93fbadaaccf01b2837e3da3c17f68686ae583cb6a74e157b545",
+    "app/src/main/res/values/strings.xml": "182207642acf5ff06ce8c21b3d805e87a6e98ea495a1a2de79146a92dd21fa1a",
+    "app/src/main/res/xml/preferences_m9.xml": "7a31f39d2ea6c69ac258e90371b84de66c1e6ac3cc2dd88188319f610535ceca",
+    "app/src/main/res/xml/preferences_monochrom.xml": "c3e0a968a84af994d177c7d2cb7145a58658fad9e11e0d24418a8feccb2f7141"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "0f005f40df9506ae5817d9db112e86b575b59f2938b283db6f97649281e6c4ee",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "1599661ad9298f90faac42456035148708e7820ed57ab1bd972f7d761079117c",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "58cf39121eb13c5d69c5a8175fe4e6ee0a12af67484b3d5c167084467a4f4f4b",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "e36670e15ec00b0ab64828e8b74127341c9b5c1d679310f88203ed166d6ba3d2",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/PatchTracker.java": "4fa2434ff7e31b50b2eda8cfdd95df1c6ee5d5de0a8b406bb30ebae0046691ab",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/TrackingGeometry.java": "b374d3571648f99e734e3d00c6dfb4ebc5c9a8b77cb11ebbddba4dc41774fa9f",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "e3bb7af33cbd3f73f02f49ad06c022517f966955e31ba3bdd1781995335a1c88",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java": "e7b4da86dc96b59c9f5801a75a1c0d7803833956c6b4ed1c9d3a4d2845c5948d",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java": "7d5caac483a7db8c12491eb97f7a318c2fd506ca5595eae4e44695afb0371fee",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "a4459d9e31e7bfeb5ee8e9baea43ed41c3cba17892a2316a413594c6db9918c7",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MonoRenderer.java": "b4a21d6842b588a2a0e600d72d37e425ac5290a11297668354310a3d61c6b3e4",
+    "app/src/main/res/layout/layout_main_viewfinder.xml": "d8ea5ebf134a6eb5cdf2b34c623c903d99f9467f8158588f91d3cdfe638473bb",
+    "app/src/main/res/values/strings.xml": "249ef1263d38c6047d1e3f435b3fb18ebc04ea52be446263179dfdad7056b141",
+    "app/src/main/res/xml/preferences_m9.xml": "0715b10f715c9f70ba210c26f2504807ac1a8eab6c49fd9ae92659fa2e8b443d",
+    "app/src/main/res/xml/preferences_monochrom.xml": "d15f9e6ba8d496f19bb0eadb46b3073a939c48fa8d153c6063aef6e55ce9e9a9",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "a5c0d5d545337cd3932274eca5c8b32c316ba2208294b2e759947f3ada227422",
+    "app/src/test/java/com/particlesdevs/photoncamera/control/tracking/FocusTrackingTest.java": "0872779bfadc6c95d52b9dff344c39135594be828070175e04ae0ce18fd51fd5",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java": "32bd82b5769de649780a490ebcb8c86c03e9b6d988e353a3307109105a32208b"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/PatchTracker.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/TrackingGeometry.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/control/tracking/FocusTrackingTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "e09475b510ca49a2c6c17f39a5c696812c3aa76b154a8fc87066854f701aac1b",
+  "parentScopedSha256": "87024bfab4bd2594170fa52a626089388106915738acda469415cf35744d1b22",
+  "candidateScopedSha256": "654768b3bcc0e94fa5960ef0f6f8a473e6bbd2218c4c6dce3aaf36a7ce0c5de1"
+}
