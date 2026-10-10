@@ -1,17 +1,17 @@
-M9Cam 2.58 PREVIEWPAIR1A — M9 preview frame/metadata pairing candidate
+M9Cam 2.59 PREVIEWSETTLE1A — confirmed lower-target exposure settling
 
-The viewfinder could apply the newest exposure metadata to pixels from an older camera frame during Auto ISO/shutter changes. This candidate uses bounded exact timestamp matching, sharing the selected state between rendering, metering and the existing Draw/shutter path. Missing or expired matches keep the parent fallback. Exposure targets, highlight safety and freshness rules are unchanged.
+The ordinary Auto exposure descent previously waited for two fresh samples before every quarter-stop reduction toward the same target. This candidate keeps the initial confirmation, then continues at the existing 0.25 EV per fresh sample until that target changes or is reached. Invalid evidence and manual EV clear the transition. Highlight safety remains immediate.
 
-The user reported 2.57 improved the viewfinder, but a backlit scene still showed abrupt darkening. Host tests reproduce a metadata-pairing brightness error and verify the fix in 112 synthetic exposure cases with 272 assertions. These are not phone measurements; existing stale-meter and brightness reset paths remain.
+A synthetic 0.75-to-0 EV transition now takes four fresh meter samples instead of six. Candidate host checks pass: 1,472 assertions/checks across inherited exposure policy, highlight protection, subject headroom and new Photo/Motion transition tests. These are host checks, not phone timing measurements.
 
-Only MainRenderer, one new metadata-history class and version metadata change. Saved JPEG/DNG processing, native libraries, assets, Monochrom, save queues and recent crash fixes remain unchanged from 2.57. Full Android build and packaged APK integrity checks passed. Phone validation is pending with AE-L off and the usual Auto ISO limit restored.
+Only the Auto transition logic and version metadata change. Targets, positive acquisition, frame pairing, probe cadence/freshness, ISO allocation, AE-L, WB, saved JPEG/DNG rendering, native code/assets, Monochrom, queues and crash fixes remain unchanged. A capture during settling can use a different exposure because the shutter continues to follow the displayed plan.
 
 Start here:
-- patches/previewpair1a/README.md — diagnosis, limitations, recovery and phone comparison
-- patches/previewpair1a/HOST_VERIFICATION.json — production class regression results
-- patches/previewpair1a/SOURCE_VERIFICATION.json — source boundaries
-- patches/previewpair1a/assemble.py — complete pinned source reconstruction
-- patches/previewpair1a/PACKAGED_VERIFICATION.json — native/assets/signature integrity
+- patches/previewsettle1a/README.md — evidence, scope, recovery and phone comparison
+- patches/previewsettle1a/HOST_VERIFICATION.json — production Auto/tap class results
+- patches/previewsettle1a/SOURCE_VERIFICATION.json — exact source boundaries
+- patches/previewsettle1a/assemble.py — complete pinned source reconstruction
+- patches/previewsettle1a/PACKAGED_VERIFICATION.json — APK integrity checks
 
-This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.58_PREVIEWPAIR1A.apk.
-Parent is 2.57 at 5807641762f5023a64ef7b846670b0b5b0a777a6, including PR #75 and the rendering speed improvement in PR #74. Main remains accepted 2.55 at e8b1a4979cc9e20237b1d42a66037a006f127b85 until requested merge.
+This is an incremental source assembly/recovery repository, not an assembled Android project. Candidate APK: M9Cam_2.59_PREVIEWSETTLE1A.apk.
+Parent is 2.58 at fc4e53099c939e93be3bbe4fd3686ec9c5698a8e, including PR #76 and its #75/#74 predecessors. Full Android build and packaged APK integrity checks passed. Phone validation is pending. This candidate does not merge main.
