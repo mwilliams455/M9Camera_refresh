@@ -1,0 +1,923 @@
+{
+  "traceFilename": "M9_SHUTTERTRACE_20261007_172628_428_31186781418542.json",
+  "sha256": "9c23c908e46c93cbee3de50d6a30af0d43735928ff363a6a5ac67214f6bfa4f0",
+  "captureId": "20261007_172628_428_31186781418542",
+  "captureSoftware": {
+    "available": true,
+    "colorSpace": null,
+    "orientation": "1",
+    "software": "M9Cam"
+  },
+  "metadata": {
+    "preMetadata": {
+      "rows": 90,
+      "exposureEnergyRangeEv": 0.12928301694496647,
+      "values": {
+        "iso": {
+          "64": 4,
+          "65": 2,
+          "66": 20,
+          "67": 31,
+          "68": 5,
+          "69": 2,
+          "70": 26
+        },
+        "exposureNs": {
+          "10000000": 90
+        },
+        "focusDiopters": {
+          "0.20000000298023224": 90
+        },
+        "afMode": {
+          "4": 90
+        },
+        "afState": {
+          "2": 90
+        },
+        "requestAfTrigger": {
+          "2": 90
+        }
+      }
+    },
+    "postMetadata": {
+      "rows": 348,
+      "exposureEnergyRangeEv": 0.49571303669585265,
+      "values": {
+        "iso": {
+          "70": 73,
+          "63": 8,
+          "64": 3,
+          "65": 6,
+          "66": 4,
+          "67": 5,
+          "68": 31,
+          "69": 23,
+          "84": 8,
+          "62": 7,
+          "61": 1,
+          "60": 2,
+          "59": 10,
+          "58": 5,
+          "57": 8,
+          "56": 9,
+          "55": 13,
+          "54": 16,
+          "53": 9,
+          "52": 43,
+          "51": 53,
+          "50": 11
+        },
+        "exposureNs": {
+          "10000000": 333,
+          "8333000": 8,
+          "9928955": 7
+        },
+        "focusDiopters": {
+          "0.20000000298023224": 86,
+          "0.20192307233810425": 52,
+          "0.20388349890708923": 207,
+          "0.17391304671764374": 3
+        },
+        "afMode": {
+          "4": 348
+        },
+        "afState": {
+          "2": 322,
+          "4": 15,
+          "1": 11
+        },
+        "requestAfTrigger": {
+          "2": 5,
+          "1": 1,
+          "0": 342
+        }
+      }
+    }
+  },
+  "previewFrames": [
+    {
+      "secondsAfterShutter": -2.104826249,
+      "autoEv": 1.75,
+      "observedIso": 67,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 36,
+        "referenceRender": 22,
+        "displayRender": 85
+      }
+    },
+    {
+      "secondsAfterShutter": -1.083632864,
+      "autoEv": 1.75,
+      "observedIso": 67,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 17,
+        "displayRender": 66
+      }
+    },
+    {
+      "secondsAfterShutter": -0.078487188,
+      "autoEv": 1,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 36,
+        "referenceRender": 26,
+        "displayRender": 57
+      }
+    },
+    {
+      "secondsAfterShutter": 0.18198,
+      "autoEv": 1.5,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 36,
+        "referenceRender": 23,
+        "displayRender": 74
+      }
+    },
+    {
+      "secondsAfterShutter": 0.439823437,
+      "autoEv": 1.75,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 36,
+        "referenceRender": 21,
+        "displayRender": 81
+      }
+    },
+    {
+      "secondsAfterShutter": 0.715943697,
+      "autoEv": 1.5,
+      "observedIso": 68,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 19,
+        "displayRender": 61
+      }
+    },
+    {
+      "secondsAfterShutter": 0.976311718,
+      "autoEv": 1.5,
+      "observedIso": 68,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 22,
+        "displayRender": 70
+      }
+    },
+    {
+      "secondsAfterShutter": 1.239864218,
+      "autoEv": 1.5,
+      "observedIso": 68,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 19,
+        "displayRender": 63
+      }
+    },
+    {
+      "secondsAfterShutter": 1.530668228,
+      "autoEv": 1.5,
+      "observedIso": 68,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 18,
+        "displayRender": 57
+      }
+    },
+    {
+      "secondsAfterShutter": 1.79276651,
+      "autoEv": 1.5,
+      "observedIso": 69,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 18,
+        "displayRender": 58
+      }
+    },
+    {
+      "secondsAfterShutter": 2.064092655,
+      "autoEv": 1.75,
+      "observedIso": 69,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 17,
+        "displayRender": 65
+      }
+    },
+    {
+      "secondsAfterShutter": 2.331105468,
+      "autoEv": 1.5,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 16,
+        "displayRender": 52
+      }
+    },
+    {
+      "secondsAfterShutter": 2.583237811,
+      "autoEv": 1.25,
+      "observedIso": 84,
+      "observedExposureNs": 8333000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 16,
+        "displayRender": 43
+      }
+    },
+    {
+      "secondsAfterShutter": 2.855629999,
+      "autoEv": 1.25,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 35,
+        "referenceRender": 17,
+        "displayRender": 46
+      }
+    },
+    {
+      "secondsAfterShutter": 3.11090354,
+      "autoEv": 1,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 34,
+        "referenceRender": 19,
+        "displayRender": 41
+      }
+    },
+    {
+      "secondsAfterShutter": 3.363899321,
+      "autoEv": 1,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 34,
+        "referenceRender": 20,
+        "displayRender": 44
+      }
+    },
+    {
+      "secondsAfterShutter": 3.629916561,
+      "autoEv": 1,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 33,
+        "referenceRender": 18,
+        "displayRender": 39
+      }
+    },
+    {
+      "secondsAfterShutter": 3.896145311,
+      "autoEv": 1.25,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 34,
+        "referenceRender": 17,
+        "displayRender": 43
+      }
+    },
+    {
+      "secondsAfterShutter": 4.162894217,
+      "autoEv": 1.5,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 34,
+        "referenceRender": 18,
+        "displayRender": 59
+      }
+    },
+    {
+      "secondsAfterShutter": 4.419066092,
+      "autoEv": 1,
+      "observedIso": 70,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 34,
+        "referenceRender": 17,
+        "displayRender": 36
+      }
+    },
+    {
+      "secondsAfterShutter": 4.677736352,
+      "autoEv": 1,
+      "observedIso": 68,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 33,
+        "referenceRender": 15,
+        "displayRender": 33
+      }
+    },
+    {
+      "secondsAfterShutter": 4.93481531,
+      "autoEv": 1.25,
+      "observedIso": 68,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 34,
+        "referenceRender": 17,
+        "displayRender": 45
+      }
+    },
+    {
+      "secondsAfterShutter": 5.206659373,
+      "autoEv": 1.75,
+      "observedIso": 66,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 33,
+        "referenceRender": 15,
+        "displayRender": 60
+      }
+    },
+    {
+      "secondsAfterShutter": 5.471688279,
+      "autoEv": 2,
+      "observedIso": 63,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 33,
+        "referenceRender": 15,
+        "displayRender": 72
+      }
+    },
+    {
+      "secondsAfterShutter": 5.73944031,
+      "autoEv": 2,
+      "observedIso": 62,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 33,
+        "referenceRender": 15,
+        "displayRender": 72
+      }
+    },
+    {
+      "secondsAfterShutter": 6.016003123,
+      "autoEv": 2,
+      "observedIso": 60,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 33,
+        "referenceRender": 15,
+        "displayRender": 71
+      }
+    },
+    {
+      "secondsAfterShutter": 6.275093904,
+      "autoEv": 2,
+      "observedIso": 59,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 15,
+        "displayRender": 69
+      }
+    },
+    {
+      "secondsAfterShutter": 6.536905154,
+      "autoEv": 2,
+      "observedIso": 57,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 15,
+        "displayRender": 69
+      }
+    },
+    {
+      "secondsAfterShutter": 6.802447497,
+      "autoEv": 0.5,
+      "observedIso": 56,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 1.4142135381698608,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 14,
+        "displayRender": 21
+      }
+    },
+    {
+      "secondsAfterShutter": 7.069913903,
+      "autoEv": 0.5,
+      "observedIso": 56,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 1.4142135381698608,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 16,
+        "displayRender": 23
+      }
+    },
+    {
+      "secondsAfterShutter": 7.340314216,
+      "autoEv": 0.75,
+      "observedIso": 55,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 1.6817928552627563,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 14,
+        "displayRender": 24
+      }
+    },
+    {
+      "secondsAfterShutter": 7.600985153,
+      "autoEv": 1.5,
+      "observedIso": 54,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 43
+      }
+    },
+    {
+      "secondsAfterShutter": 7.867740153,
+      "autoEv": 1.25,
+      "observedIso": 54,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 15,
+        "displayRender": 38
+      }
+    },
+    {
+      "secondsAfterShutter": 8.135254684,
+      "autoEv": 1.25,
+      "observedIso": 53,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 34
+      }
+    },
+    {
+      "secondsAfterShutter": 8.400728851,
+      "autoEv": 1.5,
+      "observedIso": 52,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 42
+      }
+    },
+    {
+      "secondsAfterShutter": 8.666283226,
+      "autoEv": 2,
+      "observedIso": 52,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 30,
+        "referenceRender": 13,
+        "displayRender": 61
+      }
+    },
+    {
+      "secondsAfterShutter": 8.929141507,
+      "autoEv": 1.25,
+      "observedIso": 52,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 35
+      }
+    },
+    {
+      "secondsAfterShutter": 9.197343278,
+      "autoEv": 1.25,
+      "observedIso": 52,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 34
+      }
+    },
+    {
+      "secondsAfterShutter": 9.463001559,
+      "autoEv": 1.5,
+      "observedIso": 52,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 43
+      }
+    },
+    {
+      "secondsAfterShutter": 9.731225465,
+      "autoEv": 1.5,
+      "observedIso": 52,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.8284270763397217,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 13,
+        "displayRender": 43
+      }
+    },
+    {
+      "secondsAfterShutter": 9.998623538,
+      "autoEv": 1.75,
+      "observedIso": 51,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 15,
+        "displayRender": 57
+      }
+    },
+    {
+      "secondsAfterShutter": 10.264216871,
+      "autoEv": 1.25,
+      "observedIso": 51,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 16,
+        "displayRender": 43
+      }
+    },
+    {
+      "secondsAfterShutter": 10.533917496,
+      "autoEv": 1.25,
+      "observedIso": 51,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 18,
+        "displayRender": 48
+      }
+    },
+    {
+      "secondsAfterShutter": 10.797462652,
+      "autoEv": 1.25,
+      "observedIso": 51,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": true,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 20,
+        "displayRender": 53
+      }
+    },
+    {
+      "secondsAfterShutter": 11.067710464,
+      "autoEv": 1,
+      "observedIso": 51,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 31,
+        "referenceRender": 18,
+        "displayRender": 40
+      }
+    },
+    {
+      "secondsAfterShutter": 11.333943068,
+      "autoEv": 1,
+      "observedIso": 51,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 2,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 17,
+        "displayRender": 37
+      }
+    },
+    {
+      "secondsAfterShutter": 11.595953277,
+      "autoEv": 1.25,
+      "observedIso": 50,
+      "observedExposureNs": 9928955,
+      "displayExposureScale": 2.3784141540527344,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 16,
+        "displayRender": 41
+      }
+    },
+    {
+      "secondsAfterShutter": 11.862440099,
+      "autoEv": 1.75,
+      "observedIso": 50,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 3.3635857105255127,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 14,
+        "displayRender": 55
+      }
+    }
+  ],
+  "keyPulse": {
+    "before": {
+      "secondsAfterShutter": 6.536905154,
+      "autoEv": 2,
+      "observedIso": 57,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 4,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 15,
+        "displayRender": 69
+      }
+    },
+    "after": {
+      "secondsAfterShutter": 6.802447497,
+      "autoEv": 0.5,
+      "observedIso": 56,
+      "observedExposureNs": 10000000,
+      "displayExposureScale": 1.4142135381698608,
+      "textureMatchesResult": false,
+      "sourceReady": true,
+      "centerCropMedian": {
+        "incomingOes": 32,
+        "referenceRender": 14,
+        "displayRender": 21
+      }
+    },
+    "intervalMs": 265.5423429999999,
+    "sensorEnergyChangeEv": -0.025535092107137648,
+    "autoCorrectionChangeEv": -1.5,
+    "focusWindowSeconds": [
+      5.9,
+      7.4
+    ],
+    "focusWindowValues": {
+      "focusDiopters": [
+        0.20388349890708923
+      ],
+      "afState": [
+        2
+      ],
+      "lensState": [
+        0
+      ],
+      "requestAfTrigger": [
+        0
+      ]
+    }
+  },
+  "shutterAuto": {
+    "referenceBridgeRevision": "M9PREVIEWBRIDGE1A",
+    "referenceTransitionHeld": false,
+    "referenceBridgeMaxAgeMs": 500,
+    "referenceBridgeMaxEv": 0.5,
+    "referenceBridgeAnchorNs": 31186533106042,
+    "referenceBridgeAnchorEnergy": 700000000,
+    "revision": "M9AUTOEXPOSUREFINISH1N_BODYQUAL1A_SUBJECTHEADROOM1A",
+    "settlingRevision": "M9PREVIEWSETTLE1A",
+    "recoveryRevision": "M9PREVIEWRECOVER1A",
+    "highlightRecoveryArmed": false,
+    "highlightRecoveryConfirmations": 0,
+    "reason": "rendered_backlight_background_evidence_cap",
+    "sampleValid": true,
+    "meterStatus": "gpu_probe_available",
+    "autoPlacementEligible": true,
+    "legacySceneEv": 0,
+    "strictPositiveHeadroomLimitEv": 1.25,
+    "sceneKeyPositiveHeadroomLimitEv": 0,
+    "backlightPositiveHeadroomLimitEv": 2,
+    "sceneKeyRequestedEv": 0,
+    "backlightRequestedEv": 1.75,
+    "recommendedTotalAutoEv": 1,
+    "appliedTotalAutoEv": 1,
+    "userEv": 0,
+    "meterDomain": "neutral_reference_same_M9_GPU_shader",
+    "meterIncludesUserOrAutoEv": false,
+    "maximumPositiveSearchEv": 2.5,
+    "sceneMedianTargetCode": 46,
+    "sceneCenterTargetCode": 54,
+    "sceneCenterQ25TargetCode": 22,
+    "backlightCenterTargetCode": 72,
+    "backlightCenterQ25TargetCode": 32,
+    "backlightCenterTargetRangeCode": "58..72",
+    "backlightCenterQ25TargetRangeCode": "22..32",
+    "backlightConfidence": 0.9836519464618638,
+    "backlightLatched": true,
+    "backlightEngageConfidence": 0.22,
+    "backlightReleaseConfidence": 0.12,
+    "backlightPlacementSeverity": 1,
+    "sceneOwnership": "multifield_body_owns_backlight",
+    "fieldMapOwnsClassification": true,
+    "qualifiedMultifieldBodyOwnsBacklight": true,
+    "backlightEvidenceQualificationRevision": "BGQUAL1A",
+    "backlightEvidenceScore": 0.15625,
+    "backlightEvidenceWeakBackgroundMaxEv": 1,
+    "backlightEvidenceLiftCapEv": 1,
+    "bodyCandidateSelectionRevision": "BODYQUAL1A_QUALIFY_BEFORE_RANK",
+    "highlightRetentionRevision": "HIGHLIGHTRET1C_SUBJECTHEADROOM1A",
+    "highlightRetentionPolicy": "global_single_capture_exposure_incremental_emerging_highlights_no_HDR",
+    "highlightRetentionLimitEv": 2,
+    "highlightRetentionPreexistingFieldQ90Code": 220,
+    "localHdrUsed": false,
+    "multiFrameHdrUsed": false,
+    "fastAcquireEligible": false,
+    "safeFastAcquire075Eligible": false,
+    "positiveRiseStepEv": 0.25,
+    "normalPositiveSlewEv": 0.25,
+    "fastPositiveSlewEv": 0.5,
+    "safeFastPositiveSlewEv": 0.75,
+    "safeFastMaxSampleAgeMs": 250,
+    "multifieldTopology": "4x6_24_regions_rendered_neutral_reference",
+    "multifieldBorrowedArchitecture": "M10R_4x6_topology_only_not_numerical_parity",
+    "bodyLockActive": true,
+    "bodyLockMask": 1965761,
+    "bodyLockTargetMedianCode": 44,
+    "bodyLockTargetQ25Code": 17,
+    "bodyLockReason": "held_overlap",
+    "bodyLockPendingMask": 0,
+    "bodyLockPendingConfirmations": 0,
+    "bodyLockMissConfirmations": 0,
+    "protectedOpenAnchorMask": 0,
+    "protectedOpenAnchorFieldCount": 0,
+    "protectedOpenAnchorPolicy": "soft_positive_lift_cap",
+    "protectedOpenAnchorSevereBacklight": false,
+    "protectedOpenAnchorDeepBodyAssist": false,
+    "protectedOpenAnchorDeepBodyMaxEv": 0.75,
+    "protectedOpenAnchorLiftCapEv": 2.5,
+    "effectivePositiveLimitEv": 1,
+    "m9CharacterHighlightGuard": true,
+    "lowerTargetConfirmations": 0,
+    "pendingLowerTargetEv": null,
+    "lowKeyBodyAdequate": false,
+    "globalSceneSelectedStep": 0,
+    "backlightSelectedStep": 7,
+    "backgroundLossPolicy": "multifield_body_background_qualified_then_incremental_highlight_retention",
+    "leicaMeterNumericalParity": false,
+    "sampleAgeMs": 235.432344,
+    "textureTimestampNs": 31186458859211,
+    "resultTimestampNs": 31186425590669,
+    "referenceEnergy": 700000000
+  },
+  "jpegFinalizeSuccess": true,
+  "codingBytesPreservedAcrossExif": true,
+  "limits": [
+    "One full Auto decision/bracket is available at shutter, not at every later correction change; exact binding cap for the 6.8-second reduction is not recorded.",
+    "Crop appliedState.uniformPreviewToneGain defaults to unity in this build and is not valid evidence of actual tone gain. Surface draw snapshots do record actual tone gain.",
+    "These are same-texture GPU crop measurements and command snapshots, not verified physical display presentation.",
+    "Pre-shutter AF request CANCEL appears on all 90 callbacks and warrants a separate follow-up. Around the largest post-shutter pulse the trigger is IDLE, focus is fixed and lens state is stationary.",
+    "The proposed recovery test uses synthetic probes demonstrating the same rebound mechanism, not a full replay of unavailable per-frame meter brackets."
+  ]
+}
