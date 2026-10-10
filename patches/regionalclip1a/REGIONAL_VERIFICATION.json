@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "scope": "Gate-level regression and full production controller with synthetic timing and missing bracket steps; not a complete camera replay",
+  "versions": {
+    "parent": {
+      "RegionalControllerTest": {
+        "exitCode": 0,
+        "output": "{\"unmodifiedShutterBracketAutoEv\":0.75,\"candidate\":false,\"scope\":\"recorded base/+0.50 pairs with explicitly synthetic other steps and repeated timing\",\"assertions\":7,\"rises\":8,\"cuts\":8}\n"
+      }
+    },
+    "candidate": {
+      "RegionalControllerTest": {
+        "exitCode": 0,
+        "output": "{\"unmodifiedShutterBracketAutoEv\":0.75,\"candidate\":true,\"scope\":\"recorded base/+0.50 pairs with explicitly synthetic other steps and repeated timing\",\"assertions\":89,\"rises\":0,\"cuts\":1}\n"
+      },
+      "RegionalClipTest": {
+        "exitCode": 0,
+        "output": "REGIONAL_CLIP_ASSERTIONS 195 PASS\n"
+      }
+    }
+  }
+}

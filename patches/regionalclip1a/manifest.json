@@ -1,0 +1,22 @@
+{
+  "parentCommit": "444c246a5e2f714aa88e4a820f0a12c8b4091f42",
+  "version": "2.67-regionalclip1a",
+  "parentFiles": {
+    "app/build.gradle": "89c4d25ab96c5a3c7d3ef6947dcd31c3be62f20129de2e61e0a75d9fa619294e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": "e6a2a264024806718e75278058b9c405c364887b09340cc13f0e51235574f315",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MeterDecisionHistory1A.java": "ce679228874d02ba13486e5fc8a32aa0783177d261246ef2d6ce71579753ce6c"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "e45831ad58df90fd5f1e27ff53240f3c4d47d5e741322f5c6c9290c1e720b5ad",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": "5b2cbe0d3668cbf14ce7a15030c74c5d8c04be64ec6c6272a170ce7f6e98b7fd",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MeterDecisionHistory1A.java": "bcaba4aabe511e33b66c5a029eae15c7bd4762cced38d2831439cb5519e1ba81",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RegionalClipQualification1A.java": "57eefa9c79a2d5f8df36929c8c62f508b172eae9bfbbee94047600bfcbe152bb"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9RegionalClipQualification1A.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "12da83e032ef2bd580b28b8f49ae9fdd1775e1b04bd81e2d1ba2292f345209a1",
+  "parentScopedSha256": "c4c2b4b8b2d77d573b4148ded09bd86bff2ed72d1fbe6972005d607a1f04a408",
+  "candidateScopedSha256": "85dad2fd0807099fefebcb8e5256e7610c24014bd3cdb3c7073ccbca318c102c"
+}
