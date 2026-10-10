@@ -1,0 +1,44 @@
+name: M9Cam 2.69 Mono diagnostic delivery
+on:
+  pull_request:
+    branches: ['codex/monodiag1a-v2.68']
+    paths: ['patches/monodiag2a/**', '.github/workflows/build-m9cam-monodiag2a.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Reconstruct pinned source
+        run: python3 patches/monodiag2a/assemble.py "$RUNNER_TEMP/PhotonCamera_269"
+      - name: Verify preference and transport regressions
+        run: |
+          python3 patches/monodiag1a/host_test.py "$RUNNER_TEMP/PhotonCamera_269"
+          python3 patches/monodiag2a/transport_test.py "$RUNNER_TEMP/PhotonCamera_269" --output "$RUNNER_TEMP/mono-host"
+      - name: Build Android and test real preference widget
+        working-directory: ${{ runner.temp }}/PhotonCamera_269
+        run: |
+          bash gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*MonoPrimaryEvidenceTest' --tests '*MonoDiagnosticPreferenceTest' --tests '*ProfileCaptureTest' --tests '*M9OutputSettingsTest' --no-daemon --max-workers=2
+      - name: Retain build and test results for final packaging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monodiag2a-android-build
+          path: |
+            ${{ runner.temp }}/PhotonCamera_269/app/build/outputs/apk/debug/*.apk
+            ${{ runner.temp }}/PhotonCamera_269/app/build/test-results/testDebugUnitTest/**
+            ${{ runner.temp }}/PhotonCamera_269/app/build/reports/tests/testDebugUnitTest/**
+          retention-days: 7

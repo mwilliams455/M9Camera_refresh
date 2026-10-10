@@ -1,0 +1,24 @@
+{
+  "parentCommit": "096723ea62eb77ca09087ff31efa18f54c8d9d1e",
+  "version": "2.69-monodiag2a",
+  "parentFiles": {
+    "app/build.gradle": "20c28f388085215fa7b0f0578bb482898def9c4748859d80c85c12343a0c8b96",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "398607f0c40081af1b3ecb14fcad6353d2a72d5be59221d374706f01172a5e91",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/M9DeferredMetadataStore.java": "a3b2c734f55a67fa3dcf953d5eeb7071574f326f7203a5d78d14d3f149ac70a6",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/MonoSaveQueue.java": "1749760effca00050ddca164e488e7f3eb43f5f8ce99a3eab95354db03648df3"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "e9d401d79d73c3e25fb9442e368e57f5e6f3276e406ae760e88494cc2214d90a",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "b381d1034b04a44ff1f2890f81eca8b6ce736ec6a9ebc97f764e9accaf890a2b",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/M9DeferredMetadataStore.java": "f47599d41e9ae1bbc976dfdfc8135718f9a836393b59109e0e9b9dd35e0b2166",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/MonoSaveQueue.java": "bd209f5422aff4f16062e9fdb9e9227e7ae608d557b8d16510b2b9baaa65b8d5",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoPrimaryEvidenceTest.java": "3627da9a8a018961cd86889f037402af1b7b25a6d5a1ce8601de5cc05f954c92"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoPrimaryEvidenceTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "a9dd9c815c209ff875e6fc9b263ca1d5822f5205b84bfb37b34ccb4d820df365",
+  "parentScopedSha256": "73c35e79626c5c760523407817c3eef11af198276c5ef0a260e5cdb3f18da3ef",
+  "candidateScopedSha256": "57abbfa7341311b54933cfa37219b7b66f6ba3951d564cc03537bd2f7ac9364b"
+}

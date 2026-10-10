@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "productionClass": "M9DiagnosticBurstSpool.java",
+  "realFilesystemAndExecutors": true,
+  "androidSafAndJsonSerializationStubbed": true,
+  "scenarios": [
+    {
+      "scenario": "backlog",
+      "status": "PASS",
+      "assertions": 11
+    },
+    {
+      "scenario": "coalesce",
+      "status": "PASS",
+      "assertions": 190
+    },
+    {
+      "scenario": "retry",
+      "status": "PASS",
+      "assertions": 12
+    },
+    {
+      "scenario": "lifecycle",
+      "status": "PASS",
+      "assertions": 12
+    }
+  ],
+  "assertions": 225,
+  "phoneStorageProviderUntested": true
+}
