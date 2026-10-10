@@ -1,0 +1,10 @@
+{
+  "trace": "M9_SHUTTERTRACE_20261008_075534_315_166846384727.json",
+  "sha256": "66930b34ed25964186056ca91e695a9f2f5bbd7ef471816fb785376843e71e77",
+  "jsonPointer": "/shutterSnapshot/exposurePlan1A/renderedAutoPlacement2D/bracket",
+  "latchedBodyMask": 1840,
+  "targetMedian": 45,
+  "targetQ25": 22,
+  "severity": 0.8565279927173418,
+  "syntheticChanges": "No-anchor variant changes only base field 15 median from 92 to 89. Temporal order is synthetic; missing full earlier/later brackets are not replayed."
+}

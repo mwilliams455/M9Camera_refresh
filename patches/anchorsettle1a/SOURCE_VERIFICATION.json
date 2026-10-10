@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "parent": "2.64-backgroundsettle1a",
+  "version": "2.65-anchorsettle1a",
+  "changedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MeterDecisionHistory1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9OpenAnchorQualification1A.java"
+  ],
+  "unchangedScopedFiles": 1331,
+  "totalScopedFiles": 1335,
+  "reversePatchExactlyRestoresParent": true,
+  "neutralProbeStatisticsSpatialBodyAndAnchorDetectionTargetsRawHeadroomAndTapCalculationsUnchanged": true,
+  "acquisitionSlewHardClippingCutAndPostCutRecoveryBlockByteIdentical": true,
+  "backgroundQualificationTc20MathFreshnessResetSlewAndGlCommandsUnchanged": true,
+  "afSensorMeteringWbColourToneShadersNativeAssetsSavedRenderersAndMonochromUnchanged": true,
+  "shutterExporterAndPhotoQueuesUnchanged": true,
+  "behaviorChange": "open-anchor appearance/disappearance/tier changes require four fresh spatially coherent probes agreeing within .25EV over >=750ms; anchor cap excluded from hard clipping ceiling; current hard limits remain immediate",
+  "diagnosticChange": "four appended Auto scalar columns plus anchor qualification reason; history revision M9METERHISTORY1B"
+}
