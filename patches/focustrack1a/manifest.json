@@ -32,7 +32,7 @@
     "app/src/main/res/values/strings.xml": "1aa8d0c5d62a0e938a946410138cef057a30c356e1ed132fb563e7b7dbf93167",
     "app/src/main/res/xml/preferences_m9.xml": "0715b10f715c9f70ba210c26f2504807ac1a8eab6c49fd9ae92659fa2e8b443d",
     "app/src/main/res/xml/preferences_monochrom.xml": "d15f9e6ba8d496f19bb0eadb46b3073a939c48fa8d153c6063aef6e55ce9e9a9",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "7d0dc966e7a91332673ad42f4af462c86b3307b34e22285432f7789ecb69d855",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "b4454e4faf515377dc2354e667ada11bdac3ab5350310950dde9ce80d741ecf3",
     "app/src/test/java/com/particlesdevs/photoncamera/control/tracking/FocusTrackingTest.java": "0872779bfadc6c95d52b9dff344c39135594be828070175e04ae0ce18fd51fd5",
     "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java": "0bab7ab34937bfc407995e41535172672c72bee51175c1237413207d26922c12"
   },
@@ -46,7 +46,7 @@
     "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "6a6203433365484553c3f03b79f1a8e6a9c2d9adaf470bb9e6e5115ca7a453a4",
+  "patchSha256": "a123e4b6c9646bcab925d73c787302243c6e740eb9cadea304862d525dd59072",
   "parentScopedSha256": "87024bfab4bd2594170fa52a626089388106915738acda469415cf35744d1b22",
-  "candidateScopedSha256": "d494ff82bd4edec931b0b60811e90e8926a7e698bb06762cdfeae0e90554d981"
+  "candidateScopedSha256": "1531223f1c8eadfd62c910fbdc6369dccaa60d58c4fafa98cd2ce43534be32a0"
 }
