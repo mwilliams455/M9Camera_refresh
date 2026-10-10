@@ -1,0 +1,18 @@
+{
+  "parentCommit": "5807641762f5023a64ef7b846670b0b5b0a777a6",
+  "version": "2.58-previewpair1a",
+  "parentFiles": {
+    "app/build.gradle": "e3bbf5672df8af673d8b188d1d684c16e4db9f50a271433c6e7f1e6c39366a08",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "b14c74ebb575ccc8c7084a998b9220b97d736fd20c63f5146682de5ebe905d6b"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "ff0e8b60cb9399baa00b1446cd354b81604d9b65912d791971a4560568acf02f",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "b2b6aadc79be5e487e3bfe53576132d5ed830eb98370e3c5bb8de8a42c4d46d0",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameHistory1A.java": "83df6badbc2ff99998a3652d40445011ed02601defe4adc0391ae52f1b93c3e0"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameHistory1A.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "45255f9d1569cee0fc0c2a6c09fa1fa3b913e61dbd937217f88b5a96fcbfcce6"
+}
