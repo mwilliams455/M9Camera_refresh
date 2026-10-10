@@ -1,0 +1,5 @@
+{
+  "status": "PASS",
+  "output": "PASS 12795 checks; recorded request reproduced: ISO 1600 / 2056250 ns; corrected ISO 1118 / 2942755 ns; no renderer gain",
+  "scope": "actual pure budget allocator and extracted unchanged legacy curve; synthetic bounds/EV sweep; not HAL validation"
+}
