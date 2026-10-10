@@ -1,4 +1,4 @@
-"""Preserve every 2.71 native library and asset for pre-shutter trace history delivery."""
+"""Preserve every 2.71 native library and asset for tap-to-track autofocus delivery."""
 from pathlib import Path
 import copy,hashlib,json,re,subprocess,sys,zipfile
 root,built,control,bt,out=map(lambda p:Path(p).resolve(),sys.argv[1:]);here=Path(__file__).resolve().parent;out.mkdir(parents=True,exist_ok=True)
