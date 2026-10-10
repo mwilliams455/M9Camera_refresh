@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "workflowRun": 38034703706,
+  "workflowUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38034703706",
+  "sourceCommit": "91853e19f7ad0e9230886f431240736345a27d07",
+  "sourceTree": "97b69a2d2650b777c1abe1d3d3b383cb45ced3e9",
+  "scopedSourceSha256": "87024bfab4bd2594170fa52a626089388106915738acda469415cf35744d1b22",
+  "artifactId": 11663555596,
+  "artifactZipSha256": "f5ccf3d33252312e7863394ca9f3553356b725ac4d3f50f9137882d30708bda9",
+  "compiledApkSha256": "bf319b5b9627e990735948dde0ab587e531fba8f857a4864bba9b1e980e94227",
+  "tests": 34,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoPrimaryEvidenceTest",
+      "tests": "6",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-10T07:35:21",
+      "hostname": "runnervmmprz5",
+      "time": "0.508"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": "6",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-10T07:35:24",
+      "hostname": "runnervmmprz5",
+      "time": "0.003"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoRawGainTest",
+      "tests": "9",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-10T07:35:22",
+      "hostname": "runnervmmprz5",
+      "time": "1.593"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.MonoDiagnosticPreferenceTest",
+      "tests": "5",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-10T07:35:23",
+      "hostname": "runnervmmprz5",
+      "time": "0.869"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.preview.M9TraceRewindTest",
+      "tests": "5",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-10T07:35:16",
+      "hostname": "runnervmmprz5",
+      "time": "4.949"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+      "tests": "3",
+      "skipped": "0",
+      "failures": "0",
+      "errors": "0",
+      "timestamp": "2026-10-10T07:35:13",
+      "hostname": "runnervmmprz5",
+      "time": "0.916"
+    }
+  ],
+  "newTraceTests": 5,
+  "inheritedTests": 29,
+  "phoneValidationPending": true
+}

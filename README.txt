@@ -12,7 +12,9 @@ All 2.68–2.70 Monochrom work is preserved; photographic policy is unchanged.
 Start here: patches/tracerewind1a/README.md
 Source checks: patches/tracerewind1a/SOURCE_VERIFICATION.json
 Reconstruct: python3 patches/tracerewind1a/assemble.py /absolute/fresh/destination
-Android build, regression tests and final package verification are pending.
+Android build, all 34 regression tests and signed-package verification pass.
+Results: patches/tracerewind1a/BUILD_VERIFICATION.json and PACKAGED_VERIFICATION.json.
+Phone validation remains pending.
 
 This is an incremental source-recovery repository, not an assembled Android project.
 Parent: 2.70 at 301a80733145f7d88decefdde7fc0388df1210a7, draft PR #88.
