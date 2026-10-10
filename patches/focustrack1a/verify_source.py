@@ -9,7 +9,7 @@ a,b=files(parent),files(root);m=json.loads((here/'manifest.json').read_text())
 fp=lambda f:sha(json.dumps(f,sort_keys=True,separators=(',',':')).encode())
 assert fp(a)==m['parentScopedSha256'] and fp(b)==m['candidateScopedSha256']
 changed=sorted(n for n in a.keys()|b.keys() if a.get(n)!=b.get(n));assert changed==sorted(m['fileOverrides'])
-assert len(changed)==18 and len(m["newFiles"])==7
+assert len(changed)==19 and len(m["newFiles"])==7
 assert sha((here/'focustrack1a.patch.gz').read_bytes())==m['patchSha256']
 with tempfile.TemporaryDirectory() as tmp:
     t=Path(tmp)

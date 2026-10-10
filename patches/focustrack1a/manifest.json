@@ -6,6 +6,7 @@
     "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "7dd3d515bcebf416a22cdedfc410f20df27633d2f62dc5646b667549e0fe1614",
     "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "9d4ba1fca7877e1f81c387a922d222548c4689f6803d20075b422f7c33ca3f4d",
     "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "ebeebbb43fda68b3712af7cc2293fd3561a9e7b844e31f21a4ea613149d0ff2e",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "28149bd0a49a6c0ae4d414595603182be1b50e04fe049f1669ab7798369d1826",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "89635a01cf15d26628bad39a8c59d440012148a5fc354f28f5bee4bf37d05f3f",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "7246deeca7ab1f05ae0af6f3c7d4228453532ae9b778b6fa8d43e049fa9e4270",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MonoRenderer.java": "b408824057984740e0a33d2e07ac2a58279e798a02b97dfb84104cfe3d0dfd6f",
@@ -21,6 +22,7 @@
     "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "e36670e15ec00b0ab64828e8b74127341c9b5c1d679310f88203ed166d6ba3d2",
     "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/PatchTracker.java": "4fa2434ff7e31b50b2eda8cfdd95df1c6ee5d5de0a8b406bb30ebae0046691ab",
     "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/TrackingGeometry.java": "b374d3571648f99e734e3d00c6dfb4ebc5c9a8b77cb11ebbddba4dc41774fa9f",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java": "35e66db9fac31fd764ee20734fc90434fea04e0a844906aff1993dc9c0c3be77",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "e3bb7af33cbd3f73f02f49ad06c022517f966955e31ba3bdd1781995335a1c88",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java": "4f85360febf791784329bfcd4ea7d73cd9b503757bba8b1a57938804b944df2c",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java": "7d5caac483a7db8c12491eb97f7a318c2fd506ca5595eae4e44695afb0371fee",
@@ -30,9 +32,9 @@
     "app/src/main/res/values/strings.xml": "1aa8d0c5d62a0e938a946410138cef057a30c356e1ed132fb563e7b7dbf93167",
     "app/src/main/res/xml/preferences_m9.xml": "0715b10f715c9f70ba210c26f2504807ac1a8eab6c49fd9ae92659fa2e8b443d",
     "app/src/main/res/xml/preferences_monochrom.xml": "d15f9e6ba8d496f19bb0eadb46b3073a939c48fa8d153c6063aef6e55ce9e9a9",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "2d5ad4272905a16454b5443ae2c16bf74ca4732e3bba478d26f8dcf2e584b738",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java": "7d0dc966e7a91332673ad42f4af462c86b3307b34e22285432f7789ecb69d855",
     "app/src/test/java/com/particlesdevs/photoncamera/control/tracking/FocusTrackingTest.java": "0872779bfadc6c95d52b9dff344c39135594be828070175e04ae0ce18fd51fd5",
-    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java": "7f7e0e7b6965866a97eb18e2c1cca1980fa62bcdacae219da9814d25524e90e4"
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java": "0bab7ab34937bfc407995e41535172672c72bee51175c1237413207d26922c12"
   },
   "newFiles": [
     "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/PatchTracker.java",
@@ -44,7 +46,7 @@
     "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "68020687103c4dce76745dacebca56ab5192b49d0b6b021e379110e8ef89fba6",
+  "patchSha256": "6a6203433365484553c3f03b79f1a8e6a9c2d9adaf470bb9e6e5115ca7a453a4",
   "parentScopedSha256": "87024bfab4bd2594170fa52a626089388106915738acda469415cf35744d1b22",
-  "candidateScopedSha256": "b76f67e99182beea760f43c39eaa60bf308999de48bbbf1e5a44eca072399208"
+  "candidateScopedSha256": "d494ff82bd4edec931b0b60811e90e8926a7e698bb06762cdfeae0e90554d981"
 }
