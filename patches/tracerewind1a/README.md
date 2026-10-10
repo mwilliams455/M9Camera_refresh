@@ -23,7 +23,7 @@ Parent: 2.70 MONORAWGAIN1A at `301a80733145f7d88decefdde7fc0388df1210a7`, draft 
 3. Stop screen recording, return to the camera and take one photo within about five seconds, keeping the same lens and scene.
 4. Leave the camera open for 15 seconds, then send the recording and that photo's `M9_SHUTTERTRACE_…json`.
 
-The trace requests the preceding 30 seconds; it cannot recover events already evicted from the bounded rings. This build provides a workable way to gather evidence. It does not claim to fix preview pumping or the blocked shutter during screen recording. Keep the PR as a draft; do not merge main before phone acceptance.
+The trace requests the preceding 30 seconds; it cannot recover events already evicted from the bounded rings. This build provides a workable way to gather evidence. It does not claim to fix preview pumping or the blocked shutter during screen recording. The user authorized merging the Monochrom and trace changes on 10 October 2026. Phone validation remains pending; merging does not establish that preview pumping or shutter refusal is fixed.
 
 ## Reproduce
 

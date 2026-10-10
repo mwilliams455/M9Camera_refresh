@@ -18,4 +18,4 @@ Phone validation remains pending.
 
 This is an incremental source-recovery repository, not an assembled Android project.
 Parent: 2.70 at 301a80733145f7d88decefdde7fc0388df1210a7, draft PR #88.
-Candidate: M9Cam_2.71_TRACEREWIND1A.apk. Keep draft pending phone acceptance.
+Candidate: M9Cam_2.71_TRACEREWIND1A.apk. User requested merging this tested chain on 10 October 2026; phone validation remains pending.
