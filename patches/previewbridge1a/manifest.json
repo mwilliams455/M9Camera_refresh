@@ -1,0 +1,15 @@
+{
+  "parentCommit": "d309662ccaed319174dcd3f05e0e4be0c1145a12",
+  "version": "2.61-previewbridge1a",
+  "parentFiles": {
+    "app/build.gradle": "d522b9831bc34058ee4ebbe86b5f2b7ed9bbd332fd1e0e134bc6ce385c849703",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": "ffef7886bf85772c5fa8caed084b23cbf27807dadeb887ff94325a4e8d6d98b4"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "3a622b7e89bc303398ec831f12ea108e49004507663c92560fa510ccc9850936",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": "5e3083962372a6ca7d8a6df732edfaa5fb913e9aa645c8a6d815215f02ed8af8"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "1c776e5dc79665c53f12d0f88fd9f6cf08f827f0e85772731af87dcf358918c8"
+}
