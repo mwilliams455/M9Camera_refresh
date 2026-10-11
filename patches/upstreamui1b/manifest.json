@@ -1,0 +1,33 @@
+{
+  "parentCommit": "92a4afa9e75eac46aa70038fd236d1b7a8365c42",
+  "version": "2.86-upstreamui1b",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "83eac4d6e77ca87dd54b2b261aded77d93a0fa29d78b1ac5620e77a6d2b96f02",
+    "app/src/main/res/layout/camera_fragment.xml": "bbb5325f82a0d23d71f0a2a4da540c92c5a46129eee409a38f1b832431c72e04",
+    "app/src/main/res/layout/preference_seekbar.xml": "fc595321f2ac6f2120a10e244b6bd0b85358141759383c94f1cb78009c241248",
+    "app/src/main/res/layout/preference_tunable_seekbar.xml": "1d4b33fbf972c3355b1fb021d0fec2f96bf2fe9db5aa040a9252df4014af72a0",
+    "app/src/main/res/values/colors.xml": "30210a27e9f237a8767da8a5d54d5ff5b58875aafcabf5ebb73e2127b5a28b39",
+    "app/src/main/res/values/custom_themes.xml": "7ad982cc3b45289b25b1474737399d54d0cb7d17704cae7c666ee5226bdb4900",
+    "app/src/main/res/values/styles.xml": "1fea8c84c90db4a58270ddbe6c1fdedb87815541868352d49007865fa7f74722"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "b3106ed1f6ca514b53733f7cf8946994783fe6a79e063750180b56e214a2b9e7",
+    "app/src/main/res/layout/camera_fragment.xml": "b22f6762f9aa526ef7451230b500ea24d389ec0ae8043a0028a0f4bb1d2fbde6",
+    "app/src/main/res/layout/preference_seekbar.xml": "293224b40868892488641c3534de4a4b7b5073b4f81aeac66d62b3ffd4909132",
+    "app/src/main/res/layout/preference_tunable_seekbar.xml": "38dde23c50f0239ecf40e1c6e55e84f490d489463998c1723ce52f362a0bd43f",
+    "app/src/main/res/values/colors.xml": "0ac9a24fc66dd7eb5c97ab7173c4393165e6e35d21a15215ee0846b814e55b3a",
+    "app/src/main/res/values/custom_themes.xml": "adf811b813ddaf99cba7e763896dde557d40dff441105e43fe6f1142e85cd8e4",
+    "app/src/main/res/values/styles.xml": "debf5fb6a1cb655344283065afa077e49d86202aa57795348bd02b304874528f"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "a4e9205b28cb8a1dba6526cd8cd1cde772b00ef0db1ee9a271debc85ba21958c",
+  "parentScopedSha256": "92be01b3d2c8d9d873177c6674f717d769855c76045714101985b86c8309be5a",
+  "candidateScopedSha256": "e0045b3afde36a1d63e18df76ec7633636fd32c8859631120597377bb93d1f4f"
+}
