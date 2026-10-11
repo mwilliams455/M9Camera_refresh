@@ -16,13 +16,13 @@
     "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "82ad0cfe250dab6d306e6be114b3762005cd49cd5f22310e9e470842131eb283",
     "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "084047ba8f25b5eaf753781d6ec5a55e1abffbb74b1d3b8cfb1a98d81634a338",
     "app/src/test/java/com/particlesdevs/photoncamera/capture/StillCaptureLifecycleTest.java": "41f848b01fd6d8eb103c58943b23c166b8198efad25fb679da0b1b4934e1f707",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/TouchFocusHandoverTest.java": "157b8bc3f04dc043396a644c8b20497a46e74ae777b1a2a6d06e9d17e8b78a90"
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/TouchFocusHandoverTest.java": "793517cc4995ad2d4cb758b3f9a78be681549da0fe772fb36a2adb35fb778ed8"
   },
   "newFiles": [
     "app/src/test/java/com/particlesdevs/photoncamera/capture/TouchFocusHandoverTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "106913ae923cdf5713c432a72a2943efa827cc2ef73488378f73ae2e13a9b7a5",
+  "patchSha256": "369abc6f7b2b78513125962a1a55e1c9498a75d46f12dc393e59a09f0096e763",
   "parentScopedSha256": "cbbbd80293eda222b9dee52144d7b95d757c9946c8e64f849a805dc45dbee9d2",
-  "candidateScopedSha256": "d2baa6e8599b15c45dce30c3fa660908b7e3f95988241ff9e6e00b6fa248d218"
+  "candidateScopedSha256": "49f114c92113f9232cd84d25aeb511d4428bc35870121c1bfa39fa96fdc250e2"
 }
