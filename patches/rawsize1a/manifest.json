@@ -1,0 +1,28 @@
+{
+  "parentCommit": "332ed727cc2c541aa14d8d2422a3f9897bd2f474",
+  "version": "2.87-rawsize1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "b3106ed1f6ca514b53733f7cf8946994783fe6a79e063750180b56e214a2b9e7",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "2b683d594ddac77e7da3198b1836fce7818a717c08869a8863bde50a93ad1e17"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "123b45c99622af92371fa70aaf8e57e14004c2c084e21d77298fd1c51ce3cfa0",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "8ec80cab30c97d75341f47c4e422d5a4498ed883599a6df74e2a29422f2c689e",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibility1A.java": "d18da2b06604e1c6ee28845436b98ed0c89dd91fb14daa65ca1441f94b222f67",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibilityTest.java": "c89c04a12589abb95f57270d47f1a51c9bbc303be967d2341a99922d3e07f1d3"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibility1A.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibilityTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "801f334554c1ffe2cef361d63d23db8b9326c7e5fec9578926cd34c620710870",
+  "parentScopedSha256": "e0045b3afde36a1d63e18df76ec7633636fd32c8859631120597377bb93d1f4f",
+  "candidateScopedSha256": "84c4b786a660ce6eeeb311a3eda086b89531bec4ee08cc7a8e9e9fff6657cd40"
+}

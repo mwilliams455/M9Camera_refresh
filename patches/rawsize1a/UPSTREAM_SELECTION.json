@@ -1,0 +1,21 @@
+{
+  "repository": "eszdman/PhotonCamera",
+  "parentCandidate": "2.86-upstreamui1b",
+  "commit": "0100edce4b09523086d45864af0c296579695761",
+  "selection": "Vendor raw.size discovery from CaptureController only; guarded adaptation",
+  "excluded": [
+    "Native/frame-alignment code",
+    "Merge shaders",
+    "Multi-frame processing"
+  ],
+  "adaptations": [
+    "RAW_SENSOR stills only, API 29+, existing Quad Bayer opt-in",
+    "Dimension validation, duplicate filtering, public fallback required",
+    "Exact session-support query required for newly added sizes",
+    "Lens-specific rejection cache and bounded existing recovery",
+    "Pre-trial sensor rectangles restored before retry",
+    "No automatic shutter resubmission",
+    "Generation and identity checks for late callbacks"
+  ],
+  "phoneValidationPending": true
+}
