@@ -1,0 +1,26 @@
+{
+  "parentCommit": "857bcc587d085b5b050ad77facf120cbc4419c5b",
+  "version": "2.81-monodiagexport1c",
+  "parentFiles": {
+    "app/build.gradle": "5c4aca173339d4de20fce3a94b0a533b486a9fca1dc4e289ce3a32102f45c050",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "b8c0a1738a0ec553a632fcf15517749f7cbfa9ec893ee3f4c83964b9568cc08c",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "b381d1034b04a44ff1f2890f81eca8b6ce736ec6a9ebc97f764e9accaf890a2b",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java": "bbbba792dd4278714469f497a7145d24962884a567728ff3e17210ea312fc41f",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoPrimaryEvidenceTest.java": "0986f7d7bf5b0900c7e9bd37ce636f123a192e71457e2bab2bef7fe529d6d5f6"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "30fac1c6074afd4214cab0558f1b4c16ad5b42d43b67473a4a3b1266edb9de02",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "87a3977c0f6d27a223a0708ff634392ca98922de36c0f84807a42a2bf0189805",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "9d65f42f2590b0a4cd18fa88272e4de99cba52b78ff06d60ac0d2b899b132c7f",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java": "27ba653245569590f1055bb567bcb10a8c80d9d24df0c12e501ae1ea9311b791",
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java": "3b4deb7b145be8f997ee70cbe8afbd531486f6bd281e9255c2883fdcb245ff8a",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/MonoPrimaryEvidenceTest.java": "a6440f1d70bfd98eef3ca66f97d3bc8718db47362741c5d1cae4c8ecd29a48c9"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "fc947829a74eb370a47f90f26eededfb68f4c1d8e390ab765ddf0f0900b57f1a",
+  "parentScopedSha256": "17403f6ee9b3a0e9464625e9113941b160d7a44035a24069631256927a537d33",
+  "candidateScopedSha256": "4bb917f0a1c8c45b93f93b8d1490792ed0f5946f3beff379020e3fe60b7b4f80"
+}

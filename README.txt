@@ -1,3 +1,5 @@
+2.81 MONODIAGEXPORT1C: diagnostic-delivery correction after Malcolm confirmed the 2.80 rejection record is absent. Uses the working Raw diagnostics folder, priority export, recovery of private 2.80 records, and bounded evidence in the next successful photo. The diagnostics-enabled warning also shows a reason code. Source verification passes; Android build/tests and package verification are pending. The underlying exposure-preview rejection is unresolved. See patches/monodiagexport1c/README.md. This draft chain is not authorised to merge.
+
 2.80 MONOPLANWAIT1B: the Monochrom exposure-preview warning still occurs on the phone (Malcolm, 11 October 2026 at 14:58 Europe/London). The tested source fixes did not resolve the reported issue. The matching MONO_EXPOSURE_READINESS_*.json is needed to identify the rejected metadata/plan condition. See patches/monoplanwait1b/README.md. Source checks, all 94 focused Android tests and signed-package verification passed; draft PR #98 is not merged. The bounded 2.79 save pipeline is retained.
 
 Current work order (11 October 2026): docs/PROJECT_GOALS.md
