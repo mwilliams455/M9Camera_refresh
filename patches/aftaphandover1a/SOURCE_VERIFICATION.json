@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/StillCaptureLifecycleTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/TouchFocusHandoverTest.java"
+  ],
+  "unchangedScopedFiles": 1347,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "cbbbd80293eda222b9dee52144d7b95d757c9946c8e64f849a805dc45dbee9d2",
+  "candidateScopedSha256": "eb182a4f846c8d3600a80cc7fde9935966f488fc7c0b56b9e08c878edfe61127",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

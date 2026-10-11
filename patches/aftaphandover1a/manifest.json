@@ -1,0 +1,28 @@
+{
+  "parentCommit": "ad1fdf467dddc36ec2c1475e0abfeeb62acf3f23",
+  "version": "2.75-aftaphandover1a",
+  "parentFiles": {
+    "app/build.gradle": "4e5fd14d5becbb628649eb2decc5bc60351873091a16fa122d13f739f8d8359d",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "fde1f636d6d1e8ccc76b938a562b3a575242863b0fab2ce0e0a8915de385eed4",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "e36670e15ec00b0ab64828e8b74127341c9b5c1d679310f88203ed166d6ba3d2",
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "6a1d855aeea89e2e1ada9371673d1824a39750d53d0b20df16a3aa6f9df65809",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "e3bb7af33cbd3f73f02f49ad06c022517f966955e31ba3bdd1781995335a1c88",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/StillCaptureLifecycleTest.java": "8a8f884e3500429f7a0b6f4de9cca2a5c9526288b077b0d795346fff359f52e6"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "254d3c5400f1bb12d6b3d0bc5e42033d8a4c0c0f66bbc732b956b71ceb6491d3",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "fe31469a5893b9a7640b9db9b9b0f27fdff3b48110268313d2d0f676f93fb50f",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "0d820c90b468bbfcf975b6fd254c4559786a0c7097f1b47f20caf99faa87d95a",
+    "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "82ad0cfe250dab6d306e6be114b3762005cd49cd5f22310e9e470842131eb283",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "084047ba8f25b5eaf753781d6ec5a55e1abffbb74b1d3b8cfb1a98d81634a338",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/StillCaptureLifecycleTest.java": "41f848b01fd6d8eb103c58943b23c166b8198efad25fb679da0b1b4934e1f707",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/TouchFocusHandoverTest.java": "157b8bc3f04dc043396a644c8b20497a46e74ae777b1a2a6d06e9d17e8b78a90"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/TouchFocusHandoverTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "5d27e6a8d97a365206fac9da34de4048a2bab7a7ad116dedb9ef231e11e11a56",
+  "parentScopedSha256": "cbbbd80293eda222b9dee52144d7b95d757c9946c8e64f849a805dc45dbee9d2",
+  "candidateScopedSha256": "eb182a4f846c8d3600a80cc7fde9935966f488fc7c0b56b9e08c878edfe61127"
+}
