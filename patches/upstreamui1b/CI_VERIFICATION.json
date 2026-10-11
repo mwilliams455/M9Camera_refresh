@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "builtCommit": "92deccf0cf002b7e0280ba36dbaaeb9f531b4564",
+  "runId": 38164466935,
+  "jobId": 114544020249,
+  "runUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38164466935",
+  "focusedTests": 146,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "libraryReleaseResourcesVerified": true,
+  "compiledUiResourcesVerified": true,
+  "logEvidence": [
+    "2026-10-11T18:40:00.4515296Z BUILD SUCCESSFUL in 3m 7s",
+    "2026-10-11T18:40:13.9838598Z > Task :circularbarlib:verifyReleaseResources",
+    "2026-10-11T18:40:13.9850858Z BUILD SUCCESSFUL in 13s",
+    "2026-10-11T18:40:14.1396631Z All focused tests passed: 146",
+    "2026-10-11T18:40:25.9102139Z {\"status\": \"PASS\", \"independentReopen\": true, \"bytes\": 119634741, \"sha256\": \"8440b8a91f014c1dc3b13023e562570990889b3d20c4a58e146b2b8c7a11037a\", \"androidV2SignatureVerified\": true, \"archiveVerified\": true, \"compiledUiResourcesVerified\": true}"
+  ],
+  "phoneValidationPending": true
+}
