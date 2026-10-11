@@ -4,7 +4,7 @@ Updated 11 October 2026 following Malcolm's direction. This is the current AF wo
 
 ## Current priority: autofocus lifecycle corrections
 
-The first source audit is complete: [AF lifecycle audit](AF_LIFECYCLE_AUDIT_20261011.md). It records six findings and four bounded Java control-flow reproductions. AF-01/AF-02 corrections are implemented in draft 2.73 AFCONTINUITY1A: shared still-focus preparation and IDLE preview recovery, with explicit settings restoration at initialization/manual reset. Android validation is in progress; phone validation remains pending. Next: capture terminal cleanup and asynchronous ownership (AF-03 through AF-06).
+The first source audit is complete: [AF lifecycle audit](AF_LIFECYCLE_AUDIT_20261011.md). It records six findings and four bounded Java control-flow reproductions. AF-01/AF-02 corrections are implemented in draft 2.73 AFCONTINUITY1A: shared still-focus preparation and IDLE preview recovery, with explicit settings restoration at initialization/manual reset. Android build and all 101 regression tests passed, including 30 new focus cases. The signed 2.73 installer passed packaging checks; phone validation remains pending. Next: capture terminal cleanup and asynchronous ownership (AF-03 through AF-06).
 
 Audit scope: the exact 2.72 FOCUSTRACK1A source, including inherited autofocus behaviour from merged 2.71. Check request ownership and transitions across camera open/close, tap focus, continuous-picture AF, manual focus, capture completion/failure, pause/resume, lens/zoom/profile/mode changes, and stale asynchronous callbacks. Distinguish confirmed code defects from device-dependent behaviour and gaps in test coverage.
 

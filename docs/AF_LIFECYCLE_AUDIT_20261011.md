@@ -4,13 +4,15 @@
 
 The source audit found six actionable lifecycle defects/gaps. The first fixes should preserve AF mode/region/manual distance in Monochrom still requests and remove the legacy trigger sequence from ordinary preview recovery. Several problems predate the experimental tracker; parking tracking does not remove them.
 
-This is a source/control-flow audit, not a claim that these defects caused the supplied photographs' softness, exposure pumping or the screen-recorder/shutter failure. No runtime app code or APK changed in this pass.
+This is a source/control-flow audit, not a claim that these defects caused the supplied photographs' softness, exposure pumping or the screen-recorder/shutter failure. No runtime app code or APK changed in the original audit pass; subsequent corrections are tracked below.
 
 ## Correction progress — 2.73 AFCONTINUITY1A
 
 AF-01 and AF-02 are addressed in source in [draft PR #91](https://github.com/mwilliams455/M9Camera_refresh/pull/91). Both still routes now use shared focus preparation; recovery preserves focus mode and submits only a capability-gated continuous-AF CANCEL before IDLE repeats. AUTO/MACRO and manual infinity remain intact. Initialization/manual-panel exit restore preferences explicitly. One-shot cleanup clears its original builder even if the camera closes during submission.
 
-There are 30 new parameterized controller/request-boundary cases across M9 and Monochrom. Source reconstruction, both production call sites and reverse restoration pass. Android CI is in progress. Phone lens behaviour remains unvalidated. These tests isolate the existing profile exposure configuration and are not full capture/HAL simulations.
+There are 30 new parameterized controller/request-boundary cases across M9 and Monochrom. Source reconstruction, both production call sites and reverse restoration pass. Android CI passed all 101 tests (30 new focus cases and 71 inherited cases), with zero failures/errors/skips. The signed installer passed version/certificate, 16 KiB alignment, compiled-menu and native/assets preservation checks. Phone lens behaviour remains unvalidated. These tests isolate the existing profile exposure configuration and are not full capture/HAL simulations.
+
+Evidence: [build verification](../patches/afcontinuity1a/BUILD_VERIFICATION.json), [packaging verification](../patches/afcontinuity1a/PACKAGED_VERIFICATION.json), [source verification](../patches/afcontinuity1a/SOURCE_VERIFICATION.json).
 
 AF-03, AF-04, AF-05 and AF-06 below remain open. The historical audit and four pinned host reproductions below describe 2.72 and are intentionally unchanged. Tracking remains parked and default off; SL firmware decryption remains blocked.
 
