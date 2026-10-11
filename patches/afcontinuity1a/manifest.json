@@ -8,15 +8,15 @@
   },
   "fileOverrides": {
     "app/build.gradle": "5e04af1b3e58c4a3ce3dfd94bf0122123c0bac41e0d95fcfb8b03fe101a8c1cc",
-    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "03c50328aaec98cfa2638de641a533f1b1780edecb1a27618c9f2548f7cde0f6",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "86739053f8fc7d0f3f6a21a5a7b9a0a10c8f3063eec6202402962d1c975aea0a",
     "app/src/main/java/com/particlesdevs/photoncamera/manual/ParamController.java": "6a1d855aeea89e2e1ada9371673d1824a39750d53d0b20df16a3aa6f9df65809",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/AfContinuityTest.java": "66f93894aa98f61108dfad9d57f605a858625fa55fffe7845c303a8c0ad07ee5"
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/AfContinuityTest.java": "b3f8ea78b78503172ac70d570ea02a245c2eea65a3fa2af7e9ac23d5e0550ec4"
   },
   "newFiles": [
     "app/src/test/java/com/particlesdevs/photoncamera/capture/AfContinuityTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "03a067d82acfd29dc7ca61cd90f093493727dd15dba515d0c7022708337ee7a2",
+  "patchSha256": "ff2702b9f22417482b451dc134725a8a61a415bbedd6e5b38d600396dc84a493",
   "parentScopedSha256": "e6b83b94984a6690182c80031e6621f2fe6e6a7627ffb94e0aa67c462512d323",
-  "candidateScopedSha256": "fc141b95e5f224afc065eb797bd78b9ce01c421d60ae7be1dc1df582ce1e2273"
+  "candidateScopedSha256": "59771ade49d057aaaa967824dfc8fcdf0445a87643711a0460eaea6d8084fa78"
 }
