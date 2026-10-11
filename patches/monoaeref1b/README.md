@@ -38,7 +38,8 @@ PHOTO/MOTION exposure energy at -1/0/+1 EV, explicit conflicts, incomplete evide
 request association, measured sensor values and freshness/session boundaries.
 The Android workflow requires 128 focused tests including the named phone regression,
 then preserves the accepted 2.83 native libraries/assets, signs and independently
-reopens the installer. CI and phone validation are pending. Draft only; no merge.
+reopens the installer. CI passed all 128 tests with zero failures, errors or skips.
+Phone validation remains pending. Draft only; no merge.
 
 ## Phone check
 
@@ -46,3 +47,13 @@ Install the APK from **M9Cam-2.84-READY-TO-INSTALL** over the existing app. Retr
 Monochrom MOTION on the affected lens. If the warning returns, use **Copy details**
 and paste that report. If capture succeeds, check that brightness and user EV behave
 normally. No exported JSON file is required to report another shutter refusal.
+
+Verified download: [M9Cam-2.84-READY-TO-INSTALL](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38161340196/artifacts/11710487871).
+
+CI run 38161340196 built commit `7dd0eca52ce1fe6a37f2762ee3e757d301132cd7`.
+The downloaded archive was independently checked again for recorded SHA-256, CRCs,
+package/version, accepted Android v2 signature, alignment and byte-identical 27 native
+libraries/285 assets. See CI_VERIFICATION.json, PACKAGED_VERIFICATION.json and
+GITHUB_DELIVERY_VERIFICATION.json.
+
+APK SHA-256: `e6818198bec1178caee8630322a4bbe6a832041c94635b3ef35298fec0e09868`.
