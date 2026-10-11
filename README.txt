@@ -1,3 +1,5 @@
+2.79 MONOSAVEPIPE1A performance candidate: bounded Monochrom render/save separation and immediate durable DNG publication wake. See patches/monosavepipe1a/README.md. Phone performance validation pending; not merged.
+
 Current work order (11 October 2026): docs/PROJECT_GOALS.md
 Autofocus source audit: docs/AF_LIFECYCLE_AUDIT_20261011.md (six findings).
 Lifecycle corrections are next. SL-series firmware-derived tracking is a

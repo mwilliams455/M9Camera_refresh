@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "scenarios": [
+    "delay_exif",
+    "delay_publish",
+    "delay_dng",
+    "completion_saturation",
+    "exif_saturation",
+    "output_0_plain",
+    "output_0_raw",
+    "output_1_plain",
+    "output_1_raw",
+    "output_2_plain",
+    "output_2_raw",
+    "render_throw",
+    "render_failure",
+    "missing_exif",
+    "exif_failure",
+    "publish_failure",
+    "raw_failure",
+    "dng_timeout",
+    "stage_failure",
+    "metadata_failure",
+    "callback_throw",
+    "diagnostics_off",
+    "fast",
+    "wake_coalescing_during_pump_rejection_retry_retention"
+  ],
+  "count": 24,
+  "phoneBenchmark": false
+}

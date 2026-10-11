@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/export/MonoDngExport1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/export/MonoDngPublisherWake.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/MonoSaveQueue.java"
+  ],
+  "unchangedScopedFiles": 1353,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "8ee982bc4a01d2a4154adc66cf922ed00de7496e54a826c5112a9e3086a91be0",
+  "candidateScopedSha256": "25856604fc7f0a1f8f4dce2eef14b4d2f1bbe68ecb12133cd60628e283a77832",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}
