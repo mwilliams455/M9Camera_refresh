@@ -36,7 +36,17 @@ AF-05/AF-06 corrections are implemented in [draft PR #93](https://github.com/mwi
 
 Passive settling now requires current-tap eligibility for both scan observation and completion. Absolute timeout retires the attempt without treating elapsed time as an observed focus acknowledgment. Tests exercise actual TouchFocus state transitions and controller admission/request methods with mocked sessions, request-result tags and a Robolectric clock. This is not a full HAL or physical-lens simulation.
 
-Android CI passed all **181 tests** (36 new handover cases plus 145 inherited cases), with zero failures/errors/skips. The signed 2.75 installer passed version/certificate, 16 KiB alignment, both compiled-menu and byte preservation checks for all 27 native libraries and 285 assets. Evidence: [build](../patches/aftaphandover1a/BUILD_VERIFICATION.json), [package](../patches/aftaphandover1a/PACKAGED_VERIFICATION.json), [source](../patches/aftaphandover1a/SOURCE_VERIFICATION.json). Device behaviour of this new build remains untested; the successful 2.74 feedback above remains valid for that build. Photographic rendering, exposure/WB policy and the parked tracker are unchanged. SL-series tracking remains blocked by unresolved firmware decryption.
+Android CI passed all **181 tests** (36 new handover cases plus 145 inherited cases), with zero failures/errors/skips. The signed 2.75 installer passed version/certificate, 16 KiB alignment, both compiled-menu and byte preservation checks for all 27 native libraries and 285 assets. Evidence: [build](../patches/aftaphandover1a/BUILD_VERIFICATION.json), [package](../patches/aftaphandover1a/PACKAGED_VERIFICATION.json), [source](../patches/aftaphandover1a/SOURCE_VERIFICATION.json). Subsequent 2.75 M9 target-switching feedback and the Monochrom exposure-readiness failure are recorded below; the successful 2.74 feedback remains valid for that build. Photographic rendering, exposure/WB policy and the parked tracker are unchanged. SL-series tracking remains blocked by unresolved firmware decryption.
+
+## Phone feedback — 2.75, 11 October
+
+Malcolm supplied M9 images 52374/52375/52376/52377/52380/52381/52382 and confirmed deliberately switching focus targets between the foreground bottle, background and animals. The sharp planes follow those selected distances; the last cat image resolves eye/whisker detail. Count this M9 focus-switching/capture check as passed.
+
+The subsequent Monochrom images 52390/52392/52393/52395/52397/52398/52399/52400 show completed captures, with a moving subject. Malcolm reported several refused shutters with “Exposure preview is not ready. Please try again.” Do not mark Monochrom capture reliability as passed. App-resume behaviour remains unconfirmed. These JPEGs do not contain a trace of the refused attempts and cannot establish why their exposure plans were unavailable.
+
+## Follow-up — 2.76 MONOPLANWAIT1A
+
+Source inspection found Monochrom immediately rejected a missing current exposure plan and invoked full session recovery before any still submission. This is a concrete readiness-handling gap, separate from successful focus-switching evidence. [MONOPLANWAIT1A](../patches/monoplanwait1a/README.md) gives the existing plan selector a bounded one-second retry on the same shutter owner. If it remains unavailable, release the unsubmitted attempt without restarting the healthy camera session. Preserve all exposure-plan validity checks; genuine sensor/submission failures still recover through the existing path. Adds 18 readiness/lifecycle cases. Android and installer verification pending; physical-device validation remains pending.
 
 ## Source and verification
 
