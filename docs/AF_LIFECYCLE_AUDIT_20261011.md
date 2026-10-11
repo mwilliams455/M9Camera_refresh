@@ -14,7 +14,17 @@ There are 30 new parameterized controller/request-boundary cases across M9 and M
 
 Evidence: [build verification](../patches/afcontinuity1a/BUILD_VERIFICATION.json), [packaging verification](../patches/afcontinuity1a/PACKAGED_VERIFICATION.json), [source verification](../patches/afcontinuity1a/SOURCE_VERIFICATION.json).
 
-AF-03, AF-04, AF-05 and AF-06 below remain open. The historical audit and four pinned host reproductions below describe 2.72 and are intentionally unchanged. Tracking remains parked and default off; SL firmware decryption remains blocked.
+AF-03/AF-04 are addressed by the subsequent 2.74 candidate below. AF-05 and AF-06 remain open. The historical audit and four pinned host reproductions below describe 2.72 and are intentionally unchanged. Tracking remains parked and default off; SL firmware decryption remains blocked.
+
+## Correction progress — 2.74 AFLIFECYCLE1A
+
+AF-03 ordinary still cleanup and AF-04 shared callback/session ownership are implemented in [draft PR #92](https://github.com/mwilliams455/M9Camera_refresh/pull/92). A single attempt owns AF preparation, submission and RAW handoff. Failure/abort/closure and no-result deadlines retire the attempt once, release its input, stop further capture admission and reopen through existing recovery. Long-shutter budgets include requested exposure/frame duration. Dedicated capture-session configuration has its own deadline.
+
+Preview and still results are checked before state mutation. Configuration callbacks, queued shutters and delayed RAW/recovery work carry the owning device, open token and session generation. Failed/retired work cannot recover autofocus onto a replacement camera. Ordinary capture success releases ownership after RAW handoff to the existing saving route. No native renderer, exposure/WB policy or tracking algorithm changed.
+
+The new tests cover submission faults, duplicate/late completion, no AF/results, missing/late RAW, capture overlap, stale preview results, replacement sessions, input release and long exposures. They exercise controller lifecycle methods with mocked sessions/savers and a Robolectric clock, parameterized for both profiles. Exact source checks establish both production capture routes and dedicated-session submission reach those methods. These are not full HAL, RAW pipeline or physical lens simulations.
+
+Android CI passed all **145 tests** (44 new lifecycle cases and 101 inherited cases), with zero failures/errors/skips. The signed 2.74 installer passed version/certificate, 16 KiB alignment, both compiled-menu and native/assets preservation checks. Phone validation remains pending. Evidence: [build](../patches/aflifecycle1a/BUILD_VERIFICATION.json), [package](../patches/aflifecycle1a/PACKAGED_VERIFICATION.json), [source](../patches/aflifecycle1a/SOURCE_VERIFICATION.json). Tap/shutter handover and TouchFocus disposal (AF-05), and passive-settle eligibility (AF-06), remain separate work; this change does not claim to fix them or prove the cause of earlier image softness/exposure symptoms.
 
 ## Source and verification
 
