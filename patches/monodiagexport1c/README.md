@@ -16,7 +16,9 @@ No per-frame/retry export or extra image buffer is introduced. M9 capture, metad
 
 ## Verification
 
-Exact reconstruction and reverse-patch verification pass: six scoped files change, including version and three test files; 1,353 scoped files are unchanged. Android regression/build and signed-package verification are pending.
+Exact reconstruction and reverse-patch verification pass: six scoped files change, including version and three test files; 1,353 scoped files are unchanged. Android build and all 104 focused tests pass (zero failures, errors or skips). CI run 38146778173 built source commit `0aaeb1efd2a3c564458e261807c586fe131200e8`; see CI_VERIFICATION.json. The eight new regression cases cover the added failure/export/fallback paths.
+
+Signed-package verification passes for version 2.81 / code 27281, the accepted certificate and 16 KiB alignment. All 27 native libraries and 285 assets are byte-identical to 2.80. Installer SHA-256: `41fc2d8b2c8fc239e39e3f7f2b23f824957a44c4a09910383184eca7071fbf69`. See PACKAGED_VERIFICATION.json. [Draft PR #99](https://github.com/mwilliams455/M9Camera_refresh/pull/99) is not merged.
 
 Focused tests cover real private spool persistence, failed old-folder delivery, recovery into the permitted folder, unrelated-role preservation, diagnostics-off, metadata getter exceptions, storage exceptions, once-only cleanup, bounded attachment, and successful-photo diagnostic association. These tests do not identify the original phone rejection trigger.
 
