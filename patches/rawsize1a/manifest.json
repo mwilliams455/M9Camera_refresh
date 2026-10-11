@@ -15,14 +15,14 @@
     "app/build.gradle": "123b45c99622af92371fa70aaf8e57e14004c2c084e21d77298fd1c51ce3cfa0",
     "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "8ec80cab30c97d75341f47c4e422d5a4498ed883599a6df74e2a29422f2c689e",
     "app/src/main/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibility1A.java": "d18da2b06604e1c6ee28845436b98ed0c89dd91fb14daa65ca1441f94b222f67",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibilityTest.java": "c89c04a12589abb95f57270d47f1a51c9bbc303be967d2341a99922d3e07f1d3"
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibilityTest.java": "7fa01abc3c07950c5a612574175faf96c3078c8ada65c4b691966bde77105881"
   },
   "newFiles": [
     "app/src/main/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibility1A.java",
     "app/src/test/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibilityTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "801f334554c1ffe2cef361d63d23db8b9326c7e5fec9578926cd34c620710870",
+  "patchSha256": "4344563b1384ad20a6f682cb1b53f0393ea279061abbd79f8ecfd7dcf386af8c",
   "parentScopedSha256": "e0045b3afde36a1d63e18df76ec7633636fd32c8859631120597377bb93d1f4f",
-  "candidateScopedSha256": "84c4b786a660ce6eeeb311a3eda086b89531bec4ee08cc7a8e9e9fff6657cd40"
+  "candidateScopedSha256": "74b952e74dd0e81aa6ce10855b61054fb4ca97e5d40c57ea0e700d4fced3ddd1"
 }
