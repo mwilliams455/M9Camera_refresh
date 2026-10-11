@@ -19,4 +19,12 @@ Exact reconstruction, scoped change verification and reverse restoration are req
 
 On 11 October Malcolm reported 2.74 felt quick enough after tap-to-focus then capture in M9 and Monochrom (52317/52318). He additionally supplied three captures taken while focus was still settling (52339/52338/52336). These are successful phone checks of those attempts, not pending requests to repeat them. They do not reproduce stale asynchronous callback ordering. This 2.75 candidate adds code-level protection for that remaining gap; its device behaviour has not yet been tested.
 
-Android and installer verification pending.
+## Verification
+
+Android build and all **181 tests** passed (36 handover cases and 145 inherited cases; zero failures/errors/skips), workflow [38121755874](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38121755874), source commit `541a93e28514c024ae5aa3f0b38a1015fc005eeb`.
+
+The initial test fixture omitted the Monochrom camera-characteristics map that a real controller initializes. Correcting the fixture preserved the request assertion; the complete suite then passed. Background-thread tap exceptions also propagate to the test runner.
+
+The signed installer passed version/certificate, 16 KiB ZIP and Monochrom ELF alignment, compiled-menu and exact native/assets preservation checks. All 27 native libraries and 285 assets match 2.74. SHA-256: `94de57daefb1dddb43297d5c3b8220c233ec76579c39696faa07f6b0c5ca7963`.
+
+Evidence: [source](SOURCE_VERIFICATION.json), [build](BUILD_VERIFICATION.json), [package](PACKAGED_VERIFICATION.json). This new build still needs physical-device evidence; the successful 2.74 phone feedback above remains recorded.
