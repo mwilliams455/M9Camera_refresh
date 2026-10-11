@@ -2,7 +2,11 @@
 
 Updated 11 October 2026 following Malcolm's direction. This is the current project work order; historical handoffs retain their original status.
 
-## Current priority: capture and processing performance
+## Current priority: recurring Monochrom exposure readiness
+
+Recording 52650.mp4 on 2.79 shows Monochrom Motion reporting six photos saved, then rejecting another shutter with the exposure-preview warning. The save backlog has cleared before rejection. This does not independently establish save completeness, a measured speedup or the exact metadata trigger. Candidate 2.80 MONOPLANWAIT1B corrects two source defects: colour-context exceptions discarding otherwise valid physical exposure metadata, and the final retry deadline skipping a fresh selection. It preserves the metadata age limits, exposure allocator and one-second retry budget. Diagnostics-enabled rejected shutters stage one small readiness record through the existing spool; there is no continuous export. Source verification passed; Android and phone validation pending. See [candidate details](../patches/monoplanwait1b/README.md).
+
+## Capture and processing performance
 
 Malcolm accepted the 2.78 startup focus-placement correction and authorised continuing with capture/processing performance. The first bounded candidate, 2.79 MONOSAVEPIPE1A, separates Monochrom rendering from final EXIF/DNG publication waits and wakes durable DNG publication after staging. The RAW limit remains three; a separate lightweight completion queue is bounded to one active plus two waiting, with synchronous fallback. M9 rendering and all photographic transforms are unchanged. Source verification, all 24 host scenarios, all 28 focused Android tests and signed-package checks passed. All 27 native libraries and 285 assets remain byte-identical to 2.78. PR #97 is a draft; phone performance/save-completeness validation remains pending. See [candidate details](../patches/monosavepipe1a/README.md).
 

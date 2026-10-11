@@ -1,4 +1,4 @@
-2.79 MONOSAVEPIPE1A performance candidate: bounded Monochrom render/save separation and immediate durable DNG publication wake. See patches/monosavepipe1a/README.md. 24 host scenarios, 28 Android tests and signed-package checks passed. Phone performance validation pending; PR #97 is not merged.
+2.80 MONOPLANWAIT1B readiness correction: preserve valid physical exposure metadata on colour-preview failure and check once more at the unchanged retry deadline. One rejection record is exported only when diagnostics are enabled. See patches/monoplanwait1b/README.md. Source verification passed; Android build and phone validation pending. Recording 52650 shows the 2.79 readiness warning after six photos were reported saved; its exact metadata trigger is not yet established. The bounded 2.79 save pipeline is retained.
 
 Current work order (11 October 2026): docs/PROJECT_GOALS.md
 Autofocus source audit: docs/AF_LIFECYCLE_AUDIT_20261011.md (six findings).
