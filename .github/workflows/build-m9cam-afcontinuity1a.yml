@@ -23,7 +23,10 @@ jobs:
       - name: Provision pinned Android tools
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Reconstruct pinned source
-        run: python3 patches/afcontinuity1a/assemble.py "$RUNNER_TEMP/PhotonCamera_273"
+        run: |
+          python3 patches/focustrack1a/assemble.py "$RUNNER_TEMP/PhotonCamera_272"
+          python3 patches/afcontinuity1a/assemble.py "$RUNNER_TEMP/PhotonCamera_273" --parent "$RUNNER_TEMP/PhotonCamera_272"
+          python3 patches/afcontinuity1a/verify_source.py "$RUNNER_TEMP/PhotonCamera_272" "$RUNNER_TEMP/PhotonCamera_273"
       - name: Build Android and test AF continuity plus inherited regressions
         working-directory: ${{ runner.temp }}/PhotonCamera_273
         run: |
