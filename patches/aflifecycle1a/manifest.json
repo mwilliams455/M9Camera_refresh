@@ -1,0 +1,22 @@
+{
+  "parentCommit": "5350b16fa6dba58bc5d03d4b8dc011698f194083",
+  "version": "2.74-aflifecycle1a",
+  "parentFiles": {
+    "app/build.gradle": "5e04af1b3e58c4a3ce3dfd94bf0122123c0bac41e0d95fcfb8b03fe101a8c1cc",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "22188b7e7109274b16fab0e234fb8597634604a9bfb3ea4ddadbbe62e206cefd"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "4e5fd14d5becbb628649eb2decc5bc60351873091a16fa122d13f739f8d8359d",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "fde1f636d6d1e8ccc76b938a562b3a575242863b0fab2ce0e0a8915de385eed4",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/StillCaptureAttempt.java": "2d7c9670ab2b940355f8d6c886cfc39f943c849925575b58233580c5e54f112a",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/StillCaptureLifecycleTest.java": "8a8f884e3500429f7a0b6f4de9cca2a5c9526288b077b0d795346fff359f52e6"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/StillCaptureAttempt.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/StillCaptureLifecycleTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "ecc19ca0f9afc6a0de38c794276d5868512493d40bd728566e9bd493eef13098",
+  "parentScopedSha256": "408dca4af59872e9032d57e9ad10ee578bbf33708d4a8c9bb29be8ed91824fe9",
+  "candidateScopedSha256": "cbbbd80293eda222b9dee52144d7b95d757c9946c8e64f849a805dc45dbee9d2"
+}
