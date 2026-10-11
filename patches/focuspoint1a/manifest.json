@@ -1,0 +1,24 @@
+{
+  "parentCommit": "1d1cf96e59c3c0508455140d7d3a36f7b08ad4ee",
+  "version": "2.78-focuspoint1a",
+  "parentFiles": {
+    "app/build.gradle": "224e3565a025a6ce8ced34085647a974c9a60b19df39527b3f047c50f5e0b966",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "58cf39121eb13c5d69c5a8175fe4e6ee0a12af67484b3d5c167084467a4f4f4b",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "40a4fd3ce3685ab8054a1c5d24ebbc81302ee0a200ab6dda00484dfdbb8d71b3",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/FocusCircleView.java": "f61aaead48cfadfb4edda6a03a91bcac436370e94f21a2e7ce31134d3bb0a113"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "44f1fb5cce1dd9a99e4b2dd2d06115fd2b2823419dffd631af02826afbd0bb37",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "73b17febb7f2607f070c8e56ca6d974c29cb98aa6ae1cbd97a0b39d936a35d75",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java": "861eacd2b25edc004667709bab44137f0926935c0a750896c3886bb78fca4246",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/FocusCircleView.java": "b90bfc0e3918ed0c72a65efe486860e726d34a929d69f78bc2cdb150bddad520",
+    "app/src/test/java/com/particlesdevs/photoncamera/control/FocusPointLayoutTest.java": "3a0b51f753e5d5c526ca9f8be7f81c7666e1cc3f5b69e9e8b3314fa42e923cea"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/control/FocusPointLayoutTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "fd65936c991d263a4a2599e626610a0cbece8db4b9d050abcf07a73531cc1744",
+  "parentScopedSha256": "21d6c86beae8086e90898316321140fa30dba2dd97fc080dcf512dbc59c8253d",
+  "candidateScopedSha256": "8ee982bc4a01d2a4154adc66cf922ed00de7496e54a826c5112a9e3086a91be0"
+}
