@@ -10,13 +10,13 @@
     "app/build.gradle": "43380a8514dc23542201af88c6cf6d93bd23c0bfe4628e8d4d23fc8703114f7b",
     "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "1b1b546931d9668a2dd47c3e95018e76316784826b6acfdc4b04d1b90d4ce2f8",
     "app/src/main/java/com/particlesdevs/photoncamera/capture/StillCaptureAttempt.java": "f08e6e89a730fdd36acb376c63ef1ea8f1d8eb20be7f5be8496b41d72b0a56b7",
-    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java": "5ff67e1d0a5e52bef1ea106fa6b31deda7b78dfa77d5850bfca91efcf844039a"
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java": "41a0ac6cf41e07a068301ed173e772850b7ff60708cbe5623202f7702adf3908"
   },
   "newFiles": [
     "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java"
   ],
   "binaryPayloads": [],
-  "patchSha256": "989efbd775f19c606d1a91505f80057c7ef2082beed57ebde81cd1b5c4b2a79a",
+  "patchSha256": "7f06123cbb6f9b509ebcada96d45b594c8682d26ee3f98ad64e14eb70cce9878",
   "parentScopedSha256": "49f114c92113f9232cd84d25aeb511d4428bc35870121c1bfa39fa96fdc250e2",
-  "candidateScopedSha256": "cf89acfb4f7535a2eaf17a401b5c4a84dd9b176d1615a39d55465bb6f53bf413"
+  "candidateScopedSha256": "24677014fd18cca5605d452f1315985524ccdb00019c44f6da7819b7cfd68729"
 }
