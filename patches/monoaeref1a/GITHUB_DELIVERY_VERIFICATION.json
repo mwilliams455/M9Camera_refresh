@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "verification": "Independent check after downloading the GitHub artifact",
+  "runId": 38160453459,
+  "jobId": 114532064807,
+  "artifactId": 11710965542,
+  "artifactName": "M9Cam-2.83-READY-TO-INSTALL",
+  "artifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38160453459/artifacts/11710965542",
+  "expiresAt": "2027-01-09T17:37:52Z",
+  "artifactBytes": 77818746,
+  "artifactSha256": "efef2986507b0759dcae7082b9b85ac09621c35b0700734e952bf14b4ea0acc7",
+  "installerBytes": 119634741,
+  "installerSha256": "4fad6c38463fd680ca0a621b010dbe507d06ffa56299ed5bedfab01d461fac21",
+  "androidV2SignatureVerified": true,
+  "acceptedCertificateVerified": true,
+  "archiveCrcsVerified": true,
+  "zipAlignment16KiBVerified": true,
+  "nativeLibrariesByteIdenticalTo282": 27,
+  "assetsByteIdenticalTo282": 285,
+  "versionName": "2.83-monoaeref1a",
+  "versionCode": 27283,
+  "phoneValidation": "pending"
+}

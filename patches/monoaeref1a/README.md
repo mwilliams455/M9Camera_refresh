@@ -33,7 +33,8 @@ Five scoped files change; 1,358 remain byte-identical. The reverse patch exactly
 restores the parent. Fourteen additional registry/allocator regression tests cover
 the reported ISO/shutter values, PHOTO/MOTION energy and user EV, explicit conflicts,
 missing evidence, logical/physical boundaries, exact request identity, freshness,
-session changes and metadata-read failure. Android CI and phone validation are pending.
+session changes and metadata-read failure. Android CI passed all 122 focused tests with zero failures, errors or skips.
+Phone validation is pending.
 
 The workflow reconstructs the pinned source chain, runs 122 focused tests, builds the
 APK, preserves all 27 native libraries and 285 assets from the accepted 2.82 installer,
@@ -43,3 +44,21 @@ APK before uploading **M9Cam-2.83-READY-TO-INSTALL**. Draft source only; no merg
 Android request association and frame-synchronized AE state references:
 https://developer.android.com/reference/android/hardware/camera2/CaptureResult#getRequest()
 https://developer.android.com/reference/android/hardware/camera2/CaptureResult#CONTROL_AE_STATE
+
+## Phone check
+
+Install the APK from **M9Cam-2.83-READY-TO-INSTALL** over the existing app. Recheck
+Monochrom MOTION on the same lens that refused the shutter, with diagnostics enabled.
+If the warning returns, use **Copy details** and paste that report; it now includes
+`neutralAeReference` with the exact reason and request/result fields. No exported
+JSON file or additional successful capture is required to obtain this evidence.
+
+Verified download: [M9Cam-2.83-READY-TO-INSTALL](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38160453459/artifacts/11710965542).
+
+CI run 38160453459 built commit `044de23ccbe2af9e8ce3ce871bcad195c092de49`.
+The downloaded archive was independently checked again for its recorded SHA-256,
+CRCs, installer identity, Android v2 signature, accepted certificate, alignment,
+and all 27 native libraries/285 assets against 2.82. See CI_VERIFICATION.json,
+PACKAGED_VERIFICATION.json and GITHUB_DELIVERY_VERIFICATION.json.
+
+APK SHA-256: `4fad6c38463fd680ca0a621b010dbe507d06ffa56299ed5bedfab01d461fac21`.
