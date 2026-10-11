@@ -15,3 +15,5 @@ The signed installer passed version/certificate, 16 KiB alignment, required DEX 
 The CI debug artifact retains the inherited output basename `M9Cam_2.77_UISETTINGS1A-debug.apk`; its compiled version is verified as 2.78/27278, and the final installer is `M9Cam_2.78_FOCUSPOINT1A.apk`. Device confirmation needed only for the reported case: reopen in Monochrom and tap the centre, then an off-centre detail. The circle should stay under the selected point on the first tap and after it hides.
 
 [PR #96](https://github.com/mwilliams455/M9Camera_refresh/pull/96) remains a draft; no merge performed.
+
+Phone feedback, 11 October: Malcolm confirmed “This works” after the prescribed startup Monochrom tap check. The reported placement issue is validated; the earlier pending wording and build-time JSON flags above are historical. Broader lifecycle/lens coverage is separate.
