@@ -39,3 +39,11 @@ The Android workflow builds and tests, preserves all 27 accepted native librarie
 and 285 assets from the verified 2.81 installer, signs with the accepted certificate,
 then independently reopens and verifies the result before uploading
 **M9Cam-2.82-READY-TO-INSTALL**. Draft source only; no merge is authorized.
+
+## Phone check
+
+Install the APK from the successful ready-to-install artifact over the existing app.
+Keep Monochrom diagnostics enabled. If the warning recurs, the diagnostic dialog
+stays open until dismissed. Tap **Copy details**, then paste the report into the
+investigation conversation. A screenshot of the displayed reason is also useful.
+Do not require screen recording, an additional successful photo or a missing JSON.
