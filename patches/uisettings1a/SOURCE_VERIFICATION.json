@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/binding/CustomBinding.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/model/CameraFragmentModel.java",
+    "app/src/main/res/layout/camera_fragment.xml",
+    "app/src/main/res/values/strings.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java"
+  ],
+  "unchangedScopedFiles": 1347,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "24677014fd18cca5605d452f1315985524ccdb00019c44f6da7819b7cfd68729",
+  "candidateScopedSha256": "21d6c86beae8086e90898316321140fa30dba2dd97fc080dcf512dbc59c8253d",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

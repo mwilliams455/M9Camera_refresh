@@ -48,6 +48,12 @@ The subsequent Monochrom images 52390/52392/52393/52395/52397/52398/52399/52400 
 
 Source inspection found Monochrom immediately rejected a missing current exposure plan and invoked full session recovery before any still submission. This is a concrete readiness-handling gap, separate from successful focus-switching evidence. [MONOPLANWAIT1A](../patches/monoplanwait1a/README.md) gives the existing plan selector a bounded one-second retry on the same shutter owner. If it remains unavailable, release the unsubmitted attempt without restarting the healthy camera session. Preserve all exposure-plan validity checks; genuine sensor/submission failures still recover through the existing path. Adds 18 readiness/lifecycle cases. Android CI passed all **199 tests** with zero failures/errors/skips, and the signed installer passed certificate/version, alignment, compiled-menu and native/assets preservation checks. Evidence: [build](../patches/monoplanwait1a/BUILD_VERIFICATION.json), [package](../patches/monoplanwait1a/PACKAGED_VERIFICATION.json), [source](../patches/monoplanwait1a/SOURCE_VERIFICATION.json). [PR #94](https://github.com/mwilliams455/M9Camera_refresh/pull/94) remains a draft. Physical-device validation remains pending; the precise cause of the phone's unavailable plans is not established by the saved photographs.
 
+## Phone feedback — 2.76 and UI follow-up
+
+Malcolm confirmed “It works” after the 2.76 readiness correction. Count that reported Monochrom readiness check as successful; it does not establish every lens or lifecycle ordering. He then reported the M9-named processing-queue warning after three photographs and supplied 52551.mp4 showing the legacy settings panel flashing/reappearing. These are recorded as UI follow-ups, not renewed evidence that exposure readiness failed.
+
+2.77 UISETTINGS1A uses neutral processing wording, starts the old panel hidden, hides it synchronously, and retires its model visibility before camera binding so legacy gestures cannot reopen it. Queue capacity, photographic rendering and capture/focus logic are unchanged. See [UI follow-up](../patches/uisettings1a/README.md). Android/installer verification and device UI validation are pending.
+
 ## Source and verification
 
 - Repository head audited: `80f50936cb6ff6dd10f90b0987aba4f4d3ee84b0`, draft tracking PR #90.

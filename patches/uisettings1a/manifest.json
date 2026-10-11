@@ -1,0 +1,29 @@
+{
+  "parentCommit": "b93b19be2eb5e38bde1ec917eedfcb7558c879cb",
+  "version": "2.77-uisettings1a",
+  "parentFiles": {
+    "app/build.gradle": "43380a8514dc23542201af88c6cf6d93bd23c0bfe4628e8d4d23fc8703114f7b",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "084047ba8f25b5eaf753781d6ec5a55e1abffbb74b1d3b8cfb1a98d81634a338",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java": "5911d3a3503f8c926813e55c9b9d9cc8c161912b780bfd060f985548a76cc5ad",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/binding/CustomBinding.java": "9cfa4a64a009b183dc999a084b179e199f8d1a76062be1146c266aa489793853",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/model/CameraFragmentModel.java": "f5e5c8ea09b7485273ff9fb1322884b15613a4f79e0794bf4f99c1708add1038",
+    "app/src/main/res/layout/camera_fragment.xml": "9ae0278677c8d2233dca2a5f31ccdf91c5c384a4469191d2e5dd51fdfe4085f4",
+    "app/src/main/res/values/strings.xml": "1aa8d0c5d62a0e938a946410138cef057a30c356e1ed132fb563e7b7dbf93167",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java": "cd9119803fdb779d9b756d2e085424838ccf0e4dd7ba4458e99b6bda17cf209e"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "224e3565a025a6ce8ced34085647a974c9a60b19df39527b3f047c50f5e0b966",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "9ced30bb33fb6a849057fd2c277048b8d35348ca15411e313b8f2e9740201fd5",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraUIController.java": "bf8f95f7e3b03ef93d203599e96098b9df26ef84f0debe223c95642142901526",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/binding/CustomBinding.java": "e0ed1c005bfa5bd99d91c4f3a71864c6477ac3c7e8c53ebc30d6632a5417bab2",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/model/CameraFragmentModel.java": "fea0eadb090fb7e0c253a595e2901ceb5b315581e54cacc2581285c63a99555c",
+    "app/src/main/res/layout/camera_fragment.xml": "bbb5325f82a0d23d71f0a2a4da540c92c5a46129eee409a38f1b832431c72e04",
+    "app/src/main/res/values/strings.xml": "ac5089d59e0faa128269e312f59bd8337d943e0b0dd7442b6ed5ba87aa488101",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/M9OverlayLayoutTest.java": "408e42c40b2df00466a5814e970656e80d773705440a68bd5083e3b2b8b1ea48"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "37eb152fa4265496735c2783a88fadd53ebe22273449917fcb3d68d52c965ea3",
+  "parentScopedSha256": "24677014fd18cca5605d452f1315985524ccdb00019c44f6da7819b7cfd68729",
+  "candidateScopedSha256": "21d6c86beae8086e90898316321140fa30dba2dd97fc080dcf512dbc59c8253d"
+}
