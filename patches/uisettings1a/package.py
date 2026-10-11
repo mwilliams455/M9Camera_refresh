@@ -1,4 +1,4 @@
-"""Preserve every 2.76 native library and asset for autofocus lifecycle delivery."""
+"""Preserve every 2.76 native library and asset for the settings UI delivery."""
 from pathlib import Path
 import copy,hashlib,json,re,subprocess,sys,zipfile
 root,built,control,bt,out=map(lambda p:Path(p).resolve(),sys.argv[1:]);here=Path(__file__).resolve().parent;out.mkdir(parents=True,exist_ok=True)
@@ -53,7 +53,8 @@ resources=subprocess.check_output([str(bt/'aapt2'),'dump','resources',str(final)
 assert 'photo_processing_busy' in resources and 'Photos are still processing. Please wait.' in resources
 layout=subprocess.check_output([str(bt/'aapt2'),'dump','xmltree','--file','res/layout/camera_fragment.xml',str(final)],text=True)
 legacy=re.search(r'E: com\.particlesdevs\.photoncamera\.ui\.camera\.views\.settingsbar\.SettingsBarLayout[^\n]*\n((?:[ \t]+A:.*\n)*)',layout).group(1)
-assert re.search(r'android:visibility[^\n]*0x8\b',legacy),legacy
+# XML visibility enum 2 is GONE; View.GONE is runtime flag 8.
+assert re.search(r'android:visibility[^\n]*=2\s*$',legacy,re.M),legacy
 for key in ['pref_mono_contrast_key','pref_mono_sharpness_key','pref_mono_toning_hue_key','pref_mono_toning_strength_key']:
  resource=re.search(r'resource (0x[0-9a-f]+) string/'+key+r'\b',resources).group(1);assert '@'+resource in menus['monochrom']
 assert 'pref_m9_profiles_screen' not in menus['monochrom'] and 'pref_m9_saturation' not in menus['monochrom']
@@ -71,7 +72,7 @@ with zipfile.ZipFile(final) as apk:
   symbols=subprocess.check_output(['readelf','--dyn-syms','--wide',str(lib)],text=True)
   assert 'Java_com_particlesdevs_photoncamera_monochrom_render_M9NativeColorCore_renderMonochrome1ARawScalarSharpStdDirectBitmap' in symbols
   lib.unlink();target.rmdir()
-report=dict(status='PASS',version='2.77-uisettings1a',versionCode=27277,bytes=final.stat().st_size,sha256=sha(final.read_bytes()),acceptedM9NativeLibrariesPreserved=sorted(natives-added),all27NativeLibrariesByteIdenticalTo276=True,preservedMonochromNativeLibraries=addedNative,all276AssetsUnchanged=True,addedAssets=sorted(newAssets),signatureMatchesAcceptedM9=True,zipAlignment16KiB=True,monochromElfAlignment16KiB=True,bothCompiledMenusVerified=True,phoneValidationPending=True)
+report=dict(status='PASS',version='2.77-uisettings1a',versionCode=27277,bytes=final.stat().st_size,sha256=sha(final.read_bytes()),acceptedM9NativeLibrariesPreserved=sorted(natives-added),all27NativeLibrariesByteIdenticalTo276=True,preservedMonochromNativeLibraries=addedNative,all276AssetsUnchanged=True,addedAssets=sorted(newAssets),signatureMatchesAcceptedM9=True,zipAlignment16KiB=True,monochromElfAlignment16KiB=True,bothCompiledMenusVerified=True,legacyPanelStartsGone=True,neutralQueueMessageVerified=True,oldQueueMessageAbsent=True,phoneValidationPending=True)
 for destination in [out,here]:(destination/'PACKAGED_VERIFICATION.json').write_text(json.dumps(report,indent=2)+'\n')
 (out/'SIGNATURE_CHECK.txt').write_text(cert);(out/'APK_BADGING.txt').write_text(badging)
 for kind,xml in menus.items():(out/('COMPILED_'+kind.upper()+'_MENU.txt')).write_text(xml)

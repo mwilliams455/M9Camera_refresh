@@ -52,7 +52,7 @@ Source inspection found Monochrom immediately rejected a missing current exposur
 
 Malcolm confirmed “It works” after the 2.76 readiness correction. Count that reported Monochrom readiness check as successful; it does not establish every lens or lifecycle ordering. He then reported the M9-named processing-queue warning after three photographs and supplied 52551.mp4 showing the legacy settings panel flashing/reappearing. These are recorded as UI follow-ups, not renewed evidence that exposure readiness failed.
 
-2.77 UISETTINGS1A uses neutral processing wording, starts the old panel hidden, hides it synchronously, and retires its model visibility before camera binding so legacy gestures cannot reopen it. Queue capacity, photographic rendering and capture/focus logic are unchanged. See [UI follow-up](../patches/uisettings1a/README.md). Android/installer verification and device UI validation are pending.
+2.77 UISETTINGS1A uses neutral processing wording, starts the old panel hidden, hides it synchronously, and retires its model visibility before camera binding so legacy gestures cannot reopen it. Queue capacity, photographic rendering and capture/focus logic are unchanged. See [UI follow-up](../patches/uisettings1a/README.md). Android CI passed 20 UI regression tests with zero failures/errors/skips; the signed installer passed version/certificate, alignment, compiled UI and native/assets preservation checks. [PR #95](https://github.com/mwilliams455/M9Camera_refresh/pull/95) remains a draft. Device UI validation is pending.
 
 ## Source and verification
 
