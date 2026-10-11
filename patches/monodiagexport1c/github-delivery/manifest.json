@@ -1,0 +1,14 @@
+{
+  "sourceArtifactRun": 38146778173,
+  "sourceArtifactId": 11705412150,
+  "sourceArtifactName": "monodiagexport1c-android-build",
+  "sourceFile": "PhotonCamera_281/app/build/outputs/apk/debug/M9Cam_2.81_MONODIAGEXPORT1C-debug.apk",
+  "sourceSha256": "096b02f6816b29538f282606bbba303b05db3463c87c88dbfa5b67c90c2c297a",
+  "installerFile": "M9Cam_2.81_MONODIAGEXPORT1C.apk",
+  "installerSha256": "e25a94426b8de7b44cf529be5f0a957a0dc047c29d7242bdb8ca976efafc8f15",
+  "installerBytes": 119634741,
+  "deltaSha256": "d6f1cd74cf5e8ba9e9d88f68044bf7676553158498ac8cf0b2be34bf22b68fb0",
+  "deltaBytes": 9519638,
+  "copiedBytes": 48525759,
+  "reencodedBytes": 45723976
+}
