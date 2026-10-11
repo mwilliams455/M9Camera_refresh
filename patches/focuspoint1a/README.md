@@ -8,4 +8,10 @@ This patch routes normal and fallback focus through one bounded screen-to-viewfi
 
 Five scoped files change: version, Swipe, TouchFocus, FocusCircleView and a new Android layout regression suite. Camera2 crop mapping and the autofocus protocol are preserved; capture, exposure planners, renderer/native/assets and Spot WB are unchanged. Tracking remains disabled by default and parked. The SL-series tracking goal remains blocked on unresolved firmware decryption.
 
-Source verification confirms the exact scope and reverse restoration of 2.77. Android tests and installer verification pending. Device confirmation needed only for the reported case: reopen in Monochrom and tap the centre, then an off-centre detail. The circle should stay under the selected point on the first tap and after it hides.
+Source verification confirms the exact scope and reverse restoration of 2.77. Android CI [38139813108](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38139813108) passed **63 tests**, with zero failures/errors/skips: focus-point layout (4), crop/AF helper (20), tap/shutter handover (36 across both profiles), and overlay layout (3). The empty AF-continuity discovery suite is not counted.
+
+The signed installer passed version/certificate, 16 KiB alignment, required DEX markers, compiled menus and inherited UI checks. All 27 native libraries and 285 assets remain byte-identical to 2.77. APK SHA-256: `7dd99bd89191691e8936cecd1667137b445fd0a5649d9013a5d21a23db12e7bb`. Evidence: [source](SOURCE_VERIFICATION.json), [build](BUILD_VERIFICATION.json), [package](PACKAGED_VERIFICATION.json).
+
+The CI debug artifact retains the inherited output basename `M9Cam_2.77_UISETTINGS1A-debug.apk`; its compiled version is verified as 2.78/27278, and the final installer is `M9Cam_2.78_FOCUSPOINT1A.apk`. Device confirmation needed only for the reported case: reopen in Monochrom and tap the centre, then an off-centre detail. The circle should stay under the selected point on the first tap and after it hides.
+
+[PR #96](https://github.com/mwilliams455/M9Camera_refresh/pull/96) remains a draft; no merge performed.

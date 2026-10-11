@@ -157,3 +157,12 @@ SL-series firmware-derived tracking remains a **blocked future goal**, as record
 
 - [Camera2 AF request controls](https://developer.android.com/reference/android/hardware/camera2/CaptureRequest#CONTROL_AF_TRIGGER): IDLE is the normal trigger value; START/CANCEL are commands.
 - [Capture session close behaviour](https://developer.android.com/reference/android/hardware/camera2/CameraCaptureSession#close()): in-progress requests can complete after session close.
+
+
+## Startup tap-coordinate follow-up — 2.78 FOCUSPOINT1A
+
+Recording 52573.mp4 shows a focus-ring arc displaced toward the preview's top after launch into Monochrom. Malcolm reports tapping the middle. The recording has no touch markers or Camera2 region trace, so it does not independently establish the HAL's target.
+
+The startup fallback used holder-local events minus camera-container bounds, unlike the normal M9/Monochrom path's viewfinder screen origin. The ring also treated frame-local coordinates as parent-local, then used GONE and persistent translations across constraint layout. 2.78 unifies focus entry using measured viewfinder screen coordinates, rejects points outside that frame, keeps the ring INVISIBLE when hidden, anchors it after layout and aligns hit testing. Re-tapping cancels the old hide animation. Spot WB and all capture/exposure/rendering code are unchanged.
+
+Four new Android layout regressions cover first measurement with nested offsets, translated parents and edge rejection, constraint re-layout, and hide/re-tap. Existing crop/orientation and tap/shutter ownership tests are included in the focused build. Source verification, Android CI (63 passing tests, zero failures/errors/skips) and signed installer packaging checks passed; see `patches/focuspoint1a/{SOURCE_VERIFICATION,BUILD_VERIFICATION,PACKAGED_VERIFICATION}.json`. All 27 native libraries and 285 assets match 2.77 byte-for-byte. Only first-launch tap placement requires phone confirmation for this correction. Earlier completed shutter/focus checks are not reopened. [Draft PR #96](https://github.com/mwilliams455/M9Camera_refresh/pull/96).
