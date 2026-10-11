@@ -1,4 +1,4 @@
-2.79 MONOSAVEPIPE1A performance candidate: bounded Monochrom render/save separation and immediate durable DNG publication wake. See patches/monosavepipe1a/README.md. Phone performance validation pending; not merged.
+2.79 MONOSAVEPIPE1A performance candidate: bounded Monochrom render/save separation and immediate durable DNG publication wake. See patches/monosavepipe1a/README.md. 24 host scenarios, 28 Android tests and signed-package checks passed. Phone performance validation pending; PR #97 is not merged.
 
 Current work order (11 October 2026): docs/PROJECT_GOALS.md
 Autofocus source audit: docs/AF_LIFECYCLE_AUDIT_20261011.md (six findings).

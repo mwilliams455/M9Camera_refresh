@@ -20,7 +20,7 @@ Photographic rendering, JPEG quality, DNG encoding, exposure, white balance, sha
 
 `verify_queue.py` compiles the actual production Monochrom render/finalizer queues, save selection/status, publication wake and durable spool using deterministic Android/render/storage adapters. It passes 24 scenarios: delayed EXIF, delayed JPEG publication, delayed DNG publication, both bounded saturation paths, rejected ownership, all six output choices, render and I/O failures, missing EXIF, DNG timeout/staging failure, detached callback, disabled diagnostics, frozen settings, 250 sequential completions, coalesced wakes including stages during pumping, rejected executor recovery, retry deadline and retained private payload. These are control-flow/storage tests, not photographic or phone throughput benchmarks.
 
-Android CI and signed-package verification are recorded separately after completion. Packaging must preserve all 27 native libraries and 285 assets from the accepted 2.78 APK.
+Android CI run 38141816810 passed: all 24 host scenarios and 28 focused Android regression tests, zero skipped/failures/errors. The empty AfContinuityTest suite contributes zero tests. Signed-package verification passed with the accepted certificate, version 2.79 / code 27279 and 16 KiB ZIP/native alignment. All 27 native libraries and 285 assets are byte-identical to 2.78. Installer SHA-256: `a7483f13c24320185d5a35c1a154db6bd686565e284b7fcdf3d64a8ebd71229d`. See CI_VERIFICATION.json and PACKAGED_VERIFICATION.json. [Draft PR #97](https://github.com/mwilliams455/M9Camera_refresh/pull/97) is not merged. Phone throughput/save completeness validation remains pending.
 
 ## Focused phone check
 
