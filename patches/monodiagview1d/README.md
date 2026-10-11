@@ -33,7 +33,12 @@ files and 1,355 unchanged scoped files. Four dialog tests cover exact clipboard
 content without file export, duplicate notification suppression, paused/detached
 hosts and restored dialog arguments. Existing readiness tests cover delivery of
 the typed report despite staging/metadata failures and diagnostics-off behavior.
-Android CI and phone validation are pending until their reports are recorded.
+Android CI passed all 108 focused tests with zero failures, errors or skips, including
+all four dialog cases. CI run 38158668256 built commit
+`695d5e572d4fe3010540786b53ec8760e3a94d6c`. The signed package was independently
+reopened in CI and downloaded and checked again: accepted signature, archive CRCs,
+version, alignment and byte-identical native libraries/assets pass. Phone validation
+is pending. See CI_VERIFICATION.json and GITHUB_DELIVERY_VERIFICATION.json.
 
 The Android workflow builds and tests, preserves all 27 accepted native libraries
 and 285 assets from the verified 2.81 installer, signs with the accepted certificate,
@@ -47,3 +52,7 @@ Keep Monochrom diagnostics enabled. If the warning recurs, the diagnostic dialog
 stays open until dismissed. Tap **Copy details**, then paste the report into the
 investigation conversation. A screenshot of the displayed reason is also useful.
 Do not require screen recording, an additional successful photo or a missing JSON.
+
+Verified download: [M9Cam-2.82-READY-TO-INSTALL](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38158668256/artifacts/11708958133).
+
+APK SHA-256: `7c0d266364e8294693c956e5ddb821f079d84893329f8ef7be0ed0f8980aaaea`.
