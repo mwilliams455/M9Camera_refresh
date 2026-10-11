@@ -4,6 +4,8 @@ Updated 11 October 2026 following Malcolm's direction. This is the current proje
 
 ## Current priority: recurring Monochrom exposure readiness
 
+Latest phone feedback (11 October, 14:58 Europe/London): Malcolm still receives the message after delivery of 2.80. Treat readiness as unresolved despite the passing automated tests. Obtain the matching `MONO_EXPOSURE_READINESS_*.json` from the rejected shutter before selecting another device-specific correction; no such record accompanied this report or was found in the available files. No new build or exposure-policy change is justified by the toast alone.
+
 Recording 52650.mp4 on 2.79 shows Monochrom Motion reporting six photos saved, then rejecting another shutter with the exposure-preview warning. The save backlog has cleared before rejection. This does not independently establish save completeness, a measured speedup or the exact metadata trigger. Candidate 2.80 MONOPLANWAIT1B corrects two source defects: colour-context exceptions discarding otherwise valid physical exposure metadata, and the final retry deadline skipping a fresh selection. It preserves the metadata age limits, exposure allocator and one-second retry budget. Diagnostics-enabled rejected shutters stage one small readiness record through the existing spool; there is no continuous export. Source verification, all 94 focused Android tests and signed-package checks passed. All 27 native libraries and 285 assets are identical to 2.79. Phone validation pending; PR #98 is a draft and is not merged. See [candidate details](../patches/monoplanwait1b/README.md).
 
 ## Capture and processing performance

@@ -1,6 +1,8 @@
 # 2.80 MONOPLANWAIT1B
 
-Parent: 2.79 MONOSAVEPIPE1A at `1602744eb248f639de654d0432428d857e674770`. Draft correction; Android build and signed-package verification passed. Phone validation pending.
+Parent: 2.79 MONOSAVEPIPE1A at `1602744eb248f639de654d0432428d857e674770`. Draft correction; Android build and signed-package verification passed. Phone symptom remains unresolved.
+
+Phone feedback, 11 October 2026 at 14:58 Europe/London: Malcolm still receives the exposure-preview-not-ready message in Monochrom after delivery of 2.80. The two tested source corrections are not sufficient to resolve the reported failure. No new readiness record was attached to this report or found in the available files. The next required evidence is the matching `MONO_EXPOSURE_READINESS_*.json` from the rejected shutter. Do not mark this issue fixed, increase metadata age limits, or infer the failing condition from the toast alone.
 
 Recording 52650.mp4 shows Monochrom Motion mode reporting six photos saved at about 18.5 seconds, then “Exposure preview is not ready” at about 19.5 seconds. The processing backlog has cleared before that rejection. This establishes a recurring readiness failure, but does not identify which metadata/plan condition caused that phone event.
 
