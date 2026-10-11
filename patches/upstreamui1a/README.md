@@ -28,3 +28,22 @@ menus, APK identity, v2 signature, CRCs, SHA-256 and 16 KiB alignment.
 Device validation remains pending. Install over 2.84, retry Monochrom MOTION on the
 affected lens, then open the EXIF panel and swipe/zoom between photos. Check histogram
 updates and that the panel background follows the displayed photo.
+
+## Verified installer
+
+CI passed all 146 focused tests with zero failures, errors or skips. Standalone
+`circularbarlib:verifyReleaseResources` also passed.
+
+[Download M9Cam-2.85-READY-TO-INSTALL](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38163122084/artifacts/11711241377).
+Extract the ZIP and install `M9Cam_2.85_UPSTREAMUI1A.apk` over 2.84.
+
+Built commit: `b7f8bbf229e897d070f7f1229a504b17ede1f63c`; run `38163122084`.
+The downloaded archive passed its GitHub digest, CRC, identity, v2 signature,
+alignment and byte-for-byte native-library/asset checks. See CI_VERIFICATION.json,
+PACKAGED_VERIFICATION.json and GITHUB_DELIVERY_VERIFICATION.json.
+
+APK SHA-256: `ea53e03cb320d9555837e031a2ea9ff4412cbf247731cf850ce738a27768d52b`.
+
+PR #103 remains a device-validation candidate. This integrates the selected upstream
+files on the current candidate branch; it does not finalize the earlier draft chain
+into main.
