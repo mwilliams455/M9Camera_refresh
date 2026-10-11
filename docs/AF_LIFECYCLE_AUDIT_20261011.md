@@ -14,7 +14,7 @@ There are 30 new parameterized controller/request-boundary cases across M9 and M
 
 Evidence: [build verification](../patches/afcontinuity1a/BUILD_VERIFICATION.json), [packaging verification](../patches/afcontinuity1a/PACKAGED_VERIFICATION.json), [source verification](../patches/afcontinuity1a/SOURCE_VERIFICATION.json).
 
-AF-03/AF-04 are addressed by the subsequent 2.74 candidate below. AF-05 and AF-06 remain open. The historical audit and four pinned host reproductions below describe 2.72 and are intentionally unchanged. Tracking remains parked and default off; SL firmware decryption remains blocked.
+AF-03/AF-04 are addressed by the subsequent 2.74 candidate below. AF-05/AF-06 are addressed by the subsequent 2.75 candidate below. The historical audit and four pinned host reproductions below describe 2.72 and are intentionally unchanged. Tracking remains parked and default off; SL firmware decryption remains blocked.
 
 ## Correction progress — 2.74 AFLIFECYCLE1A
 
@@ -24,7 +24,19 @@ Preview and still results are checked before state mutation. Configuration callb
 
 The new tests cover submission faults, duplicate/late completion, no AF/results, missing/late RAW, capture overlap, stale preview results, replacement sessions, input release and long exposures. They exercise controller lifecycle methods with mocked sessions/savers and a Robolectric clock, parameterized for both profiles. Exact source checks establish both production capture routes and dedicated-session submission reach those methods. These are not full HAL, RAW pipeline or physical lens simulations.
 
-Android CI passed all **145 tests** (44 new lifecycle cases and 101 inherited cases), with zero failures/errors/skips. The signed 2.74 installer passed version/certificate, 16 KiB alignment, both compiled-menu and native/assets preservation checks. Phone validation remains pending. Evidence: [build](../patches/aflifecycle1a/BUILD_VERIFICATION.json), [package](../patches/aflifecycle1a/PACKAGED_VERIFICATION.json), [source](../patches/aflifecycle1a/SOURCE_VERIFICATION.json). Tap/shutter handover and TouchFocus disposal (AF-05), and passive-settle eligibility (AF-06), remain separate work; this change does not claim to fix them or prove the cause of earlier image softness/exposure symptoms.
+Android CI passed all **145 tests** (44 new lifecycle cases and 101 inherited cases), with zero failures/errors/skips. The signed 2.74 installer passed version/certificate, 16 KiB alignment, both compiled-menu and native/assets preservation checks. Phone validation remains pending. Evidence: [build](../patches/aflifecycle1a/BUILD_VERIFICATION.json), [package](../patches/aflifecycle1a/PACKAGED_VERIFICATION.json), [source](../patches/aflifecycle1a/SOURCE_VERIFICATION.json). Tap/shutter handover and TouchFocus disposal (AF-05), and passive-settle eligibility (AF-06), are tracked in 2.75 below; this change does not claim to fix them or prove the cause of earlier image softness/exposure symptoms.
+
+## Phone feedback — 2.74, 11 October
+
+Malcolm reported capture was quick enough and clarified that 52317/52318 were taken using tap-to-focus followed by capture in M9 and Monochrom. He then supplied 52339/52338/52336 and explicitly stated focus was still settling when the shutter was pressed. All five captures completed; the displayed samples show reasonably defined scene edges. Count these as successful checks of those attempts. Do not list those same tap/shutter or settling tests as still awaiting user execution. They do not establish every asynchronous ordering, lens or lifecycle transition.
+
+## Correction progress — 2.75 AFTAPHANDOVER1A
+
+AF-05/AF-06 corrections are implemented in [draft PR #93](https://github.com/mwilliams455/M9Camera_refresh/pull/93). A tap captures its preview/session owner and submits request mutations on the camera handler. Shutter admission retires tap continuations before focus preparation while retaining AF mode and selected region. Tap admission is blocked during the capture, and a pre-shutter queued tap cannot revive after capture completion. Session/manual replacement and view pause/destruction retire callbacks; timeout removal targets its original handler. Manual focus writes use the same camera handler and retain valid infinity. The existing tap-meter clear on initialization/reset is preserved.
+
+Passive settling now requires current-tap eligibility for both scan observation and completion. Absolute timeout retires the attempt without treating elapsed time as an observed focus acknowledgment. Tests exercise actual TouchFocus state transitions and controller admission/request methods with mocked sessions, request-result tags and a Robolectric clock. This is not a full HAL or physical-lens simulation.
+
+Android/installer verification is pending. Device behaviour of this new build remains untested; the successful 2.74 feedback above remains valid for that build. Photographic rendering, exposure/WB policy and the parked tracker are unchanged. SL-series tracking remains blocked by unresolved firmware decryption.
 
 ## Source and verification
 
