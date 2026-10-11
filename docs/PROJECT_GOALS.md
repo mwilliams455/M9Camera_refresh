@@ -1,0 +1,28 @@
+# M9 / Monochrom project goals
+
+Updated 11 October 2026 following Malcolm's direction. This is the current AF work order; historical handoffs retain their original status.
+
+## Current priority: autofocus lifecycle corrections
+
+The first source audit is complete: [AF lifecycle audit](AF_LIFECYCLE_AUDIT_20261011.md). It records six findings and four bounded Java control-flow reproductions. Next: AF mode/region/manual-distance parity between M9 and Monochrom, then ownership and terminal cleanup. Android integration and phone validation remain pending.
+
+Audit scope: the exact 2.72 FOCUSTRACK1A source, including inherited autofocus behaviour from merged 2.71. Check request ownership and transitions across camera open/close, tap focus, continuous-picture AF, manual focus, capture completion/failure, pause/resume, lens/zoom/profile/mode changes, and stale asynchronous callbacks. Distinguish confirmed code defects from device-dependent behaviour and gaps in test coverage.
+
+Preserve Continuous Picture AF for stills. Keep M9/Monochrom rendering, exposure policy and AE/AWB controls outside tracking ownership. Firmware decryption is not a prerequisite for this audit.
+
+The experimental 2.72 patch tracker is parked as a baseline. Malcolm's initial phone feedback was “not bad for a first pass”; this is not complete lifecycle or accuracy validation. PR #90 remains a draft and this goal does not authorize its merge.
+
+## Blocked: SL-series firmware-derived focus tracking
+
+Goal: investigate and adapt the SL-series subject detection, tracking modes and AF behaviour controls for the shared Android camera, across supported devices and lenses. Initial interest includes human eye/face/body tracking, adaptive tracking regions and subject-specific response profiles.
+
+**Status: blocked by unresolved SL-series camera firmware decryption/protection.** The firmware has proved difficult to decrypt. RESEARCH1J in `mwilliams455/SL3Camera` validates the SL3-P 4.2.1 container but leaves the camera's protection scheme, keys and protected-section decoder unidentified. No AF model or camera tracking implementation has been recovered. The independently recovered lens component is not camera firmware decryption.
+
+Unblock gate: obtain a readable camera-side loader/protection implementation demonstrably connected to the UPD format, then validate a decoder against known content identities. Readable firmware must still be assessed for model/runtime, sensor and lens-control portability; decryption alone does not establish that Leica's AF can run on Android.
+
+This is a recorded future project goal, not an active decryption task or a claim of SL-equivalent autofocus. No further blind key screening or lens-peripheral work is scheduled as part of the current audit.
+
+References:
+- [Experimental tracking PR #90](https://github.com/mwilliams455/M9Camera_refresh/pull/90)
+- [SL3Camera research status](https://github.com/mwilliams455/SL3Camera/blob/main/docs/RESEARCH_STATUS.md)
+- [SL3Camera RESEARCH1J handoff](https://github.com/mwilliams455/SL3Camera/blob/main/docs/RESEARCH1J_HANDOFF.md)

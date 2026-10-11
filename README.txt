@@ -1,3 +1,9 @@
+Current work order (11 October 2026): docs/PROJECT_GOALS.md
+Autofocus source audit: docs/AF_LIFECYCLE_AUDIT_20261011.md (six findings).
+Lifecycle corrections are next. SL-series firmware-derived tracking is a
+future goal blocked by unresolved camera firmware decryption. Experimental 2.72
+tracking remains parked on draft PR #90; merged baseline information follows.
+
 M9Cam 2.71 TRACEREWIND1A — retain diagnostic history before screen recording stops
 
 The camera shutter cannot be used during screen recording on the user's phone.
