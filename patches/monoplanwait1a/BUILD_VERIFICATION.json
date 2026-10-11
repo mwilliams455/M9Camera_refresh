@@ -1,0 +1,117 @@
+{
+  "status": "PASS",
+  "sourceCommit": "e37c9d79dce086294379be6df9273a8812888d02",
+  "sourceScopedSha256": "24677014fd18cca5605d452f1315985524ccdb00019c44f6da7819b7cfd68729",
+  "workflowRun": 38125554220,
+  "job": 114429072975,
+  "artifactId": 11696916982,
+  "artifactSha256": "beb87be810c67ac8578b765ea117a403fdd0a492431dd2e6527febfa945439dc",
+  "ciApkSha256": "c7b5ef4cdfdf150b673e0f70d08d4c9df513b8b679303c43f3708f825c18fc3a",
+  "totals": {
+    "tests": 199,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.capture.AfContinuityTest",
+      "tests": "30",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.capture.FocusTrackingAfTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.capture.MonoExposureReadinessTest",
+      "tests": "18",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.capture.StillCaptureLifecycleTest",
+      "tests": "44",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.capture.TouchFocusHandoverTest",
+      "tests": "36",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.control.TouchFocusTest",
+      "tests": "20",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.control.tracking.FocusTrackingTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.preview.M9TraceRewindTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoPrimaryEvidenceTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoRawGainTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.MonoDiagnosticPreferenceTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.FocusTrackingLifecycleTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "phoneValidationPending": true
+}
