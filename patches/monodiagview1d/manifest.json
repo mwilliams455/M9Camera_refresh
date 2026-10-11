@@ -1,0 +1,28 @@
+{
+  "parentCommit": "93e2ca8e40e358e4eec168fe1985d38305945163",
+  "version": "2.82-monodiagview1d",
+  "parentFiles": {
+    "app/build.gradle": "30fac1c6074afd4214cab0558f1b4c16ad5b42d43b67473a4a3b1266edb9de02",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "87a3977c0f6d27a223a0708ff634392ca98922de36c0f84807a42a2bf0189805",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "9ced30bb33fb6a849057fd2c277048b8d35348ca15411e313b8f2e9740201fd5",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java": "27ba653245569590f1055bb567bcb10a8c80d9d24df0c12e501ae1ea9311b791"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "4884a1fa2e540268833fa21a71be4aaab11face9d7103db235b0570cf66cd7dc",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "2b683d594ddac77e7da3198b1836fce7818a717c08869a8863bde50a93ad1e17",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/MonoReadinessReport1D.java": "46defb2c9129fce04e1061107fd2625c43a70b5d1743e031cf67ec54e9d1709e",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "354c53ad6068cbbd90c8725fb371863a675649ffffba230ba2d514b976dce2e7",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/MonoReadinessDialog1D.java": "b0cd9921bbf087351d405bd5fbbe7cf72f5cf65e4e3c825216c80ab86202bc24",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java": "41beaa62fbe44442b9ee08a889a0d1142dc8fdeac36c86c2a5f0de883c86dee5",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/MonoReadinessDialogTest.java": "c81b688582026e9e3f7fa74796d4837222cd8b89c4fafc8cafc0c12368d83a25"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/MonoReadinessReport1D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/MonoReadinessDialog1D.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/MonoReadinessDialogTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "a97bb8cfa46299551435d0d7522e14bc2cd5cbfeb7e51317c33870b6cd871f17",
+  "parentScopedSha256": "4bb917f0a1c8c45b93f93b8d1490792ed0f5946f3beff379020e3fe60b7b4f80",
+  "candidateScopedSha256": "864b5b7a293995b888efb65a8ced18939165d765c41be7b7b06d0f4879d83935"
+}
