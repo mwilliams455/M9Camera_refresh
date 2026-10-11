@@ -48,3 +48,26 @@ validate higher-resolution capture. Do not enable hidden settings merely to test
 References:
 - https://github.com/eszdman/PhotonCamera/commit/0100edce4b09523086d45864af0c296579695761
 - https://developer.android.com/reference/android/hardware/camera2/CameraDevice#isSessionConfigurationSupported(android.hardware.camera2.params.SessionConfiguration)
+
+## Verified installer
+
+All 175 focused tests passed, including the 29 RAW-size regressions, with zero
+failures, errors or skips. Library release resource verification and installer
+checks passed. The first run compiled the app but hit a test-fixture limitation
+when mocking Android CaptureRequest.Builder; the rerun uses a real Robolectric
+builder/session configuration. No production code change was needed for that fix.
+
+[Download M9Cam-2.87-READY-TO-INSTALL](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38166983518/artifacts/11712503009).
+Extract the ZIP and install `M9Cam_2.87_RAWSIZE1A.apk` over 2.86.
+
+Built commit: `5aecaa6095ce94af2de2450157294a72bd63d8c9`; run `38166983518`.
+The downloaded artifact independently passed its GitHub digest, CRC, APK identity,
+accepted Android v2 signature, alignment, required code markers and preserved UI
+checks. All 27 native libraries and 285 assets match the verified 2.86 installer.
+See CI_VERIFICATION.json, PACKAGED_VERIFICATION.json and GITHUB_DELIVERY_VERIFICATION.json.
+
+APK SHA-256: `7140f7b6ed3d49163d330a2d4e1ee4b93e73c78efb0b3281b008079f00209804`.
+
+PR #105 remains a candidate pending phone validation. Additional vendor RAW-size
+support on a specific phone is not established by these tests. The earlier draft
+chain is not finalized into main by this selective source integration.

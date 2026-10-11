@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "builtCommit": "5aecaa6095ce94af2de2450157294a72bd63d8c9",
+  "runId": 38166983518,
+  "jobId": 114551474685,
+  "runUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38166983518",
+  "focusedTests": 175,
+  "rawSizeTests": 29,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "libraryReleaseResourcesVerified": true,
+  "compiledUiResourcesVerified": true,
+  "priorRun": {
+    "id": 38166488220,
+    "outcome": "App compiled; 146 existing tests passed; 29 new tests failed in fixture setup when mocking Android CaptureRequest.Builder. Replaced fixture with real Robolectric request builder and session configuration; production source unchanged."
+  },
+  "logEvidence": [
+    "2026-10-11T19:17:00.0455699Z BUILD SUCCESSFUL in 3m 56s",
+    "2026-10-11T19:17:16.7117401Z > Task :circularbarlib:verifyReleaseResources",
+    "2026-10-11T19:17:16.7939528Z BUILD SUCCESSFUL in 16s",
+    "2026-10-11T19:17:16.9467528Z All focused tests passed: 175",
+    "2026-10-11T19:17:31.2194783Z {\"status\": \"PASS\", \"independentReopen\": true, \"bytes\": 119634741, \"sha256\": \"7140f7b6ed3d49163d330a2d4e1ee4b93e73c78efb0b3281b008079f00209804\", \"androidV2SignatureVerified\": true, \"archiveVerified\": true, \"compiledUiResourcesVerified\": true}"
+  ],
+  "phoneValidationPending": true,
+  "vendorHighResolutionDeviceSupportNotEstablished": true
+}
