@@ -6,6 +6,14 @@ The source audit found six actionable lifecycle defects/gaps. The first fixes sh
 
 This is a source/control-flow audit, not a claim that these defects caused the supplied photographs' softness, exposure pumping or the screen-recorder/shutter failure. No runtime app code or APK changed in this pass.
 
+## Correction progress — 2.73 AFCONTINUITY1A
+
+AF-01 and AF-02 are addressed in source in [draft PR #91](https://github.com/mwilliams455/M9Camera_refresh/pull/91). Both still routes now use shared focus preparation; recovery preserves focus mode and submits only a capability-gated continuous-AF CANCEL before IDLE repeats. AUTO/MACRO and manual infinity remain intact. Initialization/manual-panel exit restore preferences explicitly. One-shot cleanup clears its original builder even if the camera closes during submission.
+
+There are 30 new parameterized controller/request-boundary cases across M9 and Monochrom. Source reconstruction, both production call sites and reverse restoration pass. Android CI is in progress. Phone lens behaviour remains unvalidated. These tests isolate the existing profile exposure configuration and are not full capture/HAL simulations.
+
+AF-03, AF-04, AF-05 and AF-06 below remain open. The historical audit and four pinned host reproductions below describe 2.72 and are intentionally unchanged. Tracking remains parked and default off; SL firmware decryption remains blocked.
+
 ## Source and verification
 
 - Repository head audited: `80f50936cb6ff6dd10f90b0987aba4f4d3ee84b0`, draft tracking PR #90.
