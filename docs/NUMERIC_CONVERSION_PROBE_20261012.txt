@@ -1,0 +1,21 @@
+OpenJDK 17.0.20; reviewed v2.88 source; 2026-10-12
+Command: python3 scripts/review/numeric_probe.py /workspace/scratch/800918cbfd74/PhotonCamera_288
+
+SOURCE processing/render/ColorCorrectionCube.java a798540cde01cd767060b77178522677a64a47dcbe9eaf5bd00b54de55f0becc
+SOURCE processing/render/ColorCorrectionTransform.java c267d7c0de6593f536f080fb7435bfb5ebac15643d3db800af62336780427b9a
+SOURCE processing/opengl/postpipeline/PostPipeline.java 3ae01a7d1f748fd560897b57674503852dd49604a4a626ca033235ea81dc0243
+SOURCE capture/CaptureController.java 8ec80cab30c97d75341f47c4e422d5a4498ed883599a6df74e2a29422f2c689e
+matrix_normal first=1.6666666 nonfinite=0
+matrix_equal_reference_ratios nonfinite=9/9
+matrix_zero_white_point_blue nonfinite=9/9
+cube_equal_reference_ratios nonfinite=27/27
+cube_input_mutation before=[0.1, 0.2, 0.3] after_one=[0.10000001, 0.2, 0.3]
+cube_repeated_calls first=1.6666666 after_100=1.666665
+noise_normal strength=-6.0 S=1.5625E-5 O=1.5625E-7
+noise_normal strength=0.0 S=0.001 O=1.0E-5
+noise_normal strength=4.0 S=0.016 O=1.6E-4
+noise_invalid_strength_NaN S=NaN O=NaN
+noise_invalid_strength_140 S=Infinity O=1.3937965E37
+rectangle_zero_bottom right=2147483647 bottom=0
+float_literal_change_example x=0.7877748 denominator=0.48447692 original=1.6260316 float_only=1.6260318
+PASS existing_behavior_checks=14
