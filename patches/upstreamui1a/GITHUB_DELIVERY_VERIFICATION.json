@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "builtCommit": "b7f8bbf229e897d070f7f1229a504b17ede1f63c",
+  "runId": 38163122084,
+  "artifactId": 11711241377,
+  "artifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38163122084/artifacts/11711241377",
+  "artifactZipSha256": "b775294a762adefbfbe8c8171ef8cdd96a584210cf9330772a01f938092f4032",
+  "artifactZipBytes": 77821037,
+  "apkSha256": "ea53e03cb320d9555837e031a2ea9ff4412cbf247731cf850ce738a27768d52b",
+  "apkBytes": 119634741,
+  "archiveMetadataDigestMatches": true,
+  "androidV2SignatureVerified": true,
+  "packageAndVersionVerified": true,
+  "all27NativeLibrariesByteIdenticalTo284": true,
+  "all285AssetsByteIdenticalTo284": true,
+  "phoneValidationPending": true
+}

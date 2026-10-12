@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "sourceCommit": "7dd0eca52ce1fe6a37f2762ee3e757d301132cd7",
+  "runId": 38161340196,
+  "jobId": 114534714049,
+  "runUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38161340196",
+  "focusedTests": 128,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "planObservationTests": 32,
+  "newPlanObservationTests": 6,
+  "phoneReportRegression": "phoneReportMissingAeModeAndStateUsesMeasuredExposureAndAppliesEvOnce",
+  "phoneRegressionEnforcedByWorkflow": true,
+  "testTotalsEnforcedByWorkflow": true,
+  "sourceReconstruction": "PASS",
+  "signedPackaging": "PASS",
+  "independentInstallerReopen": "PASS",
+  "phoneValidation": "pending"
+}

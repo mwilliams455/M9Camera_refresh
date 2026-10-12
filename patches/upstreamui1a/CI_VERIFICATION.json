@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "builtCommit": "b7f8bbf229e897d070f7f1229a504b17ede1f63c",
+  "runId": 38163122084,
+  "jobId": 114540018466,
+  "runUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38163122084",
+  "focusedTests": 146,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "libraryReleaseResourcesVerified": true,
+  "logEvidence": [
+    "2026-10-11T18:21:22.4338434Z BUILD SUCCESSFUL in 3m 40s",
+    "2026-10-11T18:21:39.4391962Z > Task :circularbarlib:verifyReleaseResources",
+    "2026-10-11T18:21:39.5069869Z BUILD SUCCESSFUL in 16s",
+    "2026-10-11T18:21:39.6605745Z All focused tests passed: 146"
+  ],
+  "phoneValidationPending": true
+}

@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/res/layout/camera_fragment.xml",
+    "app/src/main/res/layout/preference_seekbar.xml",
+    "app/src/main/res/layout/preference_tunable_seekbar.xml",
+    "app/src/main/res/values/colors.xml",
+    "app/src/main/res/values/custom_themes.xml",
+    "app/src/main/res/values/styles.xml"
+  ],
+  "unchangedScopedFiles": 1360,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "92be01b3d2c8d9d873177c6674f717d769855c76045714101985b86c8309be5a",
+  "candidateScopedSha256": "e0045b3afde36a1d63e18df76ec7633636fd32c8859631120597377bb93d1f4f",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

@@ -1,0 +1,16 @@
+{
+  "status": "reproduced",
+  "sourceCommit": "83a421a4b47533135628b8d69c9f92338dea2ac6",
+  "sourceSha256": {
+    "capture/CaptureController.java": "000ab6d4712a6120d544ee5355c7521a0182d8d264b47c7a992a5e4ec25dcb75",
+    "control/TouchFocus.java": "e36670e15ec00b0ab64828e8b74127341c9b5c1d679310f88203ed166d6ba3d2"
+  },
+  "method": "unmodified method/branch extraction with request-recording and clock stubs",
+  "limits": "Not a full Android test; no HAL, lens, image, UI or timing validation. ParamController.setupPreview is a no-op in the unlock probe.",
+  "observations": [
+    "REPRODUCED legacy unlock: oneShot=[2, 1, 2] repeating=[2, 2] finalTrigger=CANCEL",
+    "REPRODUCED Monochrom continuous-picture preview -> still AUTO + CANCEL",
+    "REPRODUCED Monochrom manual preview -> still AUTO + CANCEL",
+    "REPRODUCED stale settled result ends current tap passive scan before dwell/deadline"
+  ]
+}

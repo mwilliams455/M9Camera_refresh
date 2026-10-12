@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibility1A.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawSizeCompatibilityTest.java"
+  ],
+  "unchangedScopedFiles": 1365,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "e0045b3afde36a1d63e18df76ec7633636fd32c8859631120597377bb93d1f4f",
+  "candidateScopedSha256": "74b952e74dd0e81aa6ce10855b61054fb4ca97e5d40c57ea0e700d4fced3ddd1",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

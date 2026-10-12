@@ -1,0 +1,44 @@
+{
+  "parentCommit": "8c39e60be2785ab27150e725143555b8f816cb68",
+  "version": "2.85-upstreamui1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "16769377c85d0c889f6883c43c7d34e765e960c8d73e82310b39d5cebec19f7f",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/adapters/ImageAdapter.java": "c6878987fd05d9c0b846301a4b81cec4bcb2c59ee2b8fdc0eef76f3c1967db39",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/binding/CustomBinding.java": "5474a4608f6aeca1ee13293ad01ea8d86e0b37a1680717330026a8066087276d",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/ui/fragments/ImageViewerFragment.java": "29a5f8f59c02b11a2bd2c086996aee5faaacec0e82aa37ff3fbc69c2d353503f",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/viewmodel/ExifDialogViewModel.java": "70c80dd82a9b3f0df489daae01f4d753584b3a6d1460a6276820e99fc8079d74",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/views/Histogram.java": "2da5acc5aa2d9984ef10ba53d827a2219e16d5d3255dffedb6fa1b98d9da67af",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "91862b82798207166ec163272aa0f295fda2c1cbc9e068bcb8894af728134b86",
+    "app/src/main/res/layout/exif_dialog.xml": "40306aef54f9537b08b8e285821d77f8a2d18b991c44e75d2510716f21ec50d4",
+    "circularbarlib/build.gradle": "7978ce7259c45329f17ec89aff1be8838c378cda30235979b3d2a48ad6f0f84e"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "83eac4d6e77ca87dd54b2b261aded77d93a0fa29d78b1ac5620e77a6d2b96f02",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/adapters/ImageAdapter.java": "7f398b1e90288ca207a64b4825d04d8f2bc725c05c803ea8f90db4fd13af4092",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/binding/CustomBinding.java": "8d40e8899a6052cc663e0568984f1e9ae596e1168e1ca2b627a7b33cdc766a78",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/ui/fragments/ImageViewerFragment.java": "2cf255e2cf7ebe33c58d5dd8481c11fdb71c7d5909eace7d3efd3c8606488f5f",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/viewmodel/ExifDialogViewModel.java": "9a27244f30cff6a10756b6cb5d0b70304949adaba9db1813f9cb2a8a5d650c9c",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/views/ExifBackdropView.java": "72754c29395cdadc8f0ba4be723c3bc19d3384199d2d6367ae62dc04563dc137",
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/views/Histogram.java": "93dcce3bae508417eb9128f1f00962ff8889753c07b362adb20f338248f3458f",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": "329040681e13c14791ef72994bfe511e9d3d62af4b1f496c58144d3d6ba59893",
+    "app/src/main/res/layout/exif_dialog.xml": "5499220edb27f7917686ceec973aed9928c368767d6432dfe92fb158d005d470",
+    "app/src/test/java/com/particlesdevs/photoncamera/gallery/viewmodel/ExifHistogramRequestTest.java": "dc3c37fe66d81d6f0c2aba19d7e8f093aa8603af4605676493e84cc47799c818",
+    "circularbarlib/build.gradle": "a09d36a2503bad156695bb79b1fca6c6bfa88322c8b26301912f7605b9f40734",
+    "circularbarlib/src/main/res/drawable/ic_saturation.xml": "63c80e23f498c384d3973dc8844974024b61c60b8f8afde79ff3232fae0d2419"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/gallery/views/ExifBackdropView.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/gallery/viewmodel/ExifHistogramRequestTest.java",
+    "circularbarlib/src/main/res/drawable/ic_saturation.xml"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "fac15c3c5daed23b68b3014779fb0140e680c903a3604115d0bafa61e79d0c44",
+  "parentScopedSha256": "1f91e0b1d60b712b15fab934bdb9a3da27192069ea7b6a2f4ba39feafac37075",
+  "candidateScopedSha256": "92be01b3d2c8d9d873177c6674f717d769855c76045714101985b86c8309be5a"
+}

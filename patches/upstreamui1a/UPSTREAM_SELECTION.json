@@ -1,0 +1,36 @@
+{
+  "repository": "eszdman/PhotonCamera",
+  "basePin": "4ee108e169496f429c0afa0cc33e57bb6b2ec724",
+  "observedDevHead": "b2eff821a858033515eb2700e7292befecc95225",
+  "selection": "Partial source integration; does not claim full dev-head parity",
+  "selected": [
+    {
+      "commit": "13f2715d81b1edc4e597323f8f906bb68f7752d8",
+      "changes": "EXIF backdrop, gallery preview accessor, cached MainRenderer uniforms, EXIF layout"
+    },
+    {
+      "commit": "0172fdfd31e647072f83bb83ff375d4cc4d8a3eb",
+      "changes": "Histogram request ownership, decode-failure clearing, compute helper reuse, null binding and loading state"
+    },
+    {
+      "commit": "786bf425d1368f19255531f667b46d062b8802bc",
+      "changes": "ExifBackdropView with clamped bitmap edges"
+    },
+    {
+      "commit": "502b1201f52770052e3e8dabfe4ba6d3fbc28e20",
+      "changes": "circularbarlib compileSdk 36 and self-contained saturation icon"
+    }
+  ],
+  "ciEquivalent": {
+    "commit": "ac62e920a2aed5ba6b311d0b7a591d419354f022",
+    "notes": "Candidate workflow already uses Java 17 and checkout/upload/download Actions v4; upstream workflow/test harness not copied."
+  },
+  "buildAdaptation": "Retain missing library icon from 502b1201 and actively run verifyReleaseResources. Do not import b2eff821 disabling that task.",
+  "deferred": [
+    "native alignment binaries",
+    "vendor RAW-size selection",
+    "settings/menu reorganization and video navigation",
+    "white-theme/slider cosmetic changes"
+  ],
+  "protected": "All capture/exposure/profile code, custom menus, native sources and processing assets remain byte-identical to 2.84."
+}

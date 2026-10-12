@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "verification": "Independent check after downloading the GitHub artifact",
+  "runId": 38158668256,
+  "jobId": 114526811246,
+  "artifactId": 11708958133,
+  "artifactName": "M9Cam-2.82-READY-TO-INSTALL",
+  "artifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38158668256/artifacts/11708958133",
+  "expiresAt": "2027-01-09T17:12:28Z",
+  "artifactBytes": 77821217,
+  "artifactSha256": "f34bddf0da1f25876daad5f54b28bb4317a4ae8ff366403472a752a4c13d169b",
+  "installerBytes": 119634741,
+  "installerSha256": "7c0d266364e8294693c956e5ddb821f079d84893329f8ef7be0ed0f8980aaaea",
+  "androidV2SignatureVerified": true,
+  "acceptedCertificateVerified": true,
+  "archiveCrcsVerified": true,
+  "zipAlignment16KiBVerified": true,
+  "nativeLibrariesByteIdenticalTo281": 27,
+  "assetsByteIdenticalTo281": 285,
+  "versionName": "2.82-monodiagview1d",
+  "versionCode": 27282,
+  "phoneValidation": "pending"
+}

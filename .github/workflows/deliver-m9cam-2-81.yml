@@ -1,0 +1,35 @@
+name: Downloadable signed M9Cam 2.81 installer
+on:
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'patches/monodiagexport1c/github-delivery/**'
+      - '.github/workflows/deliver-m9cam-2-81.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: monodiagexport1c-android-build
+          run-id: 38146778173
+          github-token: ${{ github.token }}
+          path: source-artifact
+      - name: Restore and independently verify signed installer
+        run: python3 patches/monodiagexport1c/github-delivery/restore.py source-artifact installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.81-READY-TO-INSTALL
+          path: installer/*
+          if-no-files-found: error
+          retention-days: 90

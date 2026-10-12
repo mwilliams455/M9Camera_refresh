@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "sourceCommit": "695d5e572d4fe3010540786b53ec8760e3a94d6c",
+  "runId": 38158668256,
+  "jobId": 114526811246,
+  "runUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38158668256",
+  "focusedTests": 108,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "dialogTests": 4,
+  "testTotalsEnforcedByWorkflow": true,
+  "sourceReconstruction": "PASS",
+  "signedPackaging": "PASS",
+  "independentInstallerReopen": "PASS",
+  "phoneValidation": "pending"
+}

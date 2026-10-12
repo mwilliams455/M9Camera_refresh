@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/GalleryPauseLifecycleTest.java"
+  ],
+  "unchangedScopedFiles": 1366,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "74b952e74dd0e81aa6ce10855b61054fb4ca97e5d40c57ea0e700d4fced3ddd1",
+  "candidateScopedSha256": "a45029863d3e5470f2a54d1fc42578b4adb9a6772ce5a9bcdaee7fa76f6de896",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

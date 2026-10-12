@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/PatchTracker.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/TrackingGeometry.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MonoRenderer.java",
+    "app/src/main/res/layout/layout_main_viewfinder.xml",
+    "app/src/main/res/values/strings.xml",
+    "app/src/main/res/xml/preferences_m9.xml",
+    "app/src/main/res/xml/preferences_monochrom.xml",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/FocusTrackingAfTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/control/tracking/FocusTrackingTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java"
+  ],
+  "unchangedScopedFiles": 1331,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "87024bfab4bd2594170fa52a626089388106915738acda469415cf35744d1b22",
+  "candidateScopedSha256": "e6b83b94984a6690182c80031e6621f2fe6e6a7627ffb94e0aa67c462512d323",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

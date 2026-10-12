@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "sourceCommit": "04cb36a7bcaca995e7ea2124e1b99f730250f754",
+  "workflowRun": 38144765233,
+  "workflowJob": 114485694634,
+  "artifactId": 11704268079,
+  "artifactSha256": "72123a28d99c092e3a2a792a8571149bba8c5302b914bddf36c93cc5195c436d",
+  "totals": {
+    "tests": 94,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "suite": "com.particlesdevs.photoncamera.capture.AfContinuityTest",
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.capture.MonoExposureReadinessTest",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.capture.StillCaptureLifecycleTest",
+      "tests": 44,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.monochrom.MonoRawGainTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.monochrom.preview.MonoPlanObservationTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "phoneValidationPending": true
+}

@@ -1,0 +1,27 @@
+{
+  "repository": "eszdman/PhotonCamera",
+  "parentCandidate": "2.85-upstreamui1a",
+  "upstreamDevHeadObserved": "b2eff821a858033515eb2700e7292befecc95225",
+  "selected": [
+    {
+      "commit": "91c4462cf2642d60809e2e98e348baceff982aba",
+      "changes": "Hide slider ticks and stop indicators in settings and zoom controls"
+    },
+    {
+      "commit": "c97b9a666074c1a5595b05fd4f7dcba36a39894b",
+      "changes": "Smaller settings slider track and handle"
+    },
+    {
+      "commit": "aee0456918820436c76b1cd60b26003544cb5794",
+      "changes": "White-theme secondary container contrast",
+      "excluded": "Default viewfinder background change from none to blur"
+    }
+  ],
+  "parentDeviceFeedback": "User reports gallery and EXIF improvements work in 2.85; this feedback does not establish acceptance of all prior capture changes.",
+  "deferred": [
+    "Vendor RAW-size discovery: separate compatibility review",
+    "Stock settings/video navigation: not selected for custom menus",
+    "Halide multi-frame alignment: not selected for single-frame capture"
+  ],
+  "scope": "Six Android UI resources plus app version metadata; no Java, native, shader, menu-structure, preference-default or test-source change."
+}

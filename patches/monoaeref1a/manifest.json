@@ -1,0 +1,24 @@
+{
+  "parentCommit": "30c1110f496d5ca39d794a7cc06f0f512b0aacf1",
+  "version": "2.83-monoaeref1a",
+  "parentFiles": {
+    "app/build.gradle": "4884a1fa2e540268833fa21a71be4aaab11face9d7103db235b0570cf66cd7dc",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/preview/MonoGpuPreview2A.java": "77a4b38e4daf962b9182ee1b6d3abede0d535b30cd5b05618bfb92232e27f447",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/MonoIsoExpoSelector.java": "05b75aeef5ee4099c2ab6ec4b3decba1d99748a29651a484efc9771e83ba0b68",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/preview/MonoPlanObservationTest.java": "7a9419abf44a61d7619ac1a9d288fa8169040d14bbed2c71ca7af064cd857b5e"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "9d511bdb1004968f330085f460301a41699fbcbc7190fe54a5794d130087478d",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoAeReference1A.java": "f4d4f9b52600dc910a4a3d06d214a6a6fdf00a888454d7335f4ced98fec327ce",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/preview/MonoGpuPreview2A.java": "9472f632dfe65c0db70f678bc4f501e7cef35ddab53111a025134636faebef5e",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/parameters/MonoIsoExpoSelector.java": "35bb5bcf16398e87e1e69084598c330aa95136e8713477244ebefa46b39fbfdb",
+    "app/src/test/java/com/particlesdevs/photoncamera/monochrom/preview/MonoPlanObservationTest.java": "84a051d5b296b6eccac6a64462c1b03d6ec077adb23eace6769edce56437fea7"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/exposure/MonoAeReference1A.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "2e57d7cbea2c8dbc60030e485ad9df896d98a9a4bbdf3b71fdd1913146d22825",
+  "parentScopedSha256": "864b5b7a293995b888efb65a8ced18939165d765c41be7b7b06d0f4879d83935",
+  "candidateScopedSha256": "be63a653cd321def1b3bffa86177ef23989b9dfe8a6677355a224ecefbc3afd6"
+}

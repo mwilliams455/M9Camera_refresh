@@ -1,0 +1,54 @@
+{
+  "status": "PASS",
+  "sourceCommit": "65a2dcdc07899aa5cd9c99945b4cc8512d808a6b",
+  "sourceScopedSha256": "21d6c86beae8086e90898316321140fa30dba2dd97fc080dcf512dbc59c8253d",
+  "workflowRun": 38137876959,
+  "job": 114465391414,
+  "artifactId": 11701207866,
+  "artifactSha256": "1802479ca1d359441913787a7b0be9207902780be1976e9c1b0cdd77c03e8198",
+  "ciApkSha256": "e55fc5ffb42a22875e7c10945ad64f7118eed905a219cccce052f528a71376fa",
+  "totals": {
+    "tests": 20,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.capture.AfContinuityTest",
+      "tests": "0",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.FocusTrackingLifecycleTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayLayoutTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayPolicyTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9ShootingControlsTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "phoneValidationPending": true
+}

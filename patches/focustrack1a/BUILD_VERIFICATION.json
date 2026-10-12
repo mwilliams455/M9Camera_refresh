@@ -1,0 +1,87 @@
+{
+  "status": "PASS",
+  "sourceCommit": "83a421a4b47533135628b8d69c9f92338dea2ac6",
+  "workflowRun": 38080675440,
+  "workflowJob": 114296766123,
+  "workflowUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38080675440",
+  "artifactId": 11680661228,
+  "artifactSha256": "50e63e575cf52c75c9aec9e5d02b201bc45aaa521611d461a04508494becb296",
+  "candidateScopedSha256": "e6b83b94984a6690182c80031e6621f2fe6e6a7627ffb94e0aa67c462512d323",
+  "tests": 71,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.capture.FocusTrackingAfTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.control.TouchFocusTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.control.tracking.FocusTrackingTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.M9OutputSettingsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.m9.preview.M9TraceRewindTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoPrimaryEvidenceTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.monochrom.MonoRawGainTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.MonoDiagnosticPreferenceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.renderprofile.ProfileCaptureTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.FocusTrackingLifecycleTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "phoneValidationPending": true
+}

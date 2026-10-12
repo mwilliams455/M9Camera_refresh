@@ -1,0 +1,22 @@
+{
+  "parentCommit": "c24c08bbc82d5d9153091e3648e524a10b8ced7e",
+  "version": "2.79-monosavepipe1a",
+  "parentFiles": {
+    "app/build.gradle": "44f1fb5cce1dd9a99e4b2dd2d06115fd2b2823419dffd631af02826afbd0bb37",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/export/MonoDngExport1A.java": "bfea24e32c875522e67f8a8a3ecc0d14352ac28bb6cb73bef4e115facff93a40",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/MonoSaveQueue.java": "bd209f5422aff4f16062e9fdb9e9227e7ae608d557b8d16510b2b9baaa65b8d5"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "d3ee00bfc73d4f1d4d85c44a6ba5ae9dd2d0de60345ac5c81bdf28adc1045de6",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/export/MonoDngExport1A.java": "307dd83dff9fc0befcd2755e3ebb3239f1638ec34cc84913ab8394fe31463e18",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/export/MonoDngPublisherWake.java": "8ec7f42a80515f4144dabe878a696b9d9e34c3ab1803f0fc36b6b882476f2d2b",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/MonoSaveQueue.java": "4ca9319f31cc3c357ddaba37e55a01bd03de33e05eb9a1ff37b778ad915b621a"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/export/MonoDngPublisherWake.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "1963fd92afb5982fef234526e49484076dd4453ec570c6827599211fce0ca95b",
+  "parentScopedSha256": "8ee982bc4a01d2a4154adc66cf922ed00de7496e54a826c5112a9e3086a91be0",
+  "candidateScopedSha256": "25856604fc7f0a1f8f4dce2eef14b4d2f1bbe68ecb12133cd60628e283a77832"
+}

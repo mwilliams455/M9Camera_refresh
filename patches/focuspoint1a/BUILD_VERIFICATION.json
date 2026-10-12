@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "commit": "efd3b2f1a3a2936df517160cacbc8cd66044554a",
+  "workflowRun": 38139813108,
+  "job": 114471167962,
+  "artifact": 11703155013,
+  "artifactZipSha256": "1202b0516839c0173c25c604bd601d24714d3cdfcafa6d82e2bd48781e2a22d8",
+  "builtApkSha256": "3e1a49d7b8264ec2ba137a28ba95450420723f31416fb6b8c551b266647dbb98",
+  "tests": 63,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "com.particlesdevs.photoncamera.control.FocusPointLayoutTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.capture.TouchFocusHandoverTest",
+      "tests": "36",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.control.TouchFocusTest",
+      "tests": "20",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.ui.camera.M9OverlayLayoutTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.particlesdevs.photoncamera.capture.AfContinuityTest",
+      "tests": "0",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ]
+}

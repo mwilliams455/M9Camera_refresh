@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/monochrom/MonoReadinessReport1D.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/MonoReadinessDialog1D.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/MonoExposureReadinessTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/MonoReadinessDialogTest.java"
+  ],
+  "unchangedScopedFiles": 1355,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "4bb917f0a1c8c45b93f93b8d1490792ed0f5946f3beff379020e3fe60b7b4f80",
+  "candidateScopedSha256": "864b5b7a293995b888efb65a8ced18939165d765c41be7b7b06d0f4879d83935",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}

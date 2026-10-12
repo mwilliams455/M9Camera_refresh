@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/FocusCircleView.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/control/FocusPointLayoutTest.java"
+  ],
+  "unchangedScopedFiles": 1351,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "21d6c86beae8086e90898316321140fa30dba2dd97fc080dcf512dbc59c8253d",
+  "candidateScopedSha256": "8ee982bc4a01d2a4154adc66cf922ed00de7496e54a826c5112a9e3086a91be0",
+  "nativeAndAssetsUnchanged": true,
+  "phoneValidationPending": true
+}
