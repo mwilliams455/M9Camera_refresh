@@ -7,13 +7,13 @@ import xml.etree.ElementTree as ET
 
 SUITES = {
     "MonoReadinessDialogTest": 4,
-    "MonoExposureReadinessTest": None,
-    "MonoReadinessExportTest": None,
-    "MonoPrimaryEvidenceTest": None,
-    "MonoDiagnosticPreferenceTest": None,
-    "StillCaptureLifecycleTest": None,
+    "MonoExposureReadinessTest": 27,
+    "MonoReadinessExportTest": 3,
+    "MonoPrimaryEvidenceTest": 7,
+    "MonoDiagnosticPreferenceTest": 5,
+    "StillCaptureLifecycleTest": 44,
     "MonoPlanObservationTest": 32,
-    "ProfileCaptureTest": None,
+    "ProfileCaptureTest": 6,
     "GalleryThumbnailThreadTest": 7,
     "RendererSwitchLifecycleTest": 5,
     "ExifHistogramRequestTest": 6,
@@ -22,10 +22,23 @@ SUITES = {
     "CaptureControllerTest": 3,
 }
 PHONE_CASE = "phoneReportMissingAeModeAndStateUsesMeasuredExposureAndAppliesEvOnce"
+# Gradle/Robolectric discovery emits an empty report for this unselected AF suite.
+# It is not an additional selected suite and contributes no tests to the gate.
+EMPTY_FIXTURE_REPORT = "com.particlesdevs.photoncamera.capture.AfContinuityTest"
 
 
 def verify(directory):
     suites = [ET.parse(p).getroot() for p in sorted(directory.glob("TEST-*.xml"))]
+    for suite in suites:
+        if any(int(suite.attrib[k]) != 0 for k in ["failures", "errors", "skipped"]):
+            raise ValueError(f"Failing or skipped tests in {suite.get('name')}")
+        if any(c.find(k) is not None for c in suite.findall("testcase")
+               for k in ["failure", "error", "skipped"]):
+            raise ValueError(f"Failing or skipped testcase in {suite.get('name')}")
+    empty = [s for s in suites if s.get("name") == EMPTY_FIXTURE_REPORT]
+    if len(empty) > 1 or any(int(s.attrib["tests"]) != 0 or s.findall("testcase") for s in empty):
+        raise ValueError("Unexpected tests in the unselected AF fixture report")
+    suites = [s for s in suites if s.get("name") != EMPTY_FIXTURE_REPORT]
     by_name = {s.get("name", "").rsplit(".", 1)[-1]: s for s in suites}
     if set(by_name) != set(SUITES) or len(suites) != len(SUITES):
         raise ValueError(f"Expected all {len(SUITES)} suites exactly once; found {sorted(by_name)}")
@@ -34,12 +47,8 @@ def verify(directory):
         suite = by_name[name]
         cases = suite.findall("testcase")
         count = int(suite.attrib["tests"])
-        if count != len(cases) or count < 1 or (expected is not None and count != expected):
+        if count != len(cases) or count != expected:
             raise ValueError(f"Unexpected test count in {name}: {count}")
-        if any(int(suite.attrib[k]) != 0 for k in ["failures", "errors", "skipped"]):
-            raise ValueError(f"Failing or skipped tests in {name}")
-        if any(c.find(k) is not None for c in cases for k in ["failure", "error", "skipped"]):
-            raise ValueError(f"Failing or skipped testcase in {name}")
         counts[name] = count
     if sum(counts.values()) < 183:
         raise ValueError("The 180 existing regressions and three upstream tests must all run")
