@@ -20,6 +20,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # Git diffs contain compressed patches, not the reconstructed Java paths.
+      # Analyze the whole reconstructed tree, including on pull requests.
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
     permissions:
       contents: read
       security-events: write
@@ -70,6 +74,7 @@ jobs:
             ci-source/PhotonCamera_288/app/build/test-results/testDebugUnitTest/**
             ci-source/PhotonCamera_288/app/build/reports/tests/testDebugUnitTest/**
             ci-source/PhotonCamera_288/app/src/main/java/**
+            ci-source/PhotonCamera_288/app/src/test/java/**
             ci-source/PhotonCamera_288/circularbarlib/src/main/java/**
             ci-reports/codeql/**
           retention-days: 30

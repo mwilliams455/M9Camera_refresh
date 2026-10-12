@@ -25,9 +25,11 @@ CaptureController tests. Missing suites, failures, errors and skipped tests fail
 the job. Library release-resource verification remains enabled.
 
 CodeQL v4 uses manual Java/Kotlin compilation after source reconstruction, with
-incremental/build-cache reuse disabled. Findings are uploaded to GitHub code
+incremental/build-cache reuse disabled. Diff-informed PR filtering is disabled:
+Git diffs contain patch archives rather than the reconstructed Java paths, so
+every run must analyze the whole reconstructed tree. Findings are uploaded to GitHub code
 scanning; SARIF, verification JSON, test reports and the reconstructed Java/Kotlin
-source are also retained as a 30-day artifact. Since source files are held in
+source (including compiled test sources) are also retained as a 30-day artifact. Since source files are held in
 compressed patches rather than individual tracked files, GitHub source links for
 findings may not resolve; use the source included with the scan artifact.
 The scan covers Java/Kotlin, not native C/C++.
