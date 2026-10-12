@@ -35,6 +35,10 @@ def prepare(destination, verified_source=None):
     if destination.exists():
         raise ValueError("Use a fresh destination")
     destination.mkdir(parents=True)
+    worktree = subprocess.run(["git", "-C", str(destination), "rev-parse", "--is-inside-work-tree"],
+                              text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if worktree.returncode == 0 and worktree.stdout.strip() == "true":
+        raise ValueError("Assemble outside any Git worktree, then move the verified tree if needed")
     if verified_source:
         source = destination / "PhotonCamera_288"
         shutil.copytree(verified_source, source,

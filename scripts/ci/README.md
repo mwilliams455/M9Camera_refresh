@@ -16,6 +16,9 @@ CaptureControllerTest fixture fix, with teardown that restores the previous app
 singleton so the fixture cannot leak into other tests. A before/after inventory
 requires that this test file is the only changed scoped file. App version, Java
 production code, resources, rendering assets and native source remain at 2.88.
+Assembly runs outside the checkout to keep historical git-format patches from
+resolving against the packaging repository; the verified tree is then moved
+into the workspace for CodeQL.
 
 `verify_tests.py` preserves the existing 180-test gate and adds the three upstream
 CaptureController tests. Missing suites, failures, errors and skipped tests fail

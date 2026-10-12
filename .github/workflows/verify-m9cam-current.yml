@@ -37,7 +37,11 @@ jobs:
       - name: Provision pinned Android tools
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Reconstruct and verify current source
-        run: python3 scripts/ci/prepare_source.py "$GITHUB_WORKSPACE/ci-source"
+        # Assemble outside the checkout: historical git-format patches must not
+        # resolve against the packaging repository's parent Git worktree.
+        run: |
+          python3 scripts/ci/prepare_source.py "$RUNNER_TEMP/ci-source"
+          mv "$RUNNER_TEMP/ci-source" "$GITHUB_WORKSPACE/ci-source"
       - name: Initialize Java and Kotlin analysis
         uses: github/codeql-action/init@v4
         with:
