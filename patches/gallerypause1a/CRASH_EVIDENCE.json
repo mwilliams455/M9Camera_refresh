@@ -1,0 +1,53 @@
+{
+  "reports": [
+    {
+      "sourceSha256": "ecf6aee26b12148b453d62e7f788d2dcf39d5686918482687b4d60324d105da2",
+      "reportFilename": "M9_RENDER_EXIT_1791747295316.json",
+      "version": "2.87-rawsize1a",
+      "thread": "main",
+      "rootCause": "java.lang.NullPointerException: Attempt to invoke virtual method 'void com.particlesdevs.photoncamera.control.TouchFocus.resetFocusCircle()' on a null object reference",
+      "applicationFrames": [
+        "at com.particlesdevs.photoncamera.control.Swipe.SwipeDown(Swipe.java:208)",
+        "at com.particlesdevs.photoncamera.ui.camera.CameraFragment.onPause(CameraFragment.java:633)"
+      ],
+      "sameProcessRenderComplete": true
+    },
+    {
+      "sourceSha256": "5800d136412d23bcb2c1e33121358030b419b2f4e1ecf138372444fd735db8ca",
+      "reportFilename": "M9_RENDER_EXIT_1791747576073.json",
+      "version": "2.87-rawsize1a",
+      "thread": "main",
+      "rootCause": "java.lang.NullPointerException: Attempt to invoke virtual method 'void com.particlesdevs.photoncamera.control.TouchFocus.resetFocusCircle()' on a null object reference",
+      "applicationFrames": [
+        "at com.particlesdevs.photoncamera.control.Swipe.SwipeDown(Swipe.java:208)",
+        "at com.particlesdevs.photoncamera.ui.camera.CameraFragment.onPause(CameraFragment.java:633)"
+      ],
+      "sameProcessRenderComplete": true
+    },
+    {
+      "sourceSha256": "90d1e1f348de6e12c0e06296dc180207b8cae88d9916647e8b8d4d387cfa2692",
+      "reportFilename": "M9_RENDER_EXIT_1791747635795.json",
+      "version": "2.87-rawsize1a",
+      "thread": "main",
+      "rootCause": "java.lang.NullPointerException: Attempt to invoke virtual method 'void com.particlesdevs.photoncamera.control.TouchFocus.resetFocusCircle()' on a null object reference",
+      "applicationFrames": [
+        "at com.particlesdevs.photoncamera.control.Swipe.SwipeDown(Swipe.java:208)",
+        "at com.particlesdevs.photoncamera.ui.camera.CameraFragment.onPause(CameraFragment.java:633)"
+      ],
+      "sameProcessRenderComplete": true
+    },
+    {
+      "sourceSha256": "7d3438fab337cb9f97b7b7c9859f8f2cea16fdd96327c485922d56c7f2eb6258",
+      "reportFilename": "M9_RENDER_EXIT_1791747735125.json",
+      "version": "2.87-rawsize1a",
+      "thread": "main",
+      "rootCause": "java.lang.NullPointerException: Attempt to invoke virtual method 'void com.particlesdevs.photoncamera.control.TouchFocus.resetFocusCircle()' on a null object reference",
+      "applicationFrames": [
+        "at com.particlesdevs.photoncamera.control.Swipe.SwipeDown(Swipe.java:208)",
+        "at com.particlesdevs.photoncamera.ui.camera.CameraFragment.onPause(CameraFragment.java:633)"
+      ],
+      "sameProcessRenderComplete": false
+    }
+  ],
+  "scope": "Four distinct priorJavaUncaught process IDs; same null focus call. Exit history entries overlap and are not independent counts."
+}

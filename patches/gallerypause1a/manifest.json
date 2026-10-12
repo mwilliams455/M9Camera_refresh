@@ -1,0 +1,28 @@
+{
+  "parentCommit": "5e7f4067cdd7f9adcd3406976e9cb0d8ba59f9f1",
+  "version": "2.88-gallerypause1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "123b45c99622af92371fa70aaf8e57e14004c2c084e21d77298fd1c51ce3cfa0",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "73b17febb7f2607f070c8e56ca6d974c29cb98aa6ae1cbd97a0b39d936a35d75",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "354c53ad6068cbbd90c8725fb371863a675649ffffba230ba2d514b976dce2e7"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "a775aac5b96fc75bdd9f8159e44c20d23eb4978939adf5454e854ba543d26d51",
+    "app/src/main/java/com/particlesdevs/photoncamera/control/Swipe.java": "0937cff334dfd90d286101446caef155e7e05ed3210aeb47af2349dbf3494a5e",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": "f94fc4ab74b20b58d4374714eef468ba0dec85dc6889e0f23d84831d70777154",
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/GalleryPauseLifecycleTest.java": "301ec9586b9fbf76e8ce4a19de0fb8d5e3d6b243879947f9937c8ab0af990ef3"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/GalleryPauseLifecycleTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "13ed25fa28b820966d7aac36170231c388896687f68ab7dab63c43ac834d503a",
+  "parentScopedSha256": "74b952e74dd0e81aa6ce10855b61054fb4ca97e5d40c57ea0e700d4fced3ddd1",
+  "candidateScopedSha256": "a45029863d3e5470f2a54d1fc42578b4adb9a6772ce5a9bcdaee7fa76f6de896"
+}
