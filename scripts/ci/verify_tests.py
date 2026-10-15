@@ -1,4 +1,4 @@
-"""Run or check the existing 183-test regression gate plus 22 RAW geometry tests."""
+"""Run or check the existing 183-test regression gate plus 22 RAW geometry and 33 colour tests."""
 import argparse
 import json
 from pathlib import Path
@@ -21,6 +21,8 @@ SUITES = {
     "GalleryPauseLifecycleTest": 5,
     "CaptureControllerTest": 3,
     "RawGeometryTest": 22,
+    "ColorCorrectionTransformTest": 5,
+    "CustomColorGuardTest": 28,
 }
 PHONE_CASE = "phoneReportMissingAeModeAndStateUsesMeasuredExposureAndAppliesEvOnce"
 # Gradle/Robolectric discovery emits an empty report for this unselected AF suite.
@@ -51,8 +53,8 @@ def verify(directory):
         if count != len(cases) or count != expected:
             raise ValueError(f"Unexpected test count in {name}: {count}")
         counts[name] = count
-    if sum(counts.values()) < 205:
-        raise ValueError("The 183 existing regressions and 22 geometry tests must all run")
+    if sum(counts.values()) < 238:
+        raise ValueError("The 183 existing regressions and 22 geometry and 33 colour tests must all run")
     if not any(c.get("name") == PHONE_CASE for s in suites for c in s.findall("testcase")):
         raise ValueError("Missing regression for the user's mono AE metadata report")
     return {"status": "PASS", "tests": sum(counts.values()), "failures": 0,

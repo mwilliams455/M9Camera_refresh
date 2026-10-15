@@ -1,0 +1,32 @@
+{
+  "parentCommit": "3495ebc2101504b5742e421c811107f70036b8a8",
+  "version": "2.90-cctguard1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "6963585d632f2c30218aceec7c321c376aeb753b1217187e167db3c72e052bd9",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionCube.java": "a798540cde01cd767060b77178522677a64a47dcbe9eaf5bd00b54de55f0becc",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionTransform.java": "c267d7c0de6593f536f080fb7435bfb5ebac15643d3db800af62336780427b9a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java": "e628574622bad5de0377e90ae0810e4d71a1485c55dfcde307f8539fe9a291b3",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionTransformTest.java": "4bfe8d75ece62ab9afcfb0b4842ad4051cafb950fd9254f748900a07af937f09"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "d92b7de9525786e1722e9e249d27733116efbe5bb33b41d2f73c24e0bc2ec55a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionCube.java": "34298dbc74421cf674540f5b1d1ec9d4e51deba98565e63aafb8adaded931774",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionTransform.java": "b9856a07c6f7977b68d5f876449314226e14f8d736e4907c6bdcf5ffb3ff227c",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java": "af955da86f2dcb96399226eb27ecb121a6960a8105e1481d6bfb8b4771861249",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionTransformTest.java": "0b75ee4862245560cbcd7afaa480b392d36e40e8e6517076b6b68408773d89ad",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/CustomColorGuardTest.java": "0b78b5376ce63e8b3ee9ead2a772e41ba50ae4fd0849ab50d80eaa8ce7a11b92"
+  },
+  "newFiles": [
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/CustomColorGuardTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "1bb29393c71b0211f540f85071ac29a79d2f4a09949f54785a723b54b1d4652d",
+  "parentScopedSha256": "50e380cd2ce281983bd1080b99cf197e59471e05bfc3c82077cf933c23a41a74",
+  "candidateScopedSha256": "fc57b3df8fa4e779eb5030976e15414189c28249f4225b68445ee42883250224"
+}
