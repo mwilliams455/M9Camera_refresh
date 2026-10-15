@@ -1,0 +1,34 @@
+"""Verify exact source scope and reverse restoration of the 2.88 parent."""
+from pathlib import Path
+import gzip,hashlib,json,shutil,subprocess,sys,tempfile
+parent,root=(Path(x).resolve() for x in sys.argv[1:]);here=Path(__file__).resolve().parent
+sha=lambda b:hashlib.sha256(b).hexdigest()
+def files(r):
+    return {p.relative_to(r).as_posix():sha(p.read_bytes()) for d in ['app/src','circularbarlib/src'] for p in (r/d).rglob('*') if p.is_file()}|{n:sha((r/n).read_bytes()) for n in ['app/build.gradle','circularbarlib/build.gradle']}
+a,b=files(parent),files(root);m=json.loads((here/'manifest.json').read_text())
+fp=lambda f:sha(json.dumps(f,sort_keys=True,separators=(',',':')).encode())
+assert fp(a)==m['parentScopedSha256'] and fp(b)==m['candidateScopedSha256']
+changed=sorted(n for n in a.keys()|b.keys() if a.get(n)!=b.get(n));assert changed==sorted(m['fileOverrides'])
+assert len(changed)==4 and len(m["newFiles"])==2
+assert sha((here/'rawgeometry1a.patch.gz').read_bytes())==m['patchSha256']
+allowed={'app/build.gradle', 'app/src/main/java/com/particlesdevs/photoncamera/capture/RawGeometry1A.java', 'app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java', 'app/src/test/java/com/particlesdevs/photoncamera/capture/RawGeometryTest.java'}
+assert set(changed)==allowed
+with tempfile.TemporaryDirectory() as tmp:
+    t=Path(tmp)
+    for n in changed:
+        (t/n).parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(root/n,t/n)
+    subprocess.run(['git','apply','--reverse','--whitespace=nowarn','-'],cwd=t,input=gzip.decompress((here/'rawgeometry1a.patch.gz').read_bytes()),check=True)
+    for n in changed:
+        if n in m['newFiles']:assert not (t/n).exists()
+        else:assert (t/n).read_bytes()==(parent/n).read_bytes(),n
+# Validate that the M9 still capture route remains unchanged within the controller.
+path='app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java'
+def body(text, signature):
+    start=text.index('{',text.index(signature)); depth=1; end=start+1
+    while depth:
+        depth+=(text[end]=='{')-(text[end]=='}'); end+=1
+    return text[start:end]
+assert body((parent/path).read_text(),'    private synchronized void captureStillPicture()') == body((root/path).read_text(),'    private synchronized void captureStillPicture()')
+assert gzip.decompress((here/'rawgeometry1a.patch.gz').read_bytes()) == (here/'rawgeometry1a.patch').read_bytes()
+report={'status' :'PASS','changedScopedFiles':changed,'unchangedScopedFiles':sum(a.get(n)==v for n,v in b.items()),'reversePatchExactlyRestoresParent':True,'parentScopedSha256':fp(a),'candidateScopedSha256':fp(b),'nativeAndAssetsUnchanged':not any(n.startswith(('app/src/main/cpp/','app/src/main/assets/')) for n in changed),'phoneValidationPending':True}
+(here/'SOURCE_VERIFICATION.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))

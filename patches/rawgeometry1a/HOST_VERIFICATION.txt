@@ -1,0 +1,13 @@
+PASS: 22 host checks and 100000 valid rectangle-pair parity cases (JDK with explicit stubs)
+{
+  "status": "PASS",
+  "checks": 22,
+  "validPairParityCases": 100000,
+  "legacyArithmeticVerifiedAgainstParent": true,
+  "runtime": "JDK with Android/data stubs; no device or Android build",
+  "sourceSha256": {
+    "CaptureController.java": "3e5b7a4d1880c559474d61c5ebb05c502b8fd636cb9d861505a839ff83fd6a71",
+    "RawGeometry1A.java": "a86b8845156d5f6483f1c6b6573a0749090be9d18af96a5370986d11ed703036",
+    "RawSizeCompatibility1A.java": "d18da2b06604e1c6ee28845436b98ed0c89dd91fb14daa65ca1441f94b222f67"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "parentCommit": "44807fb8e3b0cc18bd9ba698a86f0bef547297f4",
+  "version": "2.89-rawgeometry1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "a775aac5b96fc75bdd9f8159e44c20d23eb4978939adf5454e854ba543d26d51",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "8ec80cab30c97d75341f47c4e422d5a4498ed883599a6df74e2a29422f2c689e"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "6963585d632f2c30218aceec7c321c376aeb753b1217187e167db3c72e052bd9",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": "3e5b7a4d1880c559474d61c5ebb05c502b8fd636cb9d861505a839ff83fd6a71",
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/RawGeometry1A.java": "a86b8845156d5f6483f1c6b6573a0749090be9d18af96a5370986d11ed703036",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawGeometryTest.java": "6fd7a471c0a52d1e98893b5927f0bb5fd99479a6cc763fcf6a3a8e7914e9c0bd"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/capture/RawGeometry1A.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/capture/RawGeometryTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "d7864d7b713619c40b84c50d0356386701da0b32fa0ad87df4168de43997e897",
+  "parentScopedSha256": "a45029863d3e5470f2a54d1fc42578b4adb9a6772ce5a9bcdaee7fa76f6de896",
+  "candidateScopedSha256": "50e380cd2ce281983bd1080b99cf197e59471e05bfc3c82077cf933c23a41a74"
+}
