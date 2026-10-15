@@ -1,0 +1,132 @@
+{
+  "status": "PASS",
+  "appVersion": "2.90-cctguard1a",
+  "appCommit": "a95ae03f070c30fc9688c5a6fe70d6c6df24c1d5",
+  "parentCommit": "3495ebc2101504b5742e421c811107f70036b8a8",
+  "parentVersion": "2.89-rawgeometry1a",
+  "pullRequest": "https://github.com/mwilliams455/M9Camera_refresh/pull/109",
+  "parentScopedSha256": "50e380cd2ce281983bd1080b99cf197e59471e05bfc3c82077cf933c23a41a74",
+  "candidateScopedSha256": "fc57b3df8fa4e779eb5030976e15414189c28249f4225b68445ee42883250224",
+  "ciScopedSha256": "b6cfdee5c920ac83bdf2f7b8b4e0de17eff0763edbf00a4afaef84bad087d6c6",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionCube.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionTransform.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/Parameters.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/ColorCorrectionTransformTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/CustomColorGuardTest.java"
+  ],
+  "hostChecks": {
+    "colourTests": 33,
+    "originalClassMatrixParityCases": 100000,
+    "originalClassCubeParityCases": 100000,
+    "exactFloatBits": true,
+    "whitePointUnchanged": true,
+    "repeatedCubeCallsStable": true
+  },
+  "androidInstallerRun": 38800179766,
+  "androidVerificationRun": 38800179800,
+  "phoneValidationPending": true,
+  "mainUnchangedAt": "44807fb8e3b0cc18bd9ba698a86f0bef547297f4",
+  "installerTests": 235,
+  "installerFailures": 0,
+  "installerErrors": 0,
+  "installerSkipped": 0,
+  "readyArtifactId": 12004201964,
+  "readyArtifactZipSha256": "f1974e96df76ac270a5eef0a63aa5239385b359686617728d3008b1d0a5547c0",
+  "apkSha256": "f0faa5a6912cede9ba93e13e667ff18920ab7d90c6bf52709a18fba015777e5d",
+  "apkBytes": 119634741,
+  "androidV2SignatureVerified": true,
+  "acceptedCertificateSha256": "255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956",
+  "zipAlignment16KiBVerified": true,
+  "all27NativeLibrariesByteIdenticalTo289": true,
+  "all285AssetsByteIdenticalTo289": true,
+  "compiledUiResourcesVerified": true,
+  "androidRegressionTests": {
+    "status": "PASS",
+    "tests": 238,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": {
+      "MonoReadinessDialogTest": 4,
+      "MonoExposureReadinessTest": 27,
+      "MonoReadinessExportTest": 3,
+      "MonoPrimaryEvidenceTest": 7,
+      "MonoDiagnosticPreferenceTest": 5,
+      "StillCaptureLifecycleTest": 44,
+      "MonoPlanObservationTest": 32,
+      "ProfileCaptureTest": 6,
+      "GalleryThumbnailThreadTest": 7,
+      "RendererSwitchLifecycleTest": 5,
+      "ExifHistogramRequestTest": 6,
+      "RawSizeCompatibilityTest": 29,
+      "GalleryPauseLifecycleTest": 5,
+      "CaptureControllerTest": 3,
+      "RawGeometryTest": 22,
+      "ColorCorrectionTransformTest": 5,
+      "CustomColorGuardTest": 28
+    }
+  },
+  "scannedJavaFilesVerified": 663,
+  "scanArtifactId": 12004706186,
+  "scanArtifactZipSha256": "449e64cc2322e57149f2e32fdf4adad1f1118a700cecec05b36f31832dd48acc",
+  "codeqlPreviousFindings": 8,
+  "codeqlCurrentFindings": 5,
+  "codeqlFindings": [
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "message": "Implicit cast of source type double to narrower destination type [float](1).",
+      "locations": [
+        {
+          "file": "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java",
+          "line": 249
+        }
+      ]
+    },
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "message": "Implicit cast of source type double to narrower destination type [float](1).",
+      "locations": [
+        {
+          "file": "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java",
+          "line": 250
+        }
+      ]
+    },
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "message": "Implicit cast of source type double to narrower destination type [float](1).",
+      "locations": [
+        {
+          "file": "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "message": "Implicit cast of source type double to narrower destination type [float](1).",
+      "locations": [
+        {
+          "file": "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java",
+          "line": 32
+        }
+      ]
+    },
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "message": "Implicit cast of source type float to narrower destination type [int](1).",
+      "locations": [
+        {
+          "file": "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/SurfaceViewOverViewfinder.java",
+          "line": 253
+        }
+      ]
+    }
+  ],
+  "installerArtifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38800179766/artifacts/12004201964",
+  "installerArtifactExpiresAt": "2027-01-13T20:13:21Z",
+  "scanArtifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38800179800/artifacts/12004706186",
+  "allPriorCodeqlFindingsOutsideChangedFilesUnchanged": true
+}
