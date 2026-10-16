@@ -1,0 +1,106 @@
+{
+  "status": "PASS",
+  "appVersion": "2.91-noiseguard1a",
+  "appCommit": "f9bd876f140e200491dfcd2ad590134ef9d90520",
+  "parentCommit": "b252dc7af355b856453ef04eb986e6925adbb5e9",
+  "parentVersion": "2.90-cctguard1a",
+  "pullRequest": "https://github.com/mwilliams455/M9Camera_refresh/pull/110",
+  "parentScopedSha256": "fc57b3df8fa4e779eb5030976e15414189c28249f4225b68445ee42883250224",
+  "candidateScopedSha256": "ce4cf815bae85d522e154562ca9923541db934c07799103d32afa7ffebf7d856",
+  "ciScopedSha256": "05672eeb3a49a1753023b90ca867e50c0f7734f35872099a2e899b7a2b172e92",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/NoiseCoefficients1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/NoiseStrength1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseBoundaryTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseGuardTest.java"
+  ],
+  "unchangedScopedFiles": 1370,
+  "hostChecks": {
+    "checks": 31,
+    "noiseModelExactBitParityCases": 100000,
+    "storedStrengthExactBitParityCases": 100000,
+    "originalComputeNoiseMethodCompiledVerbatim": true,
+    "validValueArithmeticPreserved": true,
+    "atomicCoefficientPublication": true
+  },
+  "androidInstallerRun": 38852332665,
+  "androidVerificationRun": 38852332644,
+  "parentPhoneFeedback": {
+    "date": "2026-10-16",
+    "userReport": "It does look the same from my photos thus far",
+    "assessment": "Provisional visual pass for the photos tried; not all-lens or all-mode acceptance"
+  },
+  "phoneValidationPending": true,
+  "mainUnchangedAt": "44807fb8e3b0cc18bd9ba698a86f0bef547297f4",
+  "installerTests": 266,
+  "installerFailures": 0,
+  "installerErrors": 0,
+  "installerSkipped": 0,
+  "readyArtifactId": 12025689073,
+  "readyArtifactZipSha256": "08e5099a71690b5e09eac0a52a7d9a1728a02b23a7629e37da54fc69bfe70d4a",
+  "apkSha256": "3f4e22027ac0887ad0c3651918a93eaa547e522bd7560ebd3aeae942a6727af6",
+  "apkBytes": 119634741,
+  "androidV2SignatureVerified": true,
+  "acceptedCertificateSha256": "255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956",
+  "zipAlignment16KiBVerified": true,
+  "all27NativeLibrariesByteIdenticalTo290": true,
+  "all285AssetsByteIdenticalTo290": true,
+  "compiledUiResourcesVerified": true,
+  "installerArtifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38852332665/artifacts/12025689073",
+  "installerArtifactExpiresAt": "2027-01-14T04:46:21Z",
+  "androidRegressionTests": {
+    "status": "PASS",
+    "tests": 269,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "suites": {
+      "MonoReadinessDialogTest": 4,
+      "MonoExposureReadinessTest": 27,
+      "MonoReadinessExportTest": 3,
+      "MonoPrimaryEvidenceTest": 7,
+      "MonoDiagnosticPreferenceTest": 5,
+      "StillCaptureLifecycleTest": 44,
+      "MonoPlanObservationTest": 32,
+      "ProfileCaptureTest": 6,
+      "GalleryThumbnailThreadTest": 7,
+      "RendererSwitchLifecycleTest": 5,
+      "ExifHistogramRequestTest": 6,
+      "RawSizeCompatibilityTest": 29,
+      "GalleryPauseLifecycleTest": 5,
+      "CaptureControllerTest": 3,
+      "RawGeometryTest": 22,
+      "ColorCorrectionTransformTest": 5,
+      "CustomColorGuardTest": 28,
+      "NoiseGuardTest": 22,
+      "NoiseBoundaryTest": 9
+    }
+  },
+  "scannedJavaFilesVerified": 667,
+  "scanArtifactId": 12025888483,
+  "scanArtifactZipSha256": "6c614f577c00af5b65a655b20a26f234a162e309f479c54bc428218c18224a2b",
+  "scanArtifactUrl": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/38852332644/artifacts/12025888483",
+  "codeqlPreviousFindings": 5,
+  "codeqlCurrentFindings": 3,
+  "codeqlFindings": [
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "file": "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java",
+      "line": 31
+    },
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "file": "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java",
+      "line": 32
+    },
+    {
+      "rule": "java/implicit-cast-in-compound-assignment",
+      "file": "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/SurfaceViewOverViewfinder.java",
+      "line": 253
+    }
+  ],
+  "allPriorCodeqlFindingsOutsideChangedFilesUnchanged": true
+}
