@@ -1,0 +1,247 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27293
++        versionCode 27294
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.93-diagexport1a'
++        versionName '2.94-diagsaf1b'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.93_DIAGEXPORT1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.94_DIAGSAF1B-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
+@@ -61,7 +61,7 @@
+     private static final String PRIORITY_ROLE = "primary_timing";
+     private static final M9DiagnosticPublicWriter1A PUBLIC_WRITER =
+             new M9DiagnosticPublicWriter1A(Files::newOutputStream,
+-                    path -> SimpleStorageHelper.openOutputStreamByAbsPath(path.toString()));
++                    path -> SimpleStorageHelper.openDiagnosticOutputStream1B(path.toString()));
+     private static final Object BUNDLE_LOCK = new Object();
+ 
+     private static final ConcurrentHashMap<String, Entry> INDIVIDUAL_PENDING = new ConcurrentHashMap<>();
+@@ -628,7 +628,8 @@
+             o.put("schema", SCHEMA);
+             o.put("publicWriteRevision", M9DiagnosticPublicWriter1A.REVISION);
+             o.put("recoveredOrdinaryExportSpacingMs", 0);
+-            o.put("publicWritePolicy", "direct_filesystem_first_then_saf_fallback");
++            o.put("publicWritePolicy", "direct_filesystem_first_then_single_query_saf");
++            o.put("publicSafDetails", SimpleStorageHelper.diagnosticStorageSnapshot1B());
+             o.put("publicDirectWrites", PUBLIC_WRITER.directWrites.get());
+             o.put("publicDirectFailures", PUBLIC_WRITER.directFailures.get());
+             o.put("publicSafFallbackWrites", PUBLIC_WRITER.fallbackWrites.get());
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java b/app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java
+@@ -0,0 +1,151 @@
++package com.particlesdevs.photoncamera.util;
++
++import android.content.ContentResolver;
++import android.database.Cursor;
++import android.net.Uri;
++import android.provider.DocumentsContract;
++import org.json.JSONObject;
++
++import java.io.File;
++import java.io.IOException;
++import java.io.OutputStream;
++import java.util.LinkedHashMap;
++import java.util.concurrent.atomic.AtomicLong;
++
++/** Diagnostic-only SAF transport. Document IDs remain opaque; grants are resolved normally. */
++final class DiagnosticSafWriter1B {
++    static final String REVISION = "M9DIAGSAF1B_SINGLE_QUERY";
++    interface ParentResolver { Uri resolve(String relativeParent) throws IOException; }
++    private final ContentResolver resolver;
++    private final File storageRoot;
++    private final ParentResolver parents;
++    // Only directory handles are cached. Every filename lookup observes a fresh cursor.
++    private final LinkedHashMap<String, Uri> directoryCache = new LinkedHashMap<>(4, 0.75f, true);
++    private final AtomicLong cacheHits = new AtomicLong(), cacheMisses = new AtomicLong();
++    private final AtomicLong queries = new AtomicLong(), rows = new AtomicLong();
++    private final AtomicLong creates = new AtomicLong(), opens = new AtomicLong(), failures = new AtomicLong();
++    private final AtomicLong[] totalNs = counters(), lastNs = counters();
++    private static final String[] PHASES = {"Resolve", "Lookup", "Create", "Open"};
++    private static final String[] COLUMNS = {
++            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
++            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
++            DocumentsContract.Document.COLUMN_MIME_TYPE};
++
++    DiagnosticSafWriter1B(ContentResolver resolver, File storageRoot, ParentResolver parents) {
++        this.resolver = resolver;
++        this.storageRoot = storageRoot;
++        this.parents = parents;
++    }
++
++    OutputStream open(String absolutePath, String mime) throws IOException {
++        String parentPath = null;
++        Uri parentUri = null;
++        try {
++            if (absolutePath == null) throw new IOException("Missing diagnostic path");
++            File target = new File(absolutePath).getCanonicalFile();
++            if (!new File(absolutePath).isAbsolute()) throw new IOException("Expected absolute path");
++            File parent = target.getParentFile();
++            String root = storageRoot.getCanonicalPath();
++            if (parent == null || !(parent.getPath().equals(root) || parent.getPath().startsWith(root + File.separator)))
++                throw new IOException("Diagnostic path is outside primary storage");
++            parentPath = parent.getPath();
++            long start = System.nanoTime();
++            try {
++                synchronized (directoryCache) { parentUri = directoryCache.get(parentPath); }
++                if (parentUri == null) {
++                    cacheMisses.incrementAndGet();
++                    String relative = parentPath.equals(root) ? "" : parentPath.substring(root.length() + 1);
++                    parentUri = parents.resolve(relative);
++                    if (parentUri == null) throw new IOException("No granted diagnostic directory");
++                    synchronized (directoryCache) {
++                        directoryCache.put(parentPath, parentUri);
++                        while (directoryCache.size() > 4)
++                            directoryCache.remove(directoryCache.keySet().iterator().next());
++                    }
++                } else cacheHits.incrementAndGet();
++            } finally { elapsed(0, start); }
++
++            Uri document = null;
++            start = System.nanoTime();
++            try {
++                Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(parentUri,
++                        DocumentsContract.getDocumentId(parentUri));
++                queries.incrementAndGet();
++                try (Cursor cursor = resolver.query(children, COLUMNS, null, null, null)) {
++                    if (cursor == null) throw new IOException("Diagnostic directory query returned no cursor");
++                    if (cursor.getExtras().getBoolean(DocumentsContract.EXTRA_LOADING, false))
++                        throw new IOException("Diagnostic directory listing is incomplete");
++                    int id = cursor.getColumnIndexOrThrow(COLUMNS[0]);
++                    int name = cursor.getColumnIndexOrThrow(COLUMNS[1]);
++                    int type = cursor.getColumnIndexOrThrow(COLUMNS[2]);
++                    while (cursor.moveToNext()) {
++                        rows.incrementAndGet();
++                        if (!target.getName().equals(cursor.getString(name))) continue;
++                        if (DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(type)))
++                            throw new IOException("Diagnostic target is a directory");
++                        String documentId = cursor.getString(id);
++                        if (documentId == null) throw new IOException("Missing diagnostic document ID");
++                        document = DocumentsContract.buildDocumentUriUsingTree(parentUri, documentId);
++                        break;
++                    }
++                }
++            } finally { elapsed(1, start); }
++            if (document == null) {
++                start = System.nanoTime();
++                try {
++                    creates.incrementAndGet();
++                    document = DocumentsContract.createDocument(resolver, parentUri, mime, target.getName());
++                    if (document == null) throw new IOException("Cannot create diagnostic document");
++                } finally { elapsed(2, start); }
++            }
++            start = System.nanoTime();
++            try {
++                // Explicit truncation prevents old trailing bytes when a report gets shorter.
++                OutputStream output = resolver.openOutputStream(document, "wt");
++                if (output == null) throw new IOException("Cannot open diagnostic document");
++                opens.incrementAndGet();
++                return output;
++            } finally { elapsed(3, start); }
++        } catch (IOException | RuntimeException error) {
++            failures.incrementAndGet();
++            // Revoked grants, moved/deleted parents, null cursors and provider restarts
++            // are retried from normal grant resolution by the existing private spool.
++            synchronized (directoryCache) {
++                if (parentPath != null && directoryCache.get(parentPath) == parentUri)
++                    directoryCache.remove(parentPath);
++            }
++            throw new IOException("Diagnostic SAF open failed", error);
++        }
++    }
++
++    JSONObject snapshot() {
++        JSONObject result = new JSONObject();
++        try {
++            result.put("revision", REVISION);
++            result.put("directoryCacheHits", cacheHits.get());
++            result.put("directoryCacheMisses", cacheMisses.get());
++            synchronized (directoryCache) { result.put("cachedDirectories", directoryCache.size()); }
++            result.put("lookupQueries", queries.get());
++            result.put("lookupRowsVisited", rows.get());
++            result.put("createAttempts", creates.get());
++            result.put("openSuccesses", opens.get());
++            result.put("openFailures", failures.get());
++            for (int i = 0; i < PHASES.length; i++) {
++                result.put("total" + PHASES[i] + "Ms", totalNs[i].get() / 1_000_000.0);
++                result.put("last" + PHASES[i] + "Ms", lastNs[i].get() / 1_000_000.0);
++            }
++            result.put("timingBoundary", "process_totals_and_last_attempt_per_phase_not_capture_latency");
++            result.put("lookupPolicy", "one_cursor_with_id_name_type_per_open_no_per_child_queries");
++        } catch (Exception ignored) { }
++        return result;
++    }
++
++    private void elapsed(int phase, long start) {
++        long elapsed = System.nanoTime() - start;
++        totalNs[phase].addAndGet(elapsed);
++        lastNs[phase].set(elapsed);
++    }
++    private static AtomicLong[] counters() {
++        return new AtomicLong[]{new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()};
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorageHelper.java b/app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorageHelper.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorageHelper.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorageHelper.java
+@@ -34,10 +34,18 @@
+     private static final String TAG = "SimpleStorageHelper";
+ 
+     private static Context sContext;
++    private static volatile DiagnosticSafWriter1B diagnosticWriter;
+ 
+     /** Initialize the module. Call once from {@code PhotonCamera.initModules()}. */
+     public static void init(Context context) {
+         sContext = context.getApplicationContext();
++        Context app = sContext;
++        diagnosticWriter = new DiagnosticSafWriter1B(app.getContentResolver(),
++                Environment.getExternalStorageDirectory(), relativeParent -> {
++                    DocumentFile parent = DocumentFileCompat.fromSimplePath(app, StorageId.PRIMARY,
++                            relativeParent, DocumentFileType.FOLDER, true);
++                    return parent == null ? null : parent.getUri();
++                });
+     }
+ 
+     /** Base path we request access to (picker opens here when supported). */
+@@ -221,6 +229,18 @@
+         }
+     }
+ 
++    /** Diagnostic spool only: a single projected lookup, no per-child metadata calls. */
++    public static OutputStream openDiagnosticOutputStream1B(String absolutePath) throws IOException {
++        DiagnosticSafWriter1B writer = diagnosticWriter;
++        if (writer == null) throw new IOException("Storage helper is not initialized");
++        return writer.open(absolutePath, guessMime(absolutePath));
++    }
++
++    public static org.json.JSONObject diagnosticStorageSnapshot1B() {
++        DiagnosticSafWriter1B writer = diagnosticWriter;
++        return writer == null ? new org.json.JSONObject() : writer.snapshot();
++    }
++
+     /**
+      * Resolves the parent directory via SAF, deletes any pre-existing file with the same name,
+      * and creates a new {@link DocumentFile} ready for writing.

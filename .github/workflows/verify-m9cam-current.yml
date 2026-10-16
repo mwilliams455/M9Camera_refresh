@@ -2,7 +2,7 @@ name: M9Cam current build, tests and CodeQL
 
 on:
   pull_request:
-    branches: ['main', 'codex/gallerypause1a-v2.88', 'codex/rawgeometry1a-v2.89', 'codex/cctguard1a-v2.90', 'codex/noiseguard1a-v2.91']
+    branches: ['main', 'codex/gallerypause1a-v2.88', 'codex/rawgeometry1a-v2.89', 'codex/cctguard1a-v2.90', 'codex/noiseguard1a-v2.91', 'codex/diagexport1a-v2.93']
     paths: ['patches/**', 'scripts/ci/**', '.github/workflows/verify-m9cam-current.yml']
   push:
     branches: ['main']
@@ -51,12 +51,12 @@ jobs:
         with:
           languages: java-kotlin
           build-mode: manual
-          source-root: ci-source/PhotonCamera_293
+          source-root: ci-source/PhotonCamera_294
           threads: 2
       - name: Build and run all selected regression suites
-        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_293" --run
+        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_294" --run
       - name: Verify library release resources
-        working-directory: ci-source/PhotonCamera_293
+        working-directory: ci-source/PhotonCamera_294
         run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
       - name: Analyze reconstructed production source
         uses: github/codeql-action/analyze@v4
@@ -71,11 +71,11 @@ jobs:
           name: m9cam-current-verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ci-source/*_VERIFICATION.json
-            ci-source/PhotonCamera_293/app/build/test-results/testDebugUnitTest/**
-            ci-source/PhotonCamera_293/app/build/reports/tests/testDebugUnitTest/**
-            ci-source/PhotonCamera_293/app/src/main/java/**
-            ci-source/PhotonCamera_293/app/src/test/java/**
-            ci-source/PhotonCamera_293/circularbarlib/src/main/java/**
+            ci-source/PhotonCamera_294/app/build/test-results/testDebugUnitTest/**
+            ci-source/PhotonCamera_294/app/build/reports/tests/testDebugUnitTest/**
+            ci-source/PhotonCamera_294/app/src/main/java/**
+            ci-source/PhotonCamera_294/app/src/test/java/**
+            ci-source/PhotonCamera_294/circularbarlib/src/main/java/**
             ci-reports/codeql/**
           retention-days: 30
           if-no-files-found: error

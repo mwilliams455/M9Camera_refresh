@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "productionClasses": [
+    "M9DiagnosticBurstSpool.java",
+    "M9DiagnosticPublicWriter1A.java"
+  ],
+  "realFilesystemAndExecutors": true,
+  "androidSafAndJsonSerializationStubbed": true,
+  "scenarios": [
+    {
+      "scenario": "writer_failures_and_exact_bytes",
+      "status": "PASS",
+      "assertions": 28
+    },
+    {
+      "scenario": "backlog",
+      "status": "PASS",
+      "assertions": 3216
+    },
+    {
+      "scenario": "coalesce",
+      "status": "PASS",
+      "assertions": 190
+    },
+    {
+      "scenario": "retry",
+      "status": "PASS",
+      "assertions": 12
+    },
+    {
+      "scenario": "lifecycle",
+      "status": "PASS",
+      "assertions": 12
+    }
+  ],
+  "assertions": 3458,
+  "phoneStorageProviderUntested": true
+}
