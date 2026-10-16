@@ -1,0 +1,281 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 4f27343..9fc60e4 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27292
++        versionCode 27293
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.92-numericcleanup1a'
++        versionName '2.93-diagexport1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.92_NUMERICCLEANUP1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.93_DIAGEXPORT1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
+index b57e8fd..e6e8cc0 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java
+@@ -59,7 +59,9 @@ public final class M9DiagnosticBurstSpool {
+     private static final long PRIMARY_TIMING_EXPORT_DELAY_MS = 100L;
+     private static final long RECOVERED_PRIMARY_EXPORT_DELAY_MS = 1000L;
+     private static final String PRIORITY_ROLE = "primary_timing";
+-    private static final int COPY_BUFFER_BYTES = 64 * 1024;
++    private static final M9DiagnosticPublicWriter1A PUBLIC_WRITER =
++            new M9DiagnosticPublicWriter1A(Files::newOutputStream,
++                    path -> SimpleStorageHelper.openOutputStreamByAbsPath(path.toString()));
+     private static final Object BUNDLE_LOCK = new Object();
+ 
+     private static final ConcurrentHashMap<String, Entry> INDIVIDUAL_PENDING = new ConcurrentHashMap<>();
+@@ -211,7 +213,6 @@ public final class M9DiagnosticBurstSpool {
+             }
+             if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return;
+             scheduleBundle();
+-            int normalIndex = 0;
+             int recoveredPriorityIndex = 0;
+             INDIVIDUAL_EXPORTER.getQueue().clear();
+             FRESH_PRIMARY_EXPORTER.getQueue().clear();
+@@ -243,8 +244,10 @@ public final class M9DiagnosticBurstSpool {
+                             RECOVERED_PRIMARY_EXPORT_DELAY_MS + 100L * recoveredPriorityIndex++,
+                             TimeUnit.MILLISECONDS);
+                 } else {
++                    // DIAGEXPORT1A: one background worker already serializes storage.
++                    // Do not add N*250ms of idle delay to a recovered backlog.
+                     INDIVIDUAL_EXPORTER.schedule(() -> exportIndividual(e, false, false),
+-                            INDIVIDUAL_DELAY_MS + 250L * normalIndex++,
++                            INDIVIDUAL_DELAY_MS,
+                             TimeUnit.MILLISECONDS);
+                 }
+             }
+@@ -593,72 +596,52 @@ public final class M9DiagnosticBurstSpool {
+         }
+     }
+ 
++    private static boolean publicExportEnabled() {
++        return appVisible && M9OutputSettings.diagnosticsEnabled();
++    }
++
+     private static boolean writePublicBytes(Path path, byte[] bytes) {
+-        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return false;
+         try {
+-            OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(path.toString());
+-            if (safOut != null) {
+-                try (OutputStream out = safOut) {
+-                    out.write(bytes);
+-                    out.flush();
+-                }
+-                return true;
+-            }
+-        } catch (Throwable safError) {
+-            Log.w(TAG, "M9SPOOLSTREAM1A SAF manifest write failed, trying direct path: " + safError);
+-        }
+-        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return false;
+-        try (OutputStream out = Files.newOutputStream(path)) {
+-            out.write(bytes);
+-            out.flush();
+-            return true;
+-        } catch (Throwable directError) {
+-            Log.e(TAG, "M9SPOOLSTREAM1A all manifest write routes failed: " + path, directError);
++            return PUBLIC_WRITER.write(path, bytes, M9DiagnosticBurstSpool::publicExportEnabled);
++        } catch (Exception error) {
++            Log.e(TAG, "M9DIAGEXPORT1A all manifest write routes failed: " + path, error);
+             return false;
+         }
+     }
+ 
+     private static boolean streamPublic(Path publicPath, Path privatePath) {
+-        if (!appVisible || !M9OutputSettings.diagnosticsEnabled() || !Files.isRegularFile(privatePath)) return false;
++        if (!Files.isRegularFile(privatePath)) return false;
+         try {
+-            OutputStream safOut = SimpleStorageHelper.openOutputStreamByAbsPath(publicPath.toString());
+-            if (safOut != null) {
+-                try (InputStream in = Files.newInputStream(privatePath);
+-                     OutputStream out = safOut) {
+-                    copy(in, out);
+-                    out.flush();
+-                }
+-                return true;
+-            }
+-        } catch (Throwable safError) {
+-            Log.w(TAG, "M9SPOOLSTREAM1A SAF stream failed, trying direct path: " + safError);
+-        }
+-        if (!appVisible || !M9OutputSettings.diagnosticsEnabled()) return false;
+-        try (InputStream in = Files.newInputStream(privatePath);
+-             OutputStream out = Files.newOutputStream(publicPath)) {
+-            copy(in, out);
+-            out.flush();
+-            return true;
+-        } catch (Throwable directError) {
+-            Log.e(TAG, "M9SPOOLSTREAM1A all stream routes failed: " + publicPath, directError);
++            return PUBLIC_WRITER.stream(publicPath, privatePath,
++                    M9DiagnosticBurstSpool::publicExportEnabled);
++        } catch (Exception error) {
++            Log.e(TAG, "M9DIAGEXPORT1A all stream routes failed: " + publicPath, error);
+             return false;
+         }
+     }
+ 
+-    private static void copy(InputStream in, OutputStream out) throws java.io.IOException {
+-        byte[] buffer = new byte[COPY_BUFFER_BYTES];
+-        int n;
+-        while ((n = in.read(buffer)) >= 0) {
+-            if (n > 0) out.write(buffer, 0, n);
+-        }
+-    }
+-
+     public static JSONObject snapshotJson() {
+         JSONObject o = new JSONObject();
+         try {
+             long privateCount = PRIVATE_STAGED.get();
+             long bundleCount = BUNDLE_WRITES.get();
+             o.put("schema", SCHEMA);
++            o.put("publicWriteRevision", M9DiagnosticPublicWriter1A.REVISION);
++            o.put("recoveredOrdinaryExportSpacingMs", 0);
++            o.put("publicWritePolicy", "direct_filesystem_first_then_saf_fallback");
++            o.put("publicDirectWrites", PUBLIC_WRITER.directWrites.get());
++            o.put("publicDirectFailures", PUBLIC_WRITER.directFailures.get());
++            o.put("publicSafFallbackWrites", PUBLIC_WRITER.fallbackWrites.get());
++            o.put("publicSafFallbackFailures", PUBLIC_WRITER.fallbackFailures.get());
++            o.put("publicDirectOpenTotalMs", PUBLIC_WRITER.directOpenNs.get() / 1_000_000.0);
++            o.put("publicSafOpenTotalMs", PUBLIC_WRITER.fallbackOpenNs.get() / 1_000_000.0);
++            o.put("publicTransferTotalMs", PUBLIC_WRITER.transferNs.get() / 1_000_000.0);
++            o.put("publicLastDirectOpenMs", PUBLIC_WRITER.lastDirectOpenNs.get() / 1_000_000.0);
++            o.put("publicLastSafOpenMs", PUBLIC_WRITER.lastFallbackOpenNs.get() / 1_000_000.0);
++            o.put("publicLastTransferMs", PUBLIC_WRITER.lastTransferNs.get() / 1_000_000.0);
++            o.put("publicLastPersistMs", PUBLIC_WRITER.lastTotalNs.get() / 1_000_000.0);
++            o.put("publicLastSuccessfulRoute", PUBLIC_WRITER.lastRoute);
++            o.put("publicTimingBoundary", "per_process_totals_and_last_completed_attempt_components_not_capture_latency");
+             o.put("ioRevision", "M9DIAGIO1E");
+             o.put("memoryRevision", MEMORY_REVISION);
+             o.put("appVisible", appVisible);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticPublicWriter1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticPublicWriter1A.java
+new file mode 100644
+index 0000000..06d63ac
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticPublicWriter1A.java
+@@ -0,0 +1,110 @@
++package com.particlesdevs.photoncamera.m9;
++
++import java.io.IOException;
++import java.io.InputStream;
++import java.io.OutputStream;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.concurrent.atomic.AtomicLong;
++import java.util.function.BooleanSupplier;
++
++/** Diagnostic transport only. A failed attempt never consumes the private payload. */
++final class M9DiagnosticPublicWriter1A {
++    static final String REVISION = "M9DIAGEXPORT1A_DIRECTFIRST";
++    private static final int COPY_BUFFER_BYTES = 64 * 1024;
++
++    interface Opener { OutputStream open(Path target) throws IOException; }
++    private interface Payload { void write(OutputStream output) throws IOException; }
++
++    private final Opener direct;
++    private final Opener fallback;
++    final AtomicLong directWrites = new AtomicLong();
++    final AtomicLong directFailures = new AtomicLong();
++    final AtomicLong fallbackWrites = new AtomicLong();
++    final AtomicLong fallbackFailures = new AtomicLong();
++    final AtomicLong directOpenNs = new AtomicLong();
++    final AtomicLong fallbackOpenNs = new AtomicLong();
++    final AtomicLong transferNs = new AtomicLong();
++    final AtomicLong lastDirectOpenNs = new AtomicLong();
++    final AtomicLong lastFallbackOpenNs = new AtomicLong();
++    final AtomicLong lastTransferNs = new AtomicLong();
++    final AtomicLong lastTotalNs = new AtomicLong();
++    volatile String lastRoute = "none";
++
++    M9DiagnosticPublicWriter1A(Opener direct, Opener fallback) {
++        this.direct = direct;
++        this.fallback = fallback;
++    }
++
++    boolean write(Path target, byte[] bytes, BooleanSupplier enabled) throws IOException {
++        return persist(target, output -> output.write(bytes), enabled);
++    }
++
++    boolean stream(Path target, Path source, BooleanSupplier enabled) throws IOException {
++        // Each attempt reopens the source at byte zero, including after a partial write.
++        return persist(target, output -> {
++            try (InputStream input = Files.newInputStream(source)) {
++                byte[] buffer = new byte[COPY_BUFFER_BYTES];
++                int count;
++                while ((count = input.read(buffer)) != -1) {
++                    if (count > 0) output.write(buffer, 0, count);
++                }
++            }
++        }, enabled);
++    }
++
++    private boolean persist(Path target, Payload payload, BooleanSupplier enabled) throws IOException {
++        if (!enabled.getAsBoolean()) return false;
++        long started = System.nanoTime();
++        IOException directError;
++        try {
++            try {
++                attempt(target, payload, direct, true);
++                directWrites.incrementAndGet();
++                lastRoute = "direct_filesystem";
++                return true;
++            } catch (IOException | SecurityException error) {
++                directFailures.incrementAndGet();
++                directError = new IOException("Diagnostic direct write failed", error);
++            }
++            // An in-flight write may finish after pause; never start another route then.
++            if (!enabled.getAsBoolean()) return false;
++            try {
++                attempt(target, payload, fallback, false);
++                fallbackWrites.incrementAndGet();
++                lastRoute = "saf_fallback";
++                return true;
++            } catch (IOException | SecurityException error) {
++                fallbackFailures.incrementAndGet();
++                IOException failure = new IOException("Diagnostic direct and SAF writes failed", error);
++                failure.addSuppressed(directError);
++                throw failure;
++            }
++        } finally {
++            lastTotalNs.set(System.nanoTime() - started);
++        }
++    }
++
++    private void attempt(Path target, Payload payload, Opener opener, boolean isDirect) throws IOException {
++        long opened = System.nanoTime();
++        OutputStream output;
++        try {
++            output = opener.open(target);
++            if (output == null) throw new IOException("No output stream for " + target);
++        } finally {
++            long elapsed = System.nanoTime() - opened;
++            (isDirect ? directOpenNs : fallbackOpenNs).addAndGet(elapsed);
++            (isDirect ? lastDirectOpenNs : lastFallbackOpenNs).set(elapsed);
++        }
++        long started = System.nanoTime();
++        try (OutputStream owned = output) {
++            payload.write(owned);
++            owned.flush();
++        } finally {
++            // Includes source opening, transfer, flush and close; not CPU-only time.
++            long elapsed = System.nanoTime() - started;
++            transferNs.addAndGet(elapsed);
++            lastTransferNs.set(elapsed);
++        }
++    }
++}

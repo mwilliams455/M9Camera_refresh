@@ -51,12 +51,12 @@ jobs:
         with:
           languages: java-kotlin
           build-mode: manual
-          source-root: ci-source/PhotonCamera_292
+          source-root: ci-source/PhotonCamera_293
           threads: 2
       - name: Build and run all selected regression suites
-        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_292" --run
+        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_293" --run
       - name: Verify library release resources
-        working-directory: ci-source/PhotonCamera_292
+        working-directory: ci-source/PhotonCamera_293
         run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
       - name: Analyze reconstructed production source
         uses: github/codeql-action/analyze@v4
@@ -71,11 +71,11 @@ jobs:
           name: m9cam-current-verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ci-source/*_VERIFICATION.json
-            ci-source/PhotonCamera_292/app/build/test-results/testDebugUnitTest/**
-            ci-source/PhotonCamera_292/app/build/reports/tests/testDebugUnitTest/**
-            ci-source/PhotonCamera_292/app/src/main/java/**
-            ci-source/PhotonCamera_292/app/src/test/java/**
-            ci-source/PhotonCamera_292/circularbarlib/src/main/java/**
+            ci-source/PhotonCamera_293/app/build/test-results/testDebugUnitTest/**
+            ci-source/PhotonCamera_293/app/build/reports/tests/testDebugUnitTest/**
+            ci-source/PhotonCamera_293/app/src/main/java/**
+            ci-source/PhotonCamera_293/app/src/test/java/**
+            ci-source/PhotonCamera_293/circularbarlib/src/main/java/**
             ci-reports/codeql/**
           retention-days: 30
           if-no-files-found: error
