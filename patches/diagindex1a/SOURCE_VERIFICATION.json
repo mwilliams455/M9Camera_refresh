@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java"
+  ],
+  "unchangedScopedFiles": 1376,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "7b5794100e194786ac2207fc475449ad1281e651de14e7caea4d95a9eb71e858",
+  "candidateScopedSha256": "bac0e892ba5e101427ed79d8d0ef30a53aae068fee0cc46ddd0132fb539c4b4c",
+  "nativeAndAssetsUnchanged": true,
+  "primaryM9AndMonochromRenderersUnchanged": true,
+  "phoneValidationPending": true
+}
