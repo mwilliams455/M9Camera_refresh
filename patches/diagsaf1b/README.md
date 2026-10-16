@@ -14,7 +14,7 @@ The existing `DocumentFile.findFile` path lists the children and queries their n
 
 The direct-first transport, private spool preservation, lifecycle/preferences, separate fresh PRIMARY and trace workers, and recovery scheduling from 2.93 are retained. The general storage helper methods used for other output are unchanged. No image renderer, exposure, camera capture, JPEG/DNG generation, native source, asset or UI changes are made. Parent directory handles are process-local and clear on initialization or an opening failure; an externally moved directory whose handle remains valid may continue to be addressed until invalidation/reinitialization.
 
-Production scope is four files: app version metadata, the spool's diagnostic opener/telemetry wiring, diagnostic initialization/access methods in SimpleStorageHelper, and the new helper. Exact reconstruction and reverse restoration are verified. Packaging preserves the 27 accepted native libraries and 285 assets from signed 2.92 (also byte-identical in 2.93).
+Production scope is four files: app version metadata, the spool's diagnostic opener/telemetry wiring, diagnostic initialization/access methods in SimpleStorageHelper, and the new helper. The existing MonoReadinessExportTest mock is redirected from the old general opener to the diagnostic opener; its recovery/payload assertions and test count are unchanged. Exact reconstruction and reverse restoration cover these five scoped files. Packaging preserves the 27 accepted native libraries and 285 assets from signed 2.92 (also byte-identical in 2.93).
 
 Verification:
 
@@ -34,3 +34,5 @@ API/source references:
 - https://developer.android.com/reference/android/provider/DocumentsContract (projected child queries and tree-scoped URIs)
 - https://developer.android.com/reference/android/content/ContentResolver (output modes)
 - https://android.googlesource.com/platform/frameworks/support/+/8b97716/v4/java/android/support/v4/provider/DocumentFile.java (findFile traversal)
+
+Initial Android gate: compilation passed; one existing recovery test failed because it mocked the former general opener while the spool now calls the diagnostic-specific opener. The mock was corrected without changing its assertions. Both Android gates must pass on the corrected head before delivery.

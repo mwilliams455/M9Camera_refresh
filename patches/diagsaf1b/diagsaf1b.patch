@@ -245,3 +245,15 @@ diff --git a/app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorage
      /**
       * Resolves the parent directory via SAF, deletes any pre-existing file with the same name,
       * and creates a new {@link DocumentFile} ready for writing.
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java
+@@ -36,7 +36,7 @@
+         Application app=mock(Application.class);when(app.getFilesDir()).thenReturn(root.resolve("private").toFile());
+         photon.when(PhotonCamera::getAppContext).thenReturn(app);
+         settings.when(M9OutputSettings::diagnosticsEnabled).thenReturn(true);
+-        storage.when(()->SimpleStorageHelper.openOutputStreamByAbsPath(anyString())).thenAnswer(i->{
++        storage.when(()->SimpleStorageHelper.openDiagnosticOutputStream1B(anyString())).thenAnswer(i->{
+             String path=i.getArgument(0);
+             if(!Paths.get(path).getParent().equals(raw))return null;
+             ByteArrayOutputStream stream=new ByteArrayOutputStream();publicFiles.put(path,stream);return stream;

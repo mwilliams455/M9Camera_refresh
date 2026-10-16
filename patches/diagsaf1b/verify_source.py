@@ -9,9 +9,9 @@ a,b=files(parent),files(root);m=json.loads((here/'manifest.json').read_text())
 fp=lambda f:sha(json.dumps(f,sort_keys=True,separators=(',',':')).encode())
 assert fp(a)==m['parentScopedSha256'] and fp(b)==m['candidateScopedSha256']
 changed=sorted(n for n in a.keys()|b.keys() if a.get(n)!=b.get(n));assert changed==sorted(m['fileOverrides'])
-assert len(changed)==4 and len(m["newFiles"])==1
+assert len(changed)==5 and len(m["newFiles"])==1
 assert sha((here/'diagsaf1b.patch.gz').read_bytes())==m['patchSha256']
-allowed={'app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java', 'app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorageHelper.java', 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java', 'app/build.gradle'}
+allowed={'app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java', 'app/src/main/java/com/particlesdevs/photoncamera/util/SimpleStorageHelper.java', 'app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java', 'app/build.gradle', 'app/src/test/java/com/particlesdevs/photoncamera/m9/MonoReadinessExportTest.java'}
 assert set(changed)==allowed
 with tempfile.TemporaryDirectory() as tmp:
     t=Path(tmp)
