@@ -1,0 +1,31 @@
+{
+  "sourceFilename": "IMG_20261016_090323_1792137803774_00_M9_PRIMARY.json",
+  "sourceSha256": "c286b2a1dccadc98f1285b4889c580b6ea336392dd9acb6f69263b610113e3f1",
+  "appTest": "2.93-diagexport1a",
+  "jpegSaved": true,
+  "dngSaved": false,
+  "dngPersistMode": "not_requested_jpeg_only",
+  "renderElapsedMs": 4003,
+  "queueWaitElapsedMs": 2,
+  "diagnosticSpool": {
+    "publicWriteRevision": "M9DIAGEXPORT1A_DIRECTFIRST",
+    "publicWritePolicy": "direct_filesystem_first_then_saf_fallback",
+    "publicDirectWrites": 0,
+    "publicDirectFailures": 6,
+    "publicSafFallbackWrites": 3,
+    "publicSafFallbackFailures": 0,
+    "publicDirectOpenTotalMs": 23.479273,
+    "publicSafOpenTotalMs": 16723.593587,
+    "publicTransferTotalMs": 20.315156,
+    "publicLastDirectOpenMs": 1.74823,
+    "publicLastSafOpenMs": 2731.821822,
+    "publicLastTransferMs": 0.433958,
+    "publicLastPersistMs": 2735.360624,
+    "publicLastSuccessfulRoute": "saf_fallback",
+    "publicTimingBoundary": "per_process_totals_and_last_completed_attempt_components_not_capture_latency",
+    "publicExportRequiresVisibleActivity": true,
+    "pendingIndividualEntries": 3234,
+    "recoveredEntries": 3229
+  },
+  "conclusion": "Direct writes rejected; SAF opening dominates observed public persistence. No 2.93 phone performance acceptance. Totals are concurrent process counters, not shutter latency. This snapshot precedes its own export."
+}

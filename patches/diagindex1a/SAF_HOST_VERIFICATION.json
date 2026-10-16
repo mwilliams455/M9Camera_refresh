@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "assertions": 9924,
+  "largeDirectoryEntries": 20000,
+  "queuedExports": 3229,
+  "directoryScansForQueuedExports": 1,
+  "failureScenarios": 8,
+  "concurrencyAndSnapshotIsolation": true,
+  "androidProviderStubbed": true,
+  "productionClass": "DiagnosticSafWriter1B.java",
+  "phonePerformanceUnproven": true
+}

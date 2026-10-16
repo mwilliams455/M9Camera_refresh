@@ -1,0 +1,25 @@
+{
+  "parentCommit": "967529317fcad47750aedeb4f96b18e9f5904c97",
+  "version": "2.95-diagindex1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "7fee12a0b1a98fc239f81cc83a9e864a0e0a9119a6375bb894c470119f008530",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "7105e9323ee1770f1915ab63b731db6c058615ebbb4b488495f93c37ca9be416",
+    "app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java": "838a90d662029c0998f5b617d898d536dd3d36c9a8c863cbc273640afb48c1ec"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "939b2ed3de78ff0c66203dc57318ddde83bafe8db0f36ec248ed1f683329f8fc",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/M9DiagnosticBurstSpool.java": "66dd38514fa32e61fd69e2d360c3669197316ed0a812ad088f81977f10b1b2cb",
+    "app/src/main/java/com/particlesdevs/photoncamera/util/DiagnosticSafWriter1B.java": "e221b131bc8a76a8f0c32159bcc13bfbdfb220e2f118e8c62fa4ffd54ae4f1b7"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "df894c87e0d0616aea569853bd37a453e00498813661d9c4ac82148155a885b9",
+  "parentScopedSha256": "7b5794100e194786ac2207fc475449ad1281e651de14e7caea4d95a9eb71e858",
+  "candidateScopedSha256": "bac0e892ba5e101427ed79d8d0ef30a53aae068fee0cc46ddd0132fb539c4b4c"
+}

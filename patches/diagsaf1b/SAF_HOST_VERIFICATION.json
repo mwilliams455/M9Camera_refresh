@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "assertions": 135,
+  "largeDirectoryEntries": 3203,
+  "largeDirectoryQueriesPerOpen": 1,
+  "failureScenarios": 7,
+  "androidProviderStubbed": true,
+  "productionClass": "DiagnosticSafWriter1B.java",
+  "phonePerformanceUnproven": true
+}

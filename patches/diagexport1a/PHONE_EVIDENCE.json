@@ -1,0 +1,19 @@
+{
+  "captureFilename": "IMG_20261016_081511_1792134911653_00_M9_PRIMARY.json",
+  "manifestFilename": "M9_DIAGNOSTICS_BURST_1792134887151_3204.json",
+  "recoveredEntries": 3203,
+  "recoveredBytesReferenced": 139299120,
+  "manifestEntries": 3204,
+  "manifestExportElapsedMs": 20261.14718,
+  "renderElapsedMs": 3610,
+  "dngSaveElapsedMs": 2708,
+  "saveMode": {
+    "mode": 1,
+    "jpegRequested": true,
+    "dngRequested": true,
+    "unfilteredDngRequested": false,
+    "selectionBoundary": "RAW_enqueue"
+  },
+  "renderQueueWaitMs": 0,
+  "rootCauseLimit": "The old per-file scheduling delay is proven from source. Phone telemetry does not isolate document-provider open time; direct-first is a candidate improvement with safe fallback and new route timing."
+}
