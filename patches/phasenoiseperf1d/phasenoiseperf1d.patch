@@ -1,0 +1,56 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27295
++        versionCode 27296
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.95-diagindex1a'
++        versionName '2.96-phasenoiseperf1d'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.95_DIAGINDEX1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.96_PHASENOISEPERF1D-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/cpp/colourtrial1c/phase_noise.cpp
++++ b/app/src/main/cpp/colourtrial1c/phase_noise.cpp
+@@ -487,7 +487,7 @@
+   std::vector<double> term(maxTermPlane);
+   std::vector<uint8_t> valid(maxTermPlane);
+ 
+-  #pragma omp for schedule(static)
++  #pragma omp for schedule(dynamic,1)
+   for(int tile=0;tile<tileCount;tile++){
+    const int ty=tile/tilesX,tx=tile%tilesX;
+    const int y0=firstY+ty*tileRows,y1=std::min(lastY,y0+tileRows);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java
+@@ -52,12 +52,13 @@
+         d.put("amazeRawCopyMs",stats[5]);
+         d.put("amazeVarianceMs",stats[6]);
+         d.put("amazePhaseNoiseMs",stats[7]);
+-        d.put("phaseNoisePerfRevision","M9PHASENOISEPERF1C_ADAPTIVE128_EXACT");
++        d.put("phaseNoisePerfRevision","M9PHASENOISEPERF1D_DYNAMIC_EXACT");
++        d.put("phaseNoisePerfScheduling","dynamic_tiles_chunk1");
+         d.put("phaseNoisePerfBandRows",64);
+         d.put("phaseNoisePerfTileCols",512);
+         d.put("phaseNoisePerfDirtySubtileCols",128);
+         d.put("phaseNoisePerfPolicy","adaptive_dirty_tile_subdivision_512_to_128_symmetric_pair_exact");
+-        d.put("phaseNoisePerfParentRevision","M9PHASENOISEPERF1B_SYMTILE_EXACT");
++        d.put("phaseNoisePerfParentRevision","M9PHASENOISEPERF1C_ADAPTIVE128_EXACT");
+         d.put("amazeQuarterBlendMs",stats[8]);
+         d.put("amazeFloatInputMs",stats[9]);
+         d.put("amazeCoreMs",stats[10]);
