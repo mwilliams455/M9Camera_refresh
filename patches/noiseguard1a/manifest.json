@@ -1,0 +1,34 @@
+{
+  "parentCommit": "b252dc7af355b856453ef04eb986e6925adbb5e9",
+  "version": "2.91-noiseguard1a",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "d92b7de9525786e1722e9e249d27733116efbe5bb33b41d2f73c24e0bc2ec55a",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java": "3ae01a7d1f748fd560897b57674503852dd49604a4a626ca033235ea81dc0243",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java": "21a49c22e3895f8143639c04d070b02ae20e607ee35104747c0d57661a57b469"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "721fcac33cfddbe2b48e6e945ed331bf1916021bd84e199694aa00344ce69c49",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java": "c48911939f7db839ad270e4445141113b357916613c00354c235611adcd85011",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/NoiseCoefficients1A.java": "d4d31a2d5d15a4a2c32f1903a988f30740577813399450a202b6a6b707830ca1",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/NoiseStrength1A.java": "c2790733898bb92ad766f8d691fc5a4ebb658ba81f1988d28c5ccff3a8fffd58",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java": "a4b0415427437c0b6eb2ec7fa28851db4d2ed9b7c44c59408633ea1ddfa470f4",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseBoundaryTest.java": "7d2ce2aee09b836f9eb60c14057018bad894fc4ea271a1c0ee6e3fa12f67e7f2",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseGuardTest.java": "e75e38bd88fdfac38b02421309c781743facdd4e2baa9f9eba0292ebccc75638"
+  },
+  "newFiles": [
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/NoiseCoefficients1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/NoiseStrength1A.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseBoundaryTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseGuardTest.java"
+  ],
+  "binaryPayloads": [],
+  "patchSha256": "11cccf79c1ab819052bfcce016ece60df4f0c2bd6231fadc2fcfebaeddfd9c05",
+  "parentScopedSha256": "fc57b3df8fa4e779eb5030976e15414189c28249f4225b68445ee42883250224",
+  "candidateScopedSha256": "ce4cf815bae85d522e154562ca9923541db934c07799103d32afa7ffebf7d856"
+}

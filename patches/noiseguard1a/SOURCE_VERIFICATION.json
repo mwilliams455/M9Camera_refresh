@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/render/NoiseCoefficients1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/NoiseStrength1A.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseBoundaryTest.java",
+    "app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseGuardTest.java"
+  ],
+  "unchangedScopedFiles": 1370,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "fc57b3df8fa4e779eb5030976e15414189c28249f4225b68445ee42883250224",
+  "candidateScopedSha256": "ce4cf815bae85d522e154562ca9923541db934c07799103d32afa7ffebf7d856",
+  "nativeAndAssetsUnchanged": true,
+  "primaryM9AndMonochromRenderersUnchanged": true,
+  "phoneValidationPending": true
+}

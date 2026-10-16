@@ -1,0 +1,351 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27290
++        versionCode 27291
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.90-cctguard1a'
++        versionName '2.91-noiseguard1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.90_CCTGUARD1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.91_NOISEGUARD1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/PostPipeline.java
+@@ -23,6 +23,7 @@
+ import com.particlesdevs.photoncamera.processing.opengl.scripts.GLHistogram;
+ import com.particlesdevs.photoncamera.processing.parameters.ResolutionSolution;
+ import com.particlesdevs.photoncamera.processing.render.NoiseModeler;
++import com.particlesdevs.photoncamera.processing.render.NoiseCoefficients1A;
+ import com.particlesdevs.photoncamera.processing.render.Parameters;
+ import com.particlesdevs.photoncamera.processing.ultrahdr.GainMapComputer;
+ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+@@ -236,21 +237,12 @@
+ 
+     private void computeNoise(Parameters parameters) {
+         NoiseModeler modeler = parameters.noiseModeler;
+-        noiseS = modeler.computeModel[0].first.floatValue() +
+-                modeler.computeModel[1].first.floatValue() +
+-                modeler.computeModel[2].first.floatValue();
+-        noiseO = modeler.computeModel[0].second.floatValue() +
+-                modeler.computeModel[1].second.floatValue() +
+-                modeler.computeModel[2].second.floatValue();
+-        noiseS /= 3.f;
+-        noiseO /= 3.f;
+-        double noisempy = Math.pow(2.0, mSettings.noiseRstr + constShift);
+-        Log.d("PostPipeline", "noisempy:" + noisempy);
+-        noiseS *= noisempy;
+-        noiseO *= noisempy;
++        if (modeler == null) throw new IllegalArgumentException("NOISEGUARD1A: missing noise model");
++        NoiseCoefficients1A coefficients = NoiseCoefficients1A.compute(
++                modeler.computeModel, mSettings.noiseRstr, constShift);
++        noiseS = coefficients.slope;
++        noiseO = coefficients.offset;
+         Log.d("PostPipeline", "NoiseS:" + noiseS + "\n" + "NoiseO:" + noiseO);
+-        noiseO = Math.max(noiseO, Float.MIN_NORMAL);
+-        noiseS = Math.max(noiseS, Float.MIN_NORMAL);
+     }
+ 
+     @Override
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/render/NoiseCoefficients1A.java
+@@ -0,0 +1,57 @@
++package com.particlesdevs.photoncamera.processing.render;
++
++import android.util.Pair;
++import com.particlesdevs.photoncamera.settings.NoiseStrength1A;
++
++/** Validate both legacy GL coefficients before either is published. */
++public final class NoiseCoefficients1A {
++    public final float slope;
++    public final float offset;
++
++    private NoiseCoefficients1A(float slope, float offset) {
++        this.slope = slope;
++        this.offset = offset;
++    }
++
++    public static NoiseCoefficients1A compute(Pair<Double, Double>[] model,
++                                               double strength, float shift) {
++        if (model == null || model.length != 3) throw invalid();
++        for (Pair<Double, Double> channel : model) {
++            if (channel == null) throw invalid();
++            coefficient(channel.first);
++            coefficient(channel.second);
++        }
++        // Keep the original per-channel double-to-float conversion and float sum order.
++        float slope = model[0].first.floatValue() + model[1].first.floatValue()
++                + model[2].first.floatValue();
++        float offset = model[0].second.floatValue() + model[1].second.floatValue()
++                + model[2].second.floatValue();
++        requireFinite(slope);
++        requireFinite(offset);
++        slope /= 3.f;
++        offset /= 3.f;
++        double multiplier = Math.pow(2.0, NoiseStrength1A.sanitize(strength) + shift);
++        if (!(multiplier > 0.0) || Double.isInfinite(multiplier)) throw invalid();
++        // Narrow once, after the original double multiplication.
++        slope = (float) (slope * multiplier);
++        offset = (float) (offset * multiplier);
++        requireFinite(slope);
++        requireFinite(offset);
++        // Preserve the established floor, including finite negative/zero model values.
++        return new NoiseCoefficients1A(Math.max(slope, Float.MIN_NORMAL),
++                Math.max(offset, Float.MIN_NORMAL));
++    }
++
++    private static void coefficient(Double value) {
++        if (value == null || Double.isNaN(value) || Double.isInfinite(value)) throw invalid();
++        requireFinite(value.floatValue());
++    }
++
++    private static void requireFinite(float value) {
++        if (Float.isNaN(value) || Float.isInfinite(value)) throw invalid();
++    }
++
++    private static IllegalArgumentException invalid() {
++        return new IllegalArgumentException("NOISEGUARD1A: invalid noise model or coefficients");
++    }
++}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/NoiseStrength1A.java
+@@ -0,0 +1,22 @@
++package com.particlesdevs.photoncamera.settings;
++
++/** Read-boundary policy for the existing -6..+4 noise-strength control. */
++public final class NoiseStrength1A {
++    public static final float DEFAULT = 0.0f;
++    private NoiseStrength1A() {}
++
++    public static double sanitize(double value) {
++        return value >= -6.0 && value <= 4.0 ? value : DEFAULT;
++    }
++
++    public static float parse(String stored, float fallback) {
++        float safeDefault = (float) sanitize(fallback);
++        if (stored == null) return safeDefault;
++        try {
++            float value = Float.parseFloat(stored);
++            return value >= -6.0f && value <= 4.0f ? value : safeDefault;
++        } catch (NumberFormatException invalid) {
++            return safeDefault;
++        }
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java
+@@ -371,6 +371,16 @@
+      * a default value.
+      */
+     public Float getFloat(String scope, PreferenceKeys.Key key, Float defaultValue) {
++        if (key == PreferenceKeys.Key.KEY_NOISESTR_SEEKBAR) {
++            float fallback = defaultValue == null ? NoiseStrength1A.DEFAULT
++                    : (float) NoiseStrength1A.sanitize(defaultValue);
++            try {
++                return NoiseStrength1A.parse(getString(scope, key, Float.toString(fallback)), fallback);
++            } catch (ClassCastException invalidStoredType) {
++                Log.w(TAG, "NOISEGUARD1A: invalid stored noise strength; using default");
++                return fallback;
++            }
++        }
+         String defaultValueString = Float.toString(defaultValue);
+         String value = getString(scope, key, defaultValueString);
+         return Float.parseFloat(value);
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseBoundaryTest.java
+@@ -0,0 +1,82 @@
++package com.particlesdevs.photoncamera.processing.render;
++
++import android.app.Application;
++import android.content.Context;
++import android.content.SharedPreferences;
++import com.particlesdevs.photoncamera.api.Settings;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.processing.opengl.postpipeline.PostPipeline;
++import com.particlesdevs.photoncamera.settings.PreferenceKeys;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import java.lang.reflect.InvocationTargetException;
++import java.lang.reflect.Method;
++import org.junit.*;
++import org.junit.runner.RunWith;
++import org.mockito.MockedStatic;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.RuntimeEnvironment;
++import org.robolectric.annotation.Config;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class NoiseBoundaryTest {
++    private MockedStatic<PhotonCamera> app;
++    private SettingsManager manager;
++    private SharedPreferences prefs;
++    @Before public void setup() {
++        Context context=RuntimeEnvironment.getApplication();app=mockStatic(PhotonCamera.class);
++        app.when(PhotonCamera::getResourcesStatic).thenReturn(context.getResources());
++        app.when(PhotonCamera::getAppContext).thenReturn(context);
++        app.when(()->PhotonCamera.getStringStatic(anyInt())).thenAnswer(c->context.getString(c.getArgument(0)));
++        manager=new SettingsManager(context);prefs=manager.getDefaultPreferences();prefs.edit().clear().commit();
++        app.when(PhotonCamera::getSettingsManagerStatic).thenReturn(manager);
++        PreferenceKeys.initialise(manager);
++    }
++    @After public void cleanup() {app.close();}
++    private float read() {return manager.getFloat(SettingsManager.SCOPE_GLOBAL,PreferenceKeys.Key.KEY_NOISESTR_SEEKBAR);}
++    private void write(String value) {prefs.edit().putString("pref_noise_seekbar_key",value).commit();}
++    @Test public void actualSavedNoiseReadRejectsInvalidNumbers() {
++        for(String value:new String[]{"NaN","Infinity","140","-7","broken"}) {write(value);assertEquals(0.f,read(),0.f);}
++    }
++    @Test public void actualSavedNoiseReadHandlesWrongStorageType() {
++        prefs.edit().putFloat("pref_noise_seekbar_key",2.5f).commit();assertEquals(0.f,read(),0.f);
++        prefs.edit().putBoolean("pref_noise_seekbar_key",true).commit();assertEquals(0.f,read(),0.f);
++    }
++    @Test public void actualSavedNoiseReadPreservesValidOffGridValueAndStorage() {
++        write("-0.1234567");assertEquals(Float.floatToIntBits(-0.1234567f),Float.floatToIntBits(read()));
++        assertEquals("-0.1234567",prefs.getString("pref_noise_seekbar_key",null));
++    }
++    @Test public void actualSavedNoiseReadUsesExistingZeroDefault() {assertEquals(0.f,read(),0.f);}
++    @Test public void actualNoiseReadHonoursExplicitValidFallback() {
++        write("broken");assertEquals(1.25f,manager.getFloat(SettingsManager.SCOPE_GLOBAL,PreferenceKeys.Key.KEY_NOISESTR_SEEKBAR,1.25f),0.f);
++    }
++    @Test public void unrelatedFloatPreferenceRetainsExistingBehavior() {
++        manager.set(SettingsManager.SCOPE_GLOBAL,PreferenceKeys.Key.KEY_MERGE_SEEKBAR,"140");
++        assertEquals(140.f,manager.getFloat(SettingsManager.SCOPE_GLOBAL,PreferenceKeys.Key.KEY_MERGE_SEEKBAR),0.f);
++    }
++    private PostPipeline pipeline() {
++        PostPipeline p=mock(PostPipeline.class,CALLS_REAL_METHODS);p.mSettings=new Settings();p.noiseS=7;p.noiseO=9;return p;
++    }
++    private void invoke(PostPipeline p,NoiseModeler model) throws Exception {
++        Parameters parameters=mock(Parameters.class);parameters.noiseModeler=model;
++        Method method=PostPipeline.class.getDeclaredMethod("computeNoise",Parameters.class);method.setAccessible(true);method.invoke(p,parameters);
++    }
++    @Test public void realPipelineMethodPublishesValidatedPair() throws Exception {
++        PostPipeline p=pipeline();p.mSettings.noiseRstr=4;NoiseModeler model=mock(NoiseModeler.class);model.computeModel=NoiseGuardTest.model(0.125,0.25);
++        invoke(p,model);assertEquals(2.f,p.noiseS,0.f);assertEquals(4.f,p.noiseO,0.f);assertNull(p.glint);
++    }
++    @Test public void realPipelineMethodRejectsInvalidSecondOutputAtomically() throws Exception {
++        PostPipeline p=pipeline();p.mSettings.noiseRstr=4;NoiseModeler model=mock(NoiseModeler.class);model.computeModel=NoiseGuardTest.model(0.125,Float.MAX_VALUE/4.0);
++        try {invoke(p,model);fail("Invalid coefficients published");}
++        catch(InvocationTargetException expected) {assertTrue(expected.getCause() instanceof IllegalArgumentException);}
++        assertEquals(7.f,p.noiseS,0.f);assertEquals(9.f,p.noiseO,0.f);assertNull(p.glint);
++    }
++    @Test public void realPipelineMethodRejectsMissingModelBeforePublication() throws Exception {
++        PostPipeline p=pipeline();
++        try {invoke(p,null);fail("Missing model accepted");}
++        catch(InvocationTargetException expected) {assertTrue(expected.getCause() instanceof IllegalArgumentException);}
++        assertEquals(7.f,p.noiseS,0.f);assertEquals(9.f,p.noiseO,0.f);assertNull(p.glint);
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/processing/render/NoiseGuardTest.java
+@@ -0,0 +1,95 @@
++package com.particlesdevs.photoncamera.processing.render;
++
++import android.app.Application;
++import android.util.Pair;
++import com.particlesdevs.photoncamera.settings.NoiseStrength1A;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import static org.junit.Assert.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class NoiseGuardTest {
++    @SuppressWarnings("unchecked")
++    static Pair<Double,Double>[] model(double slope, double offset) {
++        return new Pair[]{new Pair<>(slope,offset),new Pair<>(slope,offset),new Pair<>(slope,offset)};
++    }
++    private static void rejects(Pair<Double,Double>[] input, double strength, float shift) {
++        try { NoiseCoefficients1A.compute(input,strength,shift);fail("Invalid model accepted"); }
++        catch (IllegalArgumentException expected) { assertTrue(expected.getMessage().contains("NOISEGUARD1A")); }
++    }
++    @Test public void validStoredBoundsAndFractionalValuesRetainFloatBits() {
++        for (String input:new String[]{"-6","4","0","-0.0","-0.15","1.234567"," 2.5 ","0x1.0p-1"})
++            assertEquals(Float.floatToRawIntBits(Float.parseFloat(input)),Float.floatToRawIntBits(NoiseStrength1A.parse(input,0)));
++    }
++    @Test public void nonFiniteStoredValuesUseDefault() {
++        for(String input:new String[]{"NaN","Infinity","-Infinity","1e100","-1e100"})
++            assertEquals(0.f,NoiseStrength1A.parse(input,0),0.f);
++    }
++    @Test public void outOfRangeStoredValuesUseDefaultWithoutSaturating() {
++        for(String input:new String[]{"-6.000001","4.000001","140","-140"})
++            assertEquals(0.f,NoiseStrength1A.parse(input,0),0.f);
++    }
++    @Test public void malformedAndMissingStoredValuesUseDefault() {
++        for(String input:new String[]{null,""," ","bad","1,5"})
++            assertEquals(0.f,NoiseStrength1A.parse(input,0),0.f);
++    }
++    @Test public void validExplicitDefaultIsRespected() { assertEquals(-1.25f,NoiseStrength1A.parse("bad",-1.25f),0.f); }
++    @Test public void invalidExplicitDefaultReturnsEstablishedZero() {
++        for(float value:new float[]{Float.NaN,Float.POSITIVE_INFINITY,-7,5})
++            assertEquals(0.f,NoiseStrength1A.parse(null,value),0.f);
++    }
++    @Test public void cachedDoubleStrengthIsNotNarrowed() {
++        double value=0.12345678912345;assertEquals(Double.doubleToRawLongBits(value),Double.doubleToRawLongBits(NoiseStrength1A.sanitize(value)));
++    }
++    @Test public void invalidCachedStrengthUsesDefault() {
++        NoiseCoefficients1A expected=NoiseCoefficients1A.compute(model(0.125,0.25),0,0);
++        for(double value:new double[]{Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,-7,5,140}) {
++            NoiseCoefficients1A actual=NoiseCoefficients1A.compute(model(0.125,0.25),value,0);
++            assertEquals(expected.slope,actual.slope,0.f);assertEquals(expected.offset,actual.offset,0.f);
++        }
++    }
++    @Test public void missingModelRejected() { rejects(null,0,0); }
++    @Test public void wrongChannelCountRejected() { rejects(new Pair[2],0,0);rejects(new Pair[4],0,0); }
++    @Test public void missingChannelRejected() { Pair<Double,Double>[] a=model(1,2);a[1]=null;rejects(a,0,0); }
++    @Test public void missingCoefficientRejected() {
++        Pair<Double,Double>[] a=model(1,2);a[2]=new Pair<>(null,2.0);rejects(a,0,0);
++        a[2]=new Pair<>(1.0,null);rejects(a,0,0);
++    }
++    @Test public void nonFiniteModelRejected() {
++        for(double value:new double[]{Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY}) {
++            rejects(model(value,1),0,0);rejects(model(1,value),0,0);
++        }
++    }
++    @Test public void doubleToFloatOverflowRejected() { rejects(model(Double.MAX_VALUE,1),0,0);rejects(model(1,-Double.MAX_VALUE),0,0); }
++    @Test public void floatSumOverflowRejectedBeforeDivision() { rejects(model(Float.MAX_VALUE,1),-6,0);rejects(model(1,Float.MAX_VALUE),-6,0); }
++    @Test public void scaledSlopeOverflowRejected() { rejects(model(Float.MAX_VALUE/4.0,1),4,0); }
++    @Test public void scaledOffsetOverflowRejected() { rejects(model(1,Float.MAX_VALUE/4.0),4,0); }
++    @Test public void invalidExponentShiftRejected() { rejects(model(1,2),0,Float.NaN);rejects(model(1,2),0,Float.POSITIVE_INFINITY);rejects(model(1,2),0,Float.NEGATIVE_INFINITY); }
++    @Test public void zeroAndFiniteNegativeModelsKeepExistingFloor() {
++        NoiseCoefficients1A a=NoiseCoefficients1A.compute(model(0,-1),0,0);
++        assertEquals(Float.MIN_NORMAL,a.slope,0.f);assertEquals(Float.MIN_NORMAL,a.offset,0.f);
++    }
++    @Test public void subnormalCoefficientsKeepExistingFloor() {
++        NoiseCoefficients1A a=NoiseCoefficients1A.compute(model(Double.MIN_VALUE,Float.MIN_VALUE),-6,0);
++        assertEquals(Float.MIN_NORMAL,a.slope,0.f);assertEquals(Float.MIN_NORMAL,a.offset,0.f);
++    }
++    @Test public void knownBoundsKeepExpectedMultipliers() {
++        for(int strength:new int[]{-6,0,4}) {
++            NoiseCoefficients1A a=NoiseCoefficients1A.compute(model(0.125,0.25),strength,0);
++            assertEquals((float)(0.125*Math.pow(2,strength)),a.slope,0.f);
++            assertEquals((float)(0.25*Math.pow(2,strength)),a.offset,0.f);
++        }
++    }
++    @Test public void repeatedCalculationLeavesModelUntouched() {
++        Pair<Double,Double>[] input=model(0.00123,0.00000456);Pair<Double,Double>[] before=input.clone();
++        NoiseCoefficients1A a=NoiseCoefficients1A.compute(input,1.25,0);
++        for(int i=0;i<20;i++) {
++            NoiseCoefficients1A b=NoiseCoefficients1A.compute(input,1.25,0);
++            assertEquals(a.slope,b.slope,0.f);assertEquals(a.offset,b.offset,0.f);
++            for(int j=0;j<3;j++)assertSame(before[j],input[j]);
++        }
++    }
++}
