@@ -17,7 +17,7 @@ signature = subprocess.check_output(['java', '-jar', str(tools / 'lib/apksigner.
 assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in signature
 assert '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956' in signature
 badging = subprocess.check_output([str(tools / 'aapt2'), 'dump', 'badging', str(apk)], text=True)
-for identity in ["name='com.m9project.m9cam.photon'", "versionCode='27293'", "versionName='2.93-numericcleanup1a'"]:
+for identity in ["name='com.m9project.m9cam.photon'", "versionCode='27293'", "versionName='2.93-diagexport1a'"]:
     assert identity in badging
 subprocess.run([str(tools / 'zipalign'), '-c', '-P', '16', '4', str(apk)], check=True)
 resources = subprocess.check_output([str(tools / 'aapt2'), 'dump', 'resources', str(apk)], text=True)
