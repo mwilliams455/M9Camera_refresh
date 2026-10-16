@@ -1,0 +1,53 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27291
++        versionCode 27292
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.91-noiseguard1a'
++        versionName '2.92-numericcleanup1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.91_NOISEGUARD1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.92_NUMERICCLEANUP1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java
+@@ -28,8 +28,9 @@
+         float ChromaDenoiseLevel = (float)Math.sqrt(basePipeline.mParameters.noiseModeler.computeModel[0].first);
+         ChromaDenoiseLevel+=(float)Math.sqrt(basePipeline.mParameters.noiseModeler.computeModel[2].first);
+         ChromaDenoiseLevel/=2.f;
+-        LumaDenoiseLevel*=basePipeline.mSettings.noiseRstr;
+-        ChromaDenoiseLevel*=basePipeline.mSettings.noiseRstr;
++        // Keep double multiplication and narrow only the complete product.
++        LumaDenoiseLevel = (float) (LumaDenoiseLevel * basePipeline.mSettings.noiseRstr);
++        ChromaDenoiseLevel = (float) (ChromaDenoiseLevel * basePipeline.mSettings.noiseRstr);
+         float str = ((float)basePipeline.mSettings.noiseRstr)/16.f;
+         Log.d("PostNode:" + Name, "LumaDenoiseLevel:" + LumaDenoiseLevel + " iso:" + CaptureController.mCaptureResult.get(CaptureResult.SENSOR_SENSITIVITY));
+         Log.d("PostNode:" + Name, "ChromaDenoiseLevel:" + ChromaDenoiseLevel + " iso:" + CaptureController.mCaptureResult.get(CaptureResult.SENSOR_SENSITIVITY));
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/SurfaceViewOverViewfinder.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/SurfaceViewOverViewfinder.java
+@@ -250,7 +250,8 @@
+                         textPaint.setColor(Color.WHITE);
+                     }
+                     canvas.drawText(line, 50, y, textPaint);
+-                    y += textPaint.descent() - textPaint.ascent();
++                    // Preserve float spacing and truncate only after adding y.
++                    y = (int) (y + (textPaint.descent() - textPaint.ascent()));
+                 }
+             }
+         }

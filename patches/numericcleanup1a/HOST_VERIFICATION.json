@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "expressionsCompared": 3,
+  "parentStatements": [
+    "LumaDenoiseLevel*=basePipeline.mSettings.noiseRstr;",
+    "ChromaDenoiseLevel*=basePipeline.mSettings.noiseRstr;",
+    "y += textPaint.descent() - textPaint.ascent();"
+  ],
+  "candidateStatements": [
+    "LumaDenoiseLevel = (float) (LumaDenoiseLevel * basePipeline.mSettings.noiseRstr);",
+    "ChromaDenoiseLevel = (float) (ChromaDenoiseLevel * basePipeline.mSettings.noiseRstr);",
+    "y = (int) (y + (textPaint.descent() - textPaint.ascent()));"
+  ],
+  "compiledClassBytesIdentical": true,
+  "compiledProbeSha256": "98f3fbe846c56790cace13e0e818cd22b251fa0b7ceb445ab7cf45e325b8c291",
+  "scope": "Three verbatim expressions with original double/float/int types; no Android runtime simulation"
+}
