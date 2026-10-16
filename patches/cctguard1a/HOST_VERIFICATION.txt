@@ -1,0 +1,1 @@
+PASS: 33 tests; 100000 matrix and 100000 cube comparisons against compiled v2.89; exact float bits; repeated cubes stable; white point unchanged

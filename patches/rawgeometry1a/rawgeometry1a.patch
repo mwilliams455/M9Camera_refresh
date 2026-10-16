@@ -1,0 +1,382 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27288
++        versionCode 27289
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '2.88-gallerypause1a'
++        versionName '2.89-rawgeometry1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_2.88_GALLERYPAUSE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_2.89_RAWGEOMETRY1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -1264,16 +1264,27 @@
+         int largestSizeArea = sizes[largestSizeIdx].getWidth() * sizes[largestSizeIdx].getHeight();
+ 
+         if (PhotonCamera.getSettings().QuadBayer) {
+-            target = sizes[largestSizeIdx];
+-            Rect preCorrectionActiveArraySize = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
+-            Rect activeArraySize = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+-            if (preCorrectionActiveArraySize != null && activeArraySize != null) {
+-                double k = (double) (target.getHeight()) / activeArraySize.bottom;
+-                mul(preCorrectionActiveArraySize, k);
+-                mul(activeArraySize, k);
+-                CameraReflectionApi.set(mCameraCharacteristics, CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArraySize);
+-                CameraReflectionApi.set(mCameraCharacteristics, CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE, preCorrectionActiveArraySize);
+-            }
++            Size candidate = sizes[largestSizeIdx];
++            if (scaleQuadBayerGeometry1A(candidate)) {
++                target = candidate;
++                return target;
++            }
++            // Invalid source or scaled geometry must not publish a partial pair,
++            // retain a vendor trial, or leave maximum-resolution session flags on.
++            rawSizeCompatibility1A.reject(rawSizeCameraKey1A());
++            rawSizeDiscovery1A = null;
++            rawSizeTrial1A = null;
++            useMaximumResolutionKey = false;
++            StreamConfigurationMap map = mCameraCharacteristics == null ? null
++                    : mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
++            Size fallback = RawGeometry1A.publicFallback(map == null ? null
++                    : map.getOutputSizes(mTargetFormat), mTargetFormat == ImageFormat.RAW_SENSOR,
++                    ResolutionSolution.highRes);
++            if (fallback == null) throw new IllegalArgumentException(
++                    RawGeometry1A.REVISION + " invalid geometry and no advertised output fallback");
++            Log.w(TAG, RawGeometry1A.REVISION + " invalid Quad Bayer geometry for "
++                    + candidate + "; using advertised size " + fallback);
++            target = fallback;
+             return target;
+         }
+ 
+@@ -1312,17 +1323,8 @@
+ 
+         if (largestSizeArea <= ResolutionSolution.highRes || PhotonCamera.getSettings().QuadBayer) {
+             temp = sizes[largestSizeIdx];
+-            if (PhotonCamera.getSettings().QuadBayer) {
+-                Rect preCorrectionActiveArraySize = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
+-                Rect activeArraySize = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+-
+-                if (preCorrectionActiveArraySize != null && activeArraySize != null) {
+-                    double k = (double) (temp.getHeight()) / activeArraySize.bottom;
+-                    mulForTest(preCorrectionActiveArraySize, k);
+-                    mulForTest(activeArraySize, k);
+-                    CameraReflectionApi.set(mCameraCharacteristics, CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArraySize);
+-                    CameraReflectionApi.set(mCameraCharacteristics, CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE, preCorrectionActiveArraySize);
+-                }
++            if (PhotonCamera.getSettings().QuadBayer && !scaleQuadBayerGeometry1A(temp)) {
++                return previewSize;
+             }
+             return temp;
+         } else if (sizes.length > 1) {
+@@ -6859,19 +6861,17 @@
+         mVideoRecTickRunnable = null;
+     }
+ 
+-    private void mul(Rect in, double k) {
+-        in.bottom *= k;
+-        in.left *= k;
+-        in.right *= k;
+-        in.top *= k;
+-    }
+-
+-    @TestOnly
+-    private static void mulForTest(Rect in, double k) {
+-        in.bottom *= k;
+-        in.left *= k;
+-        in.right *= k;
+-        in.top *= k;
++    private static boolean scaleQuadBayerGeometry1A(Size candidate) {
++        CameraCharacteristics characteristics = mCameraCharacteristics;
++        if (characteristics == null) return false;
++        Rect active = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
++        Rect pre = characteristics.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE);
++        RawGeometry1A.Pair pair = RawGeometry1A.prepare(active, pre, candidate);
++        if (pair == null) return false;
++        // Both copies are valid before either cached rectangle is replaced.
++        CameraReflectionApi.set(characteristics, CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE, pair.active);
++        CameraReflectionApi.set(characteristics, CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE, pair.preCorrection);
++        return true;
+     }
+ 
+     @Override
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/RawGeometry1A.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/RawGeometry1A.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/RawGeometry1A.java
+@@ -0,0 +1,64 @@
++package com.particlesdevs.photoncamera.capture;
++
++import android.graphics.Rect;
++import android.util.Size;
++
++/** Validate the whole Quad Bayer geometry before publishing either rectangle. */
++final class RawGeometry1A {
++    static final String REVISION = "RAWGEOMETRY1A";
++
++    static final class Pair {
++        final Rect active, preCorrection;
++        Pair(Rect active, Rect preCorrection) {
++            this.active = active;
++            this.preCorrection = preCorrection;
++        }
++    }
++
++    static boolean valid(Rect rect) {
++        return rect != null && rect.left >= 0 && rect.top >= 0
++                && rect.right > rect.left && rect.bottom > rect.top;
++    }
++
++    static Pair prepare(Rect active, Rect preCorrection, Size target) {
++        if (!valid(active) || !valid(preCorrection) || target == null
++                || target.getWidth() <= 0 || target.getHeight() <= 0) return null;
++        // Preserve the established coordinate convention, including non-zero
++        // origins: changing bottom to height would be a separate behavior change.
++        double scale = (double) target.getHeight() / active.bottom;
++        Rect scaledActive = scale(active, scale);
++        Rect scaledPreCorrection = scale(preCorrection, scale);
++        return scaledActive == null || scaledPreCorrection == null ? null
++                : new Pair(scaledActive, scaledPreCorrection);
++    }
++
++    static Rect scale(Rect source, double scale) {
++        if (!valid(source) || !Double.isFinite(scale) || scale <= 0.0) return null;
++        double left = source.left * scale, top = source.top * scale;
++        double right = source.right * scale, bottom = source.bottom * scale;
++        if (!coordinate(left) || !coordinate(top) || !coordinate(right)
++                || !coordinate(bottom)) return null;
++        // Same double multiplication and truncation as the former int *= double.
++        // Check before narrowing so Java cannot silently saturate overflow.
++        Rect result = new Rect((int) left, (int) top, (int) right, (int) bottom);
++        return valid(result) ? result : null;
++    }
++
++    private static boolean coordinate(double value) {
++        return Double.isFinite(value) && value >= 0.0 && value <= Integer.MAX_VALUE;
++    }
++
++    static Size publicFallback(Size[] sizes, boolean raw, long areaLimit) {
++        Size preferred = null, smallest = null;
++        if (sizes != null) for (Size size : sizes) {
++            if (size == null || size.getWidth() <= 0 || size.getHeight() <= 0
++                    || (raw && !RawSizeCompatibility1A.valid(size))) continue;
++            long area = (long) size.getWidth() * size.getHeight();
++            if (smallest == null || area < (long) smallest.getWidth() * smallest.getHeight())
++                smallest = size;
++            if (area <= areaLimit && (preferred == null
++                    || area > (long) preferred.getWidth() * preferred.getHeight())) preferred = size;
++        }
++        return preferred != null ? preferred : smallest;
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/capture/RawGeometryTest.java b/app/src/test/java/com/particlesdevs/photoncamera/capture/RawGeometryTest.java
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/capture/RawGeometryTest.java
+@@ -0,0 +1,188 @@
++package com.particlesdevs.photoncamera.capture;
++
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++import android.app.Application;
++import android.graphics.ImageFormat;
++import android.graphics.Rect;
++import android.hardware.camera2.CameraCharacteristics;
++import android.hardware.camera2.params.StreamConfigurationMap;
++import android.util.Size;
++import com.particlesdevs.photoncamera.api.CameraReflectionApi;
++import com.particlesdevs.photoncamera.api.Settings;
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import java.lang.reflect.InvocationTargetException;
++import java.lang.reflect.Method;
++import java.util.Arrays;
++import java.util.Collections;
++import org.junit.*;
++import org.junit.runner.RunWith;
++import org.mockito.MockedStatic;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import org.robolectric.util.ReflectionHelpers;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class RawGeometryTest {
++    private final Rect active = new Rect(0, 0, 4000, 3000);
++    private final Rect pre = new Rect(4, 6, 4016, 3024);
++    private final Size standard = new Size(4000, 3000), vendor = new Size(8000, 6000);
++
++    @Test public void ordinaryTwoTimesScalePreservesValuesAndInputs() {
++        RawGeometry1A.Pair p = RawGeometry1A.prepare(active, pre, vendor);
++        assertNotNull(p);
++        assertEquals(new Rect(0,0,8000,6000), p.active);
++        assertEquals(new Rect(8,12,8032,6048), p.preCorrection);
++        assertEquals(new Rect(0,0,4000,3000), active);
++        assertEquals(new Rect(4,6,4016,3024), pre);
++        assertNotSame(active, p.active); assertNotSame(pre, p.preCorrection);
++    }
++    @Test public void nonZeroOriginKeepsBottomBasedConventionAndTruncation() {
++        RawGeometry1A.Pair p = RawGeometry1A.prepare(new Rect(3,7,4003,3007), pre, vendor);
++        assertNotNull(p);
++        double k = 6000.0 / 3007;
++        assertEquals(new Rect((int)(3*k),(int)(7*k),(int)(4003*k),(int)(3007*k)),p.active);
++        assertEquals(new Rect((int)(4*k),(int)(6*k),(int)(4016*k),(int)(3024*k)),p.preCorrection);
++    }
++    @Test public void rejectsNullRectangles() {
++        assertNull(RawGeometry1A.prepare(null,pre,vendor));
++        assertNull(RawGeometry1A.prepare(active,null,vendor));
++    }
++    @Test public void rejectsZeroBottomBeforeDivision() { assertNull(RawGeometry1A.prepare(new Rect(0,0,4000,0),pre,vendor)); }
++    @Test public void rejectsNegativeCoordinates() {
++        for (Rect r : Arrays.asList(new Rect(-1,0,4000,3000),new Rect(0,-1,4000,3000),new Rect(0,0,-1,3000),new Rect(0,0,4000,-1)))
++            assertNull(RawGeometry1A.prepare(r,pre,vendor));
++    }
++    @Test public void rejectsEmptyAndReversedRectangles() {
++        for (Rect r : Arrays.asList(new Rect(2,0,2,3000),new Rect(3,0,2,3000),new Rect(0,3,4000,3),new Rect(0,4,4000,3)))
++            assertNull(RawGeometry1A.prepare(active,r,vendor));
++    }
++    @Test public void rejectsNullAndNonPositiveTarget() {
++        for (Size s : Arrays.asList(null,new Size(0,6000),new Size(-1,6000),new Size(8000,0),new Size(8000,-1)))
++            assertNull(RawGeometry1A.prepare(active,pre,s));
++    }
++    @Test public void rejectsNonFiniteAndNonPositiveScale() {
++        for (double k : new double[]{Double.NaN,Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,0,-1})
++            assertNull(RawGeometry1A.scale(active,k));
++    }
++    @Test public void rejectsCoordinateOverflowWithoutSaturation() {
++        assertNull(RawGeometry1A.scale(new Rect(0,0,Integer.MAX_VALUE,3000),1.0000001));
++        assertNull(RawGeometry1A.scale(active,Double.MAX_VALUE));
++    }
++    @Test public void acceptsExactlyRepresentableIntegerBoundary() {
++        Rect r = new Rect(0,0,Integer.MAX_VALUE,Integer.MAX_VALUE);
++        assertEquals(r,RawGeometry1A.scale(r,1.0));
++    }
++    @Test public void rejectsGeometryCollapsedByTruncation() { assertNull(RawGeometry1A.scale(new Rect(1,1,2,2),0.1)); }
++    @Test public void secondRectangleFailureLeavesBothSourcesUntouched() {
++        Rect invalidPre = new Rect(0,0,Integer.MAX_VALUE,3024);
++        assertNull(RawGeometry1A.prepare(active,invalidPre,vendor));
++        assertEquals(new Rect(0,0,4000,3000),active);
++        assertEquals(new Rect(0,0,Integer.MAX_VALUE,3024),invalidPre);
++    }
++    @Test public void repeatedPreparationIsStable() {
++        RawGeometry1A.Pair a=RawGeometry1A.prepare(active,pre,vendor), b=RawGeometry1A.prepare(active,pre,vendor);
++        assertEquals(a.active,b.active); assertEquals(a.preCorrection,b.preCorrection);
++    }
++    @Test public void publicFallbackChoosesLargestValidSizeUnderLimit() {
++        assertEquals(standard,RawGeometry1A.publicFallback(new Size[]{vendor,null,new Size(65536,65536),standard,new Size(2000,1500)},true,20_000_000));
++    }
++    @Test public void fallbackUsesSmallestAdvertisedWhenAllExceedLimit() {
++        assertEquals(standard,RawGeometry1A.publicFallback(new Size[]{vendor,standard},true,1));
++    }
++    @Test public void fallbackNeverInventsOrAcceptsInvalidRawSize() {
++        assertNull(RawGeometry1A.publicFallback(new Size[]{new Size(4001,3000),new Size(0,3000),new Size(65536,65536)},true,20_000_000));
++        assertNull(RawGeometry1A.publicFallback(null,true,20_000_000));
++    }
++
++    /** Exercise the actual controller selector and its publication/fallback boundary. */
++    private final class ControllerFixture implements AutoCloseable {
++        final CameraCharacteristics chars=mock(CameraCharacteristics.class);
++        final StreamConfigurationMap map=mock(StreamConfigurationMap.class);
++        final CaptureController controller=mock(CaptureController.class);
++        final RawSizeCompatibility1A policy=new RawSizeCompatibility1A();
++        final Settings settings=mock(Settings.class);
++        final CameraCharacteristics oldChars=ReflectionHelpers.getStaticField(CaptureController.class,"mCameraCharacteristics");
++        final int oldFormat=ReflectionHelpers.getStaticField(CaptureController.class,"mTargetFormat");
++        final MockedStatic<PhotonCamera> photon=mockStatic(PhotonCamera.class);
++        final MockedStatic<CameraReflectionApi> reflection=mockStatic(CameraReflectionApi.class);
++        final String key="2/2/"+ImageFormat.RAW_SENSOR;
++        ControllerFixture() {
++            settings.QuadBayer=true;
++            photon.when(PhotonCamera::getSettings).thenReturn(settings);
++            ReflectionHelpers.setStaticField(CaptureController.class,"mCameraCharacteristics",chars);
++            ReflectionHelpers.setStaticField(CaptureController.class,"mTargetFormat",ImageFormat.RAW_SENSOR);
++            ReflectionHelpers.setField(controller,"logicalID","2");
++            ReflectionHelpers.setField(controller,"physicalID","2");
++            ReflectionHelpers.setField(controller,"rawSizeCompatibility1A",policy);
++            ReflectionHelpers.setField(controller,"useMaximumResolutionKey",true);
++            when(chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)).thenReturn(active);
++            when(chars.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE)).thenReturn(pre);
++            when(chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)).thenReturn(map);
++            when(map.getOutputSizes(ImageFormat.RAW_SENSOR)).thenReturn(new Size[]{standard});
++            RawSizeCompatibility1A.Discovery discovery=policy.discover(key,Collections.singletonList(standard),Collections.singletonList(vendor),true,true);
++            ReflectionHelpers.setField(controller,"rawSizeDiscovery1A",discovery);
++            ReflectionHelpers.setField(controller,"rawSizeTrial1A",discovery.trial(vendor,chars,active,pre));
++        }
++        Size select() throws Exception {
++            Method m=CaptureController.class.getDeclaredMethod("getCameraOutputSize",Size[].class,Size.class);
++            m.setAccessible(true); return (Size)m.invoke(controller,new Size[]{standard,vendor},new Size(1920,1080));
++        }
++        @Override public void close() {
++            reflection.close(); photon.close();
++            ReflectionHelpers.setStaticField(CaptureController.class,"mCameraCharacteristics",oldChars);
++            ReflectionHelpers.setStaticField(CaptureController.class,"mTargetFormat",oldFormat);
++        }
++    }
++    @Test public void controllerPublishesBothValidatedCopiesForValidGeometry() throws Exception {
++        try (ControllerFixture f=new ControllerFixture()) {
++            assertEquals(vendor,f.select());
++            f.reflection.verify(()->CameraReflectionApi.set(eq(f.chars),eq(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE),eq(new Rect(0,0,8000,6000))));
++            f.reflection.verify(()->CameraReflectionApi.set(eq(f.chars),eq(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE),eq(new Rect(8,12,8032,6048))));
++            assertEquals(new Rect(0,0,4000,3000),active); assertEquals(new Rect(4,6,4016,3024),pre);
++            assertTrue(ReflectionHelpers.getField(f.controller,"useMaximumResolutionKey"));
++        }
++    }
++    @Test public void controllerRejectsZeroBottomWithoutPublishingEitherRectangle() throws Exception {
++        try (ControllerFixture f=new ControllerFixture()) {
++            when(f.chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)).thenReturn(new Rect(0,0,4000,0));
++            assertEquals(standard,f.select()); f.reflection.verifyNoInteractions();
++        }
++    }
++    @Test public void controllerSecondRectangleOverflowCannotPartlyPublishFirst() throws Exception {
++        try (ControllerFixture f=new ControllerFixture()) {
++            when(f.chars.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE)).thenReturn(new Rect(0,0,Integer.MAX_VALUE,3024));
++            assertEquals(standard,f.select()); f.reflection.verifyNoInteractions();
++            assertEquals(new Rect(0,0,4000,3000),active);
++        }
++    }
++    @Test public void controllerFallbackClearsTrialsAndMaximumResolutionAndBlocksHintsForThisCamera() throws Exception {
++        try (ControllerFixture f=new ControllerFixture()) {
++            when(f.chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)).thenReturn(null);
++            assertEquals(standard,f.select());
++            assertNull(ReflectionHelpers.getField(f.controller,"rawSizeTrial1A"));
++            assertNull(ReflectionHelpers.getField(f.controller,"rawSizeDiscovery1A"));
++            assertFalse(ReflectionHelpers.getField(f.controller,"useMaximumResolutionKey"));
++            assertTrue(f.policy.discover(f.key,Collections.singletonList(standard),Collections.singletonList(vendor),true,true).additions.isEmpty());
++            assertFalse(f.policy.discover("3/3/32",Collections.singletonList(standard),Collections.singletonList(vendor),true,true).additions.isEmpty());
++        }
++    }
++    @Test public void controllerWithoutPublicFallbackRejectsInsteadOfUsingPreviewDimensions() throws Exception {
++        try (ControllerFixture f=new ControllerFixture()) {
++            when(f.chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)).thenReturn(null);
++            when(f.map.getOutputSizes(ImageFormat.RAW_SENSOR)).thenReturn(null);
++            InvocationTargetException error=assertThrows(InvocationTargetException.class,f::select);
++            assertTrue(error.getCause() instanceof IllegalArgumentException);
++            assertTrue(error.getCause().getMessage().contains("RAWGEOMETRY1A"));
++            f.reflection.verifyNoInteractions();
++        }
++    }
++    @Test public void controllerFallbackIsRepeatableAndDoesNotPublishOnRetry() throws Exception {
++        try (ControllerFixture f=new ControllerFixture()) {
++            when(f.chars.get(CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE)).thenReturn(null);
++            assertEquals(standard,f.select()); assertEquals(standard,f.select());
++            f.reflection.verifyNoInteractions();
++        }
++    }
++}

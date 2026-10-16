@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/java/com/particlesdevs/photoncamera/processing/opengl/postpipeline/SmartNR.java",
+    "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/SurfaceViewOverViewfinder.java"
+  ],
+  "unchangedScopedFiles": 1374,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "ce4cf815bae85d522e154562ca9923541db934c07799103d32afa7ffebf7d856",
+  "candidateScopedSha256": "9ee253f144963dafb661479df54f93978cd7f15372b76c4d02bbc31aa99aca93",
+  "nativeAndAssetsUnchanged": true,
+  "primaryM9AndMonochromRenderersUnchanged": true,
+  "phoneValidationPending": true
+}
