@@ -1,0 +1,103 @@
+name: M9Cam 2.96 dynamic phase-noise tiles
+on:
+  pull_request:
+    branches: ['main']
+    paths: ['patches/phasenoiseperf1d/**', '.github/workflows/build-m9cam-phasenoiseperf1d.yml', 'scripts/ci/prepare_source.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned tools
+        run: |
+          sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+          python3 -m venv "$RUNNER_TEMP/native-python"
+          "$RUNNER_TEMP/native-python/bin/pip" install numpy pyelftools
+      - name: Reconstruct and verify production source and parent
+        run: python3 scripts/ci/prepare_source.py "$RUNNER_TEMP/reconstruction" --production --retain-parent
+      - name: Compare parent and candidate native reconstruction
+        run: |
+          "$RUNNER_TEMP/native-python/bin/python" patches/phasenoiseperf1d/test.py "$RUNNER_TEMP/reconstruction/PhotonCamera_295" "$RUNNER_TEMP/reconstruction/PhotonCamera_296" "$RUNNER_TEMP/native-parity"
+          "$RUNNER_TEMP/native-python/bin/python" patches/phasenoiseperf1d/benchmark.py "$RUNNER_TEMP/reconstruction/PhotonCamera_295" "$RUNNER_TEMP/reconstruction/PhotonCamera_296" "$RUNNER_TEMP/native-benchmark"
+      - name: Download verified 2.95 installer
+        uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.95-READY-TO-INSTALL
+          run-id: 38885217685
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/accepted295
+      - name: Rebuild unchanged native parent
+        run: |
+          cp -a "$RUNNER_TEMP/reconstruction/PhotonCamera_295" "$GITHUB_WORKSPACE/PhotonCamera"
+          cd "$GITHUB_WORKSPACE/PhotonCamera"
+          git init -q
+          bash gradlew :app:externalNativeBuildDebug --no-daemon --max-workers=2
+      - name: Verify native parent provenance
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, shutil
+          source=Path('PhotonCamera/app/build/intermediates/cxx/Debug')
+          output=Path(os.environ['RUNNER_TEMP'])/'native-parent'
+          for abi in ['arm64-v8a','armeabi-v7a']:
+              libs=list(source.glob('*/obj/'+abi+'/libm9color.so'))
+              assert len(libs)==1,libs
+              (output/abi).mkdir(parents=True)
+              shutil.copyfile(libs[0],output/abi/'libm9color.so')
+          PY
+          "$RUNNER_TEMP/native-python/bin/python" patches/phasenoiseperf1d/native_baseline.py "$RUNNER_TEMP/accepted295/M9Cam_2.95_DIAGINDEX1A.apk" "$RUNNER_TEMP/native-parent" "$RUNNER_TEMP/installer296"
+      - name: Apply candidate and build Android installer
+        run: |
+          cd "$GITHUB_WORKSPACE/PhotonCamera"
+          git apply --whitespace=nowarn "$GITHUB_WORKSPACE/patches/phasenoiseperf1d/phasenoiseperf1d.patch"
+          python3 "$GITHUB_WORKSPACE/patches/phasenoiseperf1d/verify_source.py" "$RUNNER_TEMP/reconstruction/PhotonCamera_295" "$GITHUB_WORKSPACE/PhotonCamera"
+          bash gradlew :app:assembleDebug --no-daemon --max-workers=2
+      - name: Package and independently verify signed candidate
+        run: |
+          python3 patches/phasenoiseperf1d/package.py "$GITHUB_WORKSPACE/PhotonCamera" "$GITHUB_WORKSPACE/PhotonCamera/app/build/outputs/apk/debug/M9Cam_2.96_PHASENOISEPERF1D-debug.apk" "$RUNNER_TEMP/accepted295/M9Cam_2.95_DIAGINDEX1A.apk" "$ANDROID_HOME/build-tools/35.0.0" "$RUNNER_TEMP/installer296"
+          python3 patches/phasenoiseperf1d/verify_installer.py "$RUNNER_TEMP/installer296" "$ANDROID_HOME/build-tools/35.0.0"
+      - name: Upload phone candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.96-READY-TO-INSTALL
+          path: |
+            ${{ runner.temp }}/installer296/M9Cam_2.96_PHASENOISEPERF1D.apk
+            ${{ runner.temp }}/installer296/SHA256SUMS.txt
+            ${{ runner.temp }}/installer296/PACKAGED_VERIFICATION.json
+            ${{ runner.temp }}/installer296/NATIVE_BASELINE_VERIFICATION.json
+            ${{ runner.temp }}/native-parity/HOST_VERIFICATION.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Retain evidence and packaging tools
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/packaging-tools/lib"
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$ANDROID_HOME/build-tools/35.0.0/aapt2" "$RUNNER_TEMP/packaging-tools/"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/packaging-tools/lib/"
+          cp -r "$ANDROID_HOME/build-tools/35.0.0/lib64" "$RUNNER_TEMP/packaging-tools/"
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phasenoiseperf1d-build-evidence
+          path: |
+            ${{ runner.temp }}/native-parity/*.json
+            ${{ runner.temp }}/native-benchmark/*.json
+            ${{ runner.temp }}/installer296/*.json
+            ${{ runner.temp }}/native-parent/**
+            ${{ runner.temp }}/packaging-tools/**
+            PhotonCamera/app/build/outputs/apk/debug/*.apk
+          retention-days: 14

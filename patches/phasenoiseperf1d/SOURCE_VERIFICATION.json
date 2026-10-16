@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "changedScopedFiles": [
+    "app/build.gradle",
+    "app/src/main/cpp/colourtrial1c/phase_noise.cpp",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java"
+  ],
+  "unchangedScopedFiles": 1376,
+  "reversePatchExactlyRestoresParent": true,
+  "parentScopedSha256": "bac0e892ba5e101427ed79d8d0ef30a53aae068fee0cc46ddd0132fb539c4b4c",
+  "candidateScopedSha256": "31273af8b1c2838f887db394e5625af6ae97b489a88089769811528c3726cffd",
+  "nativeChangeIsOnlyTileScheduling": true,
+  "assetsUnchanged": true,
+  "persistentColourFrameRemainsDisabled": true,
+  "phoneValidationPending": true
+}

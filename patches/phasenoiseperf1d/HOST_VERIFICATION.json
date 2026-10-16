@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "revision": "M9PHASENOISEPERF1D_DYNAMIC_EXACT",
+  "rawParityCases": 96,
+  "rawSamplesCompared": 10967408,
+  "scalarParentAndCandidateExact": true,
+  "fullReconstructionCases": 16,
+  "allFourCfaRgbAndStatsExact": true,
+  "workers": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "phonePerformanceProven": false
+}

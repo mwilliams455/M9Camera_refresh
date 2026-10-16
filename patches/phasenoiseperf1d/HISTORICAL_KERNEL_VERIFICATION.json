@@ -1,0 +1,75 @@
+{
+  "revision": "M9PHASENOISEPERF1C_ADAPTIVE128_EXACT",
+  "outerTileRows": 64,
+  "outerTileCols": 512,
+  "dirtySubtileCols": 128,
+  "parityCases": 32,
+  "scalarVs1bByteExact": true,
+  "scalarVs1cByteExact": true,
+  "outerAndSubtileSeamsByteExact": true,
+  "twelveMpClusteredScalarByteExact": true,
+  "reconstructRgbByteExact": true,
+  "reconstructStatsExact": true,
+  "allFourCfaReconstruction": true,
+  "timingCases": [
+    {
+      "label": "12mp_clean",
+      "runs": [
+        {
+          "rep": 0,
+          "symtile1bMs": 861.8333250014985,
+          "adaptive1cMs": 749.587469999824
+        },
+        {
+          "rep": 1,
+          "symtile1bMs": 739.8137119998864,
+          "adaptive1cMs": 642.6816390012391
+        }
+      ],
+      "symtile1bMedianMs": 800.8235185006924,
+      "adaptive1cMedianMs": 696.1345545005315
+    },
+    {
+      "label": "12mp_clustered_censor",
+      "runs": [
+        {
+          "rep": 0,
+          "symtile1bMs": 581.8599579979491,
+          "adaptive1cMs": 577.9164359992137
+        },
+        {
+          "rep": 1,
+          "symtile1bMs": 660.6872849988576,
+          "adaptive1cMs": 685.7474739990721
+        }
+      ],
+      "symtile1bMedianMs": 621.2736214984034,
+      "adaptive1cMedianMs": 631.8319549991429
+    },
+    {
+      "label": "12mp_sparse_censor",
+      "runs": [
+        {
+          "rep": 0,
+          "symtile1bMs": 828.4359139979642,
+          "adaptive1cMs": 826.1207930008823
+        },
+        {
+          "rep": 1,
+          "symtile1bMs": 749.6365499973763,
+          "adaptive1cMs": 915.6248250001227
+        }
+      ],
+      "symtile1bMedianMs": 789.0362319976703,
+      "adaptive1cMedianMs": 870.8728090005025
+    }
+  ],
+  "candidateAccumulationOrderChanged": false,
+  "patchAccumulationOrderChanged": false,
+  "rawNoiseStrengthChanged": false,
+  "fullFrameWeightCacheAdded": false,
+  "photographicMathChanged": false,
+  "timingInformationalOnly": true,
+  "testedCandidate": "2.96-phasenoiseperf1d",
+  "harness": "Existing phasenoiseperf1c/test.py, unchanged historical scalar/seam/12MP checks"
+}

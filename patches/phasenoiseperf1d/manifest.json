@@ -1,0 +1,25 @@
+{
+  "parentCommit": "876e5df119481dce692c01a18f86cc07b6f74dfd",
+  "version": "2.96-phasenoiseperf1d",
+  "scope": [
+    "app/src/**",
+    "circularbarlib/src/**",
+    "app/build.gradle",
+    "circularbarlib/build.gradle"
+  ],
+  "parentFiles": {
+    "app/build.gradle": "939b2ed3de78ff0c66203dc57318ddde83bafe8db0f36ec248ed1f683329f8fc",
+    "app/src/main/cpp/colourtrial1c/phase_noise.cpp": "bad7dd3ff32e308bb57583e52b1184756f0f17340402b71947c5353010b5f92e",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java": "d857418556efb63241e94d30fe2981118fad4a3c5e584fb3ac06f5d873f2d716"
+  },
+  "fileOverrides": {
+    "app/build.gradle": "bcfb45185441acc72336b2ceddbd0f3867c63f0572bcf04c32dbb22c67fad10e",
+    "app/src/main/cpp/colourtrial1c/phase_noise.cpp": "0421e205bbb768820df298389328513a7ed870e70807de76e308d70c09c2649d",
+    "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java": "a74d42167f9323be2fe0c83af73d69023901d9d727bb6d3df99609576019abbf"
+  },
+  "newFiles": [],
+  "binaryPayloads": [],
+  "patchSha256": "1c7c5d2f35d615a80a797f33096d50ab80cb47cf9af74108ef919b95ca74377b",
+  "parentScopedSha256": "bac0e892ba5e101427ed79d8d0ef30a53aae068fee0cc46ddd0132fb539c4b4c",
+  "candidateScopedSha256": "31273af8b1c2838f887db394e5625af6ae97b489a88089769811528c3726cffd"
+}

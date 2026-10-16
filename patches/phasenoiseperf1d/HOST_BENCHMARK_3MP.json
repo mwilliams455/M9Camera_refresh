@@ -1,0 +1,126 @@
+{
+  "status": "PASS",
+  "parityCases": 96,
+  "comparedSamples": 10967408,
+  "benchmarkDimensions": [
+    2048,
+    1536
+  ],
+  "timings": [
+    {
+      "pattern": "flat",
+      "parentMedianMs": 79.263068,
+      "candidateMedianMs": 65.584244,
+      "reductionPercent": 17.25750005033871,
+      "runs": [
+        {
+          "parentMs": 66.950458,
+          "candidateMs": 60.435396
+        },
+        {
+          "candidateMs": 65.584244,
+          "parentMs": 67.347091
+        },
+        {
+          "parentMs": 82.143039,
+          "candidateMs": 68.297784
+        },
+        {
+          "candidateMs": 53.524541,
+          "parentMs": 79.263068
+        },
+        {
+          "parentMs": 80.274322,
+          "candidateMs": 70.11989
+        }
+      ]
+    },
+    {
+      "pattern": "smooth_noise",
+      "parentMedianMs": 124.561192,
+      "candidateMedianMs": 96.899536,
+      "reductionPercent": 22.20728266633801,
+      "runs": [
+        {
+          "parentMs": 114.671328,
+          "candidateMs": 96.899536
+        },
+        {
+          "candidateMs": 98.332676,
+          "parentMs": 128.97296
+        },
+        {
+          "parentMs": 260.302297,
+          "candidateMs": 91.636585
+        },
+        {
+          "candidateMs": 98.050862,
+          "parentMs": 124.561192
+        },
+        {
+          "parentMs": 104.779351,
+          "candidateMs": 90.77399
+        }
+      ]
+    },
+    {
+      "pattern": "fine_detail",
+      "parentMedianMs": 166.848338,
+      "candidateMedianMs": 156.262835,
+      "reductionPercent": 6.344386241354119,
+      "runs": [
+        {
+          "parentMs": 162.245592,
+          "candidateMs": 154.722124
+        },
+        {
+          "candidateMs": 179.507125,
+          "parentMs": 186.008692
+        },
+        {
+          "parentMs": 166.848338,
+          "candidateMs": 156.262835
+        },
+        {
+          "candidateMs": 158.110911,
+          "parentMs": 183.125057
+        },
+        {
+          "parentMs": 152.072802,
+          "candidateMs": 132.601128
+        }
+      ]
+    },
+    {
+      "pattern": "clustered_censor",
+      "parentMedianMs": 113.028884,
+      "candidateMedianMs": 86.510421,
+      "reductionPercent": 23.4616693198528,
+      "runs": [
+        {
+          "parentMs": 100.889329,
+          "candidateMs": 76.719365
+        },
+        {
+          "candidateMs": 88.904357,
+          "parentMs": 104.01578
+        },
+        {
+          "parentMs": 113.050677,
+          "candidateMs": 86.510421
+        },
+        {
+          "candidateMs": 84.681685,
+          "parentMs": 115.887572
+        },
+        {
+          "parentMs": 113.028884,
+          "candidateMs": 101.619576
+        }
+      ]
+    }
+  ],
+  "phonePerformanceProven": false,
+  "appSourceModified": false,
+  "experimentScope": "Isolated parent versus candidate phase_noise.cpp; host x86_64, g++ -O3; not phone timing"
+}
