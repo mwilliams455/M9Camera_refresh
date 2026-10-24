@@ -18,9 +18,18 @@ public final class SubjectFocusPolicy {
         public final int id;
         public final float left, top, right, bottom;
         public final float leftEyeX, leftEyeY, rightEyeX, rightEyeY;
+        public final float noseX, noseY, mouthX, mouthY;
 
+        /** Retained for existing 2.97 policy fixtures; unverified by eye gate. */
         public Face(int id, float left, float top, float right, float bottom,
                     float leftEyeX, float leftEyeY, float rightEyeX, float rightEyeY) {
+            this(id,left,top,right,bottom,leftEyeX,leftEyeY,rightEyeX,rightEyeY,
+                    Float.NaN,Float.NaN,Float.NaN,Float.NaN);
+        }
+        /** ML Kit face observation with independently reported nose and mouth. */
+        public Face(int id, float left, float top, float right, float bottom,
+                    float leftEyeX, float leftEyeY, float rightEyeX, float rightEyeY,
+                    float noseX, float noseY, float mouthX, float mouthY) {
             this.id = id;
             this.left = left;
             this.top = top;
@@ -30,6 +39,10 @@ public final class SubjectFocusPolicy {
             this.leftEyeY = leftEyeY;
             this.rightEyeX = rightEyeX;
             this.rightEyeY = rightEyeY;
+            this.noseX = noseX;
+            this.noseY = noseY;
+            this.mouthX = mouthX;
+            this.mouthY = mouthY;
         }
         public boolean valid() {
             return finite(left) && finite(top) && finite(right) && finite(bottom)
