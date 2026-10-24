@@ -84,7 +84,7 @@ jobs:
       - name: Download accepted signed 2.99 installer
         uses: actions/download-artifact@v4
         with:
-          name: M9Cam-3.00-FOCUSANIMAL1B-READY-TO-INSTALL
+          name: M9Cam-2.99-FOCUSANIMAL1A-READY-TO-INSTALL
           run-id: 40075188855
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/accepted299
@@ -96,7 +96,7 @@ jobs:
           python3 patches/focusanimal1b/package.py \
             "$RUNNER_TEMP/PhotonCamera_300" \
             "$RUNNER_TEMP/PhotonCamera_300/app/build/outputs/apk/debug/M9Cam_3.00_FOCUSANIMAL1B-debug.apk" \
-            "$RUNNER_TEMP/accepted299/M9Cam_3.00_FOCUSANIMAL1B.apk" \
+            "$RUNNER_TEMP/accepted299/M9Cam_2.99_FOCUSANIMAL1A.apk" \
             "$ANDROID_HOME/build-tools/35.0.0" \
             "$RUNNER_TEMP/installer300"
       - name: Deliver signed cat/dog trial only after all verification
