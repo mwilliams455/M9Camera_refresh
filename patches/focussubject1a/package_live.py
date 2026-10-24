@@ -34,6 +34,7 @@ required={
  'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanFaceLandmarkDetector.java',
  'app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java',
  'app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java',
+ 'app/src/main/java/com/particlesdevs/photoncamera/control/subject/HumanEyeAdmissionGate.java',
  'app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java',
  'app/src/main/res/xml/preferences_m9.xml',
  'app/src/main/res/xml/preferences_monochrom.xml',
@@ -50,7 +51,7 @@ assert "versionCode='27295'" in old_badging and "name='com.m9project.m9cam.photo
 
 unsigned=out/'unsigned.apk'
 aligned=out/'aligned.apk'
-final=out/'M9Cam_2.97_FOCUSSUBJECT1A.apk'
+final=out/'M9Cam_2.98_FOCUSSUBJECT1B.apk'
 expected={}
 added_native=set()
 added_assets=set()
@@ -86,7 +87,7 @@ with zipfile.ZipFile(control) as old, zipfile.ZipFile(built) as new, zipfile.Zip
     # are present. New model packaging is retained; original native bits frozen.
     dex=b''.join(new.read(n) for n in newnames if n.endswith('.dex'))
     for token in [
-        'HumanSubjectFocusController','HumanFaceLandmarkDetector',
+        'HumanSubjectFocusController','HumanFaceLandmarkDetector','HumanEyeAdmissionGate',
         'pref_focus_subject_eye','SubjectFocusPolicy','TrackingFocus',
         'com/google/mlkit/vision/face','FaceDetectorOptions','M9DIAGINDEX1A_BOUNDED',
         'MONOAEREF1B','MONODIAGVIEW1D','AFTAPHANDOVER1A'
@@ -124,7 +125,7 @@ signed=subprocess.check_output(signer+['verify','--verbose','--print-certs',str(
 assert cert_sha in signed and 'Verified using v2 scheme (APK Signature Scheme v2): true' in signed
 badging=subprocess.check_output([str(bt/'aapt2'),'dump','badging',str(final)],text=True)
 for token in ["name='com.m9project.m9cam.photon'",
-              "versionCode='27297'","versionName='2.97-focussubject1a'"]:
+              "versionCode='27298'","versionName='2.98-focussubject1b'"]:
     assert token in badging,token
 for profile in ['m9','monochrom']:
     xml=subprocess.check_output([str(bt/'aapt2'),'dump','xmltree','--file',
@@ -136,7 +137,7 @@ with zipfile.ZipFile(final) as apk:
     assert found==expected,'Final APK differs from independently assembled payload'
     assert all(apk.read(n)==oldnative[n] for n in natives)
 report={
- 'status':'PASS','version':'2.97-focussubject1a','versionCode':27297,
+ 'status':'PASS','version':'2.98-focussubject1b','versionCode':27298,
  'sha256':sha(final.read_bytes()),'bytes':final.stat().st_size,
  'acceptedParentVersion':'2.95-diagindex1a','acceptedParentSha256':accepted,
  'acceptedCertificateMatched':True,'all27PreviousNativeLibrariesIdentical':True,
