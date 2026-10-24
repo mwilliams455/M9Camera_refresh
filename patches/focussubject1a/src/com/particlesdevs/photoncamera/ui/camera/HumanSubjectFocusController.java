@@ -12,6 +12,7 @@ import com.particlesdevs.photoncamera.api.CameraMode;
 import com.particlesdevs.photoncamera.app.PhotonCamera;
 import com.particlesdevs.photoncamera.capture.CaptureController;
 import com.particlesdevs.photoncamera.control.subject.SubjectFocusPolicy;
+import com.particlesdevs.photoncamera.control.subject.HumanEyeAdmissionGate;
 import com.particlesdevs.photoncamera.control.tracking.TrackingGeometry;
 import com.particlesdevs.photoncamera.m9.M9Config;
 import com.particlesdevs.photoncamera.renderprofile.RenderProfile;
@@ -40,6 +41,7 @@ final class HumanSubjectFocusController {
     private final TrackingFocusView overlay;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final SubjectFocusPolicy policy = new SubjectFocusPolicy();
+    private final HumanEyeAdmissionGate admissionGate = new HumanEyeAdmissionGate();
 
     private boolean running, closed, inFlight, manualOverride, unsupported;
     private long epoch, freshSinceNs, lastFrameNs = Long.MIN_VALUE;
@@ -59,6 +61,7 @@ final class HumanSubjectFocusController {
         this.source=source;
         this.overlay=overlay;
         policy.beginSession(epoch);
+        admissionGate.beginSession(epoch);
     }
 
     private boolean enabled() {
@@ -91,6 +94,7 @@ final class HumanSubjectFocusController {
     void clear() {
         epoch++;
         policy.beginSession(epoch);
+        admissionGate.beginSession(epoch);
         latestFaces=Collections.emptyList();
         lastFacesMs=0;
         lastResultMs=0;
@@ -129,6 +133,7 @@ final class HumanSubjectFocusController {
             // Retire its handle before it can write an older subject region.
             epoch++;
             policy.beginSession(epoch);
+            admissionGate.beginSession(epoch);
             policy.tapSelect(latestFaces,u,v);
             releaseFocus();
             lastFrameNs=Long.MIN_VALUE;
@@ -247,7 +252,11 @@ final class HumanSubjectFocusController {
                           List<SubjectFocusPolicy.Face> faces) {
         if (!accepts(ticket,g)) {finish();return;}
         long nowNs=SystemClock.elapsedRealtimeNanos();
-        latestFaces=Collections.unmodifiableList(new ArrayList<>(faces));
+        // FOCUSSUBJECT1B: a solitary face-shaped detector box is NOT proof of
+        // a human eye. Only multiple consistent frames with coherent eyes,
+        // nose and mouth may reach the Camera2 focus-region controller.
+        List<SubjectFocusPolicy.Face> admitted=admissionGate.admit(epoch,startedNs,nowNs,faces);
+        latestFaces=Collections.unmodifiableList(new ArrayList<>(admitted));
         lastFacesMs=SystemClock.elapsedRealtime();
         SubjectFocusPolicy.Target target=policy.update(epoch,startedNs,nowNs,
                 latestFaces,SubjectFocusPolicy.Kind.HUMAN_EYE);
