@@ -26,6 +26,9 @@ jobs:
         with:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
+      - name: Preflight source and package script syntax
+        run: |
+          python3 -m py_compile patches/focusanimal1b/apply.py patches/focusanimal1b/package.py
       - name: Provision pinned Android tools
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Reconstruct exact prior M9 and Monochrom 2.98 source
