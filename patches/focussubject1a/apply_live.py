@@ -80,6 +80,31 @@ replace(track,
     "&& PhotonCamera.getSettingsManagerStatic().getBoolean(com.particlesdevs.photoncamera.settings.SettingsManager.SCOPE_GLOBAL, KEY, false)\n"
     "                && !PhotonCamera.getSettingsManagerStatic().getBoolean(com.particlesdevs.photoncamera.settings.SettingsManager.SCOPE_GLOBAL, HumanSubjectFocusController.KEY, false);")
 
+view=pkg/"ui/camera/views/TrackingFocusView.java"
+# 2.98: generic "Tracking" overlays were indistinguishable from Face/Eye AF.
+# Keep the old show(...) method for legacy patch tracking.
+replace(view,
+    "    private boolean lost;",
+    "    private boolean lost;\n    private int labelRes = R.string.focus_tracking_active;")
+replace(view,
+    "    public void show(float x, float y, float halfX, float halfY, boolean lost) {",
+    "    public void show(float x, float y, float halfX, float halfY, boolean lost) {\n"
+    "        labelRes = R.string.focus_tracking_active;")
+replace(view,
+    "    @Override protected void onDraw(Canvas canvas) {",
+    "    /** Display only after verified human-eye landmark admission. */\n"
+    "    public void showEye(float x, float y, float halfX, float halfY, boolean lost) {\n"
+    "        labelRes = R.string.focus_subject_eye_active;\n"
+    "        this.x = x; this.y = y; this.halfX = halfX; this.halfY = halfY; this.lost = lost;\n"
+    "        setVisibility(VISIBLE);\n"
+    "        setContentDescription(getContext().getString(lost ? R.string.focus_tracking_lost : labelRes));\n"
+    "        invalidate();\n"
+    "    }\n"
+    "    @Override protected void onDraw(Canvas canvas) {")
+replace(view,
+    "String label = getContext().getString(lost ? R.string.focus_tracking_lost : R.string.focus_tracking_active);",
+    "String label = getContext().getString(lost ? R.string.focus_tracking_lost : labelRes);")
+
 prefs=pkg/"settings/PreferenceKeys.java"
 replace(prefs,
     'COMMON_KEYS.add("pref_focus_tracking");',
@@ -110,6 +135,7 @@ for name in ("preferences_m9.xml","preferences_monochrom.xml"):
 
 strings=Path("app/src/main/res/values/strings.xml")
 replace(strings,"</resources>",
+    '    <string name="focus_subject_eye_active">Eye AF</string>\n'
     '    <string name="focus_subject_eye_title">Human Face/Eye AF (experimental)</string>\n'
     '    <string name="focus_subject_eye_summary">Opt-in AF-C eye priority with face fallback. '
     'Overrides patch tracking when enabled. Bundled offline model; for PHOTO, NIGHT and MOTION.</string>\n'
@@ -120,6 +146,7 @@ replace(strings,"</resources>",
 controller=(root/(pkg/"ui/camera/HumanSubjectFocusController.java")).read_text()
 assert "focus.update(g,target.x,target.y" in controller
 assert "admissionGate.admit(epoch,startedNs,nowNs,faces)" in controller
+assert "overlay.showEye(" in controller
 assert (root/(pkg/"control/subject/HumanEyeAdmissionGate.java")).exists()
 assert "getBoolean(" in controller and 'KEY = "pref_focus_subject_eye"' in controller
 assert "CaptureRequest.CONTROL_AE_REGIONS" not in controller
