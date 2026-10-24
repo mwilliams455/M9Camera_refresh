@@ -336,7 +336,10 @@ final class PetFocusController {
     private PetTargetPolicy.Candidate chooseAnimalForPose(List<PetTargetPolicy.Candidate> candidates){
         PetTargetPolicy.Candidate chosen=null;
         float best=-1f;
-        if(candidates==null)return null;
+        // Do not start a potentially expensive new pose runtime before
+        // three-hit COCO confirmation has established a stable body target.
+        if(candidates==null || currentSpecies==null ||
+                !Float.isFinite(currentBodyX)||!Float.isFinite(currentBodyY))return null;
         for(PetTargetPolicy.Candidate c:candidates){
             if(c==null||!c.valid())continue;
             float dx=c.cx()-currentBodyX,dy=c.cy()-currentBodyY;
@@ -410,7 +413,8 @@ final class PetFocusController {
                                 (selectedEye!=null?" eye":" body")+
                                 " age="+ageMs+"ms "+
                                 (selectedEye!=null?"eye="+Math.round(selectedEye.confidence*100):
-                                        (eyeEnabled()?eyePolicy.lastReason():modelSummary)));
+                                        (eyeEnabled()&&pose==null?poseInfo:
+                                            (eyeEnabled()?eyePolicy.lastReason():modelSummary))));
                         lastGoodMs=SystemClock.elapsedRealtime();
                         int[] src=new int[2],dst=new int[2];
                         source.getLocationInWindow(src);overlay.getLocationInWindow(dst);
