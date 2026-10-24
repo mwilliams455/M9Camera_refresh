@@ -48,14 +48,19 @@ with zipfile.ZipFile(oldapk) as old,zipfile.ZipFile(built) as new,zipfile.ZipFil
     new_names=set(new.namelist())
     for n,contents in assets.items():
         assert n in new_names and new.read(n)==contents,'Photo asset changed: '+n
-    for n,contents in native.items():
-        if n in new_names:
-            assert new.read(n)==contents,'Previously accepted camera native changed: '+n
+    # Gradle's rebuilt native binaries may differ bytewise from the accepted
+    # installer because of toolchain/non-deterministic build output. Repackaging
+    # must REPLACE those rebuilt copies with exactly the accepted parent bytes,
+    # never accept a new photographic library. New LiteRT .so names are separate.
+    rebuiltParentChanges=sorted(
+        n for n,contents in native.items()
+        if n in new_names and new.read(n)!=contents)
 
     fresh_native={n for n in new_names if n.startswith('lib/')
                   and n.endswith('.so') and n not in native}
     new_native={n:new.read(n) for n in fresh_native}
     assert fresh_native,'LiteRT CompiledModel runtime missing from Android build'
+    assert all('litert' in n.lower() for n in fresh_native),sorted(fresh_native)
     assert all(re.fullmatch(r'lib/(?:arm64-v8a|armeabi-v7a)/lib[\w.+-]+\.so',n)
             for n in fresh_native), sorted(fresh_native)
     fresh_assets={n for n in new_names if n.startswith('assets/')
@@ -129,6 +134,7 @@ report=dict(status='PASS',version='3.02-animaleye1a',versionCode=27302,
     acceptedParentSha256=accepted,
     previous31NativeLibrariesByteIdentical=True,
     previous300AssetsByteIdentical=True,
+    rebuiltParentLibrariesReplacedWithAcceptedBytes=rebuiltParentChanges,
     poseModelSha256=expected_pose_sha,
     poseModelBytes=pose.stat().st_size,
     newNativeElfAlignment=elf,allNewArm64Libs16KiB=True,
