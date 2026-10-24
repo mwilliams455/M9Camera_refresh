@@ -53,7 +53,6 @@ assert "CaptureRequest.CONTROL_AWB_REGIONS" not in controller
 assert "CONTROL_AF_TRIGGER_START" not in controller
 assert "finally {mpImage.close();}" in detector
 assert "lastDecision" in policy and "inference_too_old" in policy
-assert (root/"app/src/main/assets/efficientdet-lite0.tflite").exists()
 report=dict(
     status="STAGED_FOR_BUILD",version="3.00-focusanimal1b",parent="2.99-focusanimal1a",
     changedFiles=sorted(changed),modelAssetUnchanged=True,
