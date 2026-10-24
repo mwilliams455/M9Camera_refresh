@@ -1,0 +1,88 @@
+name: M9Cam FOCUSSUBJECT1A subject-AF foundation
+on:
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'patches/focussubject1a/**'
+      - '.github/workflows/build-m9cam-focussubject1a.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  subject-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Reconstruct exact M9 and Monochrom v2.95 source
+        run: python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/PhotonCamera_295"
+      - name: Inspect live focusing interfaces for integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,re
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_295'
+          base=root/'app/src/main/java/com/particlesdevs/photoncamera'
+          files=[
+            base/'ui/camera/FocusTrackingController.java',
+            base/'control/tracking/TrackingGeometry.java',
+            base/'control/TouchFocus.java',
+            base/'capture/CaptureController.java',
+            base/'ui/camera/CameraFragment.java',
+            base/'settings/PreferenceKeys.java',
+            root/'app/build.gradle']
+          for file in files:
+            print(f"\n===== FOCUSSUBJECT1A-SOURCE {file.relative_to(root)} =====")
+            if not file.exists():
+              print("NOT FOUND");continue
+            lines=file.read_text(errors='replace').splitlines()
+            rx=re.compile(r'focusTrack|FocusTrack|[Tt]racking|AF_REGIONS|afRegions|Continuous|focusMode|FocusMode|setFocus|onTap|onTouch|PixelCopy|dependencies|mlkit|gms|surface|preview',re.I)
+            indices=set()
+            if len(lines)<=330:
+              indices.update(range(len(lines)))
+            else:
+              for i,line in enumerate(lines):
+                if rx.search(line): indices.update(range(max(0,i-3),min(len(lines),i+5)))
+              indices=set(sorted(indices)[:260])
+            print('Total lines:',len(lines),'Displayed lines:',len(indices))
+            for i in sorted(indices): print(f'{i+1:05d}: {lines[i]}')
+          PY
+      - name: Stage shared focus policy without changing existing AF or renderer
+        run: |
+          install -D patches/focussubject1a/src/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java"
+      - name: Run JDK subject selection tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/subject-policy-test"
+          javac -Xlint:all -d "$RUNNER_TEMP/subject-policy-test" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java" \
+            patches/focussubject1a/host/SubjectFocusPolicyHostTest.java
+          java -ea -cp "$RUNNER_TEMP/subject-policy-test" SubjectFocusPolicyHostTest
+      - name: Compile the M9/Monochrom APK (integration smoke test only)
+        run: |
+          cd "$RUNNER_TEMP/PhotonCamera_295"
+          bash gradlew :app:assembleDebug --no-daemon --max-workers=2
+      - name: Report evidence
+        if: always()
+        run: |
+          echo "FOCUSSUBJECT1A: code is staged and compiled, but subject detection is NOT wired to live preview or Camera2 AF." >> "$GITHUB_STEP_SUMMARY"
+          echo "No installable feature candidate is being advertised until live-preview integration and phone validation." >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain source-integration verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: focussubject1a-foundation-build
+          path: |
+            ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/apk/debug/*.apk
+            ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/logs/**
+          retention-days: 14
+          if-no-files-found: ignore
