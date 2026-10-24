@@ -166,6 +166,11 @@ src=here/"src/com/particlesdevs/photoncamera/m9/provenance/M9SourceProvenance1A.
 (root/pFile).parent.mkdir(parents=True,exist_ok=True)
 shutil.copyfile(src,root/pFile)
 changes.append(pFile.as_posix())
+policyPath=provenance/"PhysicalSourceEvidence1A.java"
+assert not (root/policyPath).exists()
+shutil.copyfile(here/"src/com/particlesdevs/photoncamera/m9/provenance/PhysicalSourceEvidence1A.java",
+                root/policyPath)
+changes.append(policyPath.as_posix())
 for pkgName,marker in (
     ("m9",'''            out.diagnostics.put("sensorDescriptor1A", stillSensorDescriptor1A);'''),
     ("monochrom",'''            out.diagnostics.put("monoDevicePortRevision", "MONO_DEVICEPORT2A_CFA_ORIGIN");''')
@@ -398,6 +403,7 @@ assert "CONTROL_AWB_REGIONS, region" not in c
 assert "CONTROL_AF_TRIGGER_IDLE" in c
 assert (root/"app/src/main/assets/rtm_animal_fp16.tflite").exists()
 assert '"physicalRawProvenance1A"' in (root/Path("app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java")).read_text()
+assert "PhysicalSourceEvidence1A.classify" in (root/pFile).read_text()
 assert '"physicalRawProvenance1A"' in (root/Path("app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java")).read_text()
 report=dict(
     status="STAGED_FOR_BUILD",version="3.04-focuscontrol1a",parent="3.03-animaleye1b",
