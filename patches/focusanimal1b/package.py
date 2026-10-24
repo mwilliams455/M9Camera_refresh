@@ -48,7 +48,8 @@ with zipfile.ZipFile(oldapk) as old,zipfile.ZipFile(built) as new,zipfile.ZipFil
                for n in extra_native)
     extra_assets={n:new.read(n) for n in new_names if n.startswith('assets/')
                   and not n.endswith('/') and n not in original_assets}
-    assert not extra_assets,'A focus-only correction must not add assets'\n    assert original_assets['assets/efficientdet-lite0.tflite']==model.read_bytes(),'Pinned original pet model changed'
+    assert not extra_assets,'A focus-only correction must not add assets'
+    assert original_assets['assets/efficientdet-lite0.tflite']==model.read_bytes(),'Pinned original pet model changed'
     for info in new.infolist():
         n=info.filename
         if signing(n):continue
