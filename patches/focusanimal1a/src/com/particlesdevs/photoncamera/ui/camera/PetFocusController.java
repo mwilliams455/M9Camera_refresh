@@ -1,5 +1,6 @@
 package com.particlesdevs.photoncamera.ui.camera;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
@@ -48,6 +49,7 @@ final class PetFocusController {
     private static final long CADENCE_MS=250;
     private static final long LOST_MS=850;
     private final CameraFragment fragment;
+    private final Context appContext;
     private final SurfaceView source;
     private final TrackingFocusView overlay;
     private final Handler main=new Handler(Looper.getMainLooper());
@@ -67,6 +69,7 @@ final class PetFocusController {
 
     PetFocusController(CameraFragment fragment, SurfaceView source,TrackingFocusView overlay) {
         this.fragment=fragment;this.source=source;this.overlay=overlay;
+        this.appContext=fragment.requireContext().getApplicationContext();
         badge=new PetBadge(overlay);
         policy.beginSession(epoch);
     }
@@ -203,8 +206,7 @@ final class PetFocusController {
                             List<PetTargetPolicy.Candidate> results=Collections.emptyList();
                             boolean error=false;
                             try {
-                                if(detector==null)detector=new PetObjectDetector(
-                                        fragment.requireContext().getApplicationContext());
+                                if(detector==null)detector=new PetObjectDetector(appContext);
                                 results=detector.detect(bitmap);
                             }catch(Exception|LinkageError exception) {
                                 Log.w(TAG,"Offline pet detector unavailable",exception);
@@ -214,9 +216,10 @@ final class PetFocusController {
                             final boolean failed=error;
                             main.post(()->{
                                 if(failed&&accepts(token,g)) {
-                                    unsupported=true;releaseFocus();
-                                } else if(!failed)received(token,g,requested,output);
-                                finish();
+                                    unsupported=true;releaseFocus();finish();
+                                } else if(!failed) {
+                                    if(!received(token,g,requested,output)) finish();
+                                } else finish();
                             });
                         });
                     }catch(RuntimeException schedulingFailure){finish();}
@@ -226,9 +229,9 @@ final class PetFocusController {
             unsupported=true;releaseFocus();finish();
         }
     }
-    private void received(long token,TrackingGeometry g,long frameNs,
+    private boolean received(long token,TrackingGeometry g,long frameNs,
                           List<PetTargetPolicy.Candidate> candidates) {
-        if(!accepts(token,g))return;
+        if(!accepts(token,g))return false;
         long nowNs=SystemClock.elapsedRealtimeNanos();
         // Policy rejects late frames, wrong sessions, implausible boxes,
         // non-cat/dog classes and unconfirmed one-frame results.
@@ -238,14 +241,14 @@ final class PetFocusController {
         if(target==null) {
             if(af!=null&&lastGoodMs>0&&SystemClock.elapsedRealtime()-lastGoodMs>LOST_MS)
                 releaseFocus();
-            return;
+            return false;
         }
         if(af==null) {
             CaptureController controller=fragment.getCaptureController();
-            if(controller==null)return;
+            if(controller==null)return false;
             af=controller.newTrackingFocus();
             if(af==null||!af.valid()){
-                unsupported=true;releaseFocus();return;
+                unsupported=true;releaseFocus();return false;
             }
         }
         try {
@@ -269,8 +272,10 @@ final class PetFocusController {
                         badge.place(x,y,hw,hh,type);
                     }
                 }
+                finish();
             }));
-        }catch(RuntimeException failure){releaseFocus();}
+            return true;
+        }catch(RuntimeException failure){releaseFocus();return false;}
     }
     private void releaseFocus() {
         if(af!=null)af.close();
