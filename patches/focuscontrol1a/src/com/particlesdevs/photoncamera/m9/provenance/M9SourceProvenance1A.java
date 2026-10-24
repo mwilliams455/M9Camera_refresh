@@ -78,6 +78,37 @@ public final class M9SourceProvenance1A {
                 android.util.Rational[] neutral=physicalResult.get(
                         CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
                 out.put("physicalResultNeutralPresent",neutral!=null && neutral.length==3);
+                out.put("neutralComparisonBoundary",
+                        "original_selected_Camera2_vs_effective_Photon_parameters_not_independent_DNG_tag");
+                if(neutral!=null&&neutral.length==3&&p!=null&&p.whitePoint!=null
+                        &&p.whitePoint.length==3) {
+                    org.json.JSONArray nativeNeutral=new org.json.JSONArray();
+                    org.json.JSONArray differences=new org.json.JSONArray();
+                    double maximum=0d;
+                    boolean valid=true;
+                    for(int i=0;i<3;i++){
+                        if(neutral[i]==null||neutral[i].getDenominator()==0
+                                ||!Float.isFinite(p.whitePoint[i])){
+                            valid=false;break;
+                        }
+                        double nativeValue=neutral[i].doubleValue();
+                        if(!Double.isFinite(nativeValue)){valid=false;break;}
+                        double delta=Math.abs(nativeValue-p.whitePoint[i]);
+                        maximum=Math.max(maximum,delta);
+                        nativeNeutral.put(nativeValue);
+                        differences.put(delta);
+                    }
+                    out.put("originalCamera2Neutral",valid?nativeNeutral:JSONObject.NULL);
+                    out.put("neutralAbsoluteDelta",valid?differences:JSONObject.NULL);
+                    out.put("neutralMaxAbsoluteDelta",valid?maximum:JSONObject.NULL);
+                    out.put("neutralReferenceDiffersBeyond1e5",valid?
+                            maximum>0.00001d:JSONObject.NULL);
+                } else {
+                    out.put("originalCamera2Neutral",JSONObject.NULL);
+                    out.put("neutralAbsoluteDelta",JSONObject.NULL);
+                    out.put("neutralMaxAbsoluteDelta",JSONObject.NULL);
+                    out.put("neutralReferenceDiffersBeyond1e5",JSONObject.NULL);
+                }
                 out.put("physicalResultHasLensShadingMap",
                         physicalResult.get(CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP)!=null);
             } else {
