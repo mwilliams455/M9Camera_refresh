@@ -94,7 +94,11 @@ with zipfile.ZipFile(control) as old, zipfile.ZipFile(built) as new, zipfile.Zip
         assert token.encode() in dex,f'Missing DEX symbol: {token}'
     assert b'M9 processing queue full - try again shortly' not in dex
 
-# Check any newly introduced model-native libraries for modern 16 KiB devices.
+# Android's 16-KiB kernel targets are arm64. Bundled ML Kit 16.1.7 has a
+# documented 4-KiB alignment exception only for its 32-bit armeabi-v7a
+# libface_detector_v2_jni.so (googlesamples/mlkit#986). Do not weaken the
+# 16-KiB requirement for arm64 or for any *other* native library.
+native_alignment={}
 for n in sorted(added_native):
     with zipfile.ZipFile(unsigned) as apk:
         data=apk.read(n)
@@ -102,9 +106,13 @@ for n in sorted(added_native):
     disk.write_bytes(data)
     try:
         headers=subprocess.check_output(['readelf','-lW',str(disk)],text=True)
-        for line in headers.splitlines():
-            if line.strip().startswith('LOAD'):
-                assert int(line.split()[-1],16)>=16384,(n,line)
+        alignments=[int(line.split()[-1],16) for line in headers.splitlines()
+                    if line.strip().startswith('LOAD')]
+        assert alignments and all(a>=4096 for a in alignments),(n,alignments)
+        legacy32=(n=='lib/armeabi-v7a/libface_detector_v2_jni.so')
+        assert all(a>=16384 for a in alignments) or legacy32, (n,alignments)
+        native_alignment[n]={'minPtLoadAlignment':min(alignments),
+                             'arm32MlKitUpstream4kException':legacy32 and min(alignments)<16384}
     finally:disk.unlink(missing_ok=True)
 
 subprocess.run([str(bt/'zipalign'),'-f','-P','16','4',str(unsigned),str(aligned)],check=True)
@@ -134,6 +142,11 @@ report={
  'acceptedCertificateMatched':True,'all27PreviousNativeLibrariesIdentical':True,
  'all285PreviousAssetsIdentical':True,
  'modelNativeLibrariesAdded':sorted(added_native),'modelAssetsAdded':sorted(added_assets),
+ 'modelNativeElfAlignment':native_alignment,
+ 'allNewArm64Libs16KiBAligned':all(
+     item['minPtLoadAlignment']>=16384 for name,item in native_alignment.items()
+     if name.startswith('lib/arm64-v8a/')),
+ 'knownMlKitArm32AlignmentLimitation':'googlesamples/mlkit#986: 4KiB ELF alignment on armeabi-v7a only',
  'bothCompiledFocusMenusVerified':True,'androidV2SignatureVerified':True,
  'zipAlignment16KiB':True,'phoneValidationPending':True,
  'photographicRenderingUnchangedFrom295':True
