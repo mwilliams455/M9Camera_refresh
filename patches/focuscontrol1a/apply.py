@@ -213,8 +213,8 @@ patch(pet,
     "        policy.beginSession(epoch);\n        eyePolicy.beginSession(epoch);",
     "        policy.beginSession(epoch);\n        eyePolicy.beginSession(epoch);\n        focusScope.beginSession(epoch);")
 patch(pet,
-    "        epoch++;policy.beginSession(epoch);eyePolicy.beginSession(epoch);",
-    "        epoch++;policy.beginSession(epoch);eyePolicy.beginSession(epoch);\n        focusScope.beginSession(epoch);")
+    "        epoch++;policy.beginSession(epoch);eyePolicy.beginSession(epoch);\n        currentBodyX=Float.NaN",
+    "        epoch++;policy.beginSession(epoch);eyePolicy.beginSession(epoch);\n        focusScope.beginSession(epoch);\n        currentBodyX=Float.NaN")
 patch(pet,
     """            policy.tapSelect(u,v,lastCandidates);
             lastFrameNs=Long.MIN_VALUE;""",
