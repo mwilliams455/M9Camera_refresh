@@ -86,6 +86,11 @@ replace(prefs,
     '        COMMON_KEYS.add("pref_focus_subject_eye");')
 
 gradle=Path("app/build.gradle")
+replace(gradle,"versionCode 27295","versionCode 27297")
+replace(gradle,"versionName '2.95-diagindex1a'","versionName '2.97-focussubject1a'")
+replace(gradle,
+    'outputFileName = "M9Cam_2.95_DIAGINDEX1A-${variant.name}.apk"',
+    'outputFileName = "M9Cam_2.97_FOCUSSUBJECT1A-${variant.name}.apk"')
 replace(gradle,
     "    implementation 'org.opencv:opencv:4.13.0'",
     "    implementation 'org.opencv:opencv:4.13.0'\n"
