@@ -108,8 +108,17 @@ final class HumanSubjectFocusController {
     boolean tap(float rawX,float rawY,boolean autofocus) {
         if (!running || closed || !enabled() || !autofocus || manualOverride) return false;
         TrackingGeometry g=TrackingGeometry.current(SystemClock.elapsedRealtimeNanos());
-        if (g==null || geometry==null || !geometry.same(g) || !cameraGeometry(g)
-                || SystemClock.elapsedRealtime()-lastFacesMs > FACE_LOST_MS) return false;
+        if (g==null || g.w<=0 || g.h<=0 || !cameraGeometry(g)
+                || !source.isAttachedToWindow()) return false;
+        if (geometry==null || !geometry.same(g)
+                || SystemClock.elapsedRealtime()-lastFacesMs > FACE_LOST_MS) {
+            // A tap before the first face result is still a manual user choice.
+            // Do not steal it when detection resumes a few frames later.
+            clear();
+            bind(g);
+            manualOverride=true;
+            return false;
+        }
         int[] location=new int[2];
         source.getLocationOnScreen(location);
         float u=(rawX-location[0]-g.left)/g.w;
@@ -261,7 +270,7 @@ final class HumanSubjectFocusController {
         }
         try {
             focus.update(g,target.x,target.y,applied -> main.post(() -> {
-                if (accepts(ticket,g)) {
+                if (accepts(ticket,g) && focus!=null && focus.valid()) {
                     if (!applied) releaseFocus();
                     else {
                         lastResultMs=SystemClock.elapsedRealtime();
