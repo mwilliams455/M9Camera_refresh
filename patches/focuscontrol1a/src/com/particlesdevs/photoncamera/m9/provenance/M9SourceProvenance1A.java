@@ -96,19 +96,20 @@ public final class M9SourceProvenance1A {
             out.put("preCorrectionActiveArray",rect(precorrected));
             // Unknown/missing source must not be silently interpreted as
             // successful cross-lens colour calibration or shading application.
-            boolean core=characteristics!=null && physicalResult!=null
-                    && p!=null && calibration!=null && shading!=null
-                    && !calibration.has("error") && !shading.has("error")
-                    && p.whiteLevel>0 && p.blackLevel!=null
-                    && p.blackLevel.length==4 && active!=null;
+            boolean saneLevels=p!=null && p.whiteLevel>0
+                    && p.blackLevel!=null && p.blackLevel.length==4;
+            boolean noAuditErrors=calibration!=null && shading!=null
+                    && !calibration.has("error") && !shading.has("error");
             boolean same=true;
             if(p!=null&&calibration!=null&&calibration.has("physicalID"))
                 same &= p.physicalID==calibration.optInt("physicalID",Integer.MIN_VALUE);
             if(p!=null&&shading!=null&&shading.has("physicalID"))
                 same &= p.physicalID==shading.optInt("physicalID",Integer.MIN_VALUE);
             out.put("perCapturePhysicalIdCrossAuditAgrees",same);
-            out.put("status",!same?"PHYSICAL_ID_MISMATCH":core?
-                    "CAPTURE_SOURCE_PRESENT":"INCOMPLETE_SOURCE_EVIDENCE");
+            out.put("status",PhysicalSourceEvidence1A.classify(
+                    same,physicalResult!=null,characteristics!=null,
+                    calibration!=null,shading!=null,noAuditErrors,
+                    saneLevels,active!=null).name());
             out.put("actualCrossLensColorEquivalenceProven",false);
             out.put("lensShadingAppliedExactlyOnceProven",false);
             out.put("nextComparison",
