@@ -286,7 +286,7 @@ final class HumanSubjectFocusController {
                         int[] a=new int[2],b=new int[2];
                         source.getLocationInWindow(a);
                         overlay.getLocationInWindow(b);
-                        overlay.show(a[0]-b[0]+g.left+target.x*g.w,
+                        overlay.showEye(a[0]-b[0]+g.left+target.x*g.w,
                                 a[1]-b[1]+g.top+target.y*g.h,
                                 .5f*target.regionWidth*g.w,
                                 .5f*target.regionHeight*g.h,false);
