@@ -64,7 +64,7 @@ with zipfile.ZipFile(control) as old, zipfile.ZipFile(built) as new, zipfile.Zip
     newnames=set(new.namelist())
     extra_native={n for n in newnames if n.startswith('lib/') and n.endswith('.so')}-natives
     for n in extra_native:
-        assert re.match(r'^lib/(arm64-v8a|armeabi-v7a)/lib[A-Za-z0-9_+.-]+\\.so$',n),n
+        assert re.match(r'^lib/(arm64-v8a|armeabi-v7a)/lib[A-Za-z0-9_+.-]+\.so$',n),n
     added_native=extra_native
     old_assets={n for n in old.namelist() if n.startswith('assets/') and not n.endswith('/')}
     assert len(old_assets)==285,len(old_assets)
