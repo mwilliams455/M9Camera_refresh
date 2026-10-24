@@ -36,6 +36,7 @@ final class FocusAreaTouchController {
     private float u=.5f,v=.5f;
     private boolean touchActive;
     private boolean lastExpanded;
+    private FocusControlPolicy.Mode lastMode=FocusControlPolicy.Mode.WIDE;
 
     FocusAreaTouchController(CameraFragment fragment,SurfaceView source,TrackingFocusView overlay) {
         this.fragment=fragment;this.source=source;this.overlay=overlay;
@@ -108,6 +109,8 @@ final class FocusAreaTouchController {
     };
     private void step(){
         FocusControlPolicy.Mode mode=FocusControlSettings.mode();
+        if(mode!=lastMode&&touchActive)clear();
+        lastMode=mode;
         FocusControlSettings.configure(policy);
         long now=SystemClock.elapsedRealtime();
         CaptureController capture=fragment.getCaptureController();
