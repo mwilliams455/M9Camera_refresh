@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   subject-foundation:
     runs-on: ubuntu-latest
@@ -97,6 +98,34 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/PhotonCamera_295"
           bash gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*FocusTrackingAfTest' --tests '*FocusTrackingLifecycleTest' --tests '*FocusPointLayoutTest' --tests '*TouchFocusTest' --tests '*TouchFocusHandoverTest' --tests '*ProfileCaptureTest' --no-daemon --max-workers=2
+      - name: Download exact accepted 2.95 installer for native and asset preservation
+        uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.95-READY-TO-INSTALL
+          run-id: 38885217685
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/accepted295
+      - name: Package and verify 2.97 Face/Eye AF signed trial installer
+        run: |
+          mkdir -p "$RUNNER_TEMP/installer297"
+          cp "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json" "$RUNNER_TEMP/installer297/SOURCE_VERIFICATION.json"
+          python3 patches/focussubject1a/package_live.py \
+            "$RUNNER_TEMP/PhotonCamera_295" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/build/outputs/apk/debug/M9Cam_2.97_FOCUSSUBJECT1A-debug.apk" \
+            "$RUNNER_TEMP/accepted295/M9Cam_2.95_DIAGINDEX1A.apk" \
+            "$ANDROID_HOME/build-tools/35.0.0" \
+            "$RUNNER_TEMP/installer297"
+      - name: Retain signed Face/Eye AF device candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.97-FOCUSSUBJECT1A-READY-TO-INSTALL
+          path: |
+            ${{ runner.temp }}/installer297/M9Cam_2.97_FOCUSSUBJECT1A.apk
+            ${{ runner.temp }}/installer297/PACKAGED_VERIFICATION.json
+            ${{ runner.temp }}/installer297/SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/installer297/SHA256SUMS.txt
+          retention-days: 90
+          if-no-files-found: error
       - name: Report evidence
         if: always()
         run: |
@@ -111,6 +140,7 @@ jobs:
             ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/apk/debug/*.apk
             ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/logs/**
             ${{ runner.temp }}/FOCUSSUBJECT_SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/installer297/*.json
             ${{ runner.temp }}/PhotonCamera_295/app/build/test-results/testDebugUnitTest/**
           retention-days: 14
           if-no-files-found: ignore
