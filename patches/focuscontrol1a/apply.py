@@ -156,6 +156,27 @@ patch(frag,
     "        if (focusAnimal != null) focusAnimal.close();\n        focusAnimal = null;",
     "        if (focusArea != null) focusArea.close();\n        focusArea = null;\n        if (focusAnimal != null) focusAnimal.close();\n        focusAnimal = null;")
 
+# Physical RAW/calibration provenance is already collected by the M9 and Mono
+# renderer audits. Join it in the existing per-capture PRIMARY diagnostics,
+# rather than changing source calibration or writing extra sidecar files.
+provenance=Path("app/src/main/java/com/particlesdevs/photoncamera/m9/provenance")
+pFile=provenance/"M9SourceProvenance1A.java"
+assert not (root/pFile).exists()
+src=here/"src/com/particlesdevs/photoncamera/m9/provenance/M9SourceProvenance1A.java"
+(root/pFile).parent.mkdir(parents=True,exist_ok=True)
+shutil.copyfile(src,root/pFile)
+changes.append(pFile.as_posix())
+for pkgName,marker in (
+    ("m9",'''            out.diagnostics.put("sensorDescriptor1A", stillSensorDescriptor1A);'''),
+    ("monochrom",'''            out.diagnostics.put("monoDevicePortRevision", "MONO_DEVICEPORT2A_CFA_ORIGIN");''')
+):
+    renderer=Path("app/src/main/java/com/particlesdevs/photoncamera")/pkgName/"render/M9R35Renderer.java"
+    patch(renderer,marker,marker+'''
+            out.diagnostics.put("physicalRawProvenance1A",
+                    com.particlesdevs.photoncamera.m9.provenance.M9SourceProvenance1A.describe(
+                            params,characteristics,diagnosticCaptureResult1A,
+                            sourceCalibrationAudit1A,rawShadingAudit1A));''')
+
 # Scope semantic face and pet subjects to the selected AF area. Existing
 # tap-to-select retains identity when the subject moves. Wide is unchanged.
 human=prefix/"ui/camera/HumanSubjectFocusController.java"
@@ -376,6 +397,8 @@ assert "CONTROL_AE_REGIONS, region" not in c
 assert "CONTROL_AWB_REGIONS, region" not in c
 assert "CONTROL_AF_TRIGGER_IDLE" in c
 assert (root/"app/src/main/assets/rtm_animal_fp16.tflite").exists()
+assert '"physicalRawProvenance1A"' in (root/Path("app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java")).read_text()
+assert '"physicalRawProvenance1A"' in (root/Path("app/src/main/java/com/particlesdevs/photoncamera/monochrom/render/M9R35Renderer.java")).read_text()
 report=dict(
     status="STAGED_FOR_BUILD",version="3.04-focuscontrol1a",parent="3.03-animaleye1b",
     implementation=dict(spot=True,expandSpot=True,custom=True,wide=True,
@@ -383,6 +406,7 @@ report=dict(
         tapToChangeSubjectRetained=True,afStateReportedFromCamera2=True),
     changedFiles=sorted(set(changes)),defaultArea="WIDE",
     defaultColourAndRawUnchanged=True,nativeAndOriginalAssetsUnchanged=True,
+    physicalCalibrationReadOnlyReceiptInBothProfiles=True,
     phoneAutofocusValidationPending=True)
 if o.report:
     o.report.parent.mkdir(parents=True,exist_ok=True)
