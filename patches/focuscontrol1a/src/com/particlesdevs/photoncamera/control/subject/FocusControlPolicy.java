@@ -135,8 +135,8 @@ public final class FocusControlPolicy {
             width=suggestedW>0?clamp(suggestedW,.055f,.24f):.10f;
             height=suggestedH>0?clamp(suggestedH,.055f,.24f):.10f;
         }else{
-            cx=pinned&&valid(followX)?followX:anchorX;
-            cy=pinned&&valid(followY)?followY:anchorY;
+            cx=valid(followX)?followX:anchorX;
+            cy=valid(followY)?followY:anchorY;
             if(mode==Mode.CUSTOM){width=w;height=h;}
             else if(mode==Mode.EXPAND_SPOT&&expanded){width=height=EXPANDED;}
             else{width=height=SPOT;}
