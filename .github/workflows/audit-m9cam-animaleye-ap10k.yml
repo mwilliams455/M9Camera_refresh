@@ -1,0 +1,52 @@
+name: M9Cam AP10K animal-eye model provenance
+
+on:
+  pull_request:
+    branches: ['codex/focusanimal1c-previewretry']
+    paths:
+      - 'patches/focusanimaleye1a/MODEL_SHA256.txt'
+      - '.github/workflows/audit-m9cam-animaleye-ap10k.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch independently published LiteRT RTMPose AP10K checkpoint
+        run: |
+          set -euo pipefail
+          curl --fail --location --show-error --silent --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 240 \
+            'https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT/resolve/main/rtm_animal_fp16.tflite' \
+            --output "$RUNNER_TEMP/rtm_animal_fp16.tflite"
+          python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          f=Path(os.environ['RUNNER_TEMP'])/'rtm_animal_fp16.tflite'
+          data=f.read_bytes()
+          digest=hashlib.sha256(data).hexdigest()
+          expected=Path('patches/focusanimaleye1a/MODEL_SHA256.txt').read_text().split()[0]
+          assert digest==expected, ('AP10K model digest differs',digest,expected)
+          assert data[4:8]==b'TFL3','not a TFLite model'
+          assert 25_000_000<=len(data)<=32_000_000,len(data)
+          result=dict(status='PASS',sha256=digest,sizeBytes=len(data),
+            source='litert-community/RTMPose-Animal-AP10K-LiteRT',
+            input='[1,3,256,256] NCHW RGB mean/std',
+            output=['[1,17,512] simcc_x','[1,17,512] simcc_y'],
+            keypoints=['left_eye','right_eye','nose'])
+          (Path(os.environ['RUNNER_TEMP'])/'ANIMAL_EYE_MODEL_PROVENANCE.json').write_text(
+             json.dumps(result,indent=2)+'\n')
+          print('ANIMAL_EYE_MODEL_PROVENANCE='+json.dumps(result,sort_keys=True))
+          PY
+      - name: Retain verified model hash record
+        uses: actions/upload-artifact@v4
+        with:
+          name: animaleye-ap10k-model-provenance
+          path: ${{ runner.temp }}/ANIMAL_EYE_MODEL_PROVENANCE.json
+          retention-days: 30
+          if-no-files-found: error
