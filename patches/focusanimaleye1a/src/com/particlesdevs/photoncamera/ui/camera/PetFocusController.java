@@ -297,7 +297,7 @@ final class PetFocusController {
                                     if(animalPose==null)animalPose=new AnimalEyePoseEstimator(appContext);
                                     eyeObserved=animalPose.estimate(bitmap,animal,requested,token);
                                     eyeInfo="pose_"+animalPose.backend();
-                                }catch(RuntimeException|LinkageError|OutOfMemoryError poseError){
+                                }catch(Exception|LinkageError|OutOfMemoryError poseError){
                                     Log.w(TAG,"Animal pose unavailable; retaining body AF",poseError);
                                     poseUnavailable=true;
                                     eyeInfo="pose_unavailable_"+poseError.getClass().getSimpleName();
