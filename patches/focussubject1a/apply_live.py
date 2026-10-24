@@ -137,8 +137,8 @@ strings=Path("app/src/main/res/values/strings.xml")
 replace(strings,"</resources>",
     '    <string name="focus_subject_eye_active">Eye AF</string>\n'
     '    <string name="focus_subject_eye_title">Human Face/Eye AF (experimental)</string>\n'
-    '    <string name="focus_subject_eye_summary">Opt-in AF-C eye priority with face fallback. '
-    'Overrides patch tracking when enabled. Bundled offline model; for PHOTO, NIGHT and MOTION.</string>\n'
+    '    <string name="focus_subject_eye_summary">Only locks confirmed human eye landmarks after stable repeated detection. '
+    'Conservative experimental AF-C; tap focus remains available. Bundled offline model.</string>\n'
     '</resources>')
 
 # Code-level non-interference invariants; builds independently verify real AF
