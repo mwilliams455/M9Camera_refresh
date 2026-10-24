@@ -79,7 +79,7 @@ public final class M9SourceProvenance1A {
                         CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
                 out.put("physicalResultNeutralPresent",neutral!=null && neutral.length==3);
                 out.put("physicalResultHasLensShadingMap",
-                        physicalResult.get(CaptureResult.STATISTICS_LENS_SHADING_MAP)!=null);
+                        physicalResult.get(CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP)!=null);
             } else {
                 out.put("physicalResultPresent",false);
                 out.put("physicalFrameNumber",JSONObject.NULL);
