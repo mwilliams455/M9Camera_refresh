@@ -181,6 +181,15 @@ patch(human,
             focusScope.tap(epoch,u,v);
             policy.tapSelect(latestFaces,u,v);""")
 patch(human,
+    "        if (focus!=null && !focus.valid()) { clear(); return; }",
+    """        if (focus!=null && !focus.valid()) { clear(); return; }
+        FocusControlSettings.configure(focusScope);
+        CaptureController focusStateOwner=fragment.getCaptureController();
+        CaptureController.FocusStateSnapshot focusSample=
+                focusStateOwner==null?null:focusStateOwner.focusStateSnapshot();
+        if(focusSample!=null && focus!=null && focus.matchesFocusSample(focusSample))
+            focusScope.observeAf(epoch,focusSample.state,SystemClock.elapsedRealtime());""")
+patch(human,
     """        List<SubjectFocusPolicy.Face> admitted=admissionGate.admit(epoch,startedNs,nowNs,faces);
         latestFaces=Collections.unmodifiableList(new ArrayList<>(admitted));""",
     """        List<SubjectFocusPolicy.Face> admitted=admissionGate.admit(epoch,startedNs,nowNs,faces);
@@ -223,6 +232,15 @@ patch(pet,
             FocusControlSettings.configure(focusScope);
             focusScope.tap(epoch,u,v);
             lastFrameNs=Long.MIN_VALUE;""")
+patch(pet,
+    "        if(af!=null&&!af.valid()) {clear();return;}",
+    """        if(af!=null&&!af.valid()) {clear();return;}
+        FocusControlSettings.configure(focusScope);
+        CaptureController owner=fragment.getCaptureController();
+        CaptureController.FocusStateSnapshot sample=
+                owner==null?null:owner.focusStateSnapshot();
+        if(sample!=null && af!=null && af.matchesFocusSample(sample))
+            focusScope.observeAf(epoch,sample.state,SystemClock.elapsedRealtime());""")
 patch(pet,
     """        PetTargetPolicy.Target target=policy.update(token,frameNs,nowNs,candidates);""",
     """        FocusControlSettings.configure(focusScope);
@@ -350,6 +368,8 @@ patch(gradle,"M9Cam_3.03_ANIMALEYE1B","M9Cam_3.04_FOCUSCONTROL1A")
 
 c=(root/capture).read_text()
 assert "FocusStateSnapshot focusStateSnapshot()" in c
+assert "focusScope.observeAf(epoch,focusSample.state" in (root/human).read_text()
+assert "focusScope.observeAf(epoch,sample.state" in (root/pet).read_text()
 assert "public boolean matchesFocusSample(FocusStateSnapshot sample)" in c
 assert "fractionW>=.04f" in c
 assert "CONTROL_AE_REGIONS, region" not in c
