@@ -1,0 +1,57 @@
+name: Inspect focused Camera2 area and AF-state APIs
+on:
+  push:
+    branches: ['codex/focuscontrol1a-areas-subject-afstate']
+    paths: ['.github/workflows/inspect-m9-focuscontrol2.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct accepted M9Cam 3.03 source
+        run: |
+          set -euo pipefail
+          python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1c/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          curl -fsSL --retry 2 'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite' -o "$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets/efficientdet-lite0.tflite"
+          curl -fsSL --retry 2 'https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT/resolve/main/rtm_animal_fp16.tflite' -o "$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets/rtm_animal_fp16.tflite"
+          python3 patches/focusanimaleye1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimaleye1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+      - name: Print exact Camera2 TrackingFocus class and AF preview callback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_304'
+          pkg=root/'app/src/main/java/com/particlesdevs/photoncamera'
+          source=pkg/'capture/CaptureController.java'
+          lines=source.read_text().splitlines()
+          def printsection(label,needle,before,after):
+              matches=[i for i,l in enumerate(lines) if needle in l]
+              print('===== EXACT',label,'MATCHES',len(matches),'=====')
+              for i in matches[:12]:
+                  for j in range(max(0,i-before),min(len(lines),i+after)):
+                      print(f'{j+1:05d}: {lines[j]}')
+          printsection('AF_OWNER','class TrackingFocus',2,260)
+          printsection('AF_NEW','newTrackingFocus(',14,60)
+          printsection('PREVIEW_RESULT','mPreviewCaptureResult = result;',15,23)
+          printsection('PREVIEW_PARTIAL','onCaptureProgressed(',0,65)
+          printsection('AF_REGIONS','builder.set(CONTROL_AF_REGIONS',14,20)
+          printsection('PHYSICAL_PAIR','public String physicalID',6,12)
+          printsection('PREVIEW_CALLBACK','private CameraCaptureSession.CaptureCallback mCaptureCallback',0,20)
+          printsection('NATIVE_SHADING','STATISTICS_LENS_SHADING_MAP',3,9)
+          frag=(pkg/'ui/camera/CameraFragment.java').read_text().splitlines()
+          for needle in ('public boolean onTouch','return focusTracking','public boolean routeFocusTrackingTap','boolean routeFocusTrackingTap','clearFocusTracking','getCaptureController()'):
+              print('===== FRAGMENT_ANCHOR',needle,'=====')
+              for i,line in enumerate(frag):
+                  if needle in line:
+                      for j in range(max(0,i-7),min(len(frag),i+19)):
+                          print(f'{j+1:05d}: {frag[j]}')
+          PY
