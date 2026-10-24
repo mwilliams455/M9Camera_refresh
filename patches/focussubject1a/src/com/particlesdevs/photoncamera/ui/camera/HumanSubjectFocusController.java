@@ -268,7 +268,9 @@ final class HumanSubjectFocusController {
         lastFacesMs=SystemClock.elapsedRealtime();
         SubjectFocusPolicy.Target target=policy.update(epoch,startedNs,nowNs,
                 latestFaces,SubjectFocusPolicy.Kind.HUMAN_EYE);
-        if (target==null) {
+        if (target==null || !target.eyeLandmarkFound) {
+            // No new autofocus command may target the centre of an unverified
+            // face rectangle when the user selected Human Eye AF.
             if (lastResultMs>0 && SystemClock.elapsedRealtime()-lastResultMs>FACE_LOST_MS)
                 releaseFocus();
             finish();
@@ -302,6 +304,8 @@ final class HumanSubjectFocusController {
                         float halfW=.5f*target.regionWidth*g.w;
                         float halfH=.5f*target.regionHeight*g.h;
                         overlay.show(px,py,halfW,halfH,false);
+                        overlay.setContentDescription(overlay.getContext().getString(
+                                com.particlesdevs.photoncamera.R.string.focus_subject_eye_active));
                         if (!badgeAttached) {
                             overlay.getOverlay().add(eyeBadge);
                             badgeAttached=true;
