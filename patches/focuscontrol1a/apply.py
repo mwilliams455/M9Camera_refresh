@@ -366,5 +366,5 @@ report=dict(
     phoneAutofocusValidationPending=True)
 if o.report:
     o.report.parent.mkdir(parents=True,exist_ok=True)
-    o.report.write_text(json.dumps(report,indent=2)+"\\n")
+    o.report.write_text(json.dumps(report,indent=2)+"\n")
 print(json.dumps(report,indent=2))
