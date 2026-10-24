@@ -1,4 +1,4 @@
-name: M9Cam FOCUSSUBJECT1A subject-AF foundation
+name: M9Cam 2.98 FOCUSSUBJECT1B false-positive eye admission
 on:
   pull_request:
     branches: ['main']
@@ -108,10 +108,13 @@ jobs:
           javac -Xlint:all -d "$RUNNER_TEMP/subject-policy-test" \
             "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java" \
             "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/HumanEyeAdmissionGate.java" \
             patches/focussubject1a/host/SubjectFocusPolicyHostTest.java \
-            patches/focussubject1a/host/FocusAreaPolicyHostTest.java
+            patches/focussubject1a/host/FocusAreaPolicyHostTest.java \
+            patches/focussubject1a/host/HumanEyeAdmissionGateHostTest.java
           java -ea -cp "$RUNNER_TEMP/subject-policy-test" SubjectFocusPolicyHostTest
           java -ea -cp "$RUNNER_TEMP/subject-policy-test" FocusAreaPolicyHostTest
+          java -ea -cp "$RUNNER_TEMP/subject-policy-test" HumanEyeAdmissionGateHostTest
       - name: Compile Android and run existing autofocus and lifecycle regressions
         run: |
           cd "$RUNNER_TEMP/PhotonCamera_295"
@@ -123,25 +126,25 @@ jobs:
           run-id: 38885217685
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/accepted295
-      - name: Package and verify 2.97 Face/Eye AF signed trial installer
+      - name: Package and verify 2.98 Face/Eye AF false-positive fix installer
         run: |
-          mkdir -p "$RUNNER_TEMP/installer297"
-          cp "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json" "$RUNNER_TEMP/installer297/SOURCE_VERIFICATION.json"
+          mkdir -p "$RUNNER_TEMP/installer298"
+          cp "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json" "$RUNNER_TEMP/installer298/SOURCE_VERIFICATION.json"
           python3 patches/focussubject1a/package_live.py \
             "$RUNNER_TEMP/PhotonCamera_295" \
-            "$RUNNER_TEMP/PhotonCamera_295/app/build/outputs/apk/debug/M9Cam_2.97_FOCUSSUBJECT1A-debug.apk" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/build/outputs/apk/debug/M9Cam_2.98_FOCUSSUBJECT1B-debug.apk" \
             "$RUNNER_TEMP/accepted295/M9Cam_2.95_DIAGINDEX1A.apk" \
             "$ANDROID_HOME/build-tools/35.0.0" \
-            "$RUNNER_TEMP/installer297"
+            "$RUNNER_TEMP/installer298"
       - name: Retain signed Face/Eye AF device candidate
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-2.97-FOCUSSUBJECT1A-READY-TO-INSTALL
+          name: M9Cam-2.98-FOCUSSUBJECT1B-READY-TO-INSTALL
           path: |
-            ${{ runner.temp }}/installer297/M9Cam_2.97_FOCUSSUBJECT1A.apk
-            ${{ runner.temp }}/installer297/PACKAGED_VERIFICATION.json
-            ${{ runner.temp }}/installer297/SOURCE_VERIFICATION.json
-            ${{ runner.temp }}/installer297/SHA256SUMS.txt
+            ${{ runner.temp }}/installer298/M9Cam_2.98_FOCUSSUBJECT1B.apk
+            ${{ runner.temp }}/installer298/PACKAGED_VERIFICATION.json
+            ${{ runner.temp }}/installer298/SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/installer298/SHA256SUMS.txt
           retention-days: 90
           if-no-files-found: error
       - name: Report evidence
@@ -153,12 +156,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: focussubject1a-live-integration-build
+          name: focussubject1b-eye-admission-build
           path: |
             ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/apk/debug/*.apk
             ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/logs/**
             ${{ runner.temp }}/FOCUSSUBJECT_SOURCE_VERIFICATION.json
-            ${{ runner.temp }}/installer297/*.json
+            ${{ runner.temp }}/installer298/*.json
             ${{ runner.temp }}/PhotonCamera_295/app/build/test-results/testDebugUnitTest/**
           retention-days: 14
           if-no-files-found: ignore
