@@ -29,7 +29,7 @@ final class HumanFaceLandmarkDetector implements AutoCloseable {
         FaceDetectorOptions options = new FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                 .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-                .setMinFaceSize(.08f)
+                .setMinFaceSize(.12f)
                 .enableTracking()
                 .build();
         detector = FaceDetection.getClient(options);
@@ -58,13 +58,20 @@ final class HumanFaceLandmarkDetector implements AutoCloseable {
                             Integer id = face.getTrackingId();
                             FaceLandmark left = face.getLandmark(FaceLandmark.LEFT_EYE);
                             FaceLandmark right = face.getLandmark(FaceLandmark.RIGHT_EYE);
+                            FaceLandmark nose = face.getLandmark(FaceLandmark.NOSE_BASE);
+                            FaceLandmark mouth = face.getLandmark(FaceLandmark.MOUTH_BOTTOM);
                             float lx = pointX(left, preview.getWidth());
                             float ly = pointY(left, preview.getHeight());
                             float rx = pointX(right, preview.getWidth());
                             float ry = pointY(right, preview.getHeight());
+                            float nx = pointX(nose, preview.getWidth());
+                            float ny = pointY(nose, preview.getHeight());
+                            float mx = pointX(mouth, preview.getWidth());
+                            float my = pointY(mouth, preview.getHeight());
                             output.add(new SubjectFocusPolicy.Face(
                                     id == null ? fallbackId-- : id,
-                                    l, t, r, b, lx, ly, rx, ry));
+                                    l, t, r, b, lx, ly, rx, ry,
+                                    nx, ny, mx, my));
                         }
                         success.accept(output);
                     })
