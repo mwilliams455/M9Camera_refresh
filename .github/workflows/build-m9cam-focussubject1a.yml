@@ -81,6 +81,24 @@ jobs:
               i=frag.find(token)
               if i>=0:print('===== FRAGMENT',token,'\\n',frag[max(0,i-350):i+450])
           PY
+      - name: Inspect generic tracking box label and lifecycle
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_295'
+          files=[
+            root/'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java',
+            root/'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java'
+          ]
+          for p in files:
+              print('===== EYE-AF-BOX-SOURCE',p.relative_to(root),'=====')
+              if p.is_file():
+                  lines=p.read_text().splitlines()
+                  for i,line in enumerate(lines):
+                      if p.name=='TrackingFocusView.java' or 'focus_tracking' in line or 'overlay.show' in line:
+                          print(f'{i+1:04d}: {line}')
+          PY
       - name: Integrate opt-in live ML Kit face and eye autofocus into both profiles
         run: |
           python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_295" --report "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json"
