@@ -31,6 +31,7 @@ def replace(path,old,new):
 pkg=Path("app/src/main/java/com/particlesdevs/photoncamera")
 for sub in ("control/subject/SubjectFocusPolicy.java",
             "control/subject/FocusAreaPolicy.java",
+            "control/subject/HumanEyeAdmissionGate.java",
             "ui/camera/HumanFaceLandmarkDetector.java",
             "ui/camera/HumanSubjectFocusController.java"):
     rel=pkg/sub
@@ -86,11 +87,11 @@ replace(prefs,
     '        COMMON_KEYS.add("pref_focus_subject_eye");')
 
 gradle=Path("app/build.gradle")
-replace(gradle,"versionCode 27295","versionCode 27297")
-replace(gradle,"versionName '2.95-diagindex1a'","versionName '2.97-focussubject1a'")
+replace(gradle,"versionCode 27295","versionCode 27298")
+replace(gradle,"versionName '2.95-diagindex1a'","versionName '2.98-focussubject1b'")
 replace(gradle,
     'outputFileName = "M9Cam_2.95_DIAGINDEX1A-${variant.name}.apk"',
-    'outputFileName = "M9Cam_2.97_FOCUSSUBJECT1A-${variant.name}.apk"')
+    'outputFileName = "M9Cam_2.98_FOCUSSUBJECT1B-${variant.name}.apk"')
 replace(gradle,
     "    implementation 'org.opencv:opencv:4.13.0'",
     "    implementation 'org.opencv:opencv:4.13.0'\n"
@@ -118,6 +119,8 @@ replace(strings,"</resources>",
 # ownership through CaptureController.TrackingFocus and inherited regressions.
 controller=(root/(pkg/"ui/camera/HumanSubjectFocusController.java")).read_text()
 assert "focus.update(g,target.x,target.y" in controller
+assert "admissionGate.admit(epoch,startedNs,nowNs,faces)" in controller
+assert (root/(pkg/"control/subject/HumanEyeAdmissionGate.java")).exists()
 assert "getBoolean(" in controller and 'KEY = "pref_focus_subject_eye"' in controller
 assert "CaptureRequest.CONTROL_AE_REGIONS" not in controller
 assert "CaptureRequest.CONTROL_AWB_REGIONS" not in controller
