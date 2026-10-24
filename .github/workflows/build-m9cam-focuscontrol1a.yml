@@ -108,6 +108,10 @@ jobs:
             "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusControlPolicy.java" \
             patches/focuscontrol1a/host/FocusControlPolicyTest.java
           java -ea -cp "$RUNNER_TEMP/animal-eye-host" FocusControlPolicyTest
+          javac -Xlint:all -d "$RUNNER_TEMP/animal-eye-host" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/m9/provenance/PhysicalSourceEvidence1A.java" \
+            patches/focuscontrol1a/host/PhysicalSourceEvidence1ATest.java
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" PhysicalSourceEvidence1ATest
       - name: Compile M9/Monochrom Android and focus lifecycle regressions
         run: |
           cd "$RUNNER_TEMP/PhotonCamera_304"
