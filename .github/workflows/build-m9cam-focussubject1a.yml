@@ -80,10 +80,9 @@ jobs:
               i=frag.find(token)
               if i>=0:print('===== FRAGMENT',token,'\\n',frag[max(0,i-350):i+450])
           PY
-      - name: Stage shared focus policy without changing existing AF or renderer
+      - name: Integrate opt-in live ML Kit face and eye autofocus into both profiles
         run: |
-          install -D patches/focussubject1a/src/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java"
-          install -D patches/focussubject1a/src/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java"
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_295" --report "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json"
       - name: Run JDK subject selection tests
         run: |
           mkdir -p "$RUNNER_TEMP/subject-policy-test"
@@ -94,22 +93,24 @@ jobs:
             patches/focussubject1a/host/FocusAreaPolicyHostTest.java
           java -ea -cp "$RUNNER_TEMP/subject-policy-test" SubjectFocusPolicyHostTest
           java -ea -cp "$RUNNER_TEMP/subject-policy-test" FocusAreaPolicyHostTest
-      - name: Compile the M9/Monochrom APK (integration smoke test only)
+      - name: Compile Android and run existing autofocus and lifecycle regressions
         run: |
           cd "$RUNNER_TEMP/PhotonCamera_295"
-          bash gradlew :app:assembleDebug --no-daemon --max-workers=2
+          bash gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*FocusTrackingAfTest' --tests '*FocusTrackingLifecycleTest' --tests '*FocusPointLayoutTest' --tests '*TouchFocusTest' --tests '*TouchFocusHandoverTest' --tests '*ProfileCaptureTest' --no-daemon --max-workers=2
       - name: Report evidence
         if: always()
         run: |
-          echo "FOCUSSUBJECT1A: code is staged and compiled, but subject detection is NOT wired to live preview or Camera2 AF." >> "$GITHUB_STEP_SUMMARY"
-          echo "No installable feature candidate is being advertised until live-preview integration and phone validation." >> "$GITHUB_STEP_SUMMARY"
+          echo "FOCUSSUBJECT1A: opt-in bundled offline Face/Eye detector is wired to the existing Camera2 tracking-focus region controller. Compile and tests do not prove lens accuracy." >> "$GITHUB_STEP_SUMMARY"
+          echo "Production APK packaging and physical-device autofocus validation remain separate gates." >> "$GITHUB_STEP_SUMMARY"
       - name: Retain source-integration verification
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: focussubject1a-foundation-build
+          name: focussubject1a-live-integration-build
           path: |
             ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/apk/debug/*.apk
             ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/logs/**
+            ${{ runner.temp }}/FOCUSSUBJECT_SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/PhotonCamera_295/app/build/test-results/testDebugUnitTest/**
           retention-days: 14
           if-no-files-found: ignore
