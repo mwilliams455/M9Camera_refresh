@@ -253,7 +253,7 @@ patch(track,
 # A tiny local helper makes the existing patch tracker opt into region sizing
 # while preserving its original Wide mapping. This is package-private, never
 # imports any vendor firmware or changes tracking algorithm.
-helper=prefix/"ui/camera/FocusControlPolicyRegion304Holder.java"
+helper=root/prefix/"ui/camera/FocusControlPolicyRegion304Holder.java"
 assert not (root/helper).exists()
 helper.write_text("""package com.particlesdevs.photoncamera.ui.camera;
 import com.particlesdevs.photoncamera.control.subject.FocusControlPolicy;
@@ -271,7 +271,7 @@ final class FocusControlPolicyRegion304Holder {
     }
 }
 """)
-changes.append(helper.as_posix())
+changes.append(helper.relative_to(root).as_posix())
 
 prefs=prefix/"settings/PreferenceKeys.java"
 patch(prefs,
