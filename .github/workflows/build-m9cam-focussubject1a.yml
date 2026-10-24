@@ -65,8 +65,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/subject-policy-test"
           javac -Xlint:all -d "$RUNNER_TEMP/subject-policy-test" \
             "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java" \
-            patches/focussubject1a/host/SubjectFocusPolicyHostTest.java
+            "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java" \
+            patches/focussubject1a/host/SubjectFocusPolicyHostTest.java \
+            patches/focussubject1a/host/FocusAreaPolicyHostTest.java
           java -ea -cp "$RUNNER_TEMP/subject-policy-test" SubjectFocusPolicyHostTest
+          java -ea -cp "$RUNNER_TEMP/subject-policy-test" FocusAreaPolicyHostTest
       - name: Compile the M9/Monochrom APK (integration smoke test only)
         run: |
           cd "$RUNNER_TEMP/PhotonCamera_295"
