@@ -57,6 +57,29 @@ jobs:
             print('Total lines:',len(lines),'Displayed lines:',len(indices))
             for i in sorted(indices): print(f'{i+1:05d}: {lines[i]}')
           PY
+      - name: Inspect AF region ownership and focus preference placements
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_295'
+          base=root/'app/src/main'
+          c=(base/'java/com/particlesdevs/photoncamera/capture/CaptureController.java').read_text()
+          for token in ['class TrackingFocus', 'newTrackingFocus(', 'TrackingFocus(', 'boolean valid()', 'TrackingGeometry']:
+              start=c.find(token)
+              if start >= 0:
+                  print('===== AF-TARGET-CONTEXT', token, 'offset',start)
+                  print(c[max(0,start-600):start+6500])
+          for p in ('res/xml/preferences_m9.xml','res/xml/preferences_monochrom.xml','res/values/strings.xml'):
+              s=(base/p).read_text()
+              for key in ('pref_focus_tracking','focus_tracking','</resources>'):
+                  i=s.find(key)
+                  if i >= 0: print('===== FOCUS-PREFERENCE',p,key, '\\n',s[max(0,i-950):i+1150])
+          frag=(base/'java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java').read_text()
+          for token in ('new FocusTrackingController', 'clearFocusTracking()', 'focusTracking.start()', 'focusTracking.stop()', 'focusTracking.close()'):
+              i=frag.find(token)
+              if i>=0:print('===== FRAGMENT',token,'\\n',frag[max(0,i-350):i+450])
+          PY
       - name: Stage shared focus policy without changing existing AF or renderer
         run: |
           install -D patches/focussubject1a/src/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java"
