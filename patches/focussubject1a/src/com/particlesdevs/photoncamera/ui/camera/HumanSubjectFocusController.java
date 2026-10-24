@@ -1,6 +1,11 @@
 package com.particlesdevs.photoncamera.ui.camera;
 
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.Drawable;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
@@ -39,6 +44,8 @@ final class HumanSubjectFocusController {
     private final CameraFragment fragment;
     private final SurfaceView source;
     private final TrackingFocusView overlay;
+    private final EyeBadge eyeBadge;
+    private boolean badgeAttached;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final SubjectFocusPolicy policy = new SubjectFocusPolicy();
     private final HumanEyeAdmissionGate admissionGate = new HumanEyeAdmissionGate();
@@ -60,6 +67,7 @@ final class HumanSubjectFocusController {
         this.fragment=fragment;
         this.source=source;
         this.overlay=overlay;
+        this.eyeBadge = new EyeBadge(overlay);
         policy.beginSession(epoch);
         admissionGate.beginSession(epoch);
     }
@@ -286,10 +294,19 @@ final class HumanSubjectFocusController {
                         int[] a=new int[2],b=new int[2];
                         source.getLocationInWindow(a);
                         overlay.getLocationInWindow(b);
-                        overlay.showEye(a[0]-b[0]+g.left+target.x*g.w,
-                                a[1]-b[1]+g.top+target.y*g.h,
-                                .5f*target.regionWidth*g.w,
-                                .5f*target.regionHeight*g.h,false);
+                        // Keep the inherited shared TrackingFocusView unchanged.
+                        // Draw an explicit "Eye AF" label above its generic
+                        // tracking text, solely when a verified eye is admitted.
+                        float px=a[0]-b[0]+g.left+target.x*g.w;
+                        float py=a[1]-b[1]+g.top+target.y*g.h;
+                        float halfW=.5f*target.regionWidth*g.w;
+                        float halfH=.5f*target.regionHeight*g.h;
+                        overlay.show(px,py,halfW,halfH,false);
+                        if (!badgeAttached) {
+                            overlay.getOverlay().add(eyeBadge);
+                            badgeAttached=true;
+                        }
+                        eyeBadge.place(px,py,halfW,halfH);
                     }
                 }
                 finish();
@@ -302,7 +319,43 @@ final class HumanSubjectFocusController {
     private void releaseFocus() {
         if (focus!=null) focus.close();
         focus=null;
+        if (badgeAttached) {
+            overlay.getOverlay().remove(eyeBadge);
+            badgeAttached=false;
+        }
         overlay.setVisibility(View.GONE);
+    }
+    /** Lightweight label overlay for Eye AF; changes no inherited view class. */
+    private static final class EyeBadge extends Drawable {
+        private final TrackingFocusView view;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private float x, y, halfX, halfY;
+        EyeBadge(TrackingFocusView view) { this.view=view; }
+        void place(float x,float y,float halfX,float halfY) {
+            this.x=x; this.y=y; this.halfX=halfX; this.halfY=halfY;
+            setBounds(0,0,view.getWidth(),view.getHeight());
+            invalidateSelf();
+        }
+        @Override public void draw(Canvas canvas) {
+            float d=view.getResources().getDisplayMetrics().density;
+            String old=view.getContext().getString(com.particlesdevs.photoncamera.R.string.focus_tracking_active);
+            String label=view.getContext().getString(com.particlesdevs.photoncamera.R.string.focus_subject_eye_active);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setTextSize(13*d);
+            float oldWidth=paint.measureText(old);
+            float newWidth=paint.measureText(label);
+            float tx=Math.max(4*d,Math.min(view.getWidth()-oldWidth-4*d,x-halfX));
+            float ty=Math.max(18*d,y-halfY-6*d);
+            paint.setColor(0xf5000000);
+            canvas.drawRect(tx-3*d,ty-16*d,tx+Math.max(oldWidth,newWidth)+3*d,ty+4*d,paint);
+            paint.setColor(0xffffffff);
+            paint.setShadowLayer(3*d,0,0,0xff000000);
+            canvas.drawText(label,tx,ty,paint);
+            paint.clearShadowLayer();
+        }
+        @Override public void setAlpha(int alpha) { }
+        @Override public void setColorFilter(ColorFilter filter) { }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
     private void finish() {
         inFlight=false;
