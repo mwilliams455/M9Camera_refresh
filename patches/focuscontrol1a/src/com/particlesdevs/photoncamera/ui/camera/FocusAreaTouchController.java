@@ -111,6 +111,24 @@ final class FocusAreaTouchController {
         FocusControlSettings.configure(policy);
         long now=SystemClock.elapsedRealtime();
         CaptureController capture=fragment.getCaptureController();
+        boolean subjectOwner=semanticEnabled();
+        // Spot/Expand/Custom are active focus-area controls even BEFORE a
+        // user tap: use the centre until another area is explicitly tapped.
+        // Never compete for AF ownership with face/pet/legacy tracking.
+        if(subjectOwner && touchActive){clear();}
+        if(!subjectOwner && !touchActive && mode!=FocusControlPolicy.Mode.WIDE) {
+            TrackingGeometry available=TrackingGeometry.current(SystemClock.elapsedRealtimeNanos());
+            if(available!=null && cameraGeometry(available) && capture!=null) {
+                CaptureController.TrackingFocus owner=capture.newTrackingFocus();
+                if(owner!=null && owner.valid()) {
+                    epoch++;policy.beginSession(epoch);
+                    FocusControlSettings.configure(policy);
+                    policy.tap(epoch,.5f,.5f);
+                    touchActive=true;geometry=available;focus=owner;
+                    u=v=.5f;submit(available);
+                }else if(owner!=null)owner.close();
+            }
+        }
         CaptureController.FocusStateSnapshot state=capture==null?null:capture.focusStateSnapshot();
         if(state!=null && (!touchActive || focus!=null && focus.matchesFocusSample(state)))
             policy.observeAf(epoch,state.state,now);
@@ -124,12 +142,7 @@ final class FocusAreaTouchController {
                 submit(g);
             }
         }
-        boolean tracking=PhotonCamera.getSettingsManagerStatic().getBoolean(
-                SettingsManager.SCOPE_GLOBAL,PetFocusController.KEY,false)
-                ||PhotonCamera.getSettingsManagerStatic().getBoolean(
-                SettingsManager.SCOPE_GLOBAL,HumanSubjectFocusController.KEY,false)
-                ||PhotonCamera.getSettingsManagerStatic().getBoolean(
-                SettingsManager.SCOPE_GLOBAL,FocusTrackingController.KEY,false);
+        boolean tracking=semanticEnabled();
         boolean show=FocusControlSettings.showAfFeedback()
                 &&(touchActive||tracking||mode!=FocusControlPolicy.Mode.WIDE);
         if(!show){detach();return;}
@@ -146,6 +159,15 @@ final class FocusAreaTouchController {
                 &&overlay.getContentDescription()!=null?
                     overlay.getContentDescription().toString():"No subject";
         if(badge!=null)badge.update(name+" | "+who+" | "+af);
+    }
+    private boolean semanticEnabled(){
+        if(PhotonCamera.getSettingsManagerStatic()==null)return false;
+        return PhotonCamera.getSettingsManagerStatic().getBoolean(
+                    SettingsManager.SCOPE_GLOBAL,PetFocusController.KEY,false)
+                ||PhotonCamera.getSettingsManagerStatic().getBoolean(
+                    SettingsManager.SCOPE_GLOBAL,HumanSubjectFocusController.KEY,false)
+                ||PhotonCamera.getSettingsManagerStatic().getBoolean(
+                    SettingsManager.SCOPE_GLOBAL,FocusTrackingController.KEY,false);
     }
     private boolean cameraGeometry(TrackingGeometry g){
         CaptureController capture=fragment.getCaptureController();
