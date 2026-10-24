@@ -1,0 +1,161 @@
+name: M9Cam 3.04 Focus Areas subject scope and HAL state
+
+on:
+  push:
+    branches: ['codex/focuscontrol1a-areas-subject-afstate']
+    paths:
+      - 'patches/focuscontrol1a/**'
+      - '.github/workflows/build-m9cam-focuscontrol1a.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  animal-eye:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Preflight new Android build scripts
+        run: |
+          python3 -m py_compile patches/focusanimaleye1a/apply.py patches/focusanimaleye1a/package.py
+          python3 -m py_compile patches/focusanimaleye1b/apply.py patches/focusanimaleye1b/package.py
+          python3 -m py_compile patches/focuscontrol1a/apply.py patches/focuscontrol1a/package.py
+      - name: Provision Android 36 NDK 27 and build-tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Reconstruct exact accepted 3.01 Android source
+        run: |
+          python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1c/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+      - name: Fetch and byte-verify both offline models
+        run: |
+          set -euo pipefail
+          assets="$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets"
+          mkdir -p "$assets"
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 180 \
+            'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite' \
+            --output "$assets/efficientdet-lite0.tflite"
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 240 \
+            'https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT/resolve/main/rtm_animal_fp16.tflite' \
+            --output "$assets/rtm_animal_fp16.tflite"
+          python3 - <<'PY'
+          import os,hashlib,json
+          from pathlib import Path
+          assets=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_304/app/src/main/assets'
+          records=[]
+          for model,pin in (
+            ('efficientdet-lite0.tflite','patches/focusanimal1a/MODEL_SHA256.txt'),
+            ('rtm_animal_fp16.tflite','patches/focusanimaleye1a/MODEL_SHA256.txt')):
+            data=(assets/model).read_bytes()
+            expected=Path(pin).read_text().split()[0]
+            actual=hashlib.sha256(data).hexdigest()
+            assert actual==expected,(model,expected,actual)
+            assert data[4:8]==b'TFL3',(model,'not LiteRT')
+            records.append(dict(model=model,bytes=len(data),sha256=actual))
+          report=dict(status='PASS',models=records,offlineOnly=True)
+          (Path(os.environ['RUNNER_TEMP'])/'MODEL_PROVENANCE.json').write_text(
+              json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+      - name: Stage 3.02 experimental eye stage on verified body focus
+        run: |
+          python3 patches/focusanimaleye1a/apply.py "$RUNNER_TEMP/PhotonCamera_304" \
+            --report "$RUNNER_TEMP/ANIMAL_EYE_PARENT_SOURCE_VERIFICATION.json"
+          python3 patches/focusanimaleye1b/apply.py "$RUNNER_TEMP/PhotonCamera_304" \
+            --report "$RUNNER_TEMP/FOCUSCONTROL_SOURCE_VERIFICATION.json"
+          python3 patches/focuscontrol1a/apply.py "$RUNNER_TEMP/PhotonCamera_304" \
+            --report "$RUNNER_TEMP/FOCUSCONTROL_SOURCE_VERIFICATION.json"
+          grep -E 'kotlin_version|com.android.tools.build' "$RUNNER_TEMP/PhotonCamera_304/build.gradle" || true
+      - name: Run animal-eye admission and inherited focus-policy JDK regressions
+        run: |
+          mkdir -p "$RUNNER_TEMP/animal-eye-host"
+          javac -Xlint:all -d "$RUNNER_TEMP/animal-eye-host" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetTargetPolicy.java" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java" \
+            patches/focusanimaleye1a/host/AnimalEyeTargetPolicyHostTest.java \
+            patches/focusanimal1b/host/PetTargetPolicyHostTest.java
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" AnimalEyeTargetPolicyHostTest
+          javac -Xlint:all -cp "$RUNNER_TEMP/animal-eye-host" -d "$RUNNER_TEMP/animal-eye-host" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalSimccDecoder.java" \
+            patches/focusanimaleye1b/host/AnimalSimccDecoderHostTest.java
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" AnimalSimccDecoderHostTest
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" PetTargetPolicyHostTest
+          javac -Xlint:all -d "$RUNNER_TEMP/animal-eye-host" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetPreviewRetryPolicy.java" \
+            patches/focusanimal1c/host/PetPreviewRetryPolicyHostTest.java
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" PetPreviewRetryPolicyHostTest
+          javac -Xlint:all -d "$RUNNER_TEMP/animal-eye-host" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/HumanEyeAdmissionGate.java" \
+            patches/focussubject1a/host/HumanEyeAdmissionGateHostTest.java
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" HumanEyeAdmissionGateHostTest
+          javac -Xlint:all -d "$RUNNER_TEMP/animal-eye-host" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusControlPolicy.java" \
+            patches/focuscontrol1a/host/FocusControlPolicyTest.java
+          java -ea -cp "$RUNNER_TEMP/animal-eye-host" FocusControlPolicyTest
+      - name: Compile M9/Monochrom Android and focus lifecycle regressions
+        run: |
+          cd "$RUNNER_TEMP/PhotonCamera_304"
+          bash gradlew :app:assembleDebug :app:testDebugUnitTest \
+            --tests '*FocusTrackingAfTest' --tests '*FocusTrackingLifecycleTest' \
+            --tests '*FocusPointLayoutTest' --tests '*TouchFocusTest' \
+            --tests '*TouchFocusHandoverTest' --tests '*ProfileCaptureTest' \
+            --no-daemon --max-workers=2
+      - name: Download exact accepted 3.03 signed parent APK
+        uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-3.03-ANIMALEYE1B-READY-TO-INSTALL
+          run-id: 40084505352
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/accepted303
+      - name: Independently sign 3.04 focus area upgrade with identical imaging
+        run: |
+          mkdir -p "$RUNNER_TEMP/installer304"
+          cp "$RUNNER_TEMP/FOCUSCONTROL_SOURCE_VERIFICATION.json" "$RUNNER_TEMP/installer304/SOURCE_VERIFICATION.json"
+          cp "$RUNNER_TEMP/MODEL_PROVENANCE.json" "$RUNNER_TEMP/installer304/MODEL_PROVENANCE.json"
+          python3 patches/focuscontrol1a/package.py \
+            "$RUNNER_TEMP/PhotonCamera_304" \
+            "$RUNNER_TEMP/PhotonCamera_304/app/build/outputs/apk/debug/M9Cam_3.04_FOCUSCONTROL1A-debug.apk" \
+            "$RUNNER_TEMP/accepted303/M9Cam_3.03_ANIMALEYE1B.apk" \
+            "$ANDROID_HOME/build-tools/35.0.0" \
+            "$RUNNER_TEMP/installer304"
+      - name: Preserve signed Animal Eye AF device candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-3.04-FOCUSCONTROL1A-READY-TO-INSTALL
+          path: |
+            ${{ runner.temp }}/installer304/M9Cam_3.04_FOCUSCONTROL1A.apk
+            ${{ runner.temp }}/installer304/PACKAGED_VERIFICATION.json
+            ${{ runner.temp }}/installer304/SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/installer304/MODEL_PROVENANCE.json
+            ${{ runner.temp }}/installer304/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
+      - name: Retain failure evidence and APK build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: focuscontrol1a-build-evidence
+          path: |
+            ${{ runner.temp }}/FOCUSCONTROL_SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/MODEL_PROVENANCE.json
+            ${{ runner.temp }}/PhotonCamera_304/app/build/outputs/apk/debug/*.apk
+            ${{ runner.temp }}/PhotonCamera_304/app/build/test-results/testDebugUnitTest/**
+            ${{ runner.temp }}/installer304/*.json
+          retention-days: 14
+          if-no-files-found: ignore
