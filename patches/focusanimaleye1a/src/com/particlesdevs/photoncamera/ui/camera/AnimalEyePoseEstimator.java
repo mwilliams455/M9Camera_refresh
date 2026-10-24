@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import com.google.ai.edge.litert.Accelerator;
 import com.google.ai.edge.litert.CompiledModel;
+import com.google.ai.edge.litert.LiteRtException;
 import com.google.ai.edge.litert.TensorBuffer;
 import com.particlesdevs.photoncamera.control.subject.AnimalEyeTargetPolicy;
 import com.particlesdevs.photoncamera.control.subject.PetTargetPolicy;
@@ -34,15 +35,15 @@ final class AnimalEyePoseEstimator implements AutoCloseable {
     private boolean closed;
     private String backend="GPU";
 
-    AnimalEyePoseEstimator(Context appContext) {
+    AnimalEyePoseEstimator(Context appContext) throws LiteRtException {
         CompiledModel created=null;
         List<TensorBuffer> in=null,out=null;
-        RuntimeException gpuError=null;
+        Exception gpuError=null;
         try {
             try {
                 created=CompiledModel.create(appContext.getAssets(),MODEL,
                         new CompiledModel.Options(Accelerator.GPU,Accelerator.CPU),null);
-            }catch(RuntimeException unavailable) {
+            }catch(RuntimeException | LiteRtException unavailable) {
                 gpuError=unavailable;
                 backend="CPU";
                 // A GPU cannot always be used on each supported Android lens/device.
@@ -57,7 +58,7 @@ final class AnimalEyePoseEstimator implements AutoCloseable {
             this.model=created;
             this.inputs=in;
             this.outputs=out;
-        }catch(RuntimeException|LinkageError failure) {
+        }catch(RuntimeException|LiteRtException|LinkageError failure) {
             closeBuffers(in);
             closeBuffers(out);
             if(created!=null)created.close();
@@ -66,7 +67,7 @@ final class AnimalEyePoseEstimator implements AutoCloseable {
     }
     String backend(){return backend;}
     AnimalEyeTargetPolicy.Observation estimate(Bitmap preview,
-            PetTargetPolicy.Candidate animal,long frameNs,long epoch) {
+            PetTargetPolicy.Candidate animal,long frameNs,long epoch) throws LiteRtException {
         if(closed||preview==null||preview.isRecycled()
                 ||animal==null||!animal.valid()) return null;
         final int width=preview.getWidth(),height=preview.getHeight();
