@@ -60,6 +60,7 @@ jobs:
       - name: Stage shared focus policy without changing existing AF or renderer
         run: |
           install -D patches/focussubject1a/src/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java"
+          install -D patches/focussubject1a/src/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java"
       - name: Run JDK subject selection tests
         run: |
           mkdir -p "$RUNNER_TEMP/subject-policy-test"
