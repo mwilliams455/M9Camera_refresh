@@ -16,7 +16,7 @@ assert all(scope['implementation'][key] for key in ('spot','expandSpot','custom'
 assert scope['implementation']['afStateReportedFromCamera2']
 assert scope['nativeAndOriginalAssetsUnchanged']
 model=(root/'app/src/main/assets/rtm_animal_fp16.tflite')
-expected_model_sha=scope['modelSha256']
+expected_model_sha=(Path(__file__).resolve().parent.parent/'focusanimaleye1a/MODEL_SHA256.txt').read_text().split()[0]
 assert sha(model.read_bytes())==expected_model_sha
 def signing(n):
     return n=='META-INF/MANIFEST.MF' or (
