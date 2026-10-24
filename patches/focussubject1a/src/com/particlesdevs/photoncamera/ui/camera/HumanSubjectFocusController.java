@@ -115,10 +115,20 @@ final class HumanSubjectFocusController {
         float u=(rawX-location[0]-g.left)/g.w;
         float v=(rawY-location[1]-g.top)/g.h;
         if (u<0f || u>1f || v<0f || v>1f) return false;
-        if (policy.tapSelect(latestFaces,u,v)) return true;
+        if (policy.tapSelect(latestFaces,u,v)) {
+            // A new user choice supersedes any in-flight inference/AF command.
+            // Retire its handle before it can write an older subject region.
+            epoch++;
+            policy.beginSession(epoch);
+            policy.tapSelect(latestFaces,u,v);
+            releaseFocus();
+            lastFrameNs=Long.MIN_VALUE;
+            return true;
+        }
         // A deliberate non-face tap has priority over automatic subject AF
         // until the next capture/session or preference restart.
         clear();
+        bind(g);
         manualOverride=true;
         return false;
     }
@@ -135,7 +145,13 @@ final class HumanSubjectFocusController {
             if (geometry!=null || focus!=null || manualOverride) clear();
             return;
         }
-        if (manualOverride) return;
+        if (manualOverride) {
+            // Do not keep suppressing subject AF on a replacement camera.
+            TrackingGeometry g=TrackingGeometry.current(SystemClock.elapsedRealtimeNanos());
+            if (g==null || geometry==null || !geometry.same(g) ||
+                    !cameraGeometry(g) || !environment()) clear();
+            return;
+        }
         long nowNs=SystemClock.elapsedRealtimeNanos();
         TrackingGeometry g=TrackingGeometry.current(nowNs);
         if (g==null || g.published<freshSinceNs || !cameraGeometry(g)
