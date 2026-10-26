@@ -1,0 +1,46 @@
+name: Inspect 3.07 Tracking Settings Integration
+on:
+  push:
+    branches: ['codex/m9-aftracking4a-v3.08']
+    paths: ['.github/workflows/probe-m9-308-settings.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct 3.01 baseline
+        run: python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/scan"
+      - name: Collect settings, switch and camera focus routing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,shutil
+          r=Path(os.environ["RUNNER_TEMP"])/"scan"
+          d=Path(os.environ["RUNNER_TEMP"])/"focus308-settings"
+          srcs=[
+          "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/custompreferences/ManagedSwitchPreference.java",
+          "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java",
+          "app/src/main/java/com/particlesdevs/photoncamera/settings/SettingsManager.java",
+          "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java",
+          "app/src/main/res/xml/preferences_m9.xml",
+          "app/src/main/res/xml/preferences_monochrom.xml",
+          ]
+          for rel in srcs:
+            f=r/rel
+            if f.exists():
+              dst=d/rel
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(f,dst)
+              print("PRESERVED",rel,dst.stat().st_size)
+            else: print("MISSING",rel)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m9-308-settings-inspection
+          path: ${{ runner.temp }}/focus308-settings/
+          if-no-files-found: error
+          retention-days: 7
