@@ -62,7 +62,7 @@ with zipfile.ZipFile(oldapk) as old,zipfile.ZipFile(built) as new,zipfile.ZipFil
         expected[n]=sha(payload)
         dst.writestr(copy.copy(old.getinfo(n)),payload)
     dex=b''.join(new.read(n) for n in new_names if n.endswith('.dex'))
-    for marker in ['PetFocusController','PetObjectDetector','PetTargetPolicy','PetAfStatusBadge','PetPreviewRetryPolicy','AnimalSimccDecoder','FocusControlPolicy','FocusAreaTouchController','FocusStateSnapshot','ArbitraryAfUpdateGate','newTrackingFocusArbitrary',
+    for marker in ['PetFocusController','PetObjectDetector','PetTargetPolicy','PetAfStatusBadge','PetPreviewRetryPolicy','AnimalSimccDecoder','FocusControlPolicy','FocusAreaTouchController','FocusStateSnapshot','ArbitraryAfUpdateGate','enableArbitraryCadence',
                    'pref_focus_subject_pet','Cat AF','Dog AF','Dog Eye AF','Cat Eye AF','pose_null_recycled','inference_too_old','pref_focus_area_mode','pref_focus_af_state_feedback',
                    'HumanSubjectFocusController','HumanEyeAdmissionGate',
                    'TrackingFocus','M9DIAGINDEX1A_BOUNDED']:

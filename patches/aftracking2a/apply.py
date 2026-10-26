@@ -38,21 +38,9 @@ shutil.copyfile(here / 'src/com/particlesdevs/photoncamera/control/tracking/Arbi
 changed.append(new.as_posix())
 
 capture = prefix / 'capture/CaptureController.java'
-# This public API intentionally leaves the existing newTrackingFocus()
-# untouched for all other human, cat/dog, and focus-area controllers.
-patch(capture,
-    '    /** AF-only ownership for one selected tracking target. All submissions run on the camera handler. */',
-    '''    /**
-     * Dedicated focus handle for the opt-in arbitrary patch tracker.
-     * The human, pet and fixed-area focus handles retain the 3.04 requests.
-     */
-    public TrackingFocus newTrackingFocusArbitrary() {
-        TrackingFocus handle = newTrackingFocus();
-        if (handle != null) handle.enableArbitraryCadence();
-        return handle;
-    }
-
-    /** AF-only ownership for one selected tracking target. All submissions run on the camera handler. */''')
+# Keep the ORIGINAL autofocus-handle factory: inherited Robolectric tests,
+# active human/pet controllers, and existing Camera2 lifecycle retain their
+# original return contract. Only tag the patch-tracker-owned handle.
 patch(capture,
     '        public boolean matchesFocusSample(FocusStateSnapshot sample) {',
     '''        private volatile boolean arbitraryCadenceEnabled;
@@ -81,7 +69,10 @@ patch(capture,
 # Keep its template matcher, PixelCopy, confidence, tracking box, coordinates,
 # lifecycle and detector priority byte-for-byte. Change only handle construction.
 tracker = prefix / 'ui/camera/FocusTrackingController.java'
-patch(tracker, '.newTrackingFocus()', '.newTrackingFocusArbitrary()')
+patch(tracker,
+    'focus = fragment.getCaptureController().newTrackingFocus();',
+    'focus = fragment.getCaptureController().newTrackingFocus();\\n'
+    '        if (focus != null) focus.enableArbitraryCadence();')
 
 gradle = Path('app/build.gradle')
 patch(gradle, 'versionCode 27304', 'versionCode 27305')
@@ -90,9 +81,10 @@ patch(gradle, 'M9Cam_3.04_FOCUSCONTROL1A', 'M9Cam_3.05_AFTRACKING2A')
 
 src_capture = (root / capture).read_text()
 src_tracker = (root / tracker).read_text()
-assert 'public TrackingFocus newTrackingFocusArbitrary()' in src_capture
-assert '.newTrackingFocusArbitrary()' in src_tracker
-assert src_tracker.count('.newTrackingFocusArbitrary()') == 1
+assert 'public TrackingFocus newTrackingFocus()' in src_capture
+assert 'focus = fragment.getCaptureController().newTrackingFocus();' in src_tracker
+assert 'focus.enableArbitraryCadence();' in src_tracker
+assert src_tracker.count('focus.enableArbitraryCadence();') == 1
 assert 'SystemClock.elapsedRealtime(),regionX,regionY,regionW,regionH' in src_capture
 assert 'if (arbitraryCadenceEnabled && !arbitraryRegionGate.shouldSubmit' in src_capture
 assert 'CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE' in src_capture
