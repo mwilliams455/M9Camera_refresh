@@ -29,7 +29,7 @@ public final class FocusTickGeometryHostTest {
         near(a[4],125,"TL vertical"); near(a[8+2],175,"TR right");
         near(a[12],175,"TR vertical"); near(a[16],125,"BL left");
         near(a[17],120,"BL bottom"); near(a[26],175,"BR right");
-        near(a[29],120,"BR bottom");
+        near(a[31],120,"BR bottom");
         for (int i=0; i<32; i+=4) {
             float dx=Math.abs(a[i+2]-a[i]);
             float dy=Math.abs(a[i+3]-a[i+1]);
