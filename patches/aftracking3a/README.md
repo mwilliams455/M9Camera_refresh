@@ -7,7 +7,7 @@
 
 - The optional **Settings → Capture → Focus tracking** mode still depends on a user tap and Camera2 Continuous Picture AF. Normal AF-S/manual, Spot/Expand Spot/Custom, Human Eye and Cat/Dog AF are unchanged.
 - `PatchTracker.java` retains an immutable 21×21 grey reference to the tapped object, and searches near the previous location at 0.82×, 1× and 1.22× its latest accepted scale. Search is bounded to ±22 reduced-preview pixels per axis and scale is constrained to 0.62–1.7× the original patch size. Ambiguous/weak matches are never published as valid tracking.
-- On a weak/ambiguous match the tracker now enters a maximum **850 ms hold** instead of irreversibly losing the target. Hold never updates Camera2 AF regions; it keeps the last region temporarily and shows an amber **Tracking obscured - holding focus** box. Automatic recovery requires two distinct, high-confidence, spatially consistent local appearances of the *original* template before focus updates resume. A long occlusion or stale frame requires another tap; it will not claim semantic re-identification.
+- On a weak/ambiguous match the tracker now enters a maximum **850 ms hold** instead of irreversibly losing the target. Hold never updates Camera2 AF regions; it retains the last AF region temporarily (not a guaranteed lens-focus lock) and shows an amber **Tracking obscured - AF area held** box. Automatic recovery requires two distinct, high-confidence, spatially consistent local appearances of the *original* template before focus updates resume. A long occlusion or stale frame requires another tap; it will not claim semantic re-identification.
 - `TrackingFrameDecision` independently checks result age and explicitly maps TRACKING→APPLY, HOLD→no-AF-update, LOST or stale→RETIRE. The inherited 3.05 `ArbitraryAfUpdateGate` cadence remains unchanged at 90/180 ms; no AF trigger pulses, AE/AWB changes, or manual focus modifications.
 - The renderer and profiles for M9 and Monochrome, shutter/capture handoff, RAW/DNG/JPEG, exposure, AWB, ISO, lens correction, and all 37 original native libraries/301 baseline assets must remain byte-for-byte identical to 3.05.
 
@@ -36,7 +36,7 @@ Source scopes are verified against the 3.05 SHA256 of the inherited tracker. And
 ## Required phone gate
 
 1. Enable Focus tracking and AF-C, tap a high-texture stationary subject. The box should be white; move it horizontally and closer/farther, checking whether the box grows/shrinks without wild jumping and the saved JPEG is sharp.
-2. Pass another object briefly across the target and restore it within ~0.8 s. Box should turn **amber with holding message**, lens should not chase the obstruction, and after two stable matches the white box should resume without retap.
+2. Pass another object briefly across the target and restore it within ~0.8 s. Box should turn **amber with holding message**, AF region should not be repositioned while obscured; the Camera2 continuous-AF HAL may still refocus within that region, and after two stable matches the white box should resume without retap.
 3. Cover the target for over a second: tracking must retire to **Tracking lost — tap again**, with no new AF-region commands until retap. Do not auto-select another object in the background.
 4. Repeat after M9/Monochrome switch, portrait/landscape orientation, lens/zoom change, shutter capture, and pause/resume. Ensure focus region remains correct and no stale callbacks resurrect it. Keep comparison to 3.05 for AF speed and battery.
 
