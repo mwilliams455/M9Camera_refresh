@@ -48,8 +48,8 @@ replace_once("final=out/'M9Cam_3.10_AUTOEYE1A.apk'",
 replace_once("'PetFocusController','AnimalSimccDecoder','TrackingFocus','M9DIAGINDEX1A_BOUNDED'",
              "'PetFocusController','AnimalSimccDecoder','TrackingFocus','FocusTickGeometry','M9DIAGINDEX1A_BOUNDED'",
              "compiled geometry proof")
-replace_once('"versionCode=\'27310\'", "versionCode='27311'", "versioncode badge")
-replace_once('"versionName=\'3.10-autoeye1a\'", "versionName='3.11-focusoverlay1a'", "version badge")
+replace_once("versionCode='27310'", "versionCode='27311'", "versioncode badge")
+replace_once("versionName='3.10-autoeye1a'", "versionName='3.11-focusoverlay1a'", "version badge")
 replace_once("report=dict(status='PASS',version='3.10-autoeye1a',versionCode=27310,",
              "report=dict(status='PASS',version='3.11-focusoverlay1a',versionCode=27311,",
              "report metadata")
