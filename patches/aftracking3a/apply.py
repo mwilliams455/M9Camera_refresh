@@ -120,7 +120,7 @@ resource=Path('app/src/main/res/values/focustrack3a.xml')
 assert not (root/resource).exists()
 (root/resource).write_text('''<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="focus_tracking_hold3a">Tracking obscured - holding focus</string>
+    <string name="focus_tracking_hold3a">Tracking obscured - AF area held</string>
 </resources>
 ''')
 changed.append(resource.as_posix())
