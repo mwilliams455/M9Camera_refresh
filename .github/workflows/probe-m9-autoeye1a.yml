@@ -1,0 +1,86 @@
+name: M9 3.10 Auto Eye Source Audit
+on:
+  push:
+    branches: ['codex/m9-autoeye1a-v3.10']
+    paths: ['.github/workflows/probe-m9-autoeye1a.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct exact 3.09 base through 3.01
+        run: |
+          python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/autoeye"
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/autoeye"
+          python3 patches/focusanimal1a/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/focusanimal1b/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/focusanimal1c/apply.py "$RUNNER_TEMP/autoeye"
+      - name: Restore pinned offline models
+        run: |
+          set -euo pipefail
+          assets="$RUNNER_TEMP/autoeye/app/src/main/assets"
+          mkdir -p "$assets"
+          curl --fail --location --silent --show-error --retry 3             'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite'             --output "$assets/efficientdet-lite0.tflite"
+          curl --fail --location --silent --show-error --retry 3             'https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT/resolve/main/rtm_animal_fp16.tflite'             --output "$assets/rtm_animal_fp16.tflite"
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import os
+          p=Path(os.environ['RUNNER_TEMP'])/'autoeye/app/src/main/assets'
+          for model,pin in [('efficientdet-lite0.tflite','patches/focusanimal1a/MODEL_SHA256.txt'),('rtm_animal_fp16.tflite','patches/focusanimaleye1a/MODEL_SHA256.txt')]:
+              assert hashlib.sha256((p/model).read_bytes()).hexdigest()==Path(pin).read_text().split()[0]
+          PY
+      - name: Reconstruct 3.09 accepted source
+        run: |
+          python3 patches/focusanimaleye1a/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/focusanimaleye1b/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/focuscontrol1a/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/aftracking2a/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/aftracking3a/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/aftracking3b/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/aftracking4a/apply.py "$RUNNER_TEMP/autoeye"
+          python3 patches/aftracking5a/apply.py "$RUNNER_TEMP/autoeye"
+      - name: Collect 3.09 focus arbitration, settings, and capture sources
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,shutil,json
+          root=Path(os.environ['RUNNER_TEMP'])/'autoeye'
+          out=Path(os.environ['RUNNER_TEMP'])/'m9-autoeye-source'
+          paths=[
+            'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetFocusController.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanFaceLandmarkDetector.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/control/subject/HumanEyeAdmissionGate.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/control/tracking/TrackingTogglePolicy.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/settings/PreferenceKeys.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java',
+            'app/src/main/java/com/particlesdevs/photoncamera/ui/settings/custompreferences/ManagedSwitchPreference.java',
+            'app/src/main/res/xml/preferences_m9.xml',
+            'app/src/main/res/xml/preferences_monochrom.xml',
+            'app/build.gradle',
+          ]
+          manifest={}
+          for rel in paths:
+            p=root/rel
+            if p.is_file():
+              q=out/rel;q.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,q)
+              manifest[rel]=p.stat().st_size
+            else:
+              manifest[rel]='MISSING'
+          (out/'MANIFEST.json').write_text(json.dumps(manifest,indent=2))
+          print(json.dumps(manifest,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M9-3.09-AutoEye-Source-Audit
+          path: ${{ runner.temp }}/m9-autoeye-source/
+          retention-days: 7
+          if-no-files-found: error
