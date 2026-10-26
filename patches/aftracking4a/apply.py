@@ -43,7 +43,7 @@ def patch(path,old,new):
     changes.append(path.as_posix())
 
 replace_exact('ui/camera/FocusTrackingController.java',
-              '6fcf5493344650ae55759359b6151dbf6bfae2fd3e58fc3d8b6e50cdeef7c0ff')
+              '5b761c5cb60af7cb7dffaa15049b6e70e98cfbeb8771957811b6dc486c9619db')
 replace_exact('ui/settings/custompreferences/ManagedSwitchPreference.java',
               'c7059656c620b36fca19e01ba94a7e3833ccdaf920b35b83ca239fc416260cab')
 add('control/tracking/FocusMotionPredictor.java')
