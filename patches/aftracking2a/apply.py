@@ -71,7 +71,7 @@ patch(capture,
 tracker = prefix / 'ui/camera/FocusTrackingController.java'
 patch(tracker,
     'focus = fragment.getCaptureController().newTrackingFocus();',
-    'focus = fragment.getCaptureController().newTrackingFocus();\\n'
+    'focus = fragment.getCaptureController().newTrackingFocus();\n'
     '        if (focus != null) focus.enableArbitraryCadence();')
 
 gradle = Path('app/build.gradle')
