@@ -211,6 +211,27 @@ change(build,"versionName '3.12-focusoverlay1b'",
 change(build,"M9Cam_3.12_FOCUSOVERLAY1B",
              "M9Cam_3.13_TRACKINGDEFAULT1A","APK file name")
 
+# Inherited 2.72 Robolectric fixture was written when opt-in tracking
+# read getBoolean(KEY,false). The candidate now reads KEY,true, and only
+# allows a tap in Wide Continuous Picture AF. Keep the actual pause/retap/
+# bitmap lifetime assertions unchanged: update ONLY its setup preconditions.
+lifecycle = Path("app/src/test/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingLifecycleTest.java")
+change(lifecycle,
+    "        when(manager.getBoolean(SettingsManager.SCOPE_GLOBAL, FocusTrackingController.KEY, false)).thenReturn(true);",
+    "        when(manager.getBoolean(SettingsManager.SCOPE_GLOBAL, FocusTrackingController.KEY, true)).thenReturn(true);",
+    "fixture: current pref default ON")
+change(lifecycle,
+    '        preferences.when(PreferenceKeys::getCameraID).thenReturn("0");',
+    '        preferences.when(PreferenceKeys::getCameraID).thenReturn("0");\n'
+    '        preferences.when(PreferenceKeys::getAfMode).thenReturn(\n'
+    '                android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);',
+    "fixture: set eligible AF-C")
+test_content=(root/lifecycle).read_text()
+assert test_content.count("tracking.tap(150, 200, true)")==1
+assert "closeDefersRecyclingUntilCopyReleasesBitmap" in test_content
+assert "retapRejectsOldCallbackAndDoesNotOverlapCopies" in test_content
+assert "pausedCopyCannotUpdateAfOrShowTracking" in test_content
+
 source = (root/tracking).read_text()
 assert "if (recognitionEnabled()) warmSemantic();" not in source
 assert "freshSince = SystemClock.elapsedRealtimeNanos(); warmSemantic()" not in source
@@ -225,7 +246,7 @@ expected = sorted({
     str(tracking),str(managed),str(policy),
     "app/src/main/res/xml/preferences_m9.xml",
     "app/src/main/res/xml/preferences_monochrom.xml",
-    str(resource),"app/build.gradle",
+    str(resource),str(lifecycle),"app/build.gradle",
 })
 assert changes==expected,(changes,expected)
 report = dict(status="STAGED_FOR_ANDROID_BUILD",version="3.13-trackingdefault1a",
