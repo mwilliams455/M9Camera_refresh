@@ -1,0 +1,26 @@
+name: M9Cam inspect inherited focus tracking test
+on:
+  push:
+    branches: ['codex/m9-trackingdefault1a-v3.13']
+    paths: ['.github/workflows/m9-tracking-legacy-source-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  locate-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print pinned parent FocusTrackingLifecycleTest source around sample()
+        run: |
+          python3 - <<'PY'
+          import gzip
+          from pathlib import Path
+          data=gzip.decompress(Path("patches/focustrack1a/focustrack1a.patch.gz").read_bytes()).decode("utf-8")
+          lines=data.splitlines()
+          for i,line in enumerate(lines):
+              if "FocusTrackingLifecycleTest.java" in line:
+                  print("Found test patch at line",i)
+                  for j in range(i,min(i+145,len(lines))):
+                      if j>i+4 and lines[j].startswith("diff --git "):break
+                      print(f"{j:05d} {lines[j][:250]}")
+          PY
