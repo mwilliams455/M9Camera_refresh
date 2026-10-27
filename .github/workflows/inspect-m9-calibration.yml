@@ -1,0 +1,60 @@
+name: Inspect exact RAW sidecar and calibration reporting seam
+on:
+  push:
+    branches: ['codex/focuscontrol1a-areas-subject-afstate']
+    paths: ['.github/workflows/inspect-m9-calibration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct accepted M9Cam 3.03 source
+        run: |
+          set -euo pipefail
+          python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1c/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          curl -fsSL --retry 2 'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite' -o "$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets/efficientdet-lite0.tflite"
+          curl -fsSL --retry 2 'https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT/resolve/main/rtm_animal_fp16.tflite' -o "$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets/rtm_animal_fp16.tflite"
+          python3 patches/focusanimaleye1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimaleye1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+      - name: Print bounded RAW capture binding and sidecar writer symbols
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_304'
+          pkg=root/'app/src/main/java/com/particlesdevs/photoncamera'
+          needles=['M9DiagnosticSidecarIO','_M9_PRIMARY.json','M9_PRIMARY.json',
+                   'm9.render','SOURCECAL','primaryDiagnostics','diagnostics.put',
+                   'captureAndWrite','FillDynamicParameters','m9CaptureInputs',
+                   'getPhysicalCameraResults','physicalID','mCameraCharacteristics']
+          matches=[]
+          for file in pkg.rglob('*.java'):
+              if 'build' in file.parts:continue
+              body=file.read_text(errors='replace')
+              score=sum(body.count(word) for word in needles)
+              if score>=4 or ('M9DiagnosticSidecarIO.persist' in body):
+                  matches.append((score,file,body.splitlines()))
+          matches.sort(key=lambda x:-x[0])
+          print('===== FILES',len(matches),'=====')
+          for score,file,lines in matches[:20]:
+              print('===== FILE',file.relative_to(root),'score',score,'=====')
+              indices=[i for i,l in enumerate(lines) if any(w in l for w in needles)]
+              seen=set()
+              for i in indices[:18]:
+                  for j in range(max(0,i-3),min(len(lines),i+7)):
+                      if j not in seen:
+                          print(f'{j+1:05d}: {lines[j]}')
+                          seen.add(j)
+          print('===== SIDE_CAR_CANDIDATES')
+          for file in pkg.rglob('*.java'):
+              if any(t in file.name for t in ['Sidecar','Diagnostics','SourceCalibration','RawCapture','M9Capture']):
+                  print(file.relative_to(root))
+          PY

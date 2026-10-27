@@ -1,0 +1,25 @@
+name: Inspect inherited M9 tracker test fixture
+on:
+  push:
+    branches: ['codex/m9-aftracking2a-v3.05']
+    paths: ['.github/workflows/probe-m9-aftracking2a-source.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct the inherited source without SDK build
+        run: python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/m9source"
+      - name: Print tracking lifecycle test and tracker handle construction
+        run: |
+          find "$RUNNER_TEMP/m9source/app/src/test" -name 'FocusTrackingLifecycleTest.java' \
+            -print -exec sed -n '1,150p' {} \;
+          find "$RUNNER_TEMP/m9source/app/src/main" -name 'FocusTrackingController.java' \
+            -print -exec grep -n -C 14 'newTrackingFocus' {} \;
+          find "$RUNNER_TEMP/m9source/app/src/main" -name 'CaptureController.java' \
+            -exec grep -n -C 6 'newTrackingFocus' {} \;

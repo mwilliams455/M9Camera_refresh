@@ -1,0 +1,167 @@
+name: M9Cam 2.98 FOCUSSUBJECT1B false-positive eye admission
+on:
+  pull_request:
+    branches: ['main']
+    paths:
+      - 'patches/focussubject1a/**'
+      - '.github/workflows/build-m9cam-focussubject1a.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  subject-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Reconstruct exact M9 and Monochrom v2.95 source
+        run: python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/PhotonCamera_295"
+      - name: Inspect live focusing interfaces for integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,re
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_295'
+          base=root/'app/src/main/java/com/particlesdevs/photoncamera'
+          files=[
+            base/'ui/camera/FocusTrackingController.java',
+            base/'control/tracking/TrackingGeometry.java',
+            base/'control/TouchFocus.java',
+            base/'capture/CaptureController.java',
+            base/'ui/camera/CameraFragment.java',
+            base/'settings/PreferenceKeys.java',
+            root/'app/build.gradle']
+          for file in files:
+            print(f"\n===== FOCUSSUBJECT1A-SOURCE {file.relative_to(root)} =====")
+            if not file.exists():
+              print("NOT FOUND");continue
+            lines=file.read_text(errors='replace').splitlines()
+            rx=re.compile(r'focusTrack|FocusTrack|[Tt]racking|AF_REGIONS|afRegions|Continuous|focusMode|FocusMode|setFocus|onTap|onTouch|PixelCopy|dependencies|mlkit|gms|surface|preview',re.I)
+            indices=set()
+            if len(lines)<=330:
+              indices.update(range(len(lines)))
+            else:
+              for i,line in enumerate(lines):
+                if rx.search(line): indices.update(range(max(0,i-3),min(len(lines),i+5)))
+              indices=set(sorted(indices)[:260])
+            print('Total lines:',len(lines),'Displayed lines:',len(indices))
+            for i in sorted(indices): print(f'{i+1:05d}: {lines[i]}')
+          PY
+      - name: Inspect AF region ownership and focus preference placements
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_295'
+          base=root/'app/src/main'
+          c=(base/'java/com/particlesdevs/photoncamera/capture/CaptureController.java').read_text()
+          for token in ['class TrackingFocus', 'newTrackingFocus(', 'TrackingFocus(', 'boolean valid()', 'TrackingGeometry']:
+              start=c.find(token)
+              if start >= 0:
+                  print('===== AF-TARGET-CONTEXT', token, 'offset',start)
+                  print(c[max(0,start-600):start+6500])
+          for p in ('res/xml/preferences_m9.xml','res/xml/preferences_monochrom.xml','res/values/strings.xml'):
+              s=(base/p).read_text()
+              for key in ('pref_focus_tracking','focus_tracking','</resources>'):
+                  i=s.find(key)
+                  if i >= 0: print('===== FOCUS-PREFERENCE',p,key, '\\n',s[max(0,i-950):i+1150])
+          frag=(base/'java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java').read_text()
+          for token in ('new FocusTrackingController', 'clearFocusTracking()', 'focusTracking.start()', 'focusTracking.stop()', 'focusTracking.close()'):
+              i=frag.find(token)
+              if i>=0:print('===== FRAGMENT',token,'\\n',frag[max(0,i-350):i+450])
+          PY
+      - name: Inspect generic tracking box label and lifecycle
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_295'
+          files=[
+            root/'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java',
+            root/'app/src/main/java/com/particlesdevs/photoncamera/ui/camera/FocusTrackingController.java'
+          ]
+          for p in files:
+              print('===== EYE-AF-BOX-SOURCE',p.relative_to(root),'=====')
+              if p.is_file():
+                  lines=p.read_text().splitlines()
+                  for i,line in enumerate(lines):
+                      if p.name=='TrackingFocusView.java' or 'focus_tracking' in line or 'overlay.show' in line:
+                          print(f'{i+1:04d}: {line}')
+          PY
+      - name: Integrate opt-in live ML Kit face and eye autofocus into both profiles
+        run: |
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_295" --report "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json"
+      - name: Run JDK subject selection tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/subject-policy-test"
+          javac -Xlint:all -d "$RUNNER_TEMP/subject-policy-test" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFocusPolicy.java" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/FocusAreaPolicy.java" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/src/main/java/com/particlesdevs/photoncamera/control/subject/HumanEyeAdmissionGate.java" \
+            patches/focussubject1a/host/SubjectFocusPolicyHostTest.java \
+            patches/focussubject1a/host/FocusAreaPolicyHostTest.java \
+            patches/focussubject1a/host/HumanEyeAdmissionGateHostTest.java
+          java -ea -cp "$RUNNER_TEMP/subject-policy-test" SubjectFocusPolicyHostTest
+          java -ea -cp "$RUNNER_TEMP/subject-policy-test" FocusAreaPolicyHostTest
+          java -ea -cp "$RUNNER_TEMP/subject-policy-test" HumanEyeAdmissionGateHostTest
+      - name: Compile Android and run existing autofocus and lifecycle regressions
+        run: |
+          cd "$RUNNER_TEMP/PhotonCamera_295"
+          bash gradlew :app:assembleDebug :app:testDebugUnitTest --tests '*FocusTrackingAfTest' --tests '*FocusTrackingLifecycleTest' --tests '*FocusPointLayoutTest' --tests '*TouchFocusTest' --tests '*TouchFocusHandoverTest' --tests '*ProfileCaptureTest' --no-daemon --max-workers=2
+      - name: Download exact accepted 2.95 installer for native and asset preservation
+        uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-2.95-READY-TO-INSTALL
+          run-id: 38885217685
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/accepted295
+      - name: Package and verify 2.98 Face/Eye AF false-positive fix installer
+        run: |
+          mkdir -p "$RUNNER_TEMP/installer298"
+          cp "$RUNNER_TEMP/FOCUSSUBJECT_SOURCE_VERIFICATION.json" "$RUNNER_TEMP/installer298/SOURCE_VERIFICATION.json"
+          python3 patches/focussubject1a/package_live.py \
+            "$RUNNER_TEMP/PhotonCamera_295" \
+            "$RUNNER_TEMP/PhotonCamera_295/app/build/outputs/apk/debug/M9Cam_2.98_FOCUSSUBJECT1B-debug.apk" \
+            "$RUNNER_TEMP/accepted295/M9Cam_2.95_DIAGINDEX1A.apk" \
+            "$ANDROID_HOME/build-tools/35.0.0" \
+            "$RUNNER_TEMP/installer298"
+      - name: Retain signed Face/Eye AF device candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-2.98-FOCUSSUBJECT1B-READY-TO-INSTALL
+          path: |
+            ${{ runner.temp }}/installer298/M9Cam_2.98_FOCUSSUBJECT1B.apk
+            ${{ runner.temp }}/installer298/PACKAGED_VERIFICATION.json
+            ${{ runner.temp }}/installer298/SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/installer298/SHA256SUMS.txt
+          retention-days: 90
+          if-no-files-found: error
+      - name: Report evidence
+        if: always()
+        run: |
+          echo "FOCUSSUBJECT1A: opt-in bundled offline Face/Eye detector is wired to the existing Camera2 tracking-focus region controller. Compile and tests do not prove lens accuracy." >> "$GITHUB_STEP_SUMMARY"
+          echo "Production APK packaging and physical-device autofocus validation remain separate gates." >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain source-integration verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: focussubject1b-eye-admission-build
+          path: |
+            ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/apk/debug/*.apk
+            ${{ runner.temp }}/PhotonCamera_295/app/build/outputs/logs/**
+            ${{ runner.temp }}/FOCUSSUBJECT_SOURCE_VERIFICATION.json
+            ${{ runner.temp }}/installer298/*.json
+            ${{ runner.temp }}/PhotonCamera_295/app/build/test-results/testDebugUnitTest/**
+          retention-days: 14
+          if-no-files-found: ignore

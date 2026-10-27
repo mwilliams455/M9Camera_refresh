@@ -1,0 +1,38 @@
+name: FOCUSANIMAL1A independent model provenance audit
+on:
+  pull_request:
+    branches: ['codex/focussubject1a-integration']
+    paths: ['.github/workflows/focusanimal-model-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch official COCO metadata model and publish sha256
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --connect-timeout 12 --max-time 120 \
+            'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite' \
+            -o "$RUNNER_TEMP/efficientdet-lite0.tflite"
+          python3 - <<'PY'
+          import os,hashlib,json
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'efficientdet-lite0.tflite'
+          data=p.read_bytes()
+          assert 1_000_000<len(data)<25_000_000 and data[4:8]==b'TFL3'
+          report=dict(status='PASS',source='official tensorflow examples task_library object_detection Android',
+                      filename=p.name,size=len(data),sha256=hashlib.sha256(data).hexdigest())
+          print('FOCUSANIMAL_MODEL_PROVENANCE='+json.dumps(report,sort_keys=True))
+          (Path(os.environ['RUNNER_TEMP'])/'MODEL_PROVENANCE.json').write_text(json.dumps(report,indent=2)+'\n')
+          PY
+      - name: Retain model audit metadata (not proprietary photographs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: focusanimal1a-model-provenance
+          path: ${{ runner.temp }}/MODEL_PROVENANCE.json
+          if-no-files-found: error
+          retention-days: 14

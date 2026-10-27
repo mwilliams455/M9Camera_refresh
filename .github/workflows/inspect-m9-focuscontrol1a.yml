@@ -1,0 +1,76 @@
+name: Inspect public M9 3.03 focus and sensor API seams
+on:
+  push:
+    branches: ['codex/focuscontrol1a-areas-subject-afstate']
+    paths: ['.github/workflows/inspect-m9-focuscontrol1a.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct accepted M9Cam 3.03 source
+        run: |
+          set -euo pipefail
+          python3 patches/diagindex1a/assemble.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focussubject1a/apply_live.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimal1c/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          curl -fsSL --retry 2 'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite' -o "$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets/efficientdet-lite0.tflite"
+          curl -fsSL --retry 2 'https://huggingface.co/litert-community/RTMPose-Animal-AP10K-LiteRT/resolve/main/rtm_animal_fp16.tflite' -o "$RUNNER_TEMP/PhotonCamera_304/app/src/main/assets/rtm_animal_fp16.tflite"
+          python3 patches/focusanimaleye1a/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+          python3 patches/focusanimaleye1b/apply.py "$RUNNER_TEMP/PhotonCamera_304"
+      - name: Print bounded public Camera2 focus API and controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root=Path(os.environ['RUNNER_TEMP'])/'PhotonCamera_304'
+          pkg=root/'app/src/main/java/com/particlesdevs/photoncamera'
+          files=[
+            pkg/'capture/CaptureController.java',
+            pkg/'ui/camera/CameraFragment.java',
+            pkg/'ui/camera/FocusTrackingController.java',
+            pkg/'ui/camera/views/TrackingFocusView.java',
+            pkg/'control/TouchFocus.java',
+            pkg/'settings/PreferenceKeys.java',
+            pkg/'ui/camera/HumanSubjectFocusController.java',
+            pkg/'ui/camera/PetFocusController.java',
+            pkg/'control/tracking/TrackingGeometry.java',
+            pkg/'processing/render/Parameters.java',
+            root/'app/src/main/res/xml/preferences_m9.xml',
+            root/'app/src/main/res/xml/preferences_monochrom.xml']
+          needle={
+            'CaptureController.java':['class TrackingFocus','newTrackingFocus','CONTROL_AF_STATE','CONTROL_AF_REGIONS','CaptureResult.CONTROL_AF_STATE','onCaptureCompleted','mPreviewTemp','mCameraCharacteristics','getCameraCharacteristics','getCaptureController'],
+            'CameraFragment.java':['focusSubject','focusAnimal','focusTracking','tapFocus','clearFocusTracking','getCaptureController','onCamera'],
+            'FocusTrackingController.java':['private boolean enabled','tap(','focus.update(','class FocusTracking'],
+            'TrackingFocusView.java':['public void show','onDraw','setContentDescription'],
+            'TouchFocus.java':['CONTROL_AF_STATE','focusState','focusStatus','AF_STATE'],
+            'PreferenceKeys.java':['COMMON_KEYS.add("pref_focus','SCOPE_GLOBAL'],
+            'HumanSubjectFocusController.java':['private boolean enabled','void tap','boolean tap','focus.update'],
+            'PetFocusController.java':['private boolean enabled','boolean tap','af.update(','showStatus'],
+            'TrackingGeometry.java':['class TrackingGeometry','static TrackingGeometry current'],
+            'Parameters.java':['physicalID','logicalID','whitePoint','ColorMatrix1','blackLevel','forward'],
+            'preferences_m9.xml':['pref_focus_subject_pet','pref_focus_tracking'],
+            'preferences_monochrom.xml':['pref_focus_subject_pet','pref_focus_tracking']
+          }
+          for f in files:
+            print('===== INSPECT',f.relative_to(root),'=====')
+            if not f.is_file():
+              print('NOT_FOUND');continue
+            data=f.read_text(errors='replace').splitlines()
+            matches=[i for i,line in enumerate(data) if any(n in line for n in needle.get(f.name,[]))]
+            printed=set()
+            # Camera controller return context around two major methods to see request ownership
+            for i in matches[:32]:
+              start=max(0,i-(5 if f.name=='CaptureController.java' else 3))
+              end=min(len(data),i+(85 if f.name=='CaptureController.java' and ('class TrackingFocus' in data[i] or 'newTrackingFocus' in data[i]) else 8))
+              for j in range(start,end):
+                if j not in printed:
+                  print(f'{j+1:05d}: {data[j]}');printed.add(j)
+          print('===== END INSPECT',f.name,'matching',len(matches),'=====')
+          PY
