@@ -1,0 +1,67 @@
+{
+  "status": "BUILD_AND_REGRESSION_PASS_PHONE_VALIDATION_PENDING",
+  "version": "3.14-trackingrecovery1a",
+  "buildCommit": "4249ad3ff93446c0f93a6574aa885a05663cc067",
+  "parentCandidate": "3.13-trackingdefault1a",
+  "acceptedMain": "3.12-focusoverlay1b",
+  "pullRequest": "https://github.com/mwilliams455/M9Camera_refresh/pull/125",
+  "workflowRun": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/43614439096",
+  "workflowRunConclusion": "success",
+  "installerArtifactId": 14122050471,
+  "installerArtifactExpiresAt": "2027-02-12T16:13:37Z",
+  "artifactZipSha256": "0f61e1848909367c5fdbe0a0b95d0a376227dba0a0952b339a0a432b5c9bb905",
+  "apkFilename": "M9Cam_3.14_TRACKINGRECOVERY1A.apk",
+  "apkSha256": "3ad7c5bd5feeb743c85c9ac9dfdb28b9f007644b3c03c0cfa1c12d3682d0bdb5",
+  "apkBytes": 206520623,
+  "versionCode": 27314,
+  "regression": {
+    "unchanged313RecoveryChecks": 67,
+    "unchanged313Failures": 12,
+    "candidateRecoveryChecks": 67,
+    "candidateRecoveryFailures": 0,
+    "candidateInheritedIdentityChecks": 20,
+    "candidateInheritedAppearanceChecks": 13,
+    "candidateInheritedAnchorChecks": 34,
+    "androidTests": [
+      "FocusTrackingAfTest",
+      "FocusTrackingLifecycleTest",
+      "FocusPointLayoutTest",
+      "TouchFocusTest",
+      "TouchFocusHandoverTest",
+      "ProfileCaptureTest"
+    ],
+    "dedicatedCurrentSourceAndroidBuild": "PASS",
+    "hostPolicyAndInheritedFocusGates": "PASS"
+  },
+  "scope": {
+    "changedProductionFiles": [
+      "app/build.gradle",
+      "app/src/main/java/com/particlesdevs/photoncamera/control/tracking/SubjectAnchorPolicy.java"
+    ],
+    "affectsPersistentSubjectIdentityOnly": true,
+    "interruptedRecoveryRequiresTwoNewConsecutiveFreshMatches": true,
+    "lateRecoveryCannotBypass1150msHoldDeadline": true,
+    "inheritedDefaultsAndSavedPreferencesUnchanged": true,
+    "identityOffBehaviorUnchanged": true,
+    "camera2AfCadenceAndEyeAfUnchanged": true,
+    "rendererUnchanged": true,
+    "independentlyVerifiedUnchangedNativeLibraries": 37,
+    "independentlyVerifiedUnchangedAssets": 301,
+    "originalSigningCertificateVerified": true,
+    "sixteenKiBAlignmentVerified": true
+  },
+  "limits": {
+    "syntheticProductionPolicyReproduction": true,
+    "earlierRecordedPersonSwitchesWereIntentionalTaps": true,
+    "phoneTrackingAndOpticalSharpnessValidationPending": true,
+    "parent313AndCandidate314RemainUnmerged": true
+  },
+  "phoneCheck": [
+    "Install over existing app without clearing settings.",
+    "Use Wide / Continuous Picture AF; enable Focus tracking, Subject-aware tracking and Persistent subject identity (experimental).",
+    "Keep predictive AF off for the initial comparison.",
+    "Tap one distinct subject, briefly obscure and reveal; verify hold and coherent reacquisition.",
+    "After a longer loss retap; include saved photos to judge optical focus.",
+    "Repeat an ordinary capture with identity disabled and in Monochrome."
+  ]
+}
