@@ -19,17 +19,37 @@ assert native_names | asset_names == set(manifest)
 assert built.is_file() and (root/'key/PcamLeak.jks').is_file()
 scope=json.loads((out/'SOURCE_VERIFICATION.json').read_text())
 assert scope['status']=='STAGED_FOR_ANDROID_BUILD'
-assert scope['parent']=='3.13-trackingdefault1a'
-assert scope['interruptedRecoveryRestartsConfirmations']
-assert scope['recoveryDeadlineCheckedBeforeAcceptance']
-assert scope['identityOffBehaviorUnchanged']
-assert scope['inheritedTrackingDefaultsAndSavedPreferencesUnchanged']
-assert scope['camera2ControllerAndAfCadenceUnchanged']
-assert scope['automaticEyeAndPetAfUnchanged']
-assert scope['originalModelAssetsNativeAndRendererUnchanged']
-assert set(scope['changedFiles'])=={
-    'app/build.gradle',
-    'app/src/main/java/com/particlesdevs/photoncamera/control/tracking/SubjectAnchorPolicy.java'}
+auto_versions = {
+    '3.15-autosubject1a': ('3.14-trackingrecovery1a', 'autosubject1a', 27315, 'M9Cam_3.15_AUTOSUBJECT1A.apk'),
+    '3.18-autoreframe1a': ('3.17-autosubject1c', 'autoreframe1a', 27318, 'M9Cam_3.18_AUTOREFRAME1A.apk'),
+    '3.19-petdetail1a': ('3.18-autoreframe1a', 'petdetail1a', 27319, 'M9Cam_3.19_PETDETAIL1A.apk'),
+    '3.20-petcontinuity1a': ('3.19-petdetail1a', 'petcontinuity1a', 27320, 'M9Cam_3.20_PETCONTINUITY1A.apk'),
+    '3.21-petacquisition1a': ('3.20-petcontinuity1a', 'petacquisition1a', 27321, 'M9Cam_3.21_PETACQUISITION1A.apk'),
+    '3.22-multiface1a': ('3.21-petacquisition1a', 'multiface1a', 27322, 'M9Cam_3.22_MULTIFACE1A.apk'),
+    '3.23-headpair1a': ('3.22-multiface1a', 'headpair1a', 27323, 'M9Cam_3.23_HEADPAIR1A.apk'),
+    '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
+    '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
+}
+version = scope.get('version')
+auto_subject = version in auto_versions
+if auto_subject:
+    parent, stage, code, filename = auto_versions[version]
+    assert scope['parent'] == parent
+    auto_hashes = Path(__file__).resolve().parents[1] / stage / 'source-hashes.json'
+    assert scope['sourceHashes'] == json.loads(auto_hashes.read_text())
+else:
+    assert scope['parent']=='3.13-trackingdefault1a'
+    assert scope['interruptedRecoveryRestartsConfirmations']
+    assert scope['recoveryDeadlineCheckedBeforeAcceptance']
+    assert scope['identityOffBehaviorUnchanged']
+    assert scope['inheritedTrackingDefaultsAndSavedPreferencesUnchanged']
+    assert scope['camera2ControllerAndAfCadenceUnchanged']
+    assert scope['automaticEyeAndPetAfUnchanged']
+    assert scope['originalModelAssetsNativeAndRendererUnchanged']
+    assert set(scope['changedFiles'])=={
+        'app/build.gradle',
+        'app/src/main/java/com/particlesdevs/photoncamera/control/tracking/SubjectAnchorPolicy.java'}
+    version, code, filename = '3.14-trackingrecovery1a', 27314, 'M9Cam_3.14_TRACKINGRECOVERY1A.apk'
 for path, hashes in scope['sourceHashes'].items():
     assert sha((root/path).read_bytes())==hashes['after'],path
 asset=(root/'app/src/main/assets/rtm_animal_fp16.tflite')
@@ -54,13 +74,16 @@ else:
     with zipfile.ZipFile(oldapk) as parent:
         native_overrides = {name: parent.read(name) for name in native_names}
 
-unsigned=out/'unsigned.apk';aligned=out/'aligned.apk';final=out/'M9Cam_3.14_TRACKINGRECOVERY1A.apk'
+unsigned=out/'unsigned.apk';aligned=out/'aligned.apk';final=out/filename
 expected = {}
 with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     assert new.testzip() is None
     new_names = set(new.namelist())
     assert len(new_names) == len(new.infolist()), 'Duplicate APK entries'
-    assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == asset_names
+    extra_assets = {'assets/face_detection_yunet.onnx', 'assets/YUNET_LICENSE.txt'} if version == '3.23-headpair1a' else set()
+    assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == asset_names | extra_assets
+    for name in extra_assets:
+        assert sha(new.read(name)) == scope['sourceHashes']['app/src/main/' + name]['after']
     assert {n for n in new_names if n.startswith('lib/') and n.endswith('.so')} <= native_names
     for info in new.infolist():
         name = info.filename
@@ -76,6 +99,8 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     for name, digest in manifest.items():
         assert expected.get(name) == digest, f'Accepted APK payload changed: {name}'
     dex=b''.join(new.read(n) for n in new_names if n.endswith('.dex'))
+    if auto_subject:
+        assert b'AutomaticSubjectSelection' in dex, 'Missing automatic tracking code'
     for marker in ['SubjectAppearanceDescriptor','SubjectAnchorPolicy','TrackingTogglePolicy','FocusMotionPredictor',
                    'TrackingSemanticDetector','FocusTrackingController','pref_focus_tracking_identity',
                    'pref_focus_tracking_predictive','pref_focus_tracking_semantic','HumanSubjectFocusController','AutoEyeFocusPolicy','ProfileEyeAdmissionGate','pref_focus_auto_eye_enabled',
@@ -89,7 +114,7 @@ subprocess.run([str(bt/'zipalign'),'-c','-P','16','4',str(final)],check=True)
 cert_new=subprocess.check_output(signer+['verify','--verbose','--print-certs',str(final)],text=True)
 assert certificate in cert_new and 'Verified using v2 scheme (APK Signature Scheme v2): true' in cert_new
 badging=subprocess.check_output([str(bt/'aapt2'),'dump','badging',str(final)],text=True)
-for required in ("name='com.m9project.m9cam.photon'", "versionCode='27314'", "versionName='3.14-trackingrecovery1a'"):
+for required in ("name='com.m9project.m9cam.photon'", f"versionCode='{code}'", f"versionName='{version}'"):
     assert required in badging,required
 for profile in ('m9','monochrom'):
     menu=subprocess.check_output([str(bt/'aapt2'),'dump','xmltree','--file',
@@ -101,7 +126,7 @@ with zipfile.ZipFile(final) as signed:
     assert signed.testzip() is None
     actual={n:sha(signed.read(n)) for n in signed.namelist() if not signing(n)}
     assert actual==expected,'Signed APK contents differ from validated build'
-report=dict(status='PASS',version='3.14-trackingrecovery1a',versionCode=27314,
+report=dict(status='PASS',version=version,versionCode=code,
             sha256=sha(final.read_bytes()),bytes=final.stat().st_size,parent=accepted,
             preserved37NativeLibraries=True,preserved301OriginalAssets=True,
             bundledModelSha256=expected_model,signatureMatchesPrior=True,

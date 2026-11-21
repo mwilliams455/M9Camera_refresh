@@ -1,4 +1,4 @@
-"""Build 3.14 and verify the selected Android regression suites from JUnit XML."""
+"""Build the app and verify the selected Android regression suites from JUnit XML."""
 import argparse
 import json
 from pathlib import Path
@@ -71,6 +71,12 @@ if __name__ == "__main__":
     parser.add_argument("source", type=Path)
     parser.add_argument("--run", action="store_true")
     args = parser.parse_args()
+    retry_test = "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/AutomaticSubjectAfRetryTest.java"
+    if (args.source / retry_test).is_file():
+        SUITES["AutomaticSubjectAfRetryTest"] = 1
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java").is_file():
+        head_pairs = args.source / "app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java"
+        SUITES["MultiFaceOverlayTest"] = 4 if head_pairs.is_file() else 3
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]

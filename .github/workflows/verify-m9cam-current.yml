@@ -42,31 +42,31 @@ jobs:
         # Assemble outside the checkout: historical git-format patches must not
         # resolve against the packaging repository's parent Git worktree.
         run: |
-          python3 scripts/ci/prepare_314.py "$RUNNER_TEMP/ci-source"
+          python3 scripts/ci/prepare_314.py "$RUNNER_TEMP/ci-source" --head-pair
           mv "$RUNNER_TEMP/ci-source" "$GITHUB_WORKSPACE/ci-source"
-      - name: Run tracking and focus policy checks against 3.14
-        run: bash scripts/ci/test_tracking.sh ci-source/PhotonCamera_314
+      - name: Run tracking and focus policy checks against 3.23
+        run: bash scripts/ci/test_tracking.sh ci-source/PhotonCamera_323
       - name: Initialize Java and Kotlin analysis
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
           build-mode: manual
-          source-root: ci-source/PhotonCamera_314
+          source-root: ci-source/PhotonCamera_323
           threads: 2
       - name: Build and run all selected regression suites
-        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_314" --run
+        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_323" --run
       - name: Verify library release resources
-        working-directory: ci-source/PhotonCamera_314
+        working-directory: ci-source/PhotonCamera_323
         run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
-      - name: Package and verify the 3.14 installer
+      - name: Package and verify the 3.23 installer
         run: |
-          source=ci-source/PhotonCamera_314
+          source=ci-source/PhotonCamera_323
           installer=ci-source/installer
           mkdir -p "$installer"
-          cp ci-source/verification/trackingrecovery1a.json "$installer/SOURCE_VERIFICATION.json"
+          cp ci-source/verification/headpair1a.json "$installer/SOURCE_VERIFICATION.json"
           cp ci-source/verification/MODEL_PROVENANCE.json "$installer/"
           python3 patches/trackingrecovery1a/package.py "$source" \
-            "$source/app/build/outputs/apk/debug/M9Cam_3.14_TRACKINGRECOVERY1A-debug.apk" \
+            "$source/app/build/outputs/apk/debug/M9Cam_3.23_HEADPAIR1A-debug.apk" \
             patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" "$installer"
       - name: Analyze reconstructed production source
         uses: github/codeql-action/analyze@v4
@@ -77,7 +77,7 @@ jobs:
       - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-3.14-verified-installer
+          name: M9Cam-3.23-verified-installer
           path: ci-source/installer/
           if-no-files-found: error
           retention-days: 90
@@ -89,11 +89,11 @@ jobs:
           path: |
             ci-source/verification/*.json
             ci-source/TEST_VERIFICATION.json
-            ci-source/PhotonCamera_314/app/build/test-results/testDebugUnitTest/**
-            ci-source/PhotonCamera_314/app/build/reports/tests/testDebugUnitTest/**
-            ci-source/PhotonCamera_314/app/src/main/java/**
-            ci-source/PhotonCamera_314/app/src/test/java/**
-            ci-source/PhotonCamera_314/circularbarlib/src/main/java/**
+            ci-source/PhotonCamera_323/app/build/test-results/testDebugUnitTest/**
+            ci-source/PhotonCamera_323/app/build/reports/tests/testDebugUnitTest/**
+            ci-source/PhotonCamera_323/app/src/main/java/**
+            ci-source/PhotonCamera_323/app/src/test/java/**
+            ci-source/PhotonCamera_323/circularbarlib/src/main/java/**
             ci-reports/codeql/**
           retention-days: 30
           if-no-files-found: error

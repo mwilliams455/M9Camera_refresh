@@ -57,19 +57,19 @@ def apply_stages(source, reports):
             run_python(PATCHES / stage / "host/verify_staged.py", source)
 
 
-def apply_ci_fixture(source, reports):
+def apply_ci_fixture(source, reports, version="3.14-trackingrecovery1a", pin="source-314.sha256"):
     before = inventory(source)
     baseline = fingerprint(before)
-    expected = (REPO / "scripts/ci/source-314.sha256").read_text().strip()
+    expected = (REPO / "scripts/ci" / pin).read_text().strip()
     if baseline != expected:
-        raise ValueError(f"Unexpected 3.14 production source fingerprint: {baseline}")
+        raise ValueError(f"Unexpected {version} production source fingerprint: {baseline}")
     fixture = REPO / "scripts/ci/capture-test-fixture.patch"
     subprocess.run(["git", "apply", str(fixture)], cwd=source, check=True)
     after = inventory(source)
     changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
     if changed != [TEST_PATH]:
         raise ValueError(f"Unexpected CI fixture changes: {changed}")
-    report = {"version": "3.14-trackingrecovery1a", "productionScopedSha256": baseline,
+    report = {"version": version, "productionScopedSha256": baseline,
               "ciScopedSha256": fingerprint(after), "fixtureChanges": changed}
     (reports / "SOURCE_VERIFICATION.json").write_text(json.dumps(report, indent=2) + "\n")
 
@@ -77,17 +77,43 @@ def apply_ci_fixture(source, reports):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
-    dest = parser.parse_args().destination.resolve()
+    versions = (
+        (314, "3.14-trackingrecovery1a", None, None),
+        (315, "3.15-autosubject1a", "autosubject1a", "--auto-subject"),
+        (316, "3.16-autosubject1b", "autosubject1b", "--stable-framing"),
+        (317, "3.17-autosubject1c", "autosubject1c", "--person-recovery"),
+        (318, "3.18-autoreframe1a", "autoreframe1a", "--auto-reframe"),
+        (319, "3.19-petdetail1a", "petdetail1a", "--pet-detail"),
+        (320, "3.20-petcontinuity1a", "petcontinuity1a", "--pet-continuity"),
+        (321, "3.21-petacquisition1a", "petacquisition1a", "--pet-acquisition"),
+        (322, "3.22-multiface1a", "multiface1a", "--multi-face"),
+        (323, "3.23-headpair1a", "headpair1a", "--head-pair"),
+    )
+    for number, label, stage, flag in versions[1:]:
+        parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,
+                            help=f"Apply automatic subject tracking through {label}")
+    args = parser.parse_args()
+    dest = args.destination.resolve()
     dest.mkdir(parents=True, exist_ok=False)
     if subprocess.run(["git", "-C", dest, "rev-parse", "--show-toplevel"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         raise ValueError("Reconstruct outside the Git checkout")
-    source = dest / "PhotonCamera_314"
+    version = max(args.requested_versions or [314])
+    source = dest / f"PhotonCamera_{version}"
     reports = dest / "verification"
     reports.mkdir()
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
-    apply_ci_fixture(source, reports)
+    for number, label, stage, _ in versions:
+        if stage:
+            run_python(PATCHES / stage / "apply.py", source, reports / f"{stage}.json")
+        pin = f"source-{number}.sha256"
+        if number == version:
+            apply_ci_fixture(source, reports, label, pin)
+            break
+        if fingerprint(inventory(source)) != (REPO / "scripts/ci" / pin).read_text().strip():
+            raise ValueError(f"Unexpected production source before continuing beyond {label}")
+
 
 
 if __name__ == "__main__":
