@@ -1,13 +1,13 @@
 # Current M9Cam build and tests
 
 Pull requests targeting main, pushes to main, and manual runs reconstruct
-3.19-petdetail1a (version code 27319). Run these from the repository
+3.20-petcontinuity1a (version code 27320). Run these from the repository
 root using the Android and JDK versions in verify-m9cam-current.yml.
 
 ```sh
-python3 scripts/ci/prepare_314.py /tmp/m9-319 --pet-detail
-bash scripts/ci/test_tracking.sh /tmp/m9-319/PhotonCamera_319
-python3 scripts/ci/verify_tests.py /tmp/m9-319/PhotonCamera_319 --run
+python3 scripts/ci/prepare_314.py /tmp/m9-320 --pet-continuity
+bash scripts/ci/test_tracking.sh /tmp/m9-320/PhotonCamera_320
+python3 scripts/ci/verify_tests.py /tmp/m9-320/PhotonCamera_320 --run
 ```
 
 The accepted source descends from 2.95 through the focus and tracking patches.

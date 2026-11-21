@@ -42,6 +42,9 @@ fi
 if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java" ]]; then
   tests+=(patches/petdetail1a/host/PetDetailInputTest.java)
 fi
+if [[ -f "$source_tree/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/AutomaticSubjectAfRetryTest.java" ]]; then
+  tests+=(patches/petcontinuity1a/host/PetContinuityTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"

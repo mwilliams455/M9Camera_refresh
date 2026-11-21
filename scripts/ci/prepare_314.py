@@ -84,6 +84,7 @@ def main():
         (317, "3.17-autosubject1c", "autosubject1c", "--person-recovery"),
         (318, "3.18-autoreframe1a", "autoreframe1a", "--auto-reframe"),
         (319, "3.19-petdetail1a", "petdetail1a", "--pet-detail"),
+        (320, "3.20-petcontinuity1a", "petcontinuity1a", "--pet-continuity"),
     )
     for number, label, stage, flag in versions[1:]:
         parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,

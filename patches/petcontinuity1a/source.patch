@@ -1,0 +1,264 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 929ca0d..b67fab2 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27319
++        versionCode 27320
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.19-petdetail1a'
++        versionName '3.20-petcontinuity1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.19_PETDETAIL1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.20_PETCONTINUITY1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+index 5c332d7..12c80dc 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -149,6 +149,13 @@ public final class AutomaticSubjectSelection {
+         return visibleAt(frame) && active.type != ClassId.PERSON ? active : null;
+     }
+ 
++    /** Use a recent, confirmed pet only to locate a new detector crop. */
++    public Box confirmedPet(long frame) {
++        return confirmed ? petDetailAnchor(frame) : null;
++    }
++
++    public boolean lastObservationMissed() { return hits == 0; }
++
+     public static boolean needsPetDetail(Box pet, List<Box> primary) {
+         if (primary.isEmpty()) return true;
+         if (pet == null) return false;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+index d417df5..468a4ef 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+@@ -10,14 +10,16 @@ public final class PetDetailInput {
+     public final int left, top, side;
+     private final int width, height;
+     private final Candidate proposal;
++    private final boolean localSearch;
+ 
+-    private PetDetailInput(int width, int height, Candidate proposal) {
++    private PetDetailInput(int width, int height, Candidate proposal, boolean localSearch) {
+         this.width = width;
+         this.height = height;
+         this.proposal = proposal;
++        this.localSearch = localSearch;
+         int shortEdge = Math.min(width, height);
+         float extent = Math.max(proposal.width()*width, proposal.height()*height);
+-        side = Math.min(shortEdge, Math.max(1, Math.round(Math.max(shortEdge*.22f, 1.6f*extent))));
++        side = Math.min(shortEdge, Math.max(1, Math.round(Math.max(shortEdge*.22f, (localSearch ? 1.8f : 1.6f)*extent))));
+         left = Math.max(0, Math.min(width-side, Math.round(proposal.cx()*width-side*.5f)));
+         top = Math.max(0, Math.min(height-side, Math.round(proposal.cy()*height-side*.5f)));
+     }
+@@ -33,7 +35,24 @@ public final class PetDetailInput {
+             double rank = c.score - .28*Math.hypot(c.cx()-.5f, c.cy()-.5f);
+             if (rank > bestRank) { bestRank = rank; best = c; }
+         }
+-        return best == null ? null : new PetDetailInput(width, height, best);
++        return best == null ? null : new PetDetailInput(width, height, best, false);
++    }
++
++    public static PetDetailInput forTracking(int width, int height, List<Candidate> candidates,
++                                             Box trackedPet, Box confirmedPet, boolean missed) {
++        PetDetailInput usual = choose(width, height, candidates, trackedPet);
++        if (usual != null && !missed) return usual;
++        PetDetailInput local = nearLastPet(width, height, confirmedPet);
++        return local != null ? local : usual;
++    }
++
++    /** When the full preview misses an established pet, inspect its recent neighbourhood. */
++    public static PetDetailInput nearLastPet(int width, int height, Box pet) {
++        if (pet == null || width <= 0 || height <= 0
++                || (pet.type != ClassId.CAT && pet.type != ClassId.DOG)) return null;
++        Candidate prior = new Candidate(pet.type == ClassId.CAT ? "cat" : "dog", 1f,
++                pet.left, pet.top, pet.right, pet.bottom);
++        return plausible(prior) ? new PetDetailInput(width, height, prior, true) : null;
+     }
+ 
+     private static boolean plausible(Candidate c) {
+@@ -50,7 +69,8 @@ public final class PetDetailInput {
+                     || !c.valid() || c.score < .55f || c.score > 1f) continue;
+             float l=(left+c.left*side)/width, r=(left+c.right*side)/width;
+             float t=(top+c.top*side)/height, b=(top+c.bottom*side)/height;
+-            if (overlap(proposal, l,t,r,b) < .40f) continue;
++            if (overlap(proposal, l,t,r,b) < (localSearch ? .25f : .40f)) continue;
++            if (localSearch && c.category != proposal.category) continue;
+             if (match != null) return null;
+             match = Box.verifiedPet(c.category, l,t,r,b);
+         }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 576578b..0d18a28 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -84,6 +84,7 @@ final class HumanSubjectFocusController {
+     private boolean running, closed, inFlight, manualOverride, unsupported;
+     private long epoch, freshSinceNs, lastFrameNs = Long.MIN_VALUE;
+     private long lastAttemptMs, lastResultMs, lastFacesMs;
++    private long nextAutomaticAfMs;
+     private String camera;
+     private CameraMode mode;
+     private boolean monochrom;
+@@ -149,6 +150,7 @@ final class HumanSubjectFocusController {
+         latestFaces=Collections.emptyList();
+         lastFacesMs=0;
+         lastResultMs=0;
++        nextAutomaticAfMs=0;
+         lastFrameNs=Long.MIN_VALUE;
+         lastAttemptMs=0;
+         manualOverride=false;
+@@ -260,7 +262,10 @@ final class HumanSubjectFocusController {
+             clear();
+             bind(g);
+         }
+-        if (focus!=null && !focus.valid()) { clear(); return; }
++        if (focus!=null && !focus.valid()) {
++            if (automaticMode) deferAutomaticAf();
++            else { clear(); return; }
++        }
+         FocusControlSettings.configure(focusScope);
+         CaptureController focusStateOwner=fragment.getCaptureController();
+         CaptureController.FocusStateSnapshot focusSample=
+@@ -485,6 +490,8 @@ final class HumanSubjectFocusController {
+         final Bitmap preview=bitmap;
+         final Box anchor=automatic.recoveryAnchor(frame);
+         final Box petAnchor=automatic.petDetailAnchor(frame);
++        final Box lastPet=automatic.confirmedPet(frame);
++        final boolean missed=automatic.lastObservationMissed();
+         objectWorker.execute(() -> {
+             List<SubjectAnchorPolicy.Candidate> bodies=Collections.emptyList();
+             if (objects!=null && !objectsUnavailable) {
+@@ -521,7 +528,8 @@ final class HumanSubjectFocusController {
+             } else if (objects!=null && !objectsUnavailable && !petDetailUnavailable
+                     && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS
+                     && AutomaticSubjectSelection.needsPetDetail(petAnchor,faces)) {
+-                PetDetailInput crop=PetDetailInput.choose(preview.getWidth(),preview.getHeight(),bodies,petAnchor);
++                PetDetailInput crop=PetDetailInput.forTracking(preview.getWidth(),preview.getHeight(),
++                        bodies,petAnchor,lastPet,missed);
+                 if (crop!=null) {
+                     try {
+                         Box pet=objects.verifyPet(preview,crop);
+@@ -560,12 +568,19 @@ final class HumanSubjectFocusController {
+         overlay.setContentDescription(overlay.getContext().getString(label));
+         boxVisible=true;
+         if (!automatic.mayAim()) { finish(); return; }
++        updateAutomaticAf(ticket,g,box);
++    }
++
++    void updateAutomaticAf(long ticket, TrackingGeometry g, Box box) {
++        if (SystemClock.elapsedRealtime()<nextAutomaticAfMs) {
++            finish();
++            return;
++        }
+         if (focus==null) {
+             CaptureController capture=fragment.getCaptureController();
+             if (capture!=null) focus=capture.newTrackingFocus();
+             if (focus==null || !focus.valid()) {
+-                unsupported=true;
+-                releaseFocus();
++                deferAutomaticAf();
+                 finish();
+                 return;
+             }
+@@ -574,16 +589,24 @@ final class HumanSubjectFocusController {
+             focus.update(g,box.aimX,box.aimY,applied -> main.post(() -> {
+                 if (accepts(ticket,g)) {
+                     if (applied) lastResultMs=SystemClock.elapsedRealtime();
+-                    else releaseFocus();
++                    else deferAutomaticAf();
+                 }
+                 finish();
+             }));
+         } catch (RuntimeException unavailable) {
+-            releaseFocus();
++            deferAutomaticAf();
+             finish();
+         }
+     }
+ 
++    /** Camera2 may temporarily reject a region while the same preview keeps delivering frames. */
++    private void deferAutomaticAf() {
++        if (focus!=null) focus.close();
++        focus=null;
++        lastResultMs=0;
++        nextAutomaticAfMs=SystemClock.elapsedRealtime()+750;
++    }
++
+     private void releaseFocus() {
+         if (focus!=null) focus.close();
+         if (focus!=null || boxVisible) overlay.setVisibility(View.GONE);
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/AutomaticSubjectAfRetryTest.java b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/AutomaticSubjectAfRetryTest.java
+new file mode 100644
+index 0000000..63b89a8
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/AutomaticSubjectAfRetryTest.java
+@@ -0,0 +1,52 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Application;
++import android.os.Looper;
++import android.view.SurfaceView;
++import android.view.View;
++import com.particlesdevs.photoncamera.capture.CaptureController;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.TrackingGeometry;
++import com.particlesdevs.photoncamera.ui.camera.views.TrackingFocusView;
++import java.time.Duration;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import org.robolectric.util.ReflectionHelpers;
++import static org.junit.Assert.assertFalse;
++import static org.mockito.Mockito.*;
++import static org.robolectric.Shadows.shadowOf;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class AutomaticSubjectAfRetryTest {
++    @Test public void transientAfFailureKeepsRecognitionAndRetriesOnFreshSubject() {
++        CameraFragment fragment=mock(CameraFragment.class);
++        CaptureController capture=mock(CaptureController.class);
++        CaptureController.TrackingFocus busy=mock(CaptureController.TrackingFocus.class);
++        CaptureController.TrackingFocus ready=mock(CaptureController.TrackingFocus.class);
++        when(fragment.getCaptureController()).thenReturn(capture);
++        when(capture.newTrackingFocus()).thenReturn(busy,ready);
++        when(ready.valid()).thenReturn(true);
++        TrackingFocusView overlay=mock(TrackingFocusView.class);
++        HumanSubjectFocusController subjects=new HumanSubjectFocusController(fragment,
++                mock(SurfaceView.class),overlay);
++        try {
++            ReflectionHelpers.setField(subjects,"boxVisible",true);
++            TrackingGeometry geometry=mock(TrackingGeometry.class);
++            Box first=Box.fromBody(new Candidate("cat",.8f,.2f,.25f,.45f,.61f));
++            Box next=Box.fromBody(new Candidate("cat",.8f,.31f,.25f,.56f,.61f));
++            subjects.updateAutomaticAf(1,geometry,first);
++            verify(busy).close();
++            assertFalse((Boolean)ReflectionHelpers.getField(subjects,"unsupported"));
++            subjects.updateAutomaticAf(1,geometry,first);
++            verify(capture,times(1)).newTrackingFocus();
++            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(800));
++            subjects.updateAutomaticAf(1,geometry,next);
++            verify(ready).update(eq(geometry),eq(next.aimX),eq(next.aimY),any());
++            verify(overlay,never()).setVisibility(View.GONE);
++        } finally { subjects.close(); }
++    }
++}
