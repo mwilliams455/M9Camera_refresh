@@ -25,6 +25,7 @@ auto_versions = {
     '3.19-petdetail1a': ('3.18-autoreframe1a', 'petdetail1a', 27319, 'M9Cam_3.19_PETDETAIL1A.apk'),
     '3.20-petcontinuity1a': ('3.19-petdetail1a', 'petcontinuity1a', 27320, 'M9Cam_3.20_PETCONTINUITY1A.apk'),
     '3.21-petacquisition1a': ('3.20-petcontinuity1a', 'petacquisition1a', 27321, 'M9Cam_3.21_PETACQUISITION1A.apk'),
+    '3.22-multiface1a': ('3.21-petacquisition1a', 'multiface1a', 27322, 'M9Cam_3.22_MULTIFACE1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
 }

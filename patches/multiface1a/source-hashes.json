@@ -1,0 +1,18 @@
+{
+  "app/build.gradle": {
+    "before": "bb4c9d52c0ed18cb02ed05d3e5e4ba4c9cc2854d02c6e7b4e7281f20dc19ccf3",
+    "after": "b3189d1e1785a7894d1695cc70f66be5a4b6820670aa04b4ae56f7e31fdcd40b"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "aca31fb23b4e508f06c57986362f1e794e5288eb3dd00576303e5f692ff36a8b",
+    "after": "6801a6b6b905051683d451f72f4d89afe5f95a799126fff007be932e8539443b"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java": {
+    "before": "4c3cca8527987f6c101a91142813f2e4ac50ecaa70b762136fc0ca91bf7bd208",
+    "after": "288f85e9382bed0e85b2b1ebdc4f45abd4c0794cea97408b2ee8d5ff9751f01e"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java": {
+    "before": null,
+    "after": "335ae7c9e92242fd39376295e7dd204e2c3d6b316b4ac956da4ac5e88462e182"
+  }
+}

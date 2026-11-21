@@ -86,6 +86,7 @@ def main():
         (319, "3.19-petdetail1a", "petdetail1a", "--pet-detail"),
         (320, "3.20-petcontinuity1a", "petcontinuity1a", "--pet-continuity"),
         (321, "3.21-petacquisition1a", "petacquisition1a", "--pet-acquisition"),
+        (322, "3.22-multiface1a", "multiface1a", "--multi-face"),
     )
     for number, label, stage, flag in versions[1:]:
         parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,
