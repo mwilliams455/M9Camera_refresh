@@ -21,6 +21,7 @@ scope=json.loads((out/'SOURCE_VERIFICATION.json').read_text())
 assert scope['status']=='STAGED_FOR_ANDROID_BUILD'
 auto_versions = {
     '3.15-autosubject1a': ('3.14-trackingrecovery1a', 'autosubject1a', 27315, 'M9Cam_3.15_AUTOSUBJECT1A.apk'),
+    '3.18-autoreframe1a': ('3.17-autosubject1c', 'autoreframe1a', 27318, 'M9Cam_3.18_AUTOREFRAME1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
 }

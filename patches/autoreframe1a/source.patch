@@ -1,0 +1,160 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index f86eec3..b06f1ab 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27317
++        versionCode 27318
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.17-autosubject1c'
++        versionName '3.18-autoreframe1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.17_AUTOSUBJECT1C-${variant.name}.apk"
++            outputFileName = "M9Cam_3.18_AUTOREFRAME1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+index 6b9ab1b..2e0e8d4 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -34,6 +34,13 @@ public final class AutomaticSubjectSelection {
+         public float cy() { return (top + bottom) * .5f; }
+         private float area() { return (right - left) * (bottom - top); }
+ 
++        /** The upper torso approximates the composition point when a face is turned away. */
++        private float framingY() { return face ? cy() : top+(bottom-top)*.28f; }
++
++        private double distanceFromCentre() {
++            return Math.hypot(cx()-.5f, framingY()-.5f);
++        }
++
+         public static Box fromFace(SubjectFocusPolicy.Face f, boolean admittedEye) {
+             return fromFace(f, admittedEye, 0);
+         }
+@@ -80,9 +87,13 @@ public final class AutomaticSubjectSelection {
+     private boolean confirmed, lastWasRecovery;
+     private long selectionId;
+     private int faceRotation;
++    private Box challenger;
++    private long challengerSince, challengerLast;
++    private static final long REFRAME_DWELL_NS = 220_000_000L;
++    private static final long REFRAME_GAP_NS = 400_000_000L;
+ 
+     public void reset() {
+-        active = null;
++        active = challenger = null;
+         lastSeen = lastFrame = Long.MIN_VALUE;
+         faceRotation = 0;
+         confirmed = lastWasRecovery = false;
+@@ -154,6 +165,43 @@ public final class AutomaticSubjectSelection {
+         return false;
+     }
+ 
++    /** An off-centre face cannot tell us whether a second, centred person has turned away. */
++    public boolean checkOtherPeople(List<Box> faces, long now) {
++        if (faces.isEmpty() || (visibleAt(now) && active.type!=ClassId.PERSON)) return false;
++        for (Box face : faces) if (!face.face || face.distanceFromCentre()<.20) return false;
++        return true;
++    }
++
++    private Box reframedPerson(Box current, List<Box> boxes, long frame) {
++        if (current==null || current.type!=ClassId.PERSON || current.distanceFromCentre()<.22) {
++            challenger=null;
++            return null;
++        }
++        double currentDistance=current.distanceFromCentre();
++        Box nearest=null;
++        double best=Double.POSITIVE_INFINITY, runner=Double.POSITIVE_INFINITY;
++        for (Box box : boxes) {
++            if (box==current || box.type!=ClassId.PERSON) continue;
++            if ((current.face || box.face) && continuity(current,box)>0f) continue;
++            if (Math.hypot(current.cx()-box.cx(), current.framingY()-box.framingY())<.22
++                    || overlap(current,box)>.40f) continue;
++            double distance=box.distanceFromCentre();
++            boolean continuing=challenger!=null && frame-challengerLast<=REFRAME_GAP_NS
++                    && continuity(challenger,box)>0f;
++            if (distance>.30 || currentDistance-distance<(continuing ? .045 : .08)) continue;
++            if (distance<best) { runner=best; best=distance; nearest=box; }
++            else runner=Math.min(runner,distance);
++        }
++        if (nearest==null || runner-best<.055) { challenger=null; return null; }
++        if (challenger==null || frame-challengerLast>REFRAME_GAP_NS || continuity(challenger,nearest)<=0f)
++            challengerSince=frame;
++        challenger=nearest;
++        challengerLast=frame;
++        if (frame-challengerSince<REFRAME_DWELL_NS) return null;
++        challenger=null;
++        return nearest;
++    }
++
+     public Box observe(long frame, long now, List<Box> boxes) {
+         return observe(frame,now,boxes,null);
+     }
+@@ -161,24 +209,37 @@ public final class AutomaticSubjectSelection {
+     public Box observe(long frame, long now, List<Box> boxes, Box recoveredPerson) {
+         if (frame <= lastFrame || frame <= 0 || now < frame) return null;
+         lastFrame = frame;
+-        if (now-frame > MAX_AGE_NS) { hits=0; return null; }
+-        if (active != null && frame-lastSeen > HOLD_NS) { active=null; hits=0; confirmed=false; }
++        if (now-frame > MAX_AGE_NS) { hits=0; challenger=null; return null; }
++        if (active != null && frame-lastSeen > HOLD_NS) { active=challenger=null; hits=0; confirmed=false; }
+         Box best=null;
+         double score=-Double.MAX_VALUE, runner=-Double.MAX_VALUE;
++        int people=0;
++        if (active==null) for (Box box : boxes) if (box.type==ClassId.PERSON) people++;
+         for (Box box : boxes) {
+             double rank;
+             if (active != null) {
+                 rank=continuity(active,box);
+                 if (rank<=0) continue;
++            } else if (people>1 && people==boxes.size()) {
++                // Use the same centre preference when several people reappear after a loss.
++                rank=.58-box.distanceFromCentre()+.12*Math.sqrt(box.area());
+             } else {
+                 rank=Math.sqrt(box.area())-.28*Math.hypot(box.cx()-.5f,box.cy()-.5f);
+             }
+             if (rank>score) { runner=score; score=rank; best=box; }
+             else runner=Math.max(runner,rank);
+         }
+-        if (best!=null && active!=null && score-runner<.06) { hits=0; return null; }
++        if (best!=null && active!=null && score-runner<.06) { hits=0; challenger=null; return null; }
+         boolean recovered=best==null && matchesRecovery(recoveryAnchor(now),recoveredPerson);
+         if (recovered) best=recoveredPerson;
++        Box transfer=confirmed && active!=null ? reframedPerson(best!=null ? best : active,boxes,frame) : null;
++        if (transfer!=null) {
++            active=null;
++            hits=0;
++            confirmed=false;
++            recovered=false;
++            best=transfer;
++        }
+         if (best==null) { hits=0; return null; }
+         if (active == null) selectionId++;
+         // A lone secondary observation can maintain the frame. Require a second
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 56f20d0..61ebbe0 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -400,7 +400,7 @@ final class HumanSubjectFocusController {
+             }
+             boolean matched=automatic.facesSuffice(boxes);
+             automatic.faceScanComplete(matched);
+-            if (matched) applyAutomatic(ticket,g,startedNs,boxes);
++            if (matched && !automatic.checkOtherPeople(boxes,nowNs)) applyAutomatic(ticket,g,startedNs,boxes);
+             else detectBodies(ticket,g,startedNs,boxes);
+             return;
+         }

@@ -1,13 +1,13 @@
 # Current M9Cam build and tests
 
 Pull requests targeting main, pushes to main, and manual runs reconstruct
-3.17-autosubject1c (version code 27317). Run these from the repository
+3.18-autoreframe1a (version code 27318). Run these from the repository
 root using the Android and JDK versions in verify-m9cam-current.yml.
 
 ```sh
-python3 scripts/ci/prepare_314.py /tmp/m9-317 --person-recovery
-bash scripts/ci/test_tracking.sh /tmp/m9-317/PhotonCamera_317
-python3 scripts/ci/verify_tests.py /tmp/m9-317/PhotonCamera_317 --run
+python3 scripts/ci/prepare_314.py /tmp/m9-318 --auto-reframe
+bash scripts/ci/test_tracking.sh /tmp/m9-318/PhotonCamera_318
+python3 scripts/ci/verify_tests.py /tmp/m9-318/PhotonCamera_318 --run
 ```
 
 The accepted source descends from 2.95 through the focus and tracking patches.

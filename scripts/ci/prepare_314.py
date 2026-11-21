@@ -77,28 +77,29 @@ def apply_ci_fixture(source, reports, version="3.14-trackingrecovery1a", pin="so
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
-    parser.add_argument("--auto-subject", action="store_true", help="Apply the 3.15 automatic subject patch")
-    parser.add_argument("--stable-framing", action="store_true", help="Apply automatic subject tracking through 3.16")
-    parser.add_argument("--person-recovery", action="store_true", help="Apply automatic subject tracking through 3.17")
+    versions = (
+        (314, "3.14-trackingrecovery1a", None, None),
+        (315, "3.15-autosubject1a", "autosubject1a", "--auto-subject"),
+        (316, "3.16-autosubject1b", "autosubject1b", "--stable-framing"),
+        (317, "3.17-autosubject1c", "autosubject1c", "--person-recovery"),
+        (318, "3.18-autoreframe1a", "autoreframe1a", "--auto-reframe"),
+    )
+    for number, label, stage, flag in versions[1:]:
+        parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,
+                            help=f"Apply automatic subject tracking through {label}")
     args = parser.parse_args()
     dest = args.destination.resolve()
     dest.mkdir(parents=True, exist_ok=False)
     if subprocess.run(["git", "-C", dest, "rev-parse", "--show-toplevel"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         raise ValueError("Reconstruct outside the Git checkout")
-    version = 317 if args.person_recovery else 316 if args.stable_framing else 315 if args.auto_subject else 314
+    version = max(args.requested_versions or [314])
     source = dest / f"PhotonCamera_{version}"
     reports = dest / "verification"
     reports.mkdir()
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
-    versions = (
-        (314, "3.14-trackingrecovery1a", None),
-        (315, "3.15-autosubject1a", "autosubject1a"),
-        (316, "3.16-autosubject1b", "autosubject1b"),
-        (317, "3.17-autosubject1c", "autosubject1c"),
-    )
-    for number, label, stage in versions:
+    for number, label, stage, _ in versions:
         if stage:
             run_python(PATCHES / stage / "apply.py", source, reports / f"{stage}.json")
         pin = f"source-{number}.sha256"
