@@ -75,7 +75,8 @@ if __name__ == "__main__":
     if (args.source / retry_test).is_file():
         SUITES["AutomaticSubjectAfRetryTest"] = 1
     if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java").is_file():
-        SUITES["MultiFaceOverlayTest"] = 3
+        head_pairs = args.source / "app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java"
+        SUITES["MultiFaceOverlayTest"] = 4 if head_pairs.is_file() else 3
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]

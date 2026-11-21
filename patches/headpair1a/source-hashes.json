@@ -25,10 +25,14 @@
   },
   "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneFaceDetector.java": {
     "before": null,
-    "after": "5936a34ae83f12e5d658aa98cb720eac6dacac58145bbefae712953d64fbdfb7"
+    "after": "54b52ae6d33f2dac8ed09024f43ff30b36c498e6e17d9b8f974e6438beb506cf"
   },
   "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java": {
     "before": "288f85e9382bed0e85b2b1ebdc4f45abd4c0794cea97408b2ee8d5ff9751f01e",
     "after": "2062c36c0700c33bdded50f373cbb0ff57efc67479bdddf1b5a121cfe0d98e73"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java": {
+    "before": "335ae7c9e92242fd39376295e7dd204e2c3d6b316b4ac956da4ac5e88462e182",
+    "after": "b84ceba55794c93c2da7774d58c3fb5463dc0d13e0629fb7500bed9e49b1856c"
   }
 }

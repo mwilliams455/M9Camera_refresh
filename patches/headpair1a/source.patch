@@ -224,7 +224,7 @@
          try {
 --- /dev/null
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneFaceDetector.java
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,63 @@
 +package com.particlesdevs.photoncamera.ui.camera;
 +
 +import android.content.Context;
@@ -247,7 +247,7 @@
 +/** Serial preview worker. One bounded face pass, using the OpenCV runtime already bundled. */
 +final class SceneFaceDetector implements AutoCloseable {
 +    private final FaceDetectorYN detector;
-+    private final Mat rgba, small, bgr, output;
++    private final Mat rgba, bgr, output;
 +    private final float[] row = new float[15];
 +
 +    SceneFaceDetector(Context context) throws IOException {
@@ -258,23 +258,22 @@
 +            for (int read; (read = in.read(buffer)) != -1;) out.write(buffer, 0, read);
 +            MatOfByte weights = new MatOfByte(out.toByteArray()), config = new MatOfByte();
 +            try {
-+                detector = FaceDetectorYN.create("onnx", weights, config, new Size(360,480), .80f, .3f, 500);
++                detector = FaceDetectorYN.create("onnx", weights, config, new Size(540,720), .80f, .3f, 500);
 +            } finally {
 +                weights.release();
 +                config.release();
 +            }
 +        }
-+        rgba = new Mat(); small = new Mat(); bgr = new Mat(); output = new Mat();
++        rgba = new Mat(); bgr = new Mat(); output = new Mat();
 +    }
 +
 +    List<Box> detect(Bitmap bitmap, int rotation) {
 +        Utils.bitmapToMat(bitmap, rgba);
-+        float scale = 480f / Math.max(rgba.cols(), rgba.rows());
-+        int w = Math.max(1, Math.round(scale*rgba.cols())), h = Math.max(1, Math.round(scale*rgba.rows()));
-+        Size size = new Size(w,h);
-+        Imgproc.resize(rgba, small, size, 0, 0, Imgproc.INTER_AREA);
-+        Imgproc.cvtColor(small, bgr, Imgproc.COLOR_RGBA2BGR);
-+        detector.setInputSize(size);
++        // The preview sampler already caps the long edge at 720 px. Preserve the
++        // profile detail in crowded scenes instead of resizing this sample twice.
++        int w=rgba.cols(), h=rgba.rows();
++        Imgproc.cvtColor(rgba, bgr, Imgproc.COLOR_RGBA2BGR);
++        detector.setInputSize(new Size(w,h));
 +        detector.detect(bgr, output);
 +        List<Box> boxes = new ArrayList<>();
 +        for (int i=0; i<output.rows(); i++) {
@@ -286,7 +285,7 @@
 +    }
 +
 +    @Override public void close() {
-+        rgba.release(); small.release(); bgr.release(); output.release();
++        rgba.release(); bgr.release(); output.release();
 +    }
 +}
 --- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java
@@ -301,3 +300,20 @@
              headCount = 0;
          } else {
              if (headFrames.length < headCount * 3) headFrames = new float[headCount * 3];
+--- a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java
+@@ -90,6 +90,14 @@
+         assertEquals(Collections.singletonList(50f),leftEdges);
+     }
+ 
++    @Test public void oneRemainingSelectedFaceKeepsItsHeadSizedSquare() {
++        heads(both,left,false);
++        heads(Collections.singletonList(left),left,false);
++        assertEquals(1,leftEdges.size());
++        assertEquals(70f,leftEdges.get(0),.01f);
++        assertEquals(Collections.singletonList(0xfffcfcf8),colors);
++    }
++
+     @Test public void bodyAndManualTrackingKeepTheirOwnFrames() {
+         Box dog = Box.fromBody(new Candidate("dog",.9f,.4f,.3f,.6f,.7f));
+         heads(Arrays.asList(left,dog),dog,false);
