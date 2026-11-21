@@ -39,6 +39,9 @@ selection="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control
 if [[ -f "$selection" ]] && grep -Fq 'checkOtherPeople(' "$selection"; then
   tests+=(patches/autoreframe1a/host/PersonReframeTest.java)
 fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java" ]]; then
+  tests+=(patches/petdetail1a/host/PetDetailInputTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"
