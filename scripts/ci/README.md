@@ -1,52 +1,31 @@
-# Current M9Cam CI
+# Current M9Cam build and tests
 
-Adapts the build, verification and CodeQL work in PhotonCamera commit
-`ac62e920a2aed5ba6b311d0b7a591d419354f022` to this patch-based repository.
-The current source target is **2.89-rawgeometry1a**, based on main
-`44807fb8e3b0cc18bd9ba698a86f0bef547297f4`, with RAW geometry validation.
-
-The new workflow checks each relevant pull-request revision, main push and
-manual run. It checks the event revision; it does not create a build matrix for
-every intermediate commit in a batch push. Historical installer workflows remain
-available, and their signing/native-library packaging is unchanged.
-
-`prepare_source.py` reconstructs and verifies the pinned source chain using the
-existing assembly and verification scripts. It then applies the upstream
-CaptureControllerTest fixture fix, with teardown that restores the previous app
-singleton so the fixture cannot leak into other tests. A before/after inventory
-requires that this test file is the only changed scoped file. App version, Java
-production code, resources, rendering assets and native source remain at the verified 2.89 candidate.
-Assembly runs outside the checkout to keep historical git-format patches from
-resolving against the packaging repository; the verified tree is then moved
-into the workspace for CodeQL.
-
-`verify_tests.py` preserves the existing 183-test gate and adds 22 RAW geometry
-regressions. Missing suites, failures, errors and skipped tests fail
-the job. Library release-resource verification remains enabled.
-
-CodeQL v4 uses manual Java/Kotlin compilation after source reconstruction, with
-incremental/build-cache reuse disabled. Diff-informed PR filtering is disabled:
-Git diffs contain patch archives rather than the reconstructed Java paths, so
-every run must analyze the whole reconstructed tree. Findings are uploaded to GitHub code
-scanning; SARIF, verification JSON, test reports and the reconstructed Java/Kotlin
-source (including compiled test sources) are also retained as a 30-day artifact. Since source files are held in
-compressed patches rather than individual tracked files, GitHub source links for
-findings may not resolve; use the source included with the scan artifact.
-The scan covers Java/Kotlin, not native C/C++.
-
-This verification workflow does not publish an installer. The separate
-`build-m9cam-rawgeometry1a.yml` workflow packages the signed 2.89 candidate. Advancing the current CI
-target requires updating the chain, baseline fingerprint source and workflow
-source paths together.
-
-Local source-only verification with an existing verified 2.89 tree:
+Pull requests targeting main, pushes to main, and manual runs reconstruct
+3.14-trackingrecovery1a (version code 27314). Run these from the repository
+root using the Android and JDK versions in verify-m9cam-current.yml.
 
 ```sh
-python3 scripts/ci/prepare_source.py /tmp/m9-ci --verified-source /path/to/PhotonCamera_289
+python3 scripts/ci/prepare_314.py /tmp/m9-314
+bash scripts/ci/test_tracking.sh /tmp/m9-314/PhotonCamera_314
+python3 scripts/ci/verify_tests.py /tmp/m9-314/PhotonCamera_314 --run
 ```
 
-Android build and tests (requires the workflow's Android SDK/NDK and Java 17):
+The accepted source descends from 2.95 through the focus and tracking patches.
+Reconstruction verifies the models and scoped source digest before applying
+the test-only CaptureController fixture. The 2.96 experiment retains its
+own historical reconstruction entry point, prepare_source.py.
 
-```sh
-python3 scripts/ci/verify_tests.py /tmp/m9-ci/PhotonCamera_289 --run
-```
+The workflow runs the tracking policy programs against the reconstructed
+classes and checks the selected Android suites against their JUnit XML counts.
+It verifies library release resources and runs CodeQL on the same Java/Kotlin
+source during Gradle compilation. The verification artifact includes test
+reports, source fingerprints, scanned sources and SARIF.
+
+The installer uses the original signing identity and verifies 16 KiB alignment.
+The two archives in patches/trackingrecovery1a/baseline contain the 21 native
+libraries that differ from or are missing in the Gradle APK. They were extracted
+from the signed 3.13 APK (SHA-256
+`167393ccfdc25c5d0c232a6012b213b8e5cf1b094ee1a35e540c75faf2e7623c`).
+The adjacent manifest pins all 37 native libraries and 301 assets. Packaging
+verifies every entry and the signed output. All packaging inputs are available
+independently of previous Actions runs.

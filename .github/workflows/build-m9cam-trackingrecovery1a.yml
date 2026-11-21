@@ -265,13 +265,6 @@ jobs:
             --tests '*FocusPointLayoutTest' --tests '*TouchFocusTest' \
             --tests '*TouchFocusHandoverTest' --tests '*ProfileCaptureTest' \
             --no-daemon --max-workers=2
-      - name: Download exact signed 3.13 candidate parent APK
-        uses: actions/download-artifact@v4
-        with:
-          name: M9Cam-3.13-TRACKINGDEFAULT1A-READY-TO-INSTALL
-          run-id: 40476234115
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/accepted313
       - name: Sign 3.14 preserving exact 3.13 native libraries and assets
         run: |
           mkdir -p "$RUNNER_TEMP/installer314"
@@ -280,7 +273,7 @@ jobs:
           python3 patches/trackingrecovery1a/package.py \
             "$RUNNER_TEMP/PhotonCamera_304" \
             "$RUNNER_TEMP/PhotonCamera_304/app/build/outputs/apk/debug/M9Cam_3.14_TRACKINGRECOVERY1A-debug.apk" \
-            "$RUNNER_TEMP/accepted313/M9Cam_3.13_TRACKINGDEFAULT1A.apk" \
+            patches/trackingrecovery1a/baseline \
             "$ANDROID_HOME/build-tools/35.0.0" \
             "$RUNNER_TEMP/installer314"
       - name: Preserve signed 3.14 identity recovery candidate

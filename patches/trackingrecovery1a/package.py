@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Package signed 3.14 against exact 3.13 native libraries, assets and certificate."""
 from pathlib import Path
-import copy,hashlib,json,re,subprocess,sys,zipfile
+import copy,hashlib,json,subprocess,sys,tarfile,zipfile
 
 root,built,oldapk,bt,out=(Path(s).resolve() for s in sys.argv[1:])
 out.mkdir(parents=True,exist_ok=True)
 sha=lambda data:hashlib.sha256(data).hexdigest()
 accepted='167393ccfdc25c5d0c232a6012b213b8e5cf1b094ee1a35e540c75faf2e7623c'
 certificate='255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
-assert sha(oldapk.read_bytes())==accepted,'Exact signed 3.13 candidate APK required'
+# New CI uses the repository baseline. Keep accepting the original signed parent
+# for callers reproducing the historical installer command.
+baseline_dir = Path(__file__).resolve().parent / 'baseline'
+manifest = json.loads((baseline_dir / 'sha256.json').read_text())
+native_names = {name for name in manifest if name.startswith('lib/')}
+asset_names = {name for name in manifest if name.startswith('assets/')}
+assert len(native_names) == 37 and len(asset_names) == 301
+assert native_names | asset_names == set(manifest)
 assert built.is_file() and (root/'key/PcamLeak.jks').is_file()
 scope=json.loads((out/'SOURCE_VERIFICATION.json').read_text())
 assert scope['status']=='STAGED_FOR_ANDROID_BUILD'
@@ -30,29 +37,44 @@ expected_model=(Path(__file__).resolve().parent.parent/'focusanimaleye1a/MODEL_S
 assert sha(asset.read_bytes())==expected_model
 signing=lambda name:name=='META-INF/MANIFEST.MF' or name.startswith('META-INF/') and name.endswith(('.RSA','.DSA','.EC','.SF'))
 signer=['java','-jar',str(bt/'lib/apksigner.jar')]
-cert=subprocess.check_output(signer+['verify','--verbose','--print-certs',str(oldapk)],text=True)
-assert certificate in cert and 'Verified using v2 scheme (APK Signature Scheme v2): true' in cert
+if oldapk == baseline_dir:
+    native_overrides = {}
+    for abi in ('arm64-v8a', 'armeabi-v7a'):
+        with tarfile.open(baseline_dir / (abi + '.tar.xz'), 'r:xz') as archive:
+            for member in archive:
+                assert member.isfile() and member.name.startswith(f'lib/{abi}/')
+                assert member.name in native_names and member.name not in native_overrides
+                payload = archive.extractfile(member).read()
+                assert sha(payload) == manifest[member.name], member.name
+                native_overrides[member.name] = payload
+else:
+    assert sha(oldapk.read_bytes()) == accepted, 'Exact signed 3.13 parent APK required'
+    cert = subprocess.check_output(signer + ['verify', '--verbose', '--print-certs', str(oldapk)], text=True)
+    assert certificate in cert and 'Verified using v2 scheme (APK Signature Scheme v2): true' in cert
+    with zipfile.ZipFile(oldapk) as parent:
+        native_overrides = {name: parent.read(name) for name in native_names}
+
 unsigned=out/'unsigned.apk';aligned=out/'aligned.apk';final=out/'M9Cam_3.14_TRACKINGRECOVERY1A.apk'
-expected={}
-with zipfile.ZipFile(oldapk) as old,zipfile.ZipFile(built) as new,zipfile.ZipFile(unsigned,'w') as dst:
-    assert old.testzip() is None and new.testzip() is None
-    original_lib={n:old.read(n) for n in old.namelist() if n.startswith('lib/') and n.endswith('.so')}
-    original_assets={n:old.read(n) for n in old.namelist() if n.startswith('assets/') and not n.endswith('/')}
-    assert len(original_lib)==37,len(original_lib)
-    assert len(original_assets)==301,len(original_assets)
-    new_names=set(new.namelist())
-    assert not any(n.startswith('lib/') and n.endswith('.so') and n not in original_lib for n in new_names), 'No new native lib allowed'
-    assert not any(n.startswith('assets/') and not n.endswith('/') and n not in original_assets for n in new_names),'No new model or asset allowed'
-    for n,payload in original_assets.items():assert n in new_names and new.read(n)==payload,n
+expected = {}
+with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
+    assert new.testzip() is None
+    new_names = set(new.namelist())
+    assert len(new_names) == len(new.infolist()), 'Duplicate APK entries'
+    assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == asset_names
+    assert {n for n in new_names if n.startswith('lib/') and n.endswith('.so')} <= native_names
     for info in new.infolist():
-        name=info.filename
-        if signing(name):continue
-        payload=original_lib[name] if name in original_lib else new.read(name)
-        expected[name]=sha(payload)
-        dst.writestr(copy.copy(info),payload)
-    for name in sorted(set(original_lib)-new_names):
-        payload=original_lib[name];expected[name]=sha(payload)
-        dst.writestr(copy.copy(old.getinfo(name)),payload)
+        name = info.filename
+        if signing(name):
+            continue
+        payload = native_overrides[name] if name in native_overrides else new.read(name)
+        expected[name] = sha(payload)
+        dst.writestr(copy.copy(info), payload)
+    for name in sorted(native_names - new_names):
+        payload = native_overrides[name]
+        expected[name] = sha(payload)
+        dst.writestr(zipfile.ZipInfo(name), payload, compress_type=zipfile.ZIP_STORED)
+    for name, digest in manifest.items():
+        assert expected.get(name) == digest, f'Accepted APK payload changed: {name}'
     dex=b''.join(new.read(n) for n in new_names if n.endswith('.dex'))
     for marker in ['SubjectAppearanceDescriptor','SubjectAnchorPolicy','TrackingTogglePolicy','FocusMotionPredictor',
                    'TrackingSemanticDetector','FocusTrackingController','pref_focus_tracking_identity',
@@ -79,8 +101,6 @@ with zipfile.ZipFile(final) as signed:
     assert signed.testzip() is None
     actual={n:sha(signed.read(n)) for n in signed.namelist() if not signing(n)}
     assert actual==expected,'Signed APK contents differ from validated build'
-    assert all(signed.read(n)==payload for n,payload in original_lib.items())
-    assert all(signed.read(n)==payload for n,payload in original_assets.items())
 report=dict(status='PASS',version='3.14-trackingrecovery1a',versionCode=27314,
             sha256=sha(final.read_bytes()),bytes=final.stat().st_size,parent=accepted,
             preserved37NativeLibraries=True,preserved301OriginalAssets=True,

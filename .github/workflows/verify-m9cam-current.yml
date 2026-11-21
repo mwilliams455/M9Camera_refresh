@@ -2,11 +2,9 @@ name: M9Cam current build, tests and CodeQL
 
 on:
   pull_request:
-    branches: ['main', 'codex/gallerypause1a-v2.88', 'codex/rawgeometry1a-v2.89', 'codex/cctguard1a-v2.90', 'codex/noiseguard1a-v2.91', 'codex/diagexport1a-v2.93', 'codex/diagsaf1b-v2.94']
-    paths: ['patches/**', 'scripts/ci/**', '.github/workflows/verify-m9cam-current.yml']
+    branches: ['main']
   push:
     branches: ['main']
-    paths: ['patches/**', 'scripts/ci/**', '.github/workflows/verify-m9cam-current.yml']
   workflow_dispatch:
 
 permissions:
@@ -44,38 +42,58 @@ jobs:
         # Assemble outside the checkout: historical git-format patches must not
         # resolve against the packaging repository's parent Git worktree.
         run: |
-          python3 scripts/ci/prepare_source.py "$RUNNER_TEMP/ci-source"
+          python3 scripts/ci/prepare_314.py "$RUNNER_TEMP/ci-source"
           mv "$RUNNER_TEMP/ci-source" "$GITHUB_WORKSPACE/ci-source"
+      - name: Run tracking and focus policy checks against 3.14
+        run: bash scripts/ci/test_tracking.sh ci-source/PhotonCamera_314
       - name: Initialize Java and Kotlin analysis
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
           build-mode: manual
-          source-root: ci-source/PhotonCamera_296
+          source-root: ci-source/PhotonCamera_314
           threads: 2
       - name: Build and run all selected regression suites
-        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_296" --run
+        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/ci-source/PhotonCamera_314" --run
       - name: Verify library release resources
-        working-directory: ci-source/PhotonCamera_296
+        working-directory: ci-source/PhotonCamera_314
         run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
+      - name: Package and verify the 3.14 installer
+        run: |
+          source=ci-source/PhotonCamera_314
+          installer=ci-source/installer
+          mkdir -p "$installer"
+          cp ci-source/verification/trackingrecovery1a.json "$installer/SOURCE_VERIFICATION.json"
+          cp ci-source/verification/MODEL_PROVENANCE.json "$installer/"
+          python3 patches/trackingrecovery1a/package.py "$source" \
+            "$source/app/build/outputs/apk/debug/M9Cam_3.14_TRACKINGRECOVERY1A-debug.apk" \
+            patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" "$installer"
       - name: Analyze reconstructed production source
         uses: github/codeql-action/analyze@v4
         with:
           category: /m9cam-current/java-kotlin
           output: ci-reports/codeql
           wait-for-processing: true
+      - name: Upload verified installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-3.14-verified-installer
+          path: ci-source/installer/
+          if-no-files-found: error
+          retention-days: 90
       - name: Retain test results, scan results and scanned source
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: m9cam-current-verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ci-source/*_VERIFICATION.json
-            ci-source/PhotonCamera_296/app/build/test-results/testDebugUnitTest/**
-            ci-source/PhotonCamera_296/app/build/reports/tests/testDebugUnitTest/**
-            ci-source/PhotonCamera_296/app/src/main/java/**
-            ci-source/PhotonCamera_296/app/src/test/java/**
-            ci-source/PhotonCamera_296/circularbarlib/src/main/java/**
+            ci-source/verification/*.json
+            ci-source/TEST_VERIFICATION.json
+            ci-source/PhotonCamera_314/app/build/test-results/testDebugUnitTest/**
+            ci-source/PhotonCamera_314/app/build/reports/tests/testDebugUnitTest/**
+            ci-source/PhotonCamera_314/app/src/main/java/**
+            ci-source/PhotonCamera_314/app/src/test/java/**
+            ci-source/PhotonCamera_314/circularbarlib/src/main/java/**
             ci-reports/codeql/**
           retention-days: 30
           if-no-files-found: error
