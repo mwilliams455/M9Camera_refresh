@@ -19,12 +19,17 @@ assert native_names | asset_names == set(manifest)
 assert built.is_file() and (root/'key/PcamLeak.jks').is_file()
 scope=json.loads((out/'SOURCE_VERIFICATION.json').read_text())
 assert scope['status']=='STAGED_FOR_ANDROID_BUILD'
-auto_subject = scope.get('version') == '3.15-autosubject1a'
+auto_versions = {
+    '3.15-autosubject1a': ('3.14-trackingrecovery1a', 'autosubject1a', 27315, 'M9Cam_3.15_AUTOSUBJECT1A.apk'),
+    '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
+}
+version = scope.get('version')
+auto_subject = version in auto_versions
 if auto_subject:
-    assert scope['parent'] == '3.14-trackingrecovery1a'
-    auto_hashes = Path(__file__).resolve().parents[1] / 'autosubject1a/source-hashes.json'
+    parent, stage, code, filename = auto_versions[version]
+    assert scope['parent'] == parent
+    auto_hashes = Path(__file__).resolve().parents[1] / stage / 'source-hashes.json'
     assert scope['sourceHashes'] == json.loads(auto_hashes.read_text())
-    version, code, filename = '3.15-autosubject1a', 27315, 'M9Cam_3.15_AUTOSUBJECT1A.apk'
 else:
     assert scope['parent']=='3.13-trackingdefault1a'
     assert scope['interruptedRecoveryRestartsConfirmations']

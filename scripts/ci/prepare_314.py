@@ -78,22 +78,30 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
     parser.add_argument("--auto-subject", action="store_true", help="Apply the 3.15 automatic subject patch")
+    parser.add_argument("--stable-framing", action="store_true", help="Apply automatic subject tracking through 3.16")
     args = parser.parse_args()
     dest = args.destination.resolve()
     dest.mkdir(parents=True, exist_ok=False)
     if subprocess.run(["git", "-C", dest, "rev-parse", "--show-toplevel"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         raise ValueError("Reconstruct outside the Git checkout")
-    source = dest / ("PhotonCamera_315" if args.auto_subject else "PhotonCamera_314")
+    version = 316 if args.stable_framing else 315 if args.auto_subject else 314
+    source = dest / f"PhotonCamera_{version}"
     reports = dest / "verification"
     reports.mkdir()
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
-    if args.auto_subject:
+    if version >= 315:
         if fingerprint(inventory(source)) != (REPO / "scripts/ci/source-314.sha256").read_text().strip():
             raise ValueError("Automatic subject tracking requires the verified 3.14 source")
         run_python(PATCHES / "autosubject1a/apply.py", source, reports / "autosubject1a.json")
-        apply_ci_fixture(source, reports, "3.15-autosubject1a", "source-315.sha256")
+        if args.stable_framing:
+            if fingerprint(inventory(source)) != (REPO / "scripts/ci/source-315.sha256").read_text().strip():
+                raise ValueError("Stable framing requires the verified 3.15 source")
+            run_python(PATCHES / "autosubject1b/apply.py", source, reports / "autosubject1b.json")
+            apply_ci_fixture(source, reports, "3.16-autosubject1b", "source-316.sha256")
+        else:
+            apply_ci_fixture(source, reports, "3.15-autosubject1a", "source-315.sha256")
     else:
         apply_ci_fixture(source, reports)
 

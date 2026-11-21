@@ -29,6 +29,9 @@ tests=(
   patches/trackingrecovery1a/host/SubjectRecoveryPolicyTest.java
   patches/autosubject1a/host/AutomaticSubjectSelectionTest.java
 )
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFrame.java" ]]; then
+  tests+=(patches/autosubject1b/host/SubjectFrameTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"

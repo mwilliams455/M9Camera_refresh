@@ -1,0 +1,414 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 2989802..a3fa118 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27315
++        versionCode 27316
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.15-autosubject1a'
++        versionName '3.16-autosubject1b'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.15_AUTOSUBJECT1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.16_AUTOSUBJECT1B-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+index b7d1955..d642687 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -7,18 +7,20 @@ import java.util.List;
+ /** Select one subject on fresh, upright preview frames. Session ownership is checked by the caller. */
+ public final class AutomaticSubjectSelection {
+     public static final long MAX_AGE_NS = 350_000_000L;
+-    private static final long HOLD_NS = 650_000_000L;
++    public static final long HOLD_NS = 650_000_000L;
+ 
+     public static final class Box {
+         public final ClassId type;
+         public final int faceId;
++        private final int rotation;
+         public final float left, top, right, bottom, aimX, aimY;
+         public final boolean face, eye;
+ 
+-        private Box(ClassId type, int faceId, boolean face, float left, float top, float right,
++        private Box(ClassId type, int faceId, int rotation, boolean face, float left, float top, float right,
+                     float bottom, float aimX, float aimY, boolean eye) {
+             this.type = type;
+             this.faceId = faceId;
++            this.rotation = rotation;
+             this.face = face;
+             this.left = left;
+             this.top = top;
+@@ -33,30 +35,41 @@ public final class AutomaticSubjectSelection {
+         private float area() { return (right - left) * (bottom - top); }
+ 
+         public static Box fromFace(SubjectFocusPolicy.Face f, boolean admittedEye) {
+-            if (f == null || !f.valid() || f.right - f.left < .055f || f.bottom - f.top < .055f)
++            return fromFace(f, admittedEye, 0);
++        }
++
++        public static Box fromFace(SubjectFocusPolicy.Face f, boolean admittedEye, int rotation) {
++            if (!HumanEyeAdmissionGate.hasCoherentEyeLandmarks(f) && !ProfileEyeAdmissionGate.plausibleProfile(f))
+                 return null;
+             boolean left = f.contains(f.leftEyeX, f.leftEyeY);
+             boolean right = f.contains(f.rightEyeX, f.rightEyeY);
+-            if (!(left || right) || !(f.contains(f.noseX, f.noseY) || f.contains(f.mouthX, f.mouthY)))
+-                return null;
+-            boolean eye = admittedEye && (left || right);
++            boolean eye = admittedEye;
+             // Pick the eye closest to the face centre (the visible eye on profiles).
+             boolean useLeft = left && (!right || Math.abs(f.leftEyeX-f.cx()) <= Math.abs(f.rightEyeX-f.cx()));
+-            return new Box(ClassId.PERSON, f.id, true, f.left, f.top, f.right, f.bottom,
+-                    eye ? (useLeft ? f.leftEyeX : f.rightEyeX) : f.cx(),
+-                    eye ? (useLeft ? f.leftEyeY : f.rightEyeY) : f.cy(), eye);
++            float x = eye ? (useLeft ? f.leftEyeX : f.rightEyeX) : f.cx();
++            float y = eye ? (useLeft ? f.leftEyeY : f.rightEyeY) : f.cy();
++            // Undo the exact clockwise or counter-clockwise bitmap rotation.
++            if (rotation == 90)
++                return new Box(ClassId.PERSON, f.id, rotation, true, f.top, 1-f.right,
++                        f.bottom, 1-f.left, y, 1-x, eye);
++            if (rotation == -90)
++                return new Box(ClassId.PERSON, f.id, rotation, true, 1-f.bottom, f.left,
++                        1-f.top, f.right, 1-y, x, eye);
++            return new Box(ClassId.PERSON, f.id, 0, true, f.left, f.top, f.right, f.bottom, x, y, eye);
+         }
+ 
+         public static Box fromBody(Candidate c) {
+             if (c == null || !c.valid() || c.score < .55f) return null;
+-            return new Box(c.category, -1, false, c.left, c.top, c.right, c.bottom,
+-                    c.cx(), c.top + c.height() * (c.category == ClassId.PERSON ? .32f : .45f), false);
++            return new Box(c.category, -1, 0, false, c.left, c.top, c.right, c.bottom,
++                    c.cx(), c.top + c.height() * (c.category == ClassId.PERSON ? .5f : .45f), false);
+         }
+ 
+         /** A subject-sized square in preview pixels, shared by portrait and landscape. */
+         public float squareSide(int width, int height) {
+             float shortEdge = Math.min(width, height);
+             float extent = Math.max((right-left)*width, (bottom-top)*height);
++            if (type == ClassId.PERSON)
++                return Math.min(shortEdge*.56f, Math.max(shortEdge*.24f, extent));
+             return Math.min(shortEdge*.9f, Math.max(shortEdge*.16f, extent));
+         }
+     }
+@@ -64,15 +77,29 @@ public final class AutomaticSubjectSelection {
+     private Box active;
+     private long lastSeen = Long.MIN_VALUE, lastFrame = Long.MIN_VALUE;
+     private int hits;
++    private long selectionId;
++    private int faceRotation;
+ 
+     public void reset() {
+         active = null;
+         lastSeen = lastFrame = Long.MIN_VALUE;
++        faceRotation = 0;
+         hits = 0;
+     }
+ 
+     public boolean mayAim() { return active != null && hits >= 2; }
+ 
++    public long selectionId() { return selectionId; }
++    public int faceRotation() { return faceRotation; }
++
++    public void faceScanComplete(boolean matched) {
++        if (!matched) faceRotation = faceRotation == 0 ? -90 : faceRotation == -90 ? 90 : 0;
++    }
++
++    public boolean visibleAt(long now) {
++        return active != null && now >= lastSeen && now-lastSeen <= HOLD_NS;
++    }
++
+     private static float overlap(Box a, Box b) {
+         float w = Math.max(0f, Math.min(a.right,b.right)-Math.max(a.left,b.left));
+         float h = Math.max(0f, Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+@@ -82,7 +109,7 @@ public final class AutomaticSubjectSelection {
+     private static float continuity(Box a, Box b) {
+         if (a.type != b.type) return 0f;
+         float iou = overlap(a,b);
+-        if (a.face && b.face && a.faceId >= 0 && b.faceId >= 0) {
++        if (a.face && b.face && a.rotation == b.rotation && a.faceId >= 0 && b.faceId >= 0) {
+             if (a.faceId != b.faceId) return 0f;
+             return iou > .03f || Math.hypot(a.cx()-b.cx(),a.cy()-b.cy()) < .24 ? 2f+iou : 0f;
+         }
+@@ -120,6 +147,7 @@ public final class AutomaticSubjectSelection {
+             else runner=Math.max(runner,rank);
+         }
+         if (best==null || (active!=null && score-runner<.06)) { hits=0; return null; }
++        if (active == null) selectionId++;
+         hits=Math.min(2,hits+1);
+         lastSeen=frame;
+         active=best;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFrame.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFrame.java
+new file mode 100644
+index 0000000..7cb181f
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFrame.java
+@@ -0,0 +1,29 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++/** Position and size of the viewfinder square in preview pixels. */
++public final class SubjectFrame {
++    public float x, y, side;
++    private long selection = Long.MIN_VALUE;
++    private boolean wasFace;
++
++    public void update(long id, AutomaticSubjectSelection.Box box, int width, int height) {
++        float target = box.squareSide(width, height);
++        float cx = box.cx() * width, cy = box.cy() * height;
++        if (id != selection) {
++            x = cx;
++            y = cy;
++            side = target;
++            selection = id;
++        } else {
++            // Ease a face/body handover. Follow normal subject motion more closely.
++            float weight = wasFace == box.face ? .72f : .32f;
++            x += (cx-x)*weight;
++            y += (cy-y)*weight;
++            side += (target-side)*.35f;
++        }
++        wasFace = box.face;
++        float half = side*.5f;
++        x = Math.max(half, Math.min(width-half, x));
++        y = Math.max(half, Math.min(height-half, y));
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanFaceLandmarkDetector.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanFaceLandmarkDetector.java
+index da312d0..9ca518e 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanFaceLandmarkDetector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanFaceLandmarkDetector.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.ui.camera;
+ 
+ import android.graphics.Bitmap;
++import android.graphics.Canvas;
+ import android.graphics.PointF;
+ import android.graphics.Rect;
+ import com.google.mlkit.vision.common.InputImage;
+@@ -24,6 +25,23 @@ import java.util.function.Consumer;
+ final class HumanFaceLandmarkDetector implements AutoCloseable {
+     private final FaceDetector detector;
+     private boolean closed;
++    private Bitmap turned;
++
++    // Called by the serial subject worker with one sample in flight. PixelCopy
++    // retains the original image for the body detector. Only ML Kit sees this rotation.
++    Bitmap faceInput(Bitmap source, int clockwiseDegrees) {
++        if (clockwiseDegrees == 0) return source;
++        int w = source.getWidth(), h = source.getHeight();
++        if (turned == null || turned.getWidth() != h || turned.getHeight() != w) {
++            if (turned != null) turned.recycle();
++            turned = Bitmap.createBitmap(h, w, Bitmap.Config.ARGB_8888);
++        }
++        Canvas canvas = new Canvas(turned);
++        canvas.translate(clockwiseDegrees > 0 ? h : 0, clockwiseDegrees > 0 ? 0 : w);
++        canvas.rotate(clockwiseDegrees);
++        canvas.drawBitmap(source, null, new Rect(0, 0, w, h), null);
++        return turned;
++    }
+ 
+     HumanFaceLandmarkDetector() {
+         FaceDetectorOptions options = new FaceDetectorOptions.Builder()
+@@ -99,6 +117,7 @@ final class HumanFaceLandmarkDetector implements AutoCloseable {
+         if (!closed) {
+             closed = true;
+             detector.close();
++            if (turned != null) { turned.recycle(); turned = null; }
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 7fc7a2b..3626379 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
+ import java.util.concurrent.Executors;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.SubjectFrame;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy;
+ 
+ /**
+@@ -64,7 +65,9 @@ final class HumanSubjectFocusController {
+     private TrackingSemanticDetector objects;
+     private boolean objectsUnavailable;
+     private boolean automaticMode, boxVisible;
+-    private long boxShownMs;
++    private final SubjectFrame displayFrame = new SubjectFrame();
++    private int lastFaceRotation;
++    private boolean objectWarmupQueued;
+ 
+     private boolean subjectSetting() {
+         SettingsManager settings = PhotonCamera.getSettingsManagerStatic();
+@@ -241,7 +244,7 @@ final class HumanSubjectFocusController {
+         // acquisition restarts only after that explicit track is retired.
+         if (!AutoEyeFocusPolicy.mayOwnRegion(true,false,
+                 fragment.hasExplicitArbitraryTrackingSelection())) {
+-            if (focus!=null) releaseFocus();
++            if (focus!=null || boxVisible) releaseFocus();
+             return;
+         }
+         long nowNs=SystemClock.elapsedRealtimeNanos();
+@@ -271,11 +274,15 @@ final class HumanSubjectFocusController {
+             lastAttemptMs=nowMs;
+             sample(g);
+         }
+-        if (boxVisible && nowMs-boxShownMs>FACE_LOST_MS) {
++        if (boxVisible && !automatic.visibleAt(SystemClock.elapsedRealtimeNanos())) {
+             releaseFocus();
+         }
+         if (focus!=null && lastResultMs>0 && nowMs-lastResultMs>FACE_LOST_MS) {
+-            releaseFocus();
++            if (automaticMode && boxVisible) {
++                focus.close();
++                focus=null;
++                lastResultMs=0;
++            } else releaseFocus();
+         }
+     }
+ 
+@@ -309,6 +316,16 @@ final class HumanSubjectFocusController {
+     private void sample(TrackingGeometry g) {
+         final long ticket=epoch;
+         final long startedNs=SystemClock.elapsedRealtimeNanos();
++        final int rotation=automaticMode ? automatic.faceRotation() : 0;
++        if (rotation != lastFaceRotation) {
++            admissionGate.beginSession(epoch);
++            profileEyeGate.beginSession(epoch);
++            lastFaceRotation=rotation;
++        }
++        if (automaticMode && !objectWarmupQueued) {
++            objectWarmupQueued=true;
++            objectWorker.execute(this::prepareObjects);
++        }
+         int w,h;
+         if (g.w>=g.h) {w=720; h=Math.max(1,Math.round(720f*g.h/g.w));}
+         else {h=720;w=Math.max(1,Math.round(720f*g.w/g.h));}
+@@ -324,23 +341,33 @@ final class HumanSubjectFocusController {
+                     bitmap,status -> {
+                 if (!accepts(ticket,g)) {finish();return;}
+                 if (status!=PixelCopy.SUCCESS) {finish();return;}
+-                detector.process(bitmap,
+-                        faces -> main.post(() -> received(ticket,g,startedNs,faces)),
+-                        failure -> main.post(() -> {
+-                            if (accepts(ticket,g) && automaticMode) {
+-                                received(ticket,g,startedNs,Collections.emptyList());
+-                            } else {
+-                                if (accepts(ticket,g)) releaseFocus();
+-                                finish();
+-                            }
+-                        }));
++                if (rotation == 0) processFaceInput(ticket,g,startedNs,rotation,bitmap);
++                else objectWorker.execute(() -> {
++                    try {
++                        processFaceInput(ticket,g,startedNs,rotation,detector.faceInput(bitmap,rotation));
++                    } catch (RuntimeException | OutOfMemoryError unavailable) {
++                        main.post(() -> received(ticket,g,startedNs,rotation,Collections.emptyList()));
++                    }
++                });
+             },main);
+         } catch (RuntimeException error) {
+             releaseFocus();
+             finish();
+         }
+     }
+-    private void received(long ticket,TrackingGeometry g,long startedNs,
++    private void processFaceInput(long ticket,TrackingGeometry g,long frame,int rotation,Bitmap input) {
++        detector.process(input,
++                faces -> main.post(() -> received(ticket,g,frame,rotation,faces)),
++                failure -> main.post(() -> {
++                    if (accepts(ticket,g) && automaticMode)
++                        received(ticket,g,frame,rotation,Collections.emptyList());
++                    else {
++                        if (accepts(ticket,g)) releaseFocus();
++                        finish();
++                    }
++                }));
++    }
++    private void received(long ticket,TrackingGeometry g,long startedNs,int rotation,
+                           List<SubjectFocusPolicy.Face> faces) {
+         if (!accepts(ticket,g)) {finish();return;}
+         long nowNs=SystemClock.elapsedRealtimeNanos();
+@@ -363,10 +390,12 @@ final class HumanSubjectFocusController {
+         if (automaticMode) {
+             List<Box> boxes=new ArrayList<>();
+             for (SubjectFocusPolicy.Face f : faces) {
+-                Box box=Box.fromFace(f,eyeSetting() && admitted.contains(f));
++                Box box=Box.fromFace(f,eyeSetting() && admitted.contains(f),rotation);
+                 if (box!=null) boxes.add(box);
+             }
+-            if (automatic.facesSuffice(boxes)) applyAutomatic(ticket,g,startedNs,boxes);
++            boolean matched=automatic.facesSuffice(boxes);
++            automatic.faceScanComplete(matched && nowNs-startedNs <= AutomaticSubjectSelection.MAX_AGE_NS);
++            if (matched) applyAutomatic(ticket,g,startedNs,boxes);
+             else detectBodies(ticket,g,startedNs,boxes);
+             return;
+         }
+@@ -436,15 +465,22 @@ final class HumanSubjectFocusController {
+             finish();
+         }
+     }
++    private void prepareObjects() {
++        if (objects!=null || objectsUnavailable) return;
++        try {
++            objects=new TrackingSemanticDetector(source.getContext().getApplicationContext());
++        } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++            objectsUnavailable=true;
++        }
++    }
+     private void detectBodies(long ticket, TrackingGeometry g, long frame, List<Box> faces) {
+         // PixelCopy and ML Kit have finished reading this bitmap. Keep the sample
+         // in flight until this worker returns; TrackingSemanticDetector owns its copy.
+         final Bitmap preview=bitmap;
+         objectWorker.execute(() -> {
+             List<SubjectAnchorPolicy.Candidate> bodies=Collections.emptyList();
+-            if (!objectsUnavailable) {
++            if (objects!=null && !objectsUnavailable) {
+                 try {
+-                    if (objects==null) objects=new TrackingSemanticDetector(source.getContext().getApplicationContext());
+                     bodies=objects.detect(preview);
+                 } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+                     objectsUnavailable=true;
+@@ -473,24 +509,21 @@ final class HumanSubjectFocusController {
+         if (!accepts(ticket,g)) { finish(); return; }
+         Box box=automatic.observe(frame,SystemClock.elapsedRealtimeNanos(),boxes);
+         if (box==null) {
+-            if (boxVisible) overlay.setVisibility(View.GONE);
+-            boxVisible=false;
++            if (boxVisible && !automatic.visibleAt(SystemClock.elapsedRealtimeNanos())) releaseFocus();
+             finish();
+             return;
+         }
+         int[] src=new int[2], dst=new int[2];
+         source.getLocationInWindow(src);
+         overlay.getLocationInWindow(dst);
+-        float half=box.squareSide(g.w,g.h)*.5f;
+-        float cx=Math.max(half,Math.min(g.w-half,box.cx()*g.w));
+-        float cy=Math.max(half,Math.min(g.h-half,box.cy()*g.h));
+-        overlay.show(src[0]-dst[0]+g.left+cx,src[1]-dst[1]+g.top+cy,half,half,false);
++        displayFrame.update(automatic.selectionId(),box,g.w,g.h);
++        float half=displayFrame.side*.5f;
++        overlay.show(src[0]-dst[0]+g.left+displayFrame.x,src[1]-dst[1]+g.top+displayFrame.y,half,half,false);
+         int label = box.type==SubjectAnchorPolicy.ClassId.CAT ? com.particlesdevs.photoncamera.R.string.auto_subject_cat
+                 : box.type==SubjectAnchorPolicy.ClassId.DOG ? com.particlesdevs.photoncamera.R.string.auto_subject_dog
+                 : com.particlesdevs.photoncamera.R.string.auto_subject_person;
+         overlay.setContentDescription(overlay.getContext().getString(label));
+         boxVisible=true;
+-        boxShownMs=SystemClock.elapsedRealtime();
+         if (!automatic.mayAim()) { finish(); return; }
+         if (focus==null) {
+             CaptureController capture=fragment.getCaptureController();
