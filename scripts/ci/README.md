@@ -1,13 +1,13 @@
 # Current M9Cam build and tests
 
 Pull requests targeting main, pushes to main, and manual runs reconstruct
-3.14-trackingrecovery1a (version code 27314). Run these from the repository
+3.15-autosubject1a (version code 27315). Run these from the repository
 root using the Android and JDK versions in verify-m9cam-current.yml.
 
 ```sh
-python3 scripts/ci/prepare_314.py /tmp/m9-314
-bash scripts/ci/test_tracking.sh /tmp/m9-314/PhotonCamera_314
-python3 scripts/ci/verify_tests.py /tmp/m9-314/PhotonCamera_314 --run
+python3 scripts/ci/prepare_314.py /tmp/m9-315 --auto-subject
+bash scripts/ci/test_tracking.sh /tmp/m9-315/PhotonCamera_315
+python3 scripts/ci/verify_tests.py /tmp/m9-315/PhotonCamera_315 --run
 ```
 
 The accepted source descends from 2.95 through the focus and tracking patches.

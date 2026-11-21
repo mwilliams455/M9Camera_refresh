@@ -57,19 +57,19 @@ def apply_stages(source, reports):
             run_python(PATCHES / stage / "host/verify_staged.py", source)
 
 
-def apply_ci_fixture(source, reports):
+def apply_ci_fixture(source, reports, version="3.14-trackingrecovery1a", pin="source-314.sha256"):
     before = inventory(source)
     baseline = fingerprint(before)
-    expected = (REPO / "scripts/ci/source-314.sha256").read_text().strip()
+    expected = (REPO / "scripts/ci" / pin).read_text().strip()
     if baseline != expected:
-        raise ValueError(f"Unexpected 3.14 production source fingerprint: {baseline}")
+        raise ValueError(f"Unexpected {version} production source fingerprint: {baseline}")
     fixture = REPO / "scripts/ci/capture-test-fixture.patch"
     subprocess.run(["git", "apply", str(fixture)], cwd=source, check=True)
     after = inventory(source)
     changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
     if changed != [TEST_PATH]:
         raise ValueError(f"Unexpected CI fixture changes: {changed}")
-    report = {"version": "3.14-trackingrecovery1a", "productionScopedSha256": baseline,
+    report = {"version": version, "productionScopedSha256": baseline,
               "ciScopedSha256": fingerprint(after), "fixtureChanges": changed}
     (reports / "SOURCE_VERIFICATION.json").write_text(json.dumps(report, indent=2) + "\n")
 
@@ -77,17 +77,25 @@ def apply_ci_fixture(source, reports):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
-    dest = parser.parse_args().destination.resolve()
+    parser.add_argument("--auto-subject", action="store_true", help="Apply the 3.15 automatic subject patch")
+    args = parser.parse_args()
+    dest = args.destination.resolve()
     dest.mkdir(parents=True, exist_ok=False)
     if subprocess.run(["git", "-C", dest, "rev-parse", "--show-toplevel"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         raise ValueError("Reconstruct outside the Git checkout")
-    source = dest / "PhotonCamera_314"
+    source = dest / ("PhotonCamera_315" if args.auto_subject else "PhotonCamera_314")
     reports = dest / "verification"
     reports.mkdir()
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
-    apply_ci_fixture(source, reports)
+    if args.auto_subject:
+        if fingerprint(inventory(source)) != (REPO / "scripts/ci/source-314.sha256").read_text().strip():
+            raise ValueError("Automatic subject tracking requires the verified 3.14 source")
+        run_python(PATCHES / "autosubject1a/apply.py", source, reports / "autosubject1a.json")
+        apply_ci_fixture(source, reports, "3.15-autosubject1a", "source-315.sha256")
+    else:
+        apply_ci_fixture(source, reports)
 
 
 if __name__ == "__main__":

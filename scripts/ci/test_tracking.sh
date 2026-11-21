@@ -27,6 +27,7 @@ tests=(
   patches/focusoverlay1b/host/EyeMarkerDisplayGeometryHostTest.java
   patches/trackingdefault1a/host/TrackingDefaultPolicyHostTest.java
   patches/trackingrecovery1a/host/SubjectRecoveryPolicyTest.java
+  patches/autosubject1a/host/AutomaticSubjectSelectionTest.java
 )
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do

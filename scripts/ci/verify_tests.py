@@ -1,4 +1,4 @@
-"""Build 3.14 and verify the selected Android regression suites from JUnit XML."""
+"""Build the app and verify the selected Android regression suites from JUnit XML."""
 import argparse
 import json
 from pathlib import Path
