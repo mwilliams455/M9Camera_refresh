@@ -49,6 +49,9 @@ animal_policy="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/con
 if [[ -f "$animal_policy" ]] && grep -Fq 'supportsAnimal(' "$animal_policy"; then
   tests+=(patches/petacquisition1a/host/PetAcquisitionTest.java)
 fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java" ]]; then
+  tests+=(patches/headpair1a/host/SceneHeadsTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"

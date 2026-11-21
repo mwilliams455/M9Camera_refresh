@@ -1,0 +1,303 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27322
++        versionCode 27323
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.22-multiface1a'
++        versionName '3.23-headpair1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.22_MULTIFACE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.23_HEADPAIR1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -55,14 +55,23 @@
+             boolean useLeft = left && (!right || Math.abs(f.leftEyeX-f.cx()) <= Math.abs(f.rightEyeX-f.cx()));
+             float x = eye ? (useLeft ? f.leftEyeX : f.rightEyeX) : f.cx();
+             float y = eye ? (useLeft ? f.leftEyeY : f.rightEyeY) : f.cy();
++            return orientedFace(f.id,f.left,f.top,f.right,f.bottom,x,y,eye,rotation);
++        }
++
++        static Box fromHead(float l,float t,float r,float b,int rotation) {
++            return orientedFace(-1,l,t,r,b,(l+r)*.5f,(t+b)*.5f,false,rotation);
++        }
++
++        private static Box orientedFace(int id,float l,float t,float r,float b,float x,float y,
++                                        boolean eye,int rotation) {
+             // Undo the exact clockwise or counter-clockwise bitmap rotation.
+             if (rotation == 90)
+-                return new Box(ClassId.PERSON, f.id, rotation, true, f.top, 1-f.right,
+-                        f.bottom, 1-f.left, y, 1-x, eye);
++                return new Box(ClassId.PERSON, id, rotation, true, t, 1-r,
++                        b, 1-l, y, 1-x, eye);
+             if (rotation == -90)
+-                return new Box(ClassId.PERSON, f.id, rotation, true, 1-f.bottom, f.left,
+-                        1-f.top, f.right, 1-y, x, eye);
+-            return new Box(ClassId.PERSON, f.id, 0, true, f.left, f.top, f.right, f.bottom, x, y, eye);
++                return new Box(ClassId.PERSON, id, rotation, true, 1-b, l,
++                        1-t, r, 1-y, x, eye);
++            return new Box(ClassId.PERSON, id, 0, true, l, t, r, b, x, y, eye);
+         }
+ 
+         public static Box fromBody(Candidate c) {
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
+@@ -0,0 +1,64 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/** Supplements landmark tracking when two distinct faces share the preview. */
++public final class SceneHeads {
++    private long pairedAt;
++    private List<Box> lastPair = Collections.emptyList();
++
++    public void clear() {
++        lastPair = Collections.emptyList();
++        pairedAt = 0;
++    }
++
++    public void merge(List<Box> landmarkFaces, List<Box> proposals, long frame) {
++        List<Box> distinct = new ArrayList<>(landmarkFaces);
++        for (Box head : proposals) {
++            if (!matchesAny(head, distinct)) distinct.add(head);
++        }
++        if (distinct.size() >= 2) {
++            landmarkFaces.clear();
++            landmarkFaces.addAll(distinct);
++            lastPair = new ArrayList<>(distinct);
++            pairedAt = frame;
++        } else if (frame < pairedAt || frame - pairedAt > AutomaticSubjectSelection.HOLD_NS) {
++            clear();
++        } else if (landmarkFaces.isEmpty() && distinct.size() == 1 && matchesAny(distinct.get(0), lastPair)) {
++            // One of the pair is still visibly detected, for example after the other turns away.
++            landmarkFaces.add(distinct.get(0));
++        }
++    }
++
++    private static boolean matchesAny(Box a, List<Box> faces) {
++        for (Box b : faces) {
++            float w = Math.max(0f, Math.min(a.right,b.right) - Math.max(a.left,b.left));
++            float h = Math.max(0f, Math.min(a.bottom,b.bottom) - Math.max(a.top,b.top));
++            float smaller = Math.min((a.right-a.left)*(a.bottom-a.top), (b.right-b.left)*(b.bottom-b.top));
++            if (w*h >= .48f*smaller && Math.abs(a.cx()-b.cx()) < .52f*Math.max(a.right-a.left,b.right-b.left)
++                    && Math.abs(a.cy()-b.cy()) < .52f*Math.max(a.bottom-a.top,b.bottom-b.top)) return true;
++        }
++        return false;
++    }
++
++    /** YuNet supplies a face box, two eyes, a nose, two mouth corners and a score. */
++    public static Box decode(float[] row, int w, int h, int rotation) {
++        if (row.length != 15 || w <= 0 || h <= 0) return null;
++        for (float value : row) if (!Float.isFinite(value)) return null;
++        float x = row[0], y = row[1], width = row[2], height = row[3];
++        if (row[14] < .80f || row[14] > 1f || width < 12 || height < 12) return null;
++        float eyeY = (row[5]+row[7])*.5f, mouthY = (row[11]+row[13])*.5f;
++        if (row[9]-eyeY < .045f*height || mouthY-row[9] < .045f*height) return null;
++        for (int i=4; i<14; i+=2) {
++            if (row[i] < x-.15f*width || row[i] > x+1.15f*width ||
++                    row[i+1] < y || row[i+1] > y+height) return null;
++        }
++        float left = Math.max(0f,x/w), top = Math.max(0f,y/h);
++        float right = Math.min(1f,(x+width)/w), bottom = Math.min(1f,(y+height)/h);
++        if (left >= right || top >= bottom) return null;
++        return Box.fromHead(left, top, right, bottom, rotation);
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -33,6 +33,7 @@
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.subject.SubjectFrame;
++import com.particlesdevs.photoncamera.control.subject.SceneHeads;
+ import com.particlesdevs.photoncamera.control.subject.PetDetailInput;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy;
+ 
+@@ -66,6 +67,12 @@
+     private TrackingSemanticDetector objects;
+     private boolean objectsUnavailable, recoveryUnavailable, petDetailUnavailable;
+     private boolean automaticMode, boxVisible;
++    private final SceneHeads sceneHeads = new SceneHeads();
++    // Only accessed on the serial object worker.
++    private SceneFaceDetector sceneDetector;
++    private boolean sceneDetectorUnavailable;
++    private Integer lastSceneAngle;
++    private long sceneEpoch = Long.MIN_VALUE;
+     private final SubjectFrame displayFrame = new SubjectFrame();
+     private boolean displayedFace;
+     private int lastFaceRotation;
+@@ -137,7 +144,11 @@
+         if (closed) return;
+         stop();
+         closed=true;
+-        objectWorker.execute(() -> { if (objects != null) objects.close(); });
++        objectWorker.execute(() -> {
++            if (objects != null) objects.close();
++            if (sceneDetector != null) sceneDetector.close();
++            sceneDetector = null;
++        });
+         objectWorker.shutdown();
+         releaseIfIdle();
+     }
+@@ -145,6 +156,7 @@
+     void clear() {
+         epoch++;
+         automatic.reset();
++        sceneHeads.clear();
+         policy.beginSession(epoch);
+         admissionGate.beginSession(epoch);
+         profileEyeGate.beginSession(epoch);
+@@ -408,8 +420,12 @@
+             }
+             boolean matched=automatic.facesSuffice(boxes);
+             automatic.faceScanComplete(matched);
+-            if (matched && !automatic.checkOtherPeople(boxes,nowNs)) applyAutomatic(ticket,g,startedNs,boxes);
+-            else detectBodies(ticket,g,startedNs,boxes);
++            if (boxes.size() >= 2 || (boxes.isEmpty() && automatic.petDetailAnchor(startedNs)!=null)) {
++                sceneHeads.merge(boxes,Collections.emptyList(),startedNs);
++                dispatchFaces(ticket,g,startedNs,boxes);
++            } else {
++                findSceneHeads(ticket,g,startedNs,rotation,boxes);
++            }
+             return;
+         }
+         FocusControlSettings.configure(focusScope);
+@@ -478,6 +494,39 @@
+             finish();
+         }
+     }
++    private void findSceneHeads(long ticket, TrackingGeometry g, long frame, int rotation, List<Box> faces) {
++        objectWorker.execute(() -> {
++            if (sceneEpoch != ticket) { sceneEpoch=ticket; lastSceneAngle=null; }
++            List<Box> found=Collections.emptyList();
++            if (!sceneDetectorUnavailable && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
++                try {
++                    if (sceneDetector==null) sceneDetector=new SceneFaceDetector(source.getContext());
++                    int angle=(!faces.isEmpty() || lastSceneAngle==null) ? rotation : lastSceneAngle;
++                    found=sceneDetector.detect(detector.faceInput(bitmap,angle),angle);
++                    lastSceneAngle=found.isEmpty() ? null : Integer.valueOf(angle);
++                } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++                    sceneDetectorUnavailable=true;
++                }
++            }
++            final List<Box> heads=found;
++            main.post(() -> {
++                if (!accepts(ticket,g)) { finish(); return; }
++                if (SystemClock.elapsedRealtimeNanos()-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
++                    applyAutomatic(ticket,g,frame,Collections.emptyList());
++                    return;
++                }
++                sceneHeads.merge(faces,heads,frame);
++                dispatchFaces(ticket,g,frame,faces);
++            });
++        });
++    }
++
++    private void dispatchFaces(long ticket, TrackingGeometry g, long frame, List<Box> faces) {
++        if (automatic.facesSuffice(faces) && !automatic.checkOtherPeople(faces,SystemClock.elapsedRealtimeNanos()))
++            applyAutomatic(ticket,g,frame,faces);
++        else detectBodies(ticket,g,frame,faces);
++    }
++
+     private void prepareObjects() {
+         if (objects!=null || objectsUnavailable) return;
+         try {
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneFaceDetector.java
+@@ -0,0 +1,64 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.content.Context;
++import android.graphics.Bitmap;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.SceneHeads;
++import java.io.ByteArrayOutputStream;
++import java.io.IOException;
++import java.io.InputStream;
++import java.util.ArrayList;
++import java.util.List;
++import org.opencv.android.OpenCVLoader;
++import org.opencv.android.Utils;
++import org.opencv.core.Mat;
++import org.opencv.core.MatOfByte;
++import org.opencv.core.Size;
++import org.opencv.imgproc.Imgproc;
++import org.opencv.objdetect.FaceDetectorYN;
++
++/** Serial preview worker. One bounded face pass, using the OpenCV runtime already bundled. */
++final class SceneFaceDetector implements AutoCloseable {
++    private final FaceDetectorYN detector;
++    private final Mat rgba, small, bgr, output;
++    private final float[] row = new float[15];
++
++    SceneFaceDetector(Context context) throws IOException {
++        if (!OpenCVLoader.initLocal()) throw new IllegalStateException("OpenCV unavailable");
++        try (InputStream in = context.getAssets().open("face_detection_yunet.onnx");
++             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
++            byte[] buffer = new byte[8192];
++            for (int read; (read = in.read(buffer)) != -1;) out.write(buffer, 0, read);
++            MatOfByte weights = new MatOfByte(out.toByteArray()), config = new MatOfByte();
++            try {
++                detector = FaceDetectorYN.create("onnx", weights, config, new Size(360,480), .80f, .3f, 500);
++            } finally {
++                weights.release();
++                config.release();
++            }
++        }
++        rgba = new Mat(); small = new Mat(); bgr = new Mat(); output = new Mat();
++    }
++
++    List<Box> detect(Bitmap bitmap, int rotation) {
++        Utils.bitmapToMat(bitmap, rgba);
++        float scale = 480f / Math.max(rgba.cols(), rgba.rows());
++        int w = Math.max(1, Math.round(scale*rgba.cols())), h = Math.max(1, Math.round(scale*rgba.rows()));
++        Size size = new Size(w,h);
++        Imgproc.resize(rgba, small, size, 0, 0, Imgproc.INTER_AREA);
++        Imgproc.cvtColor(small, bgr, Imgproc.COLOR_RGBA2BGR);
++        detector.setInputSize(size);
++        detector.detect(bgr, output);
++        List<Box> boxes = new ArrayList<>();
++        for (int i=0; i<output.rows(); i++) {
++            output.get(i,0,row);
++            Box box = SceneHeads.decode(row,w,h,rotation);
++            if (box != null) boxes.add(box);
++        }
++        return boxes;
++    }
++
++    @Override public void close() {
++        rgba.release(); small.release(); bgr.release(); output.release();
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java
+@@ -32,8 +32,7 @@
+         }
+         long now = SystemClock.elapsedRealtimeNanos();
+         headDeadlineNs = frameNs + AutomaticSubjectSelection.MAX_AGE_NS;
+-        if (now < frameNs || now >= headDeadlineNs || headCount == 0
+-                || (headCount == 1 && selected != null && selected.face)) {
++        if (now < frameNs || now >= headDeadlineNs || headCount == 0) {
+             headCount = 0;
+         } else {
+             if (headFrames.length < headCount * 3) headFrames = new float[headCount * 3];
