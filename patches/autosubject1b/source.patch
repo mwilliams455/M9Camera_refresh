@@ -232,7 +232,7 @@ index da312d0..9ca518e 100644
      }
  }
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
-index 7fc7a2b..3626379 100644
+index 7fc7a2b..2d99865 100644
 --- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
 @@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
@@ -343,8 +343,15 @@ index 7fc7a2b..3626379 100644
                            List<SubjectFocusPolicy.Face> faces) {
          if (!accepts(ticket,g)) {finish();return;}
          long nowNs=SystemClock.elapsedRealtimeNanos();
-@@ -363,10 +390,12 @@ final class HumanSubjectFocusController {
+@@ -361,12 +388,19 @@ final class HumanSubjectFocusController {
+             if (!already) admitted.add(candidate);
+         }
          if (automaticMode) {
++            if (nowNs-startedNs > AutomaticSubjectSelection.MAX_AGE_NS) {
++                // A cold detector may finish late. Retry the same orientation on a fresh frame.
++                applyAutomatic(ticket,g,startedNs,Collections.emptyList());
++                return;
++            }
              List<Box> boxes=new ArrayList<>();
              for (SubjectFocusPolicy.Face f : faces) {
 -                Box box=Box.fromFace(f,eyeSetting() && admitted.contains(f));
@@ -353,12 +360,12 @@ index 7fc7a2b..3626379 100644
              }
 -            if (automatic.facesSuffice(boxes)) applyAutomatic(ticket,g,startedNs,boxes);
 +            boolean matched=automatic.facesSuffice(boxes);
-+            automatic.faceScanComplete(matched && nowNs-startedNs <= AutomaticSubjectSelection.MAX_AGE_NS);
++            automatic.faceScanComplete(matched);
 +            if (matched) applyAutomatic(ticket,g,startedNs,boxes);
              else detectBodies(ticket,g,startedNs,boxes);
              return;
          }
-@@ -436,15 +465,22 @@ final class HumanSubjectFocusController {
+@@ -436,15 +470,22 @@ final class HumanSubjectFocusController {
              finish();
          }
      }
@@ -383,7 +390,7 @@ index 7fc7a2b..3626379 100644
                      bodies=objects.detect(preview);
                  } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
                      objectsUnavailable=true;
-@@ -473,24 +509,21 @@ final class HumanSubjectFocusController {
+@@ -473,24 +514,21 @@ final class HumanSubjectFocusController {
          if (!accepts(ticket,g)) { finish(); return; }
          Box box=automatic.observe(frame,SystemClock.elapsedRealtimeNanos(),boxes);
          if (box==null) {
