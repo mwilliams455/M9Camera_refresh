@@ -27,6 +27,7 @@ auto_versions = {
     '3.21-petacquisition1a': ('3.20-petcontinuity1a', 'petacquisition1a', 27321, 'M9Cam_3.21_PETACQUISITION1A.apk'),
     '3.22-multiface1a': ('3.21-petacquisition1a', 'multiface1a', 27322, 'M9Cam_3.22_MULTIFACE1A.apk'),
     '3.23-headpair1a': ('3.22-multiface1a', 'headpair1a', 27323, 'M9Cam_3.23_HEADPAIR1A.apk'),
+    '3.24-widepet1a': ('3.23-headpair1a', 'widepet1a', 27324, 'M9Cam_3.24_WIDEPET1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
 }
@@ -80,10 +81,12 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     assert new.testzip() is None
     new_names = set(new.namelist())
     assert len(new_names) == len(new.infolist()), 'Duplicate APK entries'
-    extra_assets = {'assets/face_detection_yunet.onnx', 'assets/YUNET_LICENSE.txt'} if version == '3.23-headpair1a' else set()
+    extra_assets = {'assets/face_detection_yunet.onnx', 'assets/YUNET_LICENSE.txt'} if code >= 27323 else set()
     assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == asset_names | extra_assets
-    for name in extra_assets:
-        assert sha(new.read(name)) == scope['sourceHashes']['app/src/main/' + name]['after']
+    if extra_assets:
+        head_assets = json.loads((baseline_dir.parents[1] / 'headpair1a/source-hashes.json').read_text())
+        for name in extra_assets:
+            assert sha(new.read(name)) == head_assets['app/src/main/' + name]['after']
     assert {n for n in new_names if n.startswith('lib/') and n.endswith('.so')} <= native_names
     for info in new.infolist():
         name = info.filename

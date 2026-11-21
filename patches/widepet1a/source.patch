@@ -1,0 +1,204 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27323
++        versionCode 27324
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.23-headpair1a'
++        versionName '3.24-widepet1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.23_HEADPAIR1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.24_WIDEPET1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -172,7 +172,11 @@
+ 
+     public static boolean needsPetDetail(Box pet, List<Box> primary) {
+         if (primary.isEmpty()) return true;
+-        if (pet == null) return false;
++        if (pet == null) {
++            for (Box box : primary)
++                if (box.type != ClassId.PERSON || box.distanceFromCentre() < .30) return false;
++            return true;
++        }
+         for (Box box : primary) if (continuity(pet, box) > 0f) return false;
+         return true;
+     }
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/LargePetAcquisition.java
+@@ -0,0 +1,57 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.List;
++
++/** A large new pet needs two consecutive corroborated observations before it enters selection. */
++public final class LargePetAcquisition {
++    private Box pending;
++    private long lastFrame;
++    private static final long MAX_GAP_NS = 500_000_000L;
++
++    static boolean isLarge(float width, float height) {
++        return width*height >= .15f;
++    }
++
++    public static boolean isLargePet(Box box) {
++        return box != null && box.type != ClassId.PERSON
++                && isLarge(box.right-box.left,box.bottom-box.top);
++    }
++
++    public void reset() {
++        pending = null;
++        lastFrame = 0;
++    }
++
++    public boolean awaiting(long frame) {
++        return pending != null && frame > lastFrame && frame-lastFrame <= MAX_GAP_NS;
++    }
++
++    private static boolean isNewLargePet(Box current, Box candidate) {
++        return isLargePet(candidate) && !AutomaticSubjectSelection.samePet(current,candidate);
++    }
++
++    /** Entries are already detector/pose-verified. Never admit a lone or ambiguous first sighting. */
++    public void filter(List<Box> boxes, Box current, long frame, long now) {
++        if (frame <= lastFrame || frame <= 0 || now < frame
++                || now-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
++            if (frame > lastFrame) { pending = null; lastFrame = frame; }
++            if (!boxes.isEmpty()) boxes.removeIf(box -> isNewLargePet(current,box));
++            return;
++        }
++        Box observation = null;
++        for (Box box : boxes) {
++            if (!isNewLargePet(current,box)) continue;
++            if (observation != null) {
++                observation = null;
++                break;
++            }
++            observation = box;
++        }
++        boolean confirmed = awaiting(frame) && AutomaticSubjectSelection.samePet(pending,observation);
++        pending = observation;
++        lastFrame = frame;
++        if (!confirmed && !boxes.isEmpty()) boxes.removeIf(box -> isNewLargePet(current,box));
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+@@ -26,12 +26,17 @@
+ 
+     /** Search the part of the scene that the photographer is framing. */
+     public static PetDetailInput centre(int width,int height,int phase) {
+-        return new PetDetailInput(width,height,phase);
++        return new PetDetailInput(width,height,phase,false);
+     }
+ 
+-    private PetDetailInput(int width,int height,int phase) {
++    /** Use the entire short edge for a foreground animal that the small detail crop cuts off. */
++    public static PetDetailInput wide(int width, int height) {
++        return new PetDetailInput(width,height,0,true);
++    }
++
++    private PetDetailInput(int width,int height,int phase,boolean wide) {
+         this.width=width; this.height=height;
+-        side=Math.max(1,Math.min(width,height)/3);
++        side=Math.max(1,Math.min(width,height)/(wide ? 1 : 3));
+         left=(width-side)/2;
+         int offset=phase==1 ? side/5 : phase==2 ? -side/5 : 0;
+         top=Math.max(0,Math.min(height-side,(height-side)/2+offset));
+@@ -103,14 +108,17 @@
+     /** Return an unambiguous proposal for the independent pose check. */
+     public Box poseCandidate(List<Candidate> detections) {
+         Box match=null;
++        boolean wideSearch=proposal==null && side==Math.min(width,height);
++        float minimumScore=wideSearch ? .35f : (proposal==null ? .25f : .30f);
+         for (Candidate c : detections) {
+             if (c==null || (c.category!=ClassId.CAT && c.category!=ClassId.DOG)
+-                    || !Float.isFinite(c.score) || c.score<(proposal==null ? .25f : .30f) || c.score>1f
++                    || !Float.isFinite(c.score) || c.score<minimumScore || c.score>1f
+                     || !(c.left>=0f && c.right<=1f && c.top>=0f && c.bottom<=1f
+                     && c.width()>0f && c.height()>0f)) continue;
+             float l=(left+c.left*side)/width, r=(left+c.right*side)/width;
+             float t=(top+c.top*side)/height, b=(top+c.bottom*side)/height;
+             if (r-l<.065f || b-t<.065f) continue;
++            if (wideSearch && !LargePetAcquisition.isLarge(r-l,b-t)) continue;
+             if (proposal==null) {
+                 if (Math.hypot(c.cx()-.5f,c.cy()-.5f)>.40) continue;
+             } else if ((localSearch && c.category!=proposal.category)
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -34,6 +34,7 @@
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.subject.SubjectFrame;
+ import com.particlesdevs.photoncamera.control.subject.SceneHeads;
++import com.particlesdevs.photoncamera.control.subject.LargePetAcquisition;
+ import com.particlesdevs.photoncamera.control.subject.PetDetailInput;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy;
+ 
+@@ -92,6 +93,7 @@
+     private boolean running, closed, inFlight, manualOverride, unsupported;
+     private long epoch, freshSinceNs, lastFrameNs = Long.MIN_VALUE;
+     private long lastAttemptMs, lastResultMs, lastFacesMs;
++    private final LargePetAcquisition largePets = new LargePetAcquisition();
+     private int petSearchPhase; // Serial object worker only.
+     private long nextAutomaticAfMs;
+     private String camera;
+@@ -156,6 +158,7 @@
+     void clear() {
+         epoch++;
+         automatic.reset();
++        largePets.reset();
+         sceneHeads.clear();
+         policy.beginSession(epoch);
+         admissionGate.beginSession(epoch);
+@@ -543,6 +546,7 @@
+         final Box petAnchor=automatic.petDetailAnchor(frame);
+         final Box lastPet=automatic.confirmedPet(frame);
+         final boolean missed=automatic.lastObservationMissed();
++        final boolean retryWide=largePets.awaiting(frame) || LargePetAcquisition.isLargePet(petAnchor);
+         objectWorker.execute(() -> {
+             List<SubjectAnchorPolicy.Candidate> bodies=Collections.emptyList();
+             if (objects!=null && !objectsUnavailable) {
+@@ -589,9 +593,11 @@
+                     && AutomaticSubjectSelection.needsPetDetail(petAnchor,faces)) {
+                 PetDetailInput crop=PetDetailInput.forTracking(preview.getWidth(),preview.getHeight(),
+                         bodies,petAnchor,lastPet,missed);
+-                if (crop==null && lastPet==null && unverifiedPet==null) {
+-                    crop=PetDetailInput.centre(preview.getWidth(),preview.getHeight(),petSearchPhase);
+-                    petSearchPhase=(petSearchPhase+1)%3;
++                if (crop==null && unverifiedPet==null && (lastPet==null || retryWide)) {
++                    int phase=retryWide ? 0 : petSearchPhase;
++                    crop=phase==0 ? PetDetailInput.wide(preview.getWidth(),preview.getHeight())
++                            : PetDetailInput.centre(preview.getWidth(),preview.getHeight(),phase-1);
++                    if (!retryWide) petSearchPhase=(petSearchPhase+1)%4;
+                 }
+                 if (crop!=null) {
+                     try {
+@@ -613,7 +619,9 @@
+ 
+     private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes, Box secondary) {
+         if (!accepts(ticket,g)) { finish(); return; }
+-        Box box=automatic.observe(frame,SystemClock.elapsedRealtimeNanos(),boxes,secondary);
++        long now=SystemClock.elapsedRealtimeNanos();
++        largePets.filter(boxes,automatic.petDetailAnchor(frame),frame,now);
++        Box box=automatic.observe(frame,now,boxes,secondary);
+         if (box==null && (!boxVisible || !automatic.visibleAt(SystemClock.elapsedRealtimeNanos()))) {
+             if (boxVisible) releaseFocus();
+             finish();
