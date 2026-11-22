@@ -1,0 +1,95 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27325
++        versionCode 27326
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.25-subjectcheck1a'
++        versionName '3.26-headbody1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.25_SUBJECTCHECK1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.26_HEADBODY1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.control.subject;
+ 
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.List;
+@@ -40,6 +41,18 @@
+         merge(faces,proposals,frame);
+     }
+ 
++    /** A solitary close head can use a same-frame person detection as its second source. */
++    public static boolean supportedByOnePerson(Box head, List<Candidate> bodies) {
++        if (head==null || !head.face) return false;
++        boolean supported=false;
++        for (Candidate candidate : bodies) {
++            if (!AutomaticSubjectSelection.matchesRecovery(head,Box.fromBody(candidate))) continue;
++            if (supported) return false;
++            supported=true;
++        }
++        return supported;
++    }
++
+     private static boolean matchesAny(Box a, List<Box> faces) {
+         for (Box b : faces) {
+             float w = Math.max(0f, Math.min(a.right,b.right) - Math.max(a.left,b.left));
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -523,7 +523,9 @@
+                     return;
+                 }
+                 sceneHeads.admitLandmarks(faces,sustained,heads,frame);
+-                dispatchFaces(ticket,g,frame,faces);
++                if (faces.isEmpty() && heads.size()==1)
++                    detectBodies(ticket,g,frame,faces,heads.get(0));
++                else dispatchFaces(ticket,g,frame,faces);
+             });
+         });
+     }
+@@ -531,7 +533,7 @@
+     private void dispatchFaces(long ticket, TrackingGeometry g, long frame, List<Box> faces) {
+         if (automatic.facesSuffice(faces) && !automatic.checkOtherPeople(faces,SystemClock.elapsedRealtimeNanos()))
+             applyAutomatic(ticket,g,frame,faces);
+-        else detectBodies(ticket,g,frame,faces);
++        else detectBodies(ticket,g,frame,faces,null);
+     }
+ 
+     private void prepareObjects() {
+@@ -542,7 +544,7 @@
+             objectsUnavailable=true;
+         }
+     }
+-    private void detectBodies(long ticket, TrackingGeometry g, long frame, List<Box> faces) {
++    private void detectBodies(long ticket, TrackingGeometry g, long frame, List<Box> faces, Box singleHead) {
+         // PixelCopy and ML Kit have finished reading this bitmap. Keep the sample
+         // in flight until this worker returns; TrackingSemanticDetector owns its copy.
+         final Bitmap preview=bitmap;
+@@ -561,6 +563,7 @@
+                     objectsUnavailable=true;
+                 }
+             }
++            if (SceneHeads.supportedByOnePerson(singleHead,bodies)) faces.add(singleHead);
+             List<Box> secondView=null;
+             Box unverifiedPet=null;
+             float bestPetScore=0f;

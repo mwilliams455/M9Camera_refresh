@@ -1,13 +1,13 @@
 # Current M9Cam build and tests
 
 Pull requests targeting main, pushes to main, and manual runs reconstruct
-3.25-subjectcheck1a (version code 27325). Run these from the repository
+3.26-headbody1a (version code 27326). Run these from the repository
 root using the Android and JDK versions in verify-m9cam-current.yml.
 
 ```sh
-python3 scripts/ci/prepare_314.py /tmp/m9-325 --subject-check
-bash scripts/ci/test_tracking.sh /tmp/m9-325/PhotonCamera_325
-python3 scripts/ci/verify_tests.py /tmp/m9-325/PhotonCamera_325 --run
+python3 scripts/ci/prepare_314.py /tmp/m9-326 --head-body
+bash scripts/ci/test_tracking.sh /tmp/m9-326/PhotonCamera_326
+python3 scripts/ci/verify_tests.py /tmp/m9-326/PhotonCamera_326 --run
 ```
 
 The accepted source descends from 2.95 through the focus and tracking patches.

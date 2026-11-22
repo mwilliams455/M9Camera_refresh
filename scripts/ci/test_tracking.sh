@@ -58,6 +58,10 @@ fi
 if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetAcquisitionGate.java" ]]; then
   tests+=(patches/subjectcheck1a/host/SubjectAcquisitionTest.java)
 fi
+heads="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java"
+if [[ -f "$heads" ]] && grep -Fq 'supportedByOnePerson(' "$heads"; then
+  tests+=(patches/headbody1a/host/HeadBodyAcquisitionTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"

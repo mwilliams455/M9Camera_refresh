@@ -29,6 +29,7 @@ auto_versions = {
     '3.23-headpair1a': ('3.22-multiface1a', 'headpair1a', 27323, 'M9Cam_3.23_HEADPAIR1A.apk'),
     '3.24-widepet1a': ('3.23-headpair1a', 'widepet1a', 27324, 'M9Cam_3.24_WIDEPET1A.apk'),
     '3.25-subjectcheck1a': ('3.24-widepet1a', 'subjectcheck1a', 27325, 'M9Cam_3.25_SUBJECTCHECK1A.apk'),
+    '3.26-headbody1a': ('3.25-subjectcheck1a', 'headbody1a', 27326, 'M9Cam_3.26_HEADBODY1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
 }
