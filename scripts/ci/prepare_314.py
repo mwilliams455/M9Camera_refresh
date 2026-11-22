@@ -89,6 +89,7 @@ def main():
         (322, "3.22-multiface1a", "multiface1a", "--multi-face"),
         (323, "3.23-headpair1a", "headpair1a", "--head-pair"),
         (324, "3.24-widepet1a", "widepet1a", "--wide-pet"),
+        (325, "3.25-subjectcheck1a", "subjectcheck1a", "--subject-check"),
     )
     for number, label, stage, flag in versions[1:]:
         parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,

@@ -28,6 +28,7 @@ auto_versions = {
     '3.22-multiface1a': ('3.21-petacquisition1a', 'multiface1a', 27322, 'M9Cam_3.22_MULTIFACE1A.apk'),
     '3.23-headpair1a': ('3.22-multiface1a', 'headpair1a', 27323, 'M9Cam_3.23_HEADPAIR1A.apk'),
     '3.24-widepet1a': ('3.23-headpair1a', 'widepet1a', 27324, 'M9Cam_3.24_WIDEPET1A.apk'),
+    '3.25-subjectcheck1a': ('3.24-widepet1a', 'subjectcheck1a', 27325, 'M9Cam_3.25_SUBJECTCHECK1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
 }
@@ -52,7 +53,11 @@ else:
         'app/src/main/java/com/particlesdevs/photoncamera/control/tracking/SubjectAnchorPolicy.java'}
     version, code, filename = '3.14-trackingrecovery1a', 27314, 'M9Cam_3.14_TRACKINGRECOVERY1A.apk'
 for path, hashes in scope['sourceHashes'].items():
-    assert sha((root/path).read_bytes())==hashes['after'],path
+    file = root/path
+    if hashes['after'] is None:
+        assert not file.exists(), path
+    else:
+        assert sha(file.read_bytes()) == hashes['after'], path
 asset=(root/'app/src/main/assets/rtm_animal_fp16.tflite')
 expected_model=(Path(__file__).resolve().parent.parent/'focusanimaleye1a/MODEL_SHA256.txt').read_text().split()[0]
 assert sha(asset.read_bytes())==expected_model
