@@ -293,7 +293,7 @@ index d88ef7a..ab5c365 100644
      public static TrackingGeometry current(long now) {
          TrackingGeometry g = latest;
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java
-index 1d16710..196f334 100644
+index 1d16710..1bb2b01 100644
 --- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewMeter2D.java
 @@ -4,6 +4,7 @@ import android.opengl.GLES30;
@@ -304,12 +304,13 @@ index 1d16710..196f334 100644
  import java.nio.Buffer;
  import java.nio.ByteBuffer;
  
-@@ -17,11 +18,13 @@ public final class M9PreviewMeter2D {
+@@ -17,11 +18,14 @@ public final class M9PreviewMeter2D {
      private M9PreviewFrameState1W pending;
      private M9TapMeter1A.Selection pendingTap;
      private boolean disabled;
 +    private TrackingGeometry pendingSubject;
 +    private int pendingBytes;
++    private byte[] spareSubjectPixels;
  
      /** GL-thread state only: used to guarantee at most one preview readback is in flight. */
      public boolean isBusy() { return fence != 0; }
@@ -319,7 +320,7 @@ index 1d16710..196f334 100644
              int peakUniform,int peakValue,int tc20Uniform,float displayTc20Gain) {
          if(disabled)return false;
          long now=SystemClock.elapsedRealtimeNanos();
-@@ -70,7 +73,19 @@ public final class M9PreviewMeter2D {
+@@ -70,7 +74,19 @@ public final class M9PreviewMeter2D {
                  GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4);
              }
              GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pbo);
@@ -340,7 +341,7 @@ index 1d16710..196f334 100644
              fence=GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE,0);
              if(fence==0 || GLES30.glGetError()!=GLES30.GL_NO_ERROR)throw new IllegalStateException("meter readback failed");
              pending=frame;pendingNs=now;pendingTextureNs=textureNs;
-@@ -98,7 +113,7 @@ public final class M9PreviewMeter2D {
+@@ -98,7 +114,7 @@ public final class M9PreviewMeter2D {
          GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,texture);
          GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_NEAREST);
          GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_NEAREST);
@@ -349,7 +350,7 @@ index 1d16710..196f334 100644
                  GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,null);
          GLES30.glGenFramebuffers(1,id,0);framebuffer=id[0];
          GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,framebuffer);
-@@ -106,7 +121,7 @@ public final class M9PreviewMeter2D {
+@@ -106,7 +122,7 @@ public final class M9PreviewMeter2D {
                  GLES30.GL_TEXTURE_2D,texture,0);
          GLES30.glGenBuffers(1,id,0);pbo=id[0];
          GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pbo);
@@ -358,7 +359,7 @@ index 1d16710..196f334 100644
      }
      private void poll(long now) {
          if(fence==0)return;
-@@ -119,14 +134,21 @@ public final class M9PreviewMeter2D {
+@@ -119,14 +135,22 @@ public final class M9PreviewMeter2D {
          boolean mapped=false;
          try {
              GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,pbo);
@@ -370,23 +371,24 @@ index 1d16710..196f334 100644
              M9TapMeter1A.Probe tap=M9TapMeter1A.measure((ByteBuffer)buffer,pendingTap,pendingNs);
 +            byte[] subject = null;
 +            if (pendingSubject != null && M9SubjectMeterFrames.wanted(pendingSubject, now)) {
-+                subject = new byte[M9SubjectMeterFrames.BYTES];
++                if (spareSubjectPixels == null) spareSubjectPixels = new byte[M9SubjectMeterFrames.BYTES];
++                subject = spareSubjectPixels;
 +                ((ByteBuffer)buffer).position(BYTES);
 +                ((ByteBuffer)buffer).get(subject);
 +            }
              boolean intact=GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER);
              mapped=false;
              if(!intact)throw new IllegalStateException("meter mapping invalid");
-+            if (subject != null) M9SubjectMeterFrames.publish(pendingSubject, subject, now);
++            if (subject != null) spareSubjectPixels = M9SubjectMeterFrames.publish(pendingSubject, subject, now);
              M9ExposurePlan1A p=pending.plan;
              if(now-pendingNs<=M9AutoExposure2D.MAX_AGE_NS)
                  M9AutoExposure2D.publish(new M9AutoExposure2D.Sample(p.cameraId,p.mode,pendingNs,
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SubjectMeterFrames.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SubjectMeterFrames.java
 new file mode 100644
-index 0000000..ff3dba5
+index 0000000..c04a103
 --- /dev/null
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SubjectMeterFrames.java
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,110 @@
 +package com.particlesdevs.photoncamera.m9.preview;
 +
 +import com.particlesdevs.photoncamera.control.tracking.TrackingGeometry;
@@ -449,11 +451,14 @@ index 0000000..ff3dba5
 +        return g != null && g.same(tracking) && now >= requestedAt && now - requestedAt <= MAX_AGE_NS;
 +    }
 +
-+    static synchronized void publish(TrackingGeometry g, byte[] rgba, long now) {
-+        if (!wanted(g, now) || (newest != null && g.frameTime <= newest.geometry.frameTime)) return;
++    // The GL thread may reuse the returned array. Neither retained frame references it.
++    static synchronized byte[] publish(TrackingGeometry g, byte[] rgba, long now) {
++        if (!wanted(g, now) || (newest != null && g.frameTime <= newest.geometry.frameTime)) return rgba;
++        byte[] spare = older == null ? null : older.rgba;
 +        older = newest;
 +        newest = new Frame(g, rgba);
 +        match(now);
++        return spare;
 +    }
 +
 +    public static synchronized void observe(TrackingGeometry g, long selection, long frame, long now,

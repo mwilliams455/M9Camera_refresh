@@ -45,6 +45,15 @@ public class M9SubjectMeterFramesTest {
         M9SubjectMeterFrames.missed(t);
         M9SubjectMeterFrames.publish(g,pixels,t);
         assert M9TrackedSubjectMeter.trace(t).isEmpty();
+        M9SubjectMeterFrames.clear();
+        byte[][] buffers = {pixels.clone(), pixels.clone(), pixels.clone()};
+        for (int i=0;i<3;i++) {
+            long ft=t+i*250_000_000L;
+            TrackingGeometry frame=geometry(ft,false);
+            M9SubjectMeterFrames.request(frame,ft);
+            byte[] reusable=M9SubjectMeterFrames.publish(frame,buffers[i],ft);
+            assert reusable == (i==2 ? buffers[0] : null);
+        }
         System.out.println("Pre-falloff region, arrival order, stale, duplicate, miss and geometry checks passed");
     }
 }
