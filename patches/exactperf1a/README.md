@@ -78,6 +78,15 @@ CI (`.github/workflows/build-m9cam-exactperf1a.yml`):
   library files, checks signing, 16 KiB alignment, version, menus and that the
   installer is not debuggable.
 
+## CI result
+
+[Run 45822753028](https://github.com/mwilliams455/M9Camera_refresh/actions/runs/45822753028)
+passed every step. The 3.42 parent rebuild reproduced all 19 accepted source-built native
+libraries exactly; in 3.43 only `libm9color`, `libm9dngnoise` and `libdngCreator` changed.
+Installer `M9Cam_3.43_EXACTPERF1A.apk`, SHA-256
+`54dc68d1a19d70bc4d3f190fee8cfe4501d56b9211892d4d50c1e4514198387e`, signed with the existing
+certificate, not debuggable (`PACKAGED_VERIFICATION.json`).
+
 ## Phone check
 
 Install over 3.42 (same signature). With "Save diagnostic files" on, take the same scene

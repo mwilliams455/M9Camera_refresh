@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "version": "3.43-exactperf1a",
+  "versionCode": 27343,
+  "apk": "M9Cam_3.43_EXACTPERF1A.apk",
+  "sha256": "54dc68d1a19d70bc4d3f190fee8cfe4501d56b9211892d4d50c1e4514198387e",
+  "bytes": 240918781,
+  "parent": "3.42-facehighlight1b",
+  "ciRun": "https://github.com/mwilliams455/M9Camera_refresh/actions/runs/45822753028",
+  "sourceCommit": "0f31fbb96093c66ff7b4cb4966918a52f214b0d0",
+  "installerArtifact": "M9Cam-3.43-EXACTPERF1A-installer (id 15119685907, expires 2027-02-24)",
+  "nativeProvenance": {
+    "status": "PASS",
+    "parentRebuildReproducedAccepted313": "all 19 source-built libraries (.text/.rodata/.data.rel.ro/.data exact)",
+    "candidateVsParent": "all untouched libraries identical; only libm9color, libm9dngnoise, libdngCreator changed"
+  },
+  "rebuiltNativeLibraries": {
+    "lib/arm64-v8a/libdngCreator.so": "a9778434704301507617d20cee8d75fc73fee5530892dd36ede088228ebaa3a8",
+    "lib/arm64-v8a/libm9color.so": "d1aeef538740c7873a5fe9f4dfaad11063026bb667a0305cc2590e20e2f5ee1c",
+    "lib/arm64-v8a/libm9dngnoise.so": "316d50b6af9f08b57a2f550b8c1f21a71e9b7a53521c4739b5e6a4d508121be7",
+    "lib/armeabi-v7a/libdngCreator.so": "50dcd48caf23a0da49885f01e8cb3a26405363a6898d4e8966ff7e8af9535e7f",
+    "lib/armeabi-v7a/libm9color.so": "46ec12903e9903e5937e60640fa87a4babc2779ae17b233a08ee56140369f89e",
+    "lib/armeabi-v7a/libm9dngnoise.so": "75dbbd18a3c58ffe83a69438db039428bfe426648a7f17c9aa820760b5eadf20"
+  },
+  "otherNativeLibrariesAndAssets": "byte-identical to the accepted 3.13 baseline (301 assets) plus the existing 3.x model assets",
+  "artBaselineProfileAssets": [
+    "assets/dexopt/baseline.prof",
+    "assets/dexopt/baseline.profm"
+  ],
+  "applicationDebuggable": false,
+  "signatureMatchesPrior": true,
+  "sixteenKiBAligned": true,
+  "ciChecks": [
+    "prepare_314 --exact-perf pin 578a8732",
+    "native parity suite",
+    "tracking/focus policy checks",
+    "all selected Android regression suites incl. M9ShadingParallel1ATest and M9DngProfileStagingTest",
+    "library release resources",
+    "native provenance gate",
+    "installer packaging",
+    "CodeQL"
+  ],
+  "phoneTimingAndVisualValidationPending": true
+}
