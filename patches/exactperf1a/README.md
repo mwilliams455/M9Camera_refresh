@@ -15,7 +15,10 @@ JPEG quality or DNG metadata value changes. Each kernel was compared byte for by
    pinned to `Debug` so that unchanged native libraries compile exactly as before. The DNG
    writer (`libdngCreator`) was the one renderer-path library built at `-O0`; it now
    uses `-O2` with strict IEEE floating point, as `libm9color` and `libmcraw` already do.
-   Nothing in the app reads `BuildConfig.DEBUG`.
+   Nothing in the app reads `BuildConfig.DEBUG`. As for any non-debuggable Android
+   build, the APK also carries the AndroidX ART baseline profile (`assets/dexopt/`) and
+   shortened resource file paths; the app reads resources by ID only, so neither changes
+   behaviour, and the packager resolves menu files through the resource table.
 2. **DNG noise stage on all cores.** The M9 DNG noise filter ran on one thread. Its 64-row
    bands read only the immutable source and write only their own rows, so they now run on
    up to 8 `std::thread` workers with private scratch (no second OpenMP runtime). The

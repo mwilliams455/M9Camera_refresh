@@ -114,9 +114,29 @@ badging = subprocess.check_output([str(bt / 'aapt2'), 'dump', 'badging', str(fin
 for required in ("name='com.m9project.m9cam.photon'", f"versionCode='{code}'", f"versionName='{version}'"):
     assert required in badging, required
 assert 'application-debuggable' not in badging, 'EXACTPERF1A installer must not be debuggable'
+# Non-debuggable variants shorten resource file paths inside the APK (AGP resource
+# optimization). The app addresses resources by ID, so resolve each menu's packaged
+# file from the resource table instead of assuming res/xml/<name>.xml.
+resource_table = subprocess.check_output([str(bt / 'aapt2'), 'dump', 'resources', str(final)], text=True).splitlines()
+
+
+def resource_file(name):
+    for index, line in enumerate(resource_table):
+        words = line.split()
+        if len(words) >= 3 and words[0] == 'resource' and words[2] == name:
+            for entry in resource_table[index + 1:]:
+                if entry.split()[:1] == ['resource']:
+                    break
+                if '(file)' in entry:
+                    return entry.split('(file)', 1)[1].split()[0]
+    raise AssertionError(f'Resource file not found: {name}')
+
+
+menu_files = {}
 for profile in ('m9', 'monochrom'):
+    menu_files[profile] = resource_file('xml/preferences_' + profile)
     menu = subprocess.check_output([str(bt / 'aapt2'), 'dump', 'xmltree', '--file',
-                                    'res/xml/preferences_' + profile + '.xml', str(final)], text=True)
+                                    menu_files[profile], str(final)], text=True)
     for marker in ('pref_focus_tracking', 'pref_focus_tracking_semantic', 'pref_focus_tracking_predictive',
                    'pref_focus_tracking_identity', 'pref_focus_auto_eye_enabled', 'pref_focus_subject_pet',
                    'pref_export_tracking_trace'):
@@ -145,7 +165,7 @@ report = dict(status='PASS', version=version, versionCode=code, sha256=sha(final
               preserved301OriginalAssets=True, bundledModelSha256=expected_model,
               artBaselineProfileAssets=packaged_profile_assets,
               applicationDebuggable=False, signatureMatchesPrior=True, sixteenKiBAligned=True,
-              bothProfileMenusVerified=True, nativeProvenance='PASS',
+              bothProfileMenusVerified=True, packagedMenuFiles=menu_files, nativeProvenance='PASS',
               phoneTimingAndVisualValidationPending=True)
 (out / 'PACKAGED_VERIFICATION.json').write_text(json.dumps(report, indent=2) + '\n')
 (out / 'SHA256SUMS.txt').write_text(report['sha256'] + '  ' + final.name + '\n')

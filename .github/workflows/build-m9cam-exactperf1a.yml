@@ -62,7 +62,12 @@ jobs:
         # The accepted libraries embed /home/runner/work/M9Camera_refresh/M9Camera_refresh/PhotonCamera.
         run: |
           cp -a "$RUNNER_TEMP/parent" "$GITHUB_WORKSPACE/PhotonCamera"
-          (cd PhotonCamera && bash gradlew :app:externalNativeBuildDebug --no-daemon --max-workers=2)
+          # Retry: Maven Central occasionally rate-limits hosted runners (HTTP 429).
+          for attempt in 1 2 3; do
+            (cd PhotonCamera && bash gradlew :app:externalNativeBuildDebug --no-daemon --max-workers=2) && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 60
+          done
           for abi in arm64-v8a armeabi-v7a; do
             mkdir -p "$RUNNER_TEMP/native-parent/$abi"
             find PhotonCamera/app/build/intermediates/cxx -path "*/obj/$abi/*.so" -exec cp -n {} "$RUNNER_TEMP/native-parent/$abi/" \;
@@ -91,7 +96,13 @@ jobs:
           threads: 2
 
       - name: Build and run all selected regression suites
-        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/PhotonCamera" --run
+        # Retry: Maven Central occasionally rate-limits hosted runners (HTTP 429).
+        run: |
+          for attempt in 1 2 3; do
+            python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/PhotonCamera" --run && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 60
+          done
 
       - name: Verify library release resources
         working-directory: PhotonCamera
