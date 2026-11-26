@@ -42,6 +42,9 @@ auto_versions = {
     '3.36-objectwork1a': ('3.35-bodyconfirm1a', 'objectwork1a', 27336, 'M9Cam_3.36_OBJECTWORK1A.apk'),
     '3.37-petlabel1a': ('3.36-objectwork1a', 'petlabel1a', 27337, 'M9Cam_3.37_PETLABEL1A.apk'),
     '3.38-petevidence1a': ('3.37-petlabel1a', 'petevidence1a', 27338, 'M9Cam_3.38_PETEVIDENCE1A.apk'),
+    '3.42-facehighlight1b': ('3.41-facehighlight1a', 'facehighlight1b', 27342, 'M9Cam_3.42_FACEHIGHLIGHT1B.apk'),
+    '3.41-facehighlight1a': ('3.40-subjectae1a', 'facehighlight1a', 27341, 'M9Cam_3.41_FACEHIGHLIGHT1A.apk'),
+    '3.40-subjectae1a': ('3.39-dogface1a', 'subjectae1a', 27340, 'M9Cam_3.40_SUBJECTAE1A.apk'),
     '3.39-dogface1a': ('3.38-petevidence1a', 'dogface1a', 27339, 'M9Cam_3.39_DOGFACE1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
@@ -101,8 +104,8 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     new_names = set(new.namelist())
     assert len(new_names) == len(new.infolist()), 'Duplicate APK entries'
     extra_assets = {'assets/face_detection_yunet.onnx', 'assets/YUNET_LICENSE.txt'} if code >= 27323 else set()
-    scene_assets = {'assets/person_head.onnx', 'assets/PERSON_HEAD_MODEL.md'} if code in (27327, 27329, 27330, 27331, 27332, 27333, 27334, 27335, 27336, 27337, 27338, 27339) else set()
-    species_assets = {'assets/pet_species_mobilenet_v2.tflite', 'assets/PET_SPECIES_LICENSE.txt', 'assets/PET_SPECIES_MODEL.md'} if code in (27337, 27338, 27339) else set()
+    scene_assets = {'assets/person_head.onnx', 'assets/PERSON_HEAD_MODEL.md'} if code in (27327, 27329, 27330, 27331, 27332, 27333, 27334, 27335, 27336, 27337, 27338, 27339, 27340, 27341, 27342) else set()
+    species_assets = {'assets/pet_species_mobilenet_v2.tflite', 'assets/PET_SPECIES_LICENSE.txt', 'assets/PET_SPECIES_MODEL.md'} if code in (27337, 27338, 27339, 27340, 27341, 27342) else set()
     if species_assets:
         hashes = json.loads((baseline_dir.parents[1] / 'petlabel1a/source-hashes.json').read_text())
         for name in species_assets:

@@ -1,13 +1,13 @@
 # Current M9Cam build and tests
 
 Pull requests targeting main, pushes to main, and manual runs reconstruct
-3.39-dogface1a (version code 27339). Run these from the repository
+3.42-facehighlight1b (version code 27342). Run these from the repository
 root using the Android and JDK versions in verify-m9cam-current.yml.
 
 ```sh
-python3 scripts/ci/prepare_314.py /tmp/m9-339 --dog-face
-bash scripts/ci/test_tracking.sh /tmp/m9-339/PhotonCamera_339
-python3 scripts/ci/verify_tests.py /tmp/m9-339/PhotonCamera_339 --run
+python3 scripts/ci/prepare_314.py /tmp/m9-342 --adaptive-face-highlight
+bash scripts/ci/test_tracking.sh /tmp/m9-342/PhotonCamera_342
+python3 scripts/ci/verify_tests.py /tmp/m9-342/PhotonCamera_342 --run
 ```
 
 The accepted source descends from 2.95 through the focus and tracking patches.

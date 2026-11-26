@@ -74,6 +74,26 @@ def apply_ci_fixture(source, reports, version="3.14-trackingrecovery1a", pin="so
     (reports / "SOURCE_VERIFICATION.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
+def apply_exposure_stage(source, reports, stage, version, parent):
+    directory = PATCHES / stage
+    hashes = json.loads((directory / "source-hashes.json").read_text())
+
+    def verify(key):
+        for name, pins in hashes.items():
+            path = source / name
+            actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+            if actual != pins[key]:
+                raise ValueError(f"{stage} {key} fingerprint mismatch: {name}")
+
+    verify("before")
+    subprocess.run(["git", "apply", "--whitespace=error", directory / "source.patch"],
+                   cwd=source, check=True)
+    verify("after")
+    report = {"status": "STAGED_FOR_ANDROID_BUILD", "version": version, "parent": parent,
+              "changedFiles": sorted(hashes), "sourceHashes": hashes}
+    (reports / f"{stage}.json").write_text(json.dumps(report, indent=2) + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
@@ -104,6 +124,9 @@ def main():
         (337, "3.37-petlabel1a", "petlabel1a", "--pet-label"),
         (338, "3.38-petevidence1a", "petevidence1a", "--pet-evidence"),
         (339, "3.39-dogface1a", "dogface1a", "--dog-face"),
+        (340, "3.40-subjectae1a", "subjectae1a", "--subject-ae"),
+        (341, "3.41-facehighlight1a", "facehighlight1a", "--face-highlight"),
+        (342, "3.42-facehighlight1b", "facehighlight1b", "--adaptive-face-highlight"),
     )
     for number, label, stage, flag in versions[1:]:
         parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,
@@ -120,12 +143,16 @@ def main():
     reports.mkdir()
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
+    previous_label = None
     for number, label, stage, _ in versions:
         # 3.28 is the separate rollback to 3.26. 3.29 resumes the 3.27 detector.
         if (number == 327 and version == 328) or (number == 328 and version > 328):
             continue
-        if stage:
+        if number >= 340:
+            apply_exposure_stage(source, reports, stage, label, previous_label)
+        elif stage:
             run_python(PATCHES / stage / "apply.py", source, reports / f"{stage}.json")
+        previous_label = label
         pin = f"source-{number}.sha256"
         if number == version:
             apply_ci_fixture(source, reports, label, pin)

@@ -69,3 +69,12 @@ javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${t
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"
 done
+
+meter="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java"
+if [[ -f "$meter" ]] && grep -Fq 'quarterStopSince' "$meter"; then
+  fixtures=patches/facehighlight1b/host
+  javac -Xlint:all -d "$classes" "$fixtures/android/graphics/Bitmap.java" "$meter" \
+    "$fixtures/FaceHighlightTest.java" "$fixtures/PreviewFeedbackTest.java"
+  java -ea -cp "$classes" com.particlesdevs.photoncamera.m9.preview.FaceHighlightTest
+  java -ea -cp "$classes" com.particlesdevs.photoncamera.m9.preview.PreviewFeedbackTest
+fi

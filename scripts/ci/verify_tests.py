@@ -103,6 +103,9 @@ if __name__ == "__main__":
     if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/util/TrackingTraceExportTest.java").is_file():
         SUITES["TrackingTraceExportTest"] = 4
         SUITES["TrackingTraceSettingsTest"] = 2
+    meter_suite = args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java"
+    if meter_suite.is_file():
+        SUITES["M9TrackedSubjectMeterTest"] = 9 if "twoIndependentBrightFaceFramesProtectHighlightsOnce" in meter_suite.read_text() else 5
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]
