@@ -1,0 +1,38 @@
+{
+  "app/build.gradle": {
+    "before": "b3189d1e1785a7894d1695cc70f66be5a4b6820670aa04b4ae56f7e31fdcd40b",
+    "after": "02d1a3b026f8fca828bafd039dd8afea5f90a64c9c912b5f256a5eb05b056067"
+  },
+  "app/src/main/assets/YUNET_LICENSE.txt": {
+    "before": null,
+    "after": "c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e9227e415326aa1b1aba958"
+  },
+  "app/src/main/assets/face_detection_yunet.onnx": {
+    "before": null,
+    "after": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java": {
+    "before": "087895b9ea58447fbf034d55b4e41989b13ae8d1b38bae84c63a884e1e71d656",
+    "after": "0643289c7ca2b2582117705a4de9f7ef3dac2e8c3825e6efdd9514c1830ce788"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java": {
+    "before": null,
+    "after": "197f0dbd12664adf71f1ef346b5d3874842f34d966929f1d0cf298cf6157b2a7"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "6801a6b6b905051683d451f72f4d89afe5f95a799126fff007be932e8539443b",
+    "after": "fd2475e6bec0318efac428634a5cb4e9b58da99ad46a913162c9750c2e3019a0"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneFaceDetector.java": {
+    "before": null,
+    "after": "54b52ae6d33f2dac8ed09024f43ff30b36c498e6e17d9b8f974e6438beb506cf"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java": {
+    "before": "288f85e9382bed0e85b2b1ebdc4f45abd4c0794cea97408b2ee8d5ff9751f01e",
+    "after": "2062c36c0700c33bdded50f373cbb0ff57efc67479bdddf1b5a121cfe0d98e73"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java": {
+    "before": "335ae7c9e92242fd39376295e7dd204e2c3d6b316b4ac956da4ac5e88462e182",
+    "after": "b84ceba55794c93c2da7774d58c3fb5463dc0d13e0629fb7500bed9e49b1856c"
+  }
+}

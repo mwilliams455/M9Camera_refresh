@@ -1,0 +1,433 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27324
++        versionCode 27325
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.24-widepet1a'
++        versionName '3.25-subjectcheck1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.24_WIDEPET1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.25_SUBJECTCHECK1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -197,6 +197,17 @@
+                     && anchor.area() >= candidate.area()*.12f;
+         }
+         return overlap(anchor,candidate) >= .50f;
++    }
++
++    /** Multiple plausible matches at the second scale cannot corroborate one person. */
++    public static Box corroboratingBody(Box anchor, List<Box> secondView) {
++        Box match=null;
++        for (Box body : secondView) {
++            if (!matchesRecovery(anchor,body)) continue;
++            if (match!=null) return null;
++            match=body;
++        }
++        return match;
+     }
+ 
+     /** Skip object inference if a face already covers the current human selection. */
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/LargePetAcquisition.java
++++ /dev/null
+@@ -1,57 +0,0 @@
+-package com.particlesdevs.photoncamera.control.subject;
+-
+-import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+-import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
+-import java.util.List;
+-
+-/** A large new pet needs two consecutive corroborated observations before it enters selection. */
+-public final class LargePetAcquisition {
+-    private Box pending;
+-    private long lastFrame;
+-    private static final long MAX_GAP_NS = 500_000_000L;
+-
+-    static boolean isLarge(float width, float height) {
+-        return width*height >= .15f;
+-    }
+-
+-    public static boolean isLargePet(Box box) {
+-        return box != null && box.type != ClassId.PERSON
+-                && isLarge(box.right-box.left,box.bottom-box.top);
+-    }
+-
+-    public void reset() {
+-        pending = null;
+-        lastFrame = 0;
+-    }
+-
+-    public boolean awaiting(long frame) {
+-        return pending != null && frame > lastFrame && frame-lastFrame <= MAX_GAP_NS;
+-    }
+-
+-    private static boolean isNewLargePet(Box current, Box candidate) {
+-        return isLargePet(candidate) && !AutomaticSubjectSelection.samePet(current,candidate);
+-    }
+-
+-    /** Entries are already detector/pose-verified. Never admit a lone or ambiguous first sighting. */
+-    public void filter(List<Box> boxes, Box current, long frame, long now) {
+-        if (frame <= lastFrame || frame <= 0 || now < frame
+-                || now-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
+-            if (frame > lastFrame) { pending = null; lastFrame = frame; }
+-            if (!boxes.isEmpty()) boxes.removeIf(box -> isNewLargePet(current,box));
+-            return;
+-        }
+-        Box observation = null;
+-        for (Box box : boxes) {
+-            if (!isNewLargePet(current,box)) continue;
+-            if (observation != null) {
+-                observation = null;
+-                break;
+-            }
+-            observation = box;
+-        }
+-        boolean confirmed = awaiting(frame) && AutomaticSubjectSelection.samePet(pending,observation);
+-        pending = observation;
+-        lastFrame = frame;
+-        if (!confirmed && !boxes.isEmpty()) boxes.removeIf(box -> isNewLargePet(current,box));
+-    }
+-}
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetAcquisitionGate.java
+@@ -0,0 +1,62 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.List;
++
++/** A new pet needs two consecutive corroborated observations before it enters selection. */
++public final class PetAcquisitionGate {
++    private Box pending;
++    private long lastFrame;
++    private static final long MAX_GAP_NS = 500_000_000L;
++
++    static boolean isLarge(float width, float height) {
++        return width*height >= .15f;
++    }
++
++    public static boolean isLargePet(Box box) {
++        return box != null && box.type != ClassId.PERSON
++                && isLarge(box.right-box.left,box.bottom-box.top);
++    }
++
++    public void reset() {
++        pending = null;
++        lastFrame = 0;
++    }
++
++    private boolean awaiting(long frame) {
++        return pending != null && frame > lastFrame && frame-lastFrame <= MAX_GAP_NS;
++    }
++
++    /** Reinspect a fresh proposal at the appropriate scale on the next frame. */
++    public Box pendingAt(long frame) {
++        return awaiting(frame) ? pending : null;
++    }
++
++    private static boolean isNewPet(Box current, Box candidate) {
++        return candidate.type != ClassId.PERSON && !AutomaticSubjectSelection.samePet(current,candidate);
++    }
++
++    /** Entries are already detector/pose-verified. Never admit a lone or ambiguous first sighting. */
++    public void filter(List<Box> boxes, Box current, long frame, long now) {
++        if (frame <= lastFrame || frame <= 0 || now < frame
++                || now-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
++            if (frame > lastFrame) { pending = null; lastFrame = frame; }
++            if (!boxes.isEmpty()) boxes.removeIf(box -> isNewPet(current,box));
++            return;
++        }
++        Box observation = null;
++        for (Box box : boxes) {
++            if (!isNewPet(current,box)) continue;
++            if (observation != null) {
++                observation = null;
++                break;
++            }
++            observation = box;
++        }
++        boolean confirmed = awaiting(frame) && AutomaticSubjectSelection.samePet(pending,observation);
++        pending = observation;
++        lastFrame = frame;
++        if (!confirmed && !boxes.isEmpty()) boxes.removeIf(box -> isNewPet(current,box));
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+@@ -118,7 +118,7 @@
+             float l=(left+c.left*side)/width, r=(left+c.right*side)/width;
+             float t=(top+c.top*side)/height, b=(top+c.bottom*side)/height;
+             if (r-l<.065f || b-t<.065f) continue;
+-            if (wideSearch && !LargePetAcquisition.isLarge(r-l,b-t)) continue;
++            if (wideSearch && (!PetAcquisitionGate.isLarge(r-l,b-t) || cutByCrop(c))) continue;
+             if (proposal==null) {
+                 if (Math.hypot(c.cx()-.5f,c.cy()-.5f)>.40) continue;
+             } else if ((localSearch && c.category!=proposal.category)
+@@ -129,6 +129,13 @@
+         return match;
+     }
+ 
++    /** A box ending at an artificial crop edge lacks a reliable whole-body outline. */
++    private boolean cutByCrop(Candidate box) {
++        final float edge=.015f;
++        return (left>0 && box.left<=edge) || (left+side<width && box.right>=1f-edge)
++                || (top>0 && box.top<=edge) || (top+side<height && box.bottom>=1f-edge);
++    }
++
+     private static float overlap(Candidate c, float l, float t, float r, float b) {
+         float w=Math.max(0f, Math.min(c.right,r)-Math.max(c.left,l));
+         float h=Math.max(0f, Math.min(c.bottom,b)-Math.max(c.top,t));
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
+@@ -33,6 +33,13 @@
+         }
+     }
+ 
++    /** A landmark box may enter immediately when YuNet sees the same head, or after
++     * the landmark admission gate has verified the face over multiple frames. */
++    public void admitLandmarks(List<Box> faces, List<Box> sustained, List<Box> proposals, long frame) {
++        faces.removeIf(face -> !sustained.contains(face) && !matchesAny(face,proposals));
++        merge(faces,proposals,frame);
++    }
++
+     private static boolean matchesAny(Box a, List<Box> faces) {
+         for (Box b : faces) {
+             float w = Math.max(0f, Math.min(a.right,b.right) - Math.max(a.left,b.left));
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -34,7 +34,7 @@
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.subject.SubjectFrame;
+ import com.particlesdevs.photoncamera.control.subject.SceneHeads;
+-import com.particlesdevs.photoncamera.control.subject.LargePetAcquisition;
++import com.particlesdevs.photoncamera.control.subject.PetAcquisitionGate;
+ import com.particlesdevs.photoncamera.control.subject.PetDetailInput;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy;
+ 
+@@ -93,7 +93,7 @@
+     private boolean running, closed, inFlight, manualOverride, unsupported;
+     private long epoch, freshSinceNs, lastFrameNs = Long.MIN_VALUE;
+     private long lastAttemptMs, lastResultMs, lastFacesMs;
+-    private final LargePetAcquisition largePets = new LargePetAcquisition();
++    private final PetAcquisitionGate petAcquisition = new PetAcquisitionGate();
+     private int petSearchPhase; // Serial object worker only.
+     private long nextAutomaticAfMs;
+     private String camera;
+@@ -158,7 +158,7 @@
+     void clear() {
+         epoch++;
+         automatic.reset();
+-        largePets.reset();
++        petAcquisition.reset();
+         sceneHeads.clear();
+         policy.beginSession(epoch);
+         admissionGate.beginSession(epoch);
+@@ -417,17 +417,21 @@
+                 return;
+             }
+             List<Box> boxes=new ArrayList<>();
++            List<Box> sustained=new ArrayList<>();
+             for (SubjectFocusPolicy.Face f : faces) {
+                 Box box=Box.fromFace(f,eyeSetting() && admitted.contains(f),rotation);
+-                if (box!=null) boxes.add(box);
++                if (box!=null) {
++                    boxes.add(box);
++                    if (admitted.contains(f)) sustained.add(box);
++                }
+             }
+             boolean matched=automatic.facesSuffice(boxes);
+             automatic.faceScanComplete(matched);
+-            if (boxes.size() >= 2 || (boxes.isEmpty() && automatic.petDetailAnchor(startedNs)!=null)) {
++            if ((boxes.size() >= 2 && boxes.size()==sustained.size()) || (boxes.isEmpty() && automatic.petDetailAnchor(startedNs)!=null)) {
+                 sceneHeads.merge(boxes,Collections.emptyList(),startedNs);
+                 dispatchFaces(ticket,g,startedNs,boxes);
+             } else {
+-                findSceneHeads(ticket,g,startedNs,rotation,boxes);
++                findSceneHeads(ticket,g,startedNs,rotation,boxes,sustained);
+             }
+             return;
+         }
+@@ -497,7 +501,7 @@
+             finish();
+         }
+     }
+-    private void findSceneHeads(long ticket, TrackingGeometry g, long frame, int rotation, List<Box> faces) {
++    private void findSceneHeads(long ticket, TrackingGeometry g, long frame, int rotation, List<Box> faces, List<Box> sustained) {
+         objectWorker.execute(() -> {
+             if (sceneEpoch != ticket) { sceneEpoch=ticket; lastSceneAngle=null; }
+             List<Box> found=Collections.emptyList();
+@@ -518,7 +522,7 @@
+                     applyAutomatic(ticket,g,frame,Collections.emptyList());
+                     return;
+                 }
+-                sceneHeads.merge(faces,heads,frame);
++                sceneHeads.admitLandmarks(faces,sustained,heads,frame);
+                 dispatchFaces(ticket,g,frame,faces);
+             });
+         });
+@@ -546,7 +550,8 @@
+         final Box petAnchor=automatic.petDetailAnchor(frame);
+         final Box lastPet=automatic.confirmedPet(frame);
+         final boolean missed=automatic.lastObservationMissed();
+-        final boolean retryWide=largePets.awaiting(frame) || LargePetAcquisition.isLargePet(petAnchor);
++        final Box pendingPet=petAcquisition.pendingAt(frame);
++        final boolean retryWide=PetAcquisitionGate.isLargePet(pendingPet) || PetAcquisitionGate.isLargePet(petAnchor);
+         objectWorker.execute(() -> {
+             List<SubjectAnchorPolicy.Candidate> bodies=Collections.emptyList();
+             if (objects!=null && !objectsUnavailable) {
+@@ -556,6 +561,7 @@
+                     objectsUnavailable=true;
+                 }
+             }
++            List<Box> secondView=null;
+             Box unverifiedPet=null;
+             float bestPetScore=0f;
+             for (SubjectAnchorPolicy.Candidate candidate : bodies) {
+@@ -575,7 +581,12 @@
+                         }
+                     }
+                 }
+-                if (!represented) faces.add(box);
++                if (represented) continue;
++                if (box.type==SubjectAnchorPolicy.ClassId.PERSON && !AutomaticSubjectSelection.matchesRecovery(anchor,box)) {
++                    if (secondView==null) secondView=peopleAtSecondScale(preview,frame);
++                    if (AutomaticSubjectSelection.corroboratingBody(box,secondView)==null) continue;
++                }
++                faces.add(box);
+             }
+             if (unverifiedPet!=null && objects!=null && objects.admitPet(preview,unverifiedPet,frame))
+                 faces.add(unverifiedPet);
+@@ -583,16 +594,15 @@
+             if (objects!=null && !objectsUnavailable && !recoveryUnavailable
+                     && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS
+                     && AutomaticSubjectSelection.needsPersonRecovery(anchor,faces)) {
+-                try {
+-                    recovered=objects.recoverPerson(preview,anchor);
+-                } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+-                    recoveryUnavailable=true;
+-                }
++                if (secondView==null) secondView=peopleAtSecondScale(preview,frame);
++                recovered=AutomaticSubjectSelection.corroboratingBody(anchor,secondView);
+             } else if (objects!=null && !objectsUnavailable && !petDetailUnavailable
+                     && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS
+                     && AutomaticSubjectSelection.needsPetDetail(petAnchor,faces)) {
+                 PetDetailInput crop=PetDetailInput.forTracking(preview.getWidth(),preview.getHeight(),
+                         bodies,petAnchor,lastPet,missed);
++                if (crop==null && unverifiedPet==null && pendingPet!=null && !retryWide)
++                    crop=PetDetailInput.nearLastPet(preview.getWidth(),preview.getHeight(),pendingPet);
+                 if (crop==null && unverifiedPet==null && (lastPet==null || retryWide)) {
+                     int phase=retryWide ? 0 : petSearchPhase;
+                     crop=phase==0 ? PetDetailInput.wide(preview.getWidth(),preview.getHeight())
+@@ -601,7 +611,7 @@
+                 }
+                 if (crop!=null) {
+                     try {
+-                        Box pet=objects.verifyPet(preview,crop,frame);
++                        Box pet=objects.verifyPet(preview,crop,frame,petAnchor);
+                         if (pet!=null) faces.add(pet);
+                     } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+                         petDetailUnavailable=true;
+@@ -613,6 +623,17 @@
+         });
+     }
+ 
++    private List<Box> peopleAtSecondScale(Bitmap preview, long frame) {
++        if (recoveryUnavailable || SystemClock.elapsedRealtimeNanos()-frame >= AutomaticSubjectSelection.MAX_AGE_NS)
++            return Collections.emptyList();
++        try {
++            return objects.peopleAtSecondScale(preview);
++        } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++            recoveryUnavailable=true;
++            return Collections.emptyList();
++        }
++    }
++
+     private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes) {
+         applyAutomatic(ticket,g,frame,boxes,null);
+     }
+@@ -620,7 +641,7 @@
+     private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes, Box secondary) {
+         if (!accepts(ticket,g)) { finish(); return; }
+         long now=SystemClock.elapsedRealtimeNanos();
+-        largePets.filter(boxes,automatic.petDetailAnchor(frame),frame,now);
++        petAcquisition.filter(boxes,automatic.petDetailAnchor(frame),frame,now);
+         Box box=automatic.observe(frame,now,boxes,secondary);
+         if (box==null && (!boxVisible || !automatic.visibleAt(SystemClock.elapsedRealtimeNanos()))) {
+             if (boxVisible) releaseFocus();
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+@@ -52,8 +52,8 @@
+     List<SubjectAnchorPolicy.Candidate> detect(Bitmap frame){
+         return detect(frame,null,0,0,false);
+     }
+-    /** Called only on the serial worker when the primary pass loses a known person. */
+-    Box recoverPerson(Bitmap frame, Box anchor) {
++    /** One padded view shared by body-only acquisition and recovery on the serial worker. */
++    List<Box> peopleAtSecondScale(Bitmap frame) {
+         PersonRecoveryInput layout = new PersonRecoveryInput(frame.getWidth(), frame.getHeight());
+         if (recoveryInput == null) recoveryInput = Bitmap.createBitmap(
+                 PersonRecoveryInput.SIZE, PersonRecoveryInput.SIZE, Bitmap.Config.ARGB_8888);
+@@ -61,17 +61,15 @@
+         canvas.drawColor(0xff7f7f7f);
+         canvas.drawBitmap(frame, null, new Rect(layout.left, layout.top,
+                 layout.left+layout.width, layout.top+layout.height), filter);
+-        Box match = null;
++        List<Box> bodies=new ArrayList<>();
+         for (SubjectAnchorPolicy.Candidate candidate : detect(recoveryInput)) {
+-            Box body = layout.toPreview(candidate);
+-            if (!AutomaticSubjectSelection.matchesRecovery(anchor,body)) continue;
+-            if (match != null) return null;
+-            match = body;
++            Box body=layout.toPreview(candidate);
++            if (body!=null) bodies.add(body);
+         }
+-        return match;
++        return bodies;
+     }
+     /** Verify one small animal proposal at a larger scale on the same preview frame. */
+-    Box verifyPet(Bitmap frame, PetDetailInput crop, long frameNs) {
++    Box verifyPet(Bitmap frame, PetDetailInput crop, long frameNs, Box active) {
+         if (recoveryInput == null) recoveryInput = Bitmap.createBitmap(
+                 PersonRecoveryInput.SIZE, PersonRecoveryInput.SIZE, Bitmap.Config.ARGB_8888);
+         Canvas canvas = new Canvas(recoveryInput);
+@@ -79,7 +77,12 @@
+         canvas.drawBitmap(frame, region, new Rect(0, 0, recoveryInput.getWidth(), recoveryInput.getHeight()), filter);
+         List<SubjectAnchorPolicy.Candidate> details=detect(recoveryInput);
+         Box matched=crop.confirm(details);
+-        if (matched!=null) return matched;
++        if (matched!=null) {
++            if (AutomaticSubjectSelection.samePet(active,matched) || supportsPet(frame,matched,frameNs))
++                return matched;
++            // On devices without the pose backend, retain the two-view fallback.
++            return poseUnavailable ? matched : null;
++        }
+         Box proposal=crop.poseCandidate(details);
+         return supportsPet(frame,proposal,frameNs) ? proposal : null;
+     }
+@@ -90,7 +93,7 @@
+                 >= AutomaticSubjectSelection.MAX_AGE_NS) return false;
+         PetDetailInput crop=PetDetailInput.secondView(frame.getWidth(),frame.getHeight(),pet);
+         try {
+-            return crop!=null && AutomaticSubjectSelection.samePet(pet,verifyPet(frame,crop,frameNs));
++            return crop!=null && AutomaticSubjectSelection.samePet(pet,verifyPet(frame,crop,frameNs,null));
+         } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+             return false;
+         }

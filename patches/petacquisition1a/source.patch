@@ -1,0 +1,351 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index b67fab2..614739b 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27320
++        versionCode 27321
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.20-petcontinuity1a'
++        versionName '3.21-petacquisition1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.20_PETCONTINUITY1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.21_PETACQUISITION1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java
+index 8370dd8..951ad86 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java
+@@ -27,11 +27,16 @@ public final class AnimalEyeTargetPolicy {
+     public static final class Observation {
+         public final PetTargetPolicy.Species species;
+         public final float left,top,right,bottom;
+-        public final Point leftEye,rightEye,nose;
++        public final Point leftEye,rightEye,nose,neck,tailBase;
+         public final long frameNs,sessionEpoch;
+         public Observation(PetTargetPolicy.Species species,float left,float top,
+                            float right,float bottom,Point leftEye,Point rightEye,
+                            Point nose,long frameNs,long epoch) {
++            this(species,left,top,right,bottom,leftEye,rightEye,nose,null,null,frameNs,epoch);
++        }
++        public Observation(PetTargetPolicy.Species species,float left,float top,float right,float bottom,
++                           Point leftEye,Point rightEye,Point nose,Point neck,Point tailBase,long frameNs,long epoch) {
++            this.neck=neck;this.tailBase=tailBase;
+             this.species=species;this.left=left;this.top=top;
+             this.right=right;this.bottom=bottom;
+             this.leftEye=leftEye;this.rightEye=rightEye;this.nose=nose;
+@@ -139,6 +144,21 @@ public final class AnimalEyeTargetPolicy {
+         return new Target(chosen.x,chosen.y,chosen.score,observation.species,
+                 stamp,epoch,nextEye);
+     }
++    /** Independent support for an object detector proposal, including an animal turned away. */
++    public static boolean supportsAnimal(Observation o) {
++        if (o==null || !o.validBox()) return false;
++        if (inside(o,o.nose) && ((inside(o,o.leftEye) && credibleEye(o,o.leftEye,o.nose))
++                || (inside(o,o.rightEye) && credibleEye(o,o.rightEye,o.nose)))) return true;
++        if (!inside(o,o.neck) || !inside(o,o.tailBase)) return false;
++        double extent=Math.hypot((o.neck.x-o.tailBase.x)/(o.right-o.left),
++                (o.neck.y-o.tailBase.y)/(o.bottom-o.top));
++        return extent>=.16 && extent<=1.2;
++    }
++
++    private static boolean inside(Observation o,Point p) {
++        return p!=null && p.valid(.50f) && contains(o,p.x,p.y);
++    }
++
+     private static boolean credibleEye(Observation o,Point eye,Point nose){
+         if(eye==null||!eye.valid(MIN_EYE_SCORE)||!contains(o,eye.x,eye.y))
+             return false;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+index 12c80dc..067c106 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -145,6 +145,11 @@ public final class AutomaticSubjectSelection {
+                 ? active : null;
+     }
+ 
++    public static boolean samePet(Box anchor,Box candidate) {
++        return anchor!=null && anchor.type!=ClassId.PERSON && candidate!=null
++                && continuity(anchor,candidate)>0f;
++    }
++
+     public Box petDetailAnchor(long frame) {
+         return visibleAt(frame) && active.type != ClassId.PERSON ? active : null;
+     }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+index 468a4ef..1053016 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+@@ -24,6 +24,20 @@ public final class PetDetailInput {
+         top = Math.max(0, Math.min(height-side, Math.round(proposal.cy()*height-side*.5f)));
+     }
+ 
++    /** Search the part of the scene that the photographer is framing. */
++    public static PetDetailInput centre(int width,int height,int phase) {
++        return new PetDetailInput(width,height,phase);
++    }
++
++    private PetDetailInput(int width,int height,int phase) {
++        this.width=width; this.height=height;
++        side=Math.max(1,Math.min(width,height)/3);
++        left=(width-side)/2;
++        int offset=phase==1 ? side/5 : phase==2 ? -side/5 : 0;
++        top=Math.max(0,Math.min(height-side,(height-side)/2+offset));
++        proposal=null; localSearch=false;
++    }
++
+     public static PetDetailInput choose(int width, int height, List<Candidate> candidates, Box trackedPet) {
+         if (width <= 0 || height <= 0) return null;
+         Candidate best = null;
+@@ -46,6 +60,14 @@ public final class PetDetailInput {
+         return local != null ? local : usual;
+     }
+ 
++    /** Confirm a full-frame pet at a second scale if the optional pose engine is unavailable. */
++    public static PetDetailInput secondView(int width,int height,Box pet) {
++        if (pet==null || pet.type==ClassId.PERSON || width<=0 || height<=0) return null;
++        Candidate region=new Candidate(pet.type==ClassId.CAT ? "cat" : "dog",1f,
++                pet.left,pet.top,pet.right,pet.bottom);
++        return new PetDetailInput(width,height,region,false);
++    }
++
+     /** When the full preview misses an established pet, inspect its recent neighbourhood. */
+     public static PetDetailInput nearLastPet(int width, int height, Box pet) {
+         if (pet == null || width <= 0 || height <= 0
+@@ -63,6 +85,7 @@ public final class PetDetailInput {
+     }
+ 
+     public Box confirm(List<Candidate> details) {
++        if (proposal==null) return null;
+         Box match = null;
+         for (Candidate c : details) {
+             if (c == null || (c.category != ClassId.CAT && c.category != ClassId.DOG)
+@@ -77,6 +100,27 @@ public final class PetDetailInput {
+         return match;
+     }
+ 
++    /** Return an unambiguous proposal for the independent pose check. */
++    public Box poseCandidate(List<Candidate> detections) {
++        Box match=null;
++        for (Candidate c : detections) {
++            if (c==null || (c.category!=ClassId.CAT && c.category!=ClassId.DOG)
++                    || !Float.isFinite(c.score) || c.score<(proposal==null ? .25f : .30f) || c.score>1f
++                    || !(c.left>=0f && c.right<=1f && c.top>=0f && c.bottom<=1f
++                    && c.width()>0f && c.height()>0f)) continue;
++            float l=(left+c.left*side)/width, r=(left+c.right*side)/width;
++            float t=(top+c.top*side)/height, b=(top+c.bottom*side)/height;
++            if (r-l<.065f || b-t<.065f) continue;
++            if (proposal==null) {
++                if (Math.hypot(c.cx()-.5f,c.cy()-.5f)>.40) continue;
++            } else if ((localSearch && c.category!=proposal.category)
++                    || overlap(proposal,l,t,r,b)<(localSearch ? .25f : .40f)) continue;
++            if (match!=null) return null;
++            match=Box.verifiedPet(c.category,l,t,r,b);
++        }
++        return match;
++    }
++
+     private static float overlap(Candidate c, float l, float t, float r, float b) {
+         float w=Math.max(0f, Math.min(c.right,r)-Math.max(c.left,l));
+         float h=Math.max(0f, Math.min(c.bottom,b)-Math.max(c.top,t));
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/AnimalEyePoseEstimator.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/AnimalEyePoseEstimator.java
+index 5895372..49231a9 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/AnimalEyePoseEstimator.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/AnimalEyePoseEstimator.java
+@@ -8,6 +8,8 @@ import com.google.ai.edge.litert.LiteRtException;
+ import com.google.ai.edge.litert.TensorBuffer;
+ import com.particlesdevs.photoncamera.control.subject.AnimalEyeTargetPolicy;
+ import com.particlesdevs.photoncamera.control.subject.AnimalSimccDecoder;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
+ import com.particlesdevs.photoncamera.control.subject.PetTargetPolicy;
+ import java.util.List;
+ 
+@@ -69,8 +71,19 @@ final class AnimalEyePoseEstimator implements AutoCloseable {
+     String backend(){return backend;}
+     AnimalEyeTargetPolicy.Observation estimate(Bitmap preview,
+             PetTargetPolicy.Candidate animal,long frameNs,long epoch) throws LiteRtException {
+-        if(closed||preview==null||preview.isRecycled()
+-                ||animal==null||!animal.valid()) return null;
++        if (animal==null || !animal.valid()) return null;
++        return estimateRegion(preview,animal.species,animal.left,animal.top,animal.right,animal.bottom,frameNs,epoch);
++    }
++
++    boolean supports(Bitmap preview,Box pet) throws LiteRtException {
++        if (pet==null || pet.type==ClassId.PERSON) return false;
++        PetTargetPolicy.Species species=pet.type==ClassId.CAT ? PetTargetPolicy.Species.CAT : PetTargetPolicy.Species.DOG;
++        return AnimalEyeTargetPolicy.supportsAnimal(estimateRegion(preview,species,pet.left,pet.top,pet.right,pet.bottom,0,0));
++    }
++
++    private AnimalEyeTargetPolicy.Observation estimateRegion(Bitmap preview,PetTargetPolicy.Species species,
++            float l,float t,float r,float b,long frameNs,long epoch) throws LiteRtException {
++        if (closed || preview==null || preview.isRecycled()) return null;
+         final int width=preview.getWidth(),height=preview.getHeight();
+         if(width<=0||height<=0)return null;
+         if(previewPixels.length<width*height)
+@@ -78,9 +91,9 @@ final class AnimalEyePoseEstimator implements AutoCloseable {
+         preview.getPixels(previewPixels,0,width,0,0,width,height);
+         // Square crop enclosing the confirmed animal; transparent padding is
+         // represented by MMPose mean RGB so its normalized input becomes zero.
+-        final float cx=animal.cx()*width, cy=animal.cy()*height;
+-        final float side=Math.max(32f,Math.max(animal.width()*width,
+-                animal.height()*height)*1.13f);
++        final float cx=(l+r)*.5f*width, cy=(t+b)*.5f*height;
++        final float side=Math.max(32f,Math.max((r-l)*width,
++                (b-t)*height)*1.13f);
+         final float left=cx-side*.5f,top=cy-side*.5f;
+         for(int y=0;y<N;y++) {
+             int py=(int)Math.floor(top+(y+.5f)*side/N);
+@@ -106,9 +119,9 @@ final class AnimalEyePoseEstimator implements AutoCloseable {
+         AnimalEyeTargetPolicy.Point leftEye=AnimalSimccDecoder.decode(sx,sy,0,left,top,side,width,height);
+         AnimalEyeTargetPolicy.Point rightEye=AnimalSimccDecoder.decode(sx,sy,1,left,top,side,width,height);
+         AnimalEyeTargetPolicy.Point nose=AnimalSimccDecoder.decode(sx,sy,2,left,top,side,width,height);
+-        return new AnimalEyeTargetPolicy.Observation(animal.species,
+-                animal.left,animal.top,animal.right,animal.bottom,
+-                leftEye,rightEye,nose,frameNs,epoch);
++        return new AnimalEyeTargetPolicy.Observation(species,l,t,r,b,leftEye,rightEye,nose,
++                AnimalSimccDecoder.decode(sx,sy,3,left,top,side,width,height),
++                AnimalSimccDecoder.decode(sx,sy,4,left,top,side,width,height),frameNs,epoch);
+     }
+     private static void closeBuffers(List<TensorBuffer> buffers){
+         if(buffers!=null)for(TensorBuffer b:buffers)if(b!=null)b.close();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 0d18a28..45d706d 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -84,6 +84,7 @@ final class HumanSubjectFocusController {
+     private boolean running, closed, inFlight, manualOverride, unsupported;
+     private long epoch, freshSinceNs, lastFrameNs = Long.MIN_VALUE;
+     private long lastAttemptMs, lastResultMs, lastFacesMs;
++    private int petSearchPhase; // Serial object worker only.
+     private long nextAutomaticAfMs;
+     private String camera;
+     private CameraMode mode;
+@@ -501,9 +502,15 @@ final class HumanSubjectFocusController {
+                     objectsUnavailable=true;
+                 }
+             }
++            Box unverifiedPet=null;
++            float bestPetScore=0f;
+             for (SubjectAnchorPolicy.Candidate candidate : bodies) {
+                 Box box=Box.fromBody(candidate);
+                 if (box==null) continue;
++                if (box.type!=SubjectAnchorPolicy.ClassId.PERSON && !AutomaticSubjectSelection.samePet(petAnchor,box)) {
++                    if (candidate.score>bestPetScore) { bestPetScore=candidate.score; unverifiedPet=box; }
++                    continue;
++                }
+                 // A face and its enclosing person box describe one subject.
+                 boolean represented=false;
+                 if (box.type==SubjectAnchorPolicy.ClassId.PERSON) {
+@@ -516,6 +523,8 @@ final class HumanSubjectFocusController {
+                 }
+                 if (!represented) faces.add(box);
+             }
++            if (unverifiedPet!=null && objects!=null && objects.admitPet(preview,unverifiedPet,frame))
++                faces.add(unverifiedPet);
+             Box recovered=null;
+             if (objects!=null && !objectsUnavailable && !recoveryUnavailable
+                     && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS
+@@ -530,9 +539,13 @@ final class HumanSubjectFocusController {
+                     && AutomaticSubjectSelection.needsPetDetail(petAnchor,faces)) {
+                 PetDetailInput crop=PetDetailInput.forTracking(preview.getWidth(),preview.getHeight(),
+                         bodies,petAnchor,lastPet,missed);
++                if (crop==null && lastPet==null && unverifiedPet==null) {
++                    crop=PetDetailInput.centre(preview.getWidth(),preview.getHeight(),petSearchPhase);
++                    petSearchPhase=(petSearchPhase+1)%3;
++                }
+                 if (crop!=null) {
+                     try {
+-                        Box pet=objects.verifyPet(preview,crop);
++                        Box pet=objects.verifyPet(preview,crop,frame);
+                         if (pet!=null) faces.add(pet);
+                     } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+                         petDetailUnavailable=true;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+index 4ba40ae..8a86220 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+@@ -32,10 +32,15 @@ import java.util.List;
+  */
+ final class TrackingSemanticDetector implements AutoCloseable {
+     private final ObjectDetector detector;
++    private final Context appContext;
++    private AnimalEyePoseEstimator animalPose;
++    private boolean poseUnavailable;
++    private long lastPoseFrame=Long.MIN_VALUE;
+     private boolean closed;
+     private Bitmap recoveryInput;
+     private final Paint filter = new Paint(Paint.FILTER_BITMAP_FLAG);
+     TrackingSemanticDetector(Context appContext){
++        this.appContext=appContext;
+         ObjectDetector.ObjectDetectorOptions options=ObjectDetector.ObjectDetectorOptions.builder()
+             .setBaseOptions(BaseOptions.builder().setModelAssetPath("efficientdet-lite0.tflite").build())
+             .setRunningMode(RunningMode.IMAGE)
+@@ -66,13 +71,42 @@ final class TrackingSemanticDetector implements AutoCloseable {
+         return match;
+     }
+     /** Verify one small animal proposal at a larger scale on the same preview frame. */
+-    Box verifyPet(Bitmap frame, PetDetailInput crop) {
++    Box verifyPet(Bitmap frame, PetDetailInput crop, long frameNs) {
+         if (recoveryInput == null) recoveryInput = Bitmap.createBitmap(
+                 PersonRecoveryInput.SIZE, PersonRecoveryInput.SIZE, Bitmap.Config.ARGB_8888);
+         Canvas canvas = new Canvas(recoveryInput);
+         Rect region = new Rect(crop.left, crop.top, crop.left+crop.side, crop.top+crop.side);
+         canvas.drawBitmap(frame, region, new Rect(0, 0, recoveryInput.getWidth(), recoveryInput.getHeight()), filter);
+-        return crop.confirm(detect(recoveryInput));
++        List<SubjectAnchorPolicy.Candidate> details=detect(recoveryInput);
++        Box matched=crop.confirm(details);
++        if (matched!=null) return matched;
++        Box proposal=crop.poseCandidate(details);
++        return supportsPet(frame,proposal,frameNs) ? proposal : null;
++    }
++
++    boolean admitPet(Bitmap frame,Box pet,long frameNs) {
++        if (supportsPet(frame,pet,frameNs)) return true;
++        if (!poseUnavailable || android.os.SystemClock.elapsedRealtimeNanos()-frameNs
++                >= AutomaticSubjectSelection.MAX_AGE_NS) return false;
++        PetDetailInput crop=PetDetailInput.secondView(frame.getWidth(),frame.getHeight(),pet);
++        try {
++            return crop!=null && AutomaticSubjectSelection.samePet(pet,verifyPet(frame,crop,frameNs));
++        } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++            return false;
++        }
++    }
++
++    private boolean supportsPet(Bitmap frame, Box pet, long frameNs) {
++        if (pet==null || poseUnavailable || lastPoseFrame==frameNs || android.os.SystemClock.elapsedRealtimeNanos()-frameNs
++                >= AutomaticSubjectSelection.MAX_AGE_NS) return false;
++        try {
++            lastPoseFrame=frameNs;
++            if (animalPose==null) animalPose=new AnimalEyePoseEstimator(appContext);
++            return animalPose.supports(frame,pet);
++        } catch (com.google.ai.edge.litert.LiteRtException | RuntimeException | LinkageError | OutOfMemoryError failure) {
++            poseUnavailable=true;
++            return false;
++        }
+     }
+ 
+     /** The immutable, read-only preview pixels are already obtained by PixelCopy. */
+@@ -109,6 +143,7 @@ final class TrackingSemanticDetector implements AutoCloseable {
+     @Override public void close(){if(!closed){
+         closed=true;
+         detector.close();
++        if (animalPose!=null) animalPose.close();
+         if(recoveryInput!=null) recoveryInput.recycle();
+     }}
+ }

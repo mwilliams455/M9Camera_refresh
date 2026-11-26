@@ -27,8 +27,54 @@ tests=(
   patches/focusoverlay1b/host/EyeMarkerDisplayGeometryHostTest.java
   patches/trackingdefault1a/host/TrackingDefaultPolicyHostTest.java
   patches/trackingrecovery1a/host/SubjectRecoveryPolicyTest.java
+  patches/autosubject1a/host/AutomaticSubjectSelectionTest.java
 )
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SubjectFrame.java" ]]; then
+  tests+=(patches/autosubject1b/host/SubjectFrameTest.java)
+fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PersonRecoveryInput.java" ]]; then
+  tests+=(patches/autosubject1c/host/PersonRecoveryTest.java)
+fi
+selection="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java"
+if [[ -f "$selection" ]] && grep -Fq 'checkOtherPeople(' "$selection"; then
+  tests+=(patches/autoreframe1a/host/PersonReframeTest.java)
+fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java" ]]; then
+  tests+=(patches/petdetail1a/host/PetDetailInputTest.java)
+fi
+if [[ -f "$source_tree/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/AutomaticSubjectAfRetryTest.java" ]]; then
+  tests+=(patches/petcontinuity1a/host/PetContinuityTest.java)
+fi
+animal_policy="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java"
+if [[ -f "$animal_policy" ]] && grep -Fq 'supportsAnimal(' "$animal_policy"; then
+  tests+=(patches/petacquisition1a/host/PetAcquisitionTest.java)
+fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java" ]]; then
+  tests+=(patches/headpair1a/host/SceneHeadsTest.java)
+fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/LargePetAcquisition.java" ]]; then
+  tests+=(patches/widepet1a/host/LargePetAcquisitionTest.java)
+fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetAcquisitionGate.java" ]]; then
+  tests+=(patches/subjectcheck1a/host/SubjectAcquisitionTest.java)
+fi
+heads="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java"
+if [[ -f "$heads" ]] && grep -Fq 'supportedByOnePerson(' "$heads"; then
+  tests+=(patches/headbody1a/host/HeadBodyAcquisitionTest.java)
+fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/HeadContinuity.java" ]]; then
+  tests+=(patches/headcontinuity1a/host/HeadContinuityTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"
 done
+
+meter="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java"
+if [[ -f "$meter" ]] && grep -Fq 'quarterStopSince' "$meter"; then
+  fixtures=patches/facehighlight1b/host
+  javac -Xlint:all -d "$classes" "$fixtures/android/graphics/Bitmap.java" "$meter" \
+    "$fixtures/FaceHighlightTest.java" "$fixtures/PreviewFeedbackTest.java"
+  java -ea -cp "$classes" com.particlesdevs.photoncamera.m9.preview.FaceHighlightTest
+  java -ea -cp "$classes" com.particlesdevs.photoncamera.m9.preview.PreviewFeedbackTest
+fi

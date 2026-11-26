@@ -1,0 +1,22 @@
+{
+  "app/build.gradle": {
+    "before": "02d1a3b026f8fca828bafd039dd8afea5f90a64c9c912b5f256a5eb05b056067",
+    "after": "aa2c2b940051b4955c09f482ad72378f5fb50d113b3ec1c531bbf793ad4ac2f8"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java": {
+    "before": "0643289c7ca2b2582117705a4de9f7ef3dac2e8c3825e6efdd9514c1830ce788",
+    "after": "8a9cad5ec09d819b157d99a911803056bdc6f274682469b394691ff263423890"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/LargePetAcquisition.java": {
+    "before": null,
+    "after": "536f80f2811a2bc541bf3cf4571bcbbba63726a0c4bedb02cccb2100c1572999"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java": {
+    "before": "36516ca83e2d4e9759de8a72c6111b0db989cc349a5e9dbb9ed1ccf4bd6f5310",
+    "after": "85204561fa9979f97225d16bd3c39a44ab24a6d31810dad81afc537f53108ea7"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "fd2475e6bec0318efac428634a5cb4e9b58da99ad46a913162c9750c2e3019a0",
+    "after": "6b0e7e389f8d6f4b35ac2813d2e8ef124d1087db6e93225a79492f9c5d6a89f6"
+  }
+}

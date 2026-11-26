@@ -1,0 +1,22 @@
+{
+  "app/build.gradle": {
+    "before": "fe9c397f70e0bd78f5fcf78235adb0e0d60bbd06eefd0400de30d3dffbe068bc",
+    "after": "1fa1234acc44fa1cd31fbdebc5f9eb5987578ad540b76c2ccf3bdd020ac3b79e"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": {
+    "before": "ea00faaabf6c83e09bcb91fbaab99ee8a1545c5ac171af3eed55e000fed8aeb1",
+    "after": "1567f89bd5c63c4e77a17042467c6f7cb9b26855559e5ec73798cecee21c9d24"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java": {
+    "before": "20ad7856b3830df34f90abf33c297ed111bc5b13ca00833c471fa2600b90a21d",
+    "after": "b31b2810598c17f8967adc2e7d3dee140e1f7dcb093e1ae07e61e1886b4c4c67"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java": {
+    "before": "7ee26cf7e7e0b7135891ea3d55d9a8cae9f323c50566145cd564f76d9c2392ea",
+    "after": "64b95aefe358a0e480e628a3b151a87103abcb63ed0646625b3e4bcfd4c9a3dc"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "e4c69573ba170e7b9dcca778d7ea1644b5f6e30a8ae2bb936cbda730cb2685cc",
+    "after": "4d4cc4707d9d1ee4bf3180f9be438b82edef0478641881caa4ce555ac94272d7"
+  }
+}

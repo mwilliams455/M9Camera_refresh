@@ -1,0 +1,300 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 4ecf86e..7747c87 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27340
++        versionCode 27341
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.40-subjectae1a'
++        versionName '3.41-facehighlight1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.40_SUBJECTAE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.41_FACEHIGHLIGHT1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+index 4239b6f..7c32150 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+@@ -755,6 +755,15 @@ public final class M9AutoExposure2D {
+ 
+         if(!valid||manualExposure!=0||manualIso!=0||Math.abs(userEv)>1e-6||!autoEligible)
+             rawTarget=target;
++        // The face is sampled on the displayed preview. Apply its bounded offset once to the
++        // settled scene plan, keeping the scene controller's own history in its original domain.
++        double faceTrim = 0;
++        if (autoEligible && manualExposure == 0 && manualIso == 0 && Math.abs(userEv) <= 1e-6) {
++            faceTrim = M9TrackedSubjectMeter.faceTrim(camera, mode, nowNs);
++            result += faceTrim;
++            target += faceTrim;
++            rawTarget += faceTrim;
++        }
+         // At most one evidence row per accepted probe, plus state transitions across
+         // unavailable/manual evidence. Serialization occurs on the existing trace worker.
+         String status=camera+"|"+mode+"|"+reason;
+@@ -803,6 +812,7 @@ public final class M9AutoExposure2D {
+                     .put("backlightPositiveHeadroomLimitEv",backlightLimit)
+                     .put("sceneKeyRequestedEv",sceneRequest)
+                     .put("backlightRequestedEv",backlightRequest)
++                    .put("trackedFaceHighlightTrimEv",faceTrim)
+                     .put("trackedSubjectRequestedEv",subjectRequestEv)
+                     .put("trackedSubjectAddedToTargetEv",subjectAddedEv)
+                     .put("recommendedTotalAutoEv",target)
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java
+index de08172..b78d65e 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java
+@@ -15,17 +15,24 @@ public final class M9TrackedSubjectMeter {
+     private static double lift;
+     private static int subjectMedian = -1, background95 = -1;
+ 
++    // Counts are restricted to the central part of a confirmed face box.
++    private static final int MIN_HIGHLIGHT_SAMPLES = 5;
++    private static boolean previousFaceHot, protectFace;
++    private static int faceHotSamples = -1;
++
+     private M9TrackedSubjectMeter() {}
+ 
+     public static synchronized void clear() {
+         camera = mode = null;
+         selection = frame = 0;
+         lift = 0;
++        previousFaceHot = protectFace = false;
++        faceHotSamples = -1;
+         subjectMedian = background95 = -1;
+     }
+ 
+     public static synchronized void observe(String cameraId, String shotMode, long id,
+-            long timestamp, long now, Bitmap bitmap, float left, float top, float right, float bottom) {
++            long timestamp, long now, Bitmap bitmap, float left, float top, float right, float bottom, boolean face) {
+         if (bitmap == null || bitmap.isRecycled() || timestamp <= 0 || now < timestamp
+                 || now - timestamp > MAX_SAMPLE_AGE_NS || !Float.isFinite(left + top + right + bottom)) return;
+         int w = bitmap.getWidth(), h = bitmap.getHeight();
+@@ -33,16 +40,26 @@ public final class M9TrackedSubjectMeter {
+         right = Math.min(1, right); bottom = Math.min(1, bottom);
+         float bw = right - left, bh = bottom - top;
+         if (bw * w < 8 || bh * h < 8 || bw * bh > .80f) {
+-            update(cameraId, shotMode, id, timestamp, -1, -1);
++            update(cameraId, shotMode, id, timestamp, -1, -1, -1, -1);
+             return;
+         }
+         // Read the inner 70% of the subject box to reduce contamination by the background.
++        int hot = 0, near = 0;
+         int n = 0;
+         for (int y = 0; y < 7; y++) {
+             for (int x = 0; x < 7; x++) {
+                 float u = left + bw * (.15f + .10f * (x + .5f));
+                 float v = top + bh * (.15f + .10f * (y + .5f));
+-                subject[n++] = luma(bitmap.getPixel(Math.min(w-1,(int)(u*w)), Math.min(h-1,(int)(v*h))));
++                int rgb = bitmap.getPixel(Math.min(w-1,(int)(u*w)), Math.min(h-1,(int)(v*h)));
++                int brightness = luma(rgb);
++                subject[n++] = brightness;
++                // Exclude the four outer corners and favour bright, channel-limited highlights.
++                if (face && (x-3)*(x-3) + (y-3)*(y-3) <= 10) {
++                    int peak = Math.max((rgb >> 16) & 255, Math.max((rgb >> 8) & 255, rgb & 255));
++                    if (peak >= 250 && brightness >= 215) hot++;
++                    // A quarter stop of correction should keep its own highlights below entry.
++                    if (peak >= 232 && brightness >= 194) near++;
++                }
+             }
+         }
+         n = 0;
+@@ -55,7 +72,8 @@ public final class M9TrackedSubjectMeter {
+         }
+         Arrays.sort(subject);
+         Arrays.sort(surroundings, 0, n);
+-        update(cameraId, shotMode, id, timestamp, subject[24], n < 20 ? -1 : surroundings[(n-1)*95/100]);
++        update(cameraId, shotMode, id, timestamp, subject[24], n < 20 ? -1 : surroundings[(n-1)*95/100],
++                face ? hot : -1, face ? near : -1);
+     }
+ 
+     private static int luma(int rgb) {
+@@ -63,23 +81,41 @@ public final class M9TrackedSubjectMeter {
+     }
+ 
+     static synchronized void update(String cameraId, String shotMode, long id, long timestamp,
+-            int middle, int bright) {
++            int middle, int bright, int hot, int near) {
+         boolean same = cameraId.equals(camera) && shotMode.equals(mode) && id == selection;
+         if (same && timestamp <= frame) return;
+-        boolean continuing = same && lift > 0 && timestamp-frame <= HOLD_NS;
++        boolean consecutive = same && timestamp-frame <= HOLD_NS;
++        boolean hotFace = hot >= MIN_HIGHLIGHT_SAMPLES;
++        protectFace = consecutive && ((hotFace && previousFaceHot)
++                || (protectFace && near >= MIN_HIGHLIGHT_SAMPLES));
++        previousFaceHot = hotFace;
++        faceHotSamples = hot;
++        boolean continuing = consecutive && lift > 0;
+         boolean qualifies = middle >= 0 && middle <= (continuing ? 36 : 24)
+                 && bright >= (continuing ? 175 : 185);
+-        lift = qualifies ? (continuing ? .50 : .25) : 0;
++        lift = qualifies && !protectFace ? (continuing ? .50 : .25) : 0;
+         camera = cameraId; mode = shotMode; selection = id; frame = timestamp;
+         subjectMedian = middle; background95 = bright;
+     }
+ 
+     public static synchronized double requested(String cameraId, String shotMode, long now) {
++        return lift * freshness(cameraId, shotMode, now);
++    }
++
++    public static synchronized double faceTrim(String cameraId, String shotMode, long now) {
++        return protectFace ? -.25 * freshness(cameraId, shotMode, now) : 0;
++    }
++
++    public static synchronized void missed(long timestamp) {
++        if (timestamp > frame) previousFaceHot = false;
++    }
++
++    private static double freshness(String cameraId, String shotMode, long now) {
+         if (!cameraId.equals(camera) || !shotMode.equals(mode) || now < frame) return 0;
+         long age = now-frame;
+-        if (age <= HOLD_NS) return lift;
++        if (age <= HOLD_NS) return 1;
+         if (age >= END_NS) return 0;
+-        return lift * (END_NS-age)/(END_NS-HOLD_NS);
++        return (double)(END_NS-age)/(END_NS-HOLD_NS);
+     }
+ 
+     static double addWithinHeadroom(double base, double extra, double limit) {
+@@ -88,6 +124,7 @@ public final class M9TrackedSubjectMeter {
+ 
+     public static synchronized String trace(long timestamp) {
+         if (timestamp != frame) return "";
+-        return " subjectMedian=" + subjectMedian + " outsideP95=" + background95 + " subjectRequestEv=" + lift;
++        return " subjectMedian=" + subjectMedian + " outsideP95=" + background95 + " subjectRequestEv=" + lift
++                + " faceHotSamples=" + faceHotSamples + " faceTrimEv=" + (protectFace ? -.25 : 0);
+     }
+ }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 8c81b5e..2721c63 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -1015,7 +1015,9 @@ final class HumanSubjectFocusController {
+         }
+         if (box != null) {
+             M9TrackedSubjectMeter.observe(g.camera, g.mode, automatic.selectionId(), frame, now, bitmap,
+-                    box.left, box.top, box.right, box.bottom);
++                    box.left, box.top, box.right, box.bottom, box.face);
++        } else {
++            M9TrackedSubjectMeter.missed(frame);
+         }
+         if (headTrace!=null) {
+             String origin=correction!=null ? "verified_dog_face" : box==null ? "miss" : box==confirmedFace ? "supported_face" : box.face ? "face" : box==secondary ? "recovered_body" : "body";
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java
+index ca2e388..2d6e279 100644
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java
+@@ -19,7 +19,7 @@ public class M9TrackedSubjectMeterTest {
+     @Before public void reset() { M9AutoExposure2D.reset(); }
+ 
+     private void vote(long id, long frame, int middle, int outside) {
+-        M9TrackedSubjectMeter.update(CAMERA, MODE, id, frame, middle, outside);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, id, frame, middle, outside, -1, -1);
+     }
+     private double requested(long now) { return M9TrackedSubjectMeter.requested(CAMERA, MODE, now); }
+ 
+@@ -28,13 +28,13 @@ public class M9TrackedSubjectMeterTest {
+         Arrays.fill(pixels,0xffeeeeee);
+         for(int y=30;y<60;y++) Arrays.fill(pixels,y*w+40,y*w+80,0xff101010);
+         Bitmap scene=Bitmap.createBitmap(pixels,w,h,Bitmap.Config.ARGB_8888);
+-        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T,T,scene,1/3f,1/3f,2/3f,2/3f);
++        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T,T,scene,1/3f,1/3f,2/3f,2/3f,false);
+         assertEquals(.25,requested(T),0);
+-        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T,T+10,scene,1/3f,1/3f,2/3f,2/3f);
++        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T,T+10,scene,1/3f,1/3f,2/3f,2/3f,false);
+         assertEquals(.25,requested(T+10),0);
+-        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T+200_000_000,T+210_000_000,scene,1/3f,1/3f,2/3f,2/3f);
++        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T+200_000_000,T+210_000_000,scene,1/3f,1/3f,2/3f,2/3f,false);
+         assertEquals(.50,requested(T+210_000_000),0);
+-        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T+300_000_000,T+700_000_000,scene,1/3f,1/3f,2/3f,2/3f);
++        M9TrackedSubjectMeter.observe(CAMERA,MODE,7,T+300_000_000,T+700_000_000,scene,1/3f,1/3f,2/3f,2/3f,false);
+         assertEquals("",M9TrackedSubjectMeter.trace(T+300_000_000));
+         scene.recycle();
+     }
+@@ -77,4 +77,71 @@ public class M9TrackedSubjectMeterTest {
+         assertEquals(0,decide(T,.7,0,0,true).appliedEv,0);
+         assertEquals(0,decide(T,0,0,0,false).appliedEv,0);
+     }
++    private Bitmap faceScene(int rgb) {
++        int[] pixels = new int[100 * 100];
++        Arrays.fill(pixels, rgb);
++        return Bitmap.createBitmap(pixels, 100, 100, Bitmap.Config.ARGB_8888);
++    }
++
++    private void observeFace(Bitmap image, long time, boolean face) {
++        M9TrackedSubjectMeter.observe(CAMERA, MODE, 7, time, time, image, .2f, .2f, .8f, .8f, face);
++    }
++
++    @Test public void twoIndependentBrightFaceFramesProtectHighlightsOnce() {
++        Bitmap bright = faceScene(0xfffdead0);
++        final long next = T + 200_000_000L;
++        observeFace(bright, T, true);
++        observeFace(bright, T, true);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T), 0);
++        observeFace(bright, next, true);
++        probe(next);
++        assertEquals(-.25, decide(next, 0, 0, 0, true).appliedEv, 0);
++        assertEquals(-.25, decide(next, 0, 0, 0, true).appliedEv, 0);
++        assertEquals(0, decide(next, .5, 0, 0, true).appliedEv, 0);
++        assertEquals(0, decide(next, 0, 1, 0, true).appliedEv, 0);
++        assertEquals(0, decide(next, 0, 0, 200, true).appliedEv, 0);
++        assertEquals(0, decide(next, 0, 0, 0, false).appliedEv, 0);
++        bright.recycle();
++    }
++
++    @Test public void correctedFaceHoldsUntilHeadroomReturnsOrTrackingExpires() {
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 7, T, 190, 180, 8, 14);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 7, T+1, 190, 180, 8, 14);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 7, T+2, 184, 171, 0, 7);
++        assertEquals(-.25, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+2), 0);
++        assertEquals(-.125, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+775_000_002), 1e-9);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+1_000_000_002), 0);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 7, T+3, 150, 160, 0, 1);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+3), 0);
++    }
++
++    @Test public void bodyAndSaturatedColourAloneDoNotTrigger() {
++        Bitmap white = faceScene(0xffffffff);
++        observeFace(white, T, false);
++        observeFace(white, T+1, false);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+1), 0);
++        Bitmap red = faceScene(0xffff3030);
++        observeFace(red, T+2, true);
++        observeFace(red, T+3, true);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+3), 0);
++        red.recycle();
++        white.recycle();
++    }
++
++    @Test public void missSwitchAndOldSampleDoNotConfirm() {
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 7, T, 190, 180, 8, 14);
++        M9TrackedSubjectMeter.missed(T+1);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 7, T+2, 190, 180, 8, 14);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+2), 0);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 8, T+3, 190, 180, 8, 14);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+3), 0);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 8, T+600_000_003, 190, 180, 8, 14);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+600_000_003), 0);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 8, T+600_000_004, 190, 180, 8, 14);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim("1", MODE, T+600_000_004), 0);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, "PHOTO", T+600_000_004), 0);
++        M9TrackedSubjectMeter.update(CAMERA, MODE, 9, T+600_000_005, 10, 195, -1, -1);
++        assertEquals(.25, requested(T+600_000_005), 0);
++        assertEquals(0, M9TrackedSubjectMeter.faceTrim(CAMERA, MODE, T+600_000_005), 0);
++    }
+ }

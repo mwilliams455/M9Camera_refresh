@@ -1,0 +1,30 @@
+{
+  "app/build.gradle": {
+    "before": "2e1abd18a5780da99186742963b37c3cd59bcddb3f230122a7b9a331c02be6eb",
+    "after": "22cfd0504da4539d7bf6d63d53246aee3d1d96ba509462cb1befdf9eec0d0fe8"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "3a69a92be845a1d29a65aa62a8c4f55b13b711f4965fe62740c7dd77b3145c20",
+    "after": "701be181a42e34ddc865b3d836355aa5ade0392560c42f805ddb6373244ed536"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java": {
+    "before": "9f9352a1ad55ba3238bd1afc3049290ea9f585c416e5dafe3a902432536caa9c",
+    "after": "1bef215d6228fcd82b0cc7b87f16f1b2b08d6679e482aa35f76fe7bbf5511328"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java": {
+    "before": "1a9701530bac615e49c2db18d08eab8ce98949cd67697268c8c750bc5860090f",
+    "after": "263639c6637f17eda07b505b4be01314723a4f720004f63f1ea5a62dc7e0cb25"
+  },
+  "app/src/main/res/values/trackingdefault1a.xml": {
+    "before": "3ed003884c75a037b49532b78416d35897a559268118cfd433583db0d1a10b3c",
+    "after": "0b073c2a0c2ef30b36e558898bd0ffae6c40246d9676885fd393783cd0a22f64"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetLabelTest.java": {
+    "before": "46d46652d79e035732f4403a5cc89d3f73c14137c9a55cae871f0486af3db047",
+    "after": "515e0247cd6d50d2d20b3f147213e026bb65aacd0ce6b9041448ed33879f3389"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesEvidenceTest.java": {
+    "before": null,
+    "after": "104439d71ec8a91bd68b92919aa61dcec124db255ed2b1f8fdae1ba87edef061"
+  }
+}

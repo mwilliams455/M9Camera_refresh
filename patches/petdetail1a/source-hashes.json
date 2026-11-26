@@ -1,0 +1,22 @@
+{
+  "app/build.gradle": {
+    "before": "b3f5614612bf358fc1f3b62eae7b8e4bac1c8272a20bb19a3435808a8b2740f8",
+    "after": "6b3664ce44c98d158f6335679bd9951ecfbd724804fd7e889175fbfa9721aa03"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java": {
+    "before": "0d7309a5b906f8dec0579360094eb6b2eef97781715cb27287c8c0f49eba59a0",
+    "after": "5aae0c97b76f1aec9e5ada4f316eb949096c7ccca59aef4440765030a1545a5d"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java": {
+    "before": null,
+    "after": "2cfe0f500f9652e54830fd19b80a31143a457082a4792f697b3a5174a75ad103"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "f1eb7c1a3eb052b36c257b8e957a1efdad55b18a4770446ee1947827b5904f02",
+    "after": "1a674d2a23de4291852325397f005e12e95205f243d4d64bf86217fd304cdbe7"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java": {
+    "before": "af3edb8765944788be23f64e561431f3bdc6e2c0705ce44171651eeb021d46b3",
+    "after": "59f53de40371b80bf82e1740da7777225bc4f9ab2531c3e329aacb7f4dac2266"
+  }
+}

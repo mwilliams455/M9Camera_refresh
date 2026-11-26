@@ -1,0 +1,42 @@
+{
+  "app/build.gradle": {
+    "before": "5c5d3410ee06e670208380a28ee2bcf5d75a7006a640b6a5ed05b6b69d63f3e9",
+    "after": "30488a89cca7ddb9a66adc91a0691eeb780c8a2001a8b4304379e93129cdd9ac"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java": {
+    "before": "cdbdffea21195d7131a9c7d1c60148702d6e0bf79bb60ff63d5ee90bdb4899d7",
+    "after": "044f946f4953faba6a1e4ea5bd1a678d2da5874e87edc5135fc588b6e139dc0e"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/util/Log.java": {
+    "before": "2c7b1bc70a12ce82db2b79c2e0ff9da23d4089123434f5ecd03d0700af2c0d7f",
+    "after": "4a5cef351d85de17a50910be523f2f4f4fa8c71a293db4ccede26bccfdf7a22b"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/util/M9LocalLog1E.java": {
+    "before": "5e083c6a0fe26ed5884193c704aa0c0dfcd3b5c1117272a0a32db59bd6270dcf",
+    "after": "98d07cf1257a4eb1bdd0a8e041f3e8cbf348c89e22824d3e684471abac431104"
+  },
+  "app/src/main/res/values/m9_output.xml": {
+    "before": "b75c793c9cf4e2de1cf52a0dbae457fcb9530f7a2a02225d154c6d07068f9e6b",
+    "after": "b61e0ba6e150e899981c6e4dd6639e15d87e20572ead09e5b4aa3a70b05c50ba"
+  },
+  "app/src/main/res/xml/preferences.xml": {
+    "before": "f6dff5e2fc67e02234d3a8ad8b0b4139f2b3cdb8b475be82f631724ad75f0a6a",
+    "after": "f4a097a87de44f97b3dc6d1e3abcbe2c9b990af81b5e5832b52aa2418c46a677"
+  },
+  "app/src/main/res/xml/preferences_m9.xml": {
+    "before": "b62d6875ea642b6f48e3fe28e2095167a0e7bf684a79bdcd642a337d8b230efa",
+    "after": "017f6c52e0f6da0cba5e363f9ab44837a51fdde50a4c2ce93655b767d6cef15b"
+  },
+  "app/src/main/res/xml/preferences_monochrom.xml": {
+    "before": "67fb65b0b50e3ad0f25c89e7b422274e7c61fae5ed5b2a4c115a8d72eb326b49",
+    "after": "bd90de2ef0c59fc088704e2734b87f790d7ea702220599b6c6552c32fe5975ee"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/settings/TrackingTraceSettingsTest.java": {
+    "before": null,
+    "after": "389eaa576f1c513b81cee75dc96c8a04660c1b3ddaed10d88ad055e377f03309"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/util/TrackingTraceExportTest.java": {
+    "before": null,
+    "after": "f2ab194126e623e39f301120c3b6fb5e04c42a9a861b87f52d0c3c5d84702371"
+  }
+}

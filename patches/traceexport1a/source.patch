@@ -1,0 +1,339 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27330
++        versionCode 27331
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.30-headframe1a'
++        versionName '3.31-traceexport1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.30_HEADFRAME1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.31_TRACEEXPORT1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/SettingsActivity.java
+@@ -176,6 +176,7 @@
+         private boolean sensorConfigPreferencesGenerated = false;
+         private boolean videoTunablePreferencesGenerated = false;
+         private ActivityResultLauncher<String[]> lutImportLauncher;
++        private ActivityResultLauncher<String> trackingTraceLauncher;
+         /** Viewfinder background mode before the current settings change. */
+         private String viewfinderBackgroundBefore;
+         private M9ProfilesUi m9ProfilesUi;
+@@ -217,6 +218,10 @@
+                     }
+             );
+             TunablePngPreference.setImportLauncher(lutImportLauncher);
++            trackingTraceLauncher = registerForActivityResult(new ActivityResultContracts.CreateDocument("text/plain"),
++                    uri -> {
++                        if (uri != null) saveTrackingTrace(requireContext().getApplicationContext(),uri);
++                    });
+             
+             // Check if we're opening the tunable submenu specifically
+             String rootKey = getArguments() != null ? getArguments().getString(PreferenceFragmentCompat.ARG_PREFERENCE_ROOT) : null;
+@@ -272,6 +277,28 @@
+             }
+         }
+         
++        private static void saveTrackingTrace(Context context, Uri uri) {
++            Log.initPrivate(context);
++            Log.exportTrackingTrace(journal -> {
++                try {
++                    if (journal == null) throw new java.io.IOException("Camera journal unavailable");
++                    long rows;
++                    java.io.OutputStream stream = context.getContentResolver().openOutputStream(uri,"wt");
++                    if (stream == null) throw new java.io.IOException("Cannot open selected document");
++                    try (java.io.Writer out = new java.io.BufferedWriter(new java.io.OutputStreamWriter(
++                            stream,java.nio.charset.StandardCharsets.UTF_8))) {
++                        rows = journal.copyTrackingTrace(out);
++                        if (rows == 0) out.write(context.getString(R.string.m9_tracking_trace_empty) + "\n");
++                    }
++                    PhotonCamera.showToast(rows == 0 ? context.getString(R.string.m9_tracking_trace_empty)
++                            : context.getString(R.string.m9_tracking_trace_saved,rows));
++                } catch (java.io.IOException | RuntimeException failure) {
++                    android.util.Log.w("M9TrackingExport","Could not export tracking trace",failure);
++                    PhotonCamera.showToast(R.string.m9_tracking_trace_failed);
++                }
++            });
++        }
++
+         private void generateTunablePreferences() {
+             // Only generate once per fragment instance
+             if (tunablePreferencesGenerated) {
+@@ -987,6 +1014,12 @@
+             // Log which preference was clicked
+             Log.d("SettingsFragment", "onPreferenceTreeClick: " + preference.getKey());
+ 
++            if ("pref_export_tracking_trace".equals(preference.getKey())) {
++                String time = new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date());
++                trackingTraceLauncher.launch("M9_TRACKING_TRACE_" + time + ".txt");
++                return true;
++            }
++
+             // Navigate manually only for dynamically-generated (empty) sub-screens:
+             // non-empty screens are already opened once by default handling
+             // (PreferenceScreen.onClick -> onNavigateToScreen), so forwarding
+--- a/app/src/main/java/com/particlesdevs/photoncamera/util/Log.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/util/Log.java
+@@ -39,6 +39,14 @@
+         try{journal=new M9LocalLog1E(new File(context.getFilesDir(),"m9_logs"));}
+         catch(Exception e){android.util.Log.e("M9LOG1E","private log initialization failed",e);}
+     }
++    /** Queue behind pending journal entries, then scan on a separate thread from the writer and publisher. */
++    public static void exportTrackingTrace(java.util.function.Consumer<M9LocalLog1E> task) {
++        writeHandler.post(() -> {
++            M9LocalLog1E activeJournal = journal;
++            new Thread(() -> task.accept(activeJournal), "M9 tracking trace export").start();
++        });
++    }
++
+     public static void onDiagnosticPreferenceChanged(){setAppVisible(visible);}
+     public static void setAppVisible(boolean value){
+         synchronized(exportLock){visible=value;exportHandler.removeCallbacks(EXPORT);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/util/M9LocalLog1E.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/util/M9LocalLog1E.java
+@@ -25,6 +25,53 @@
+     }
+     public synchronized void flush()throws IOException {if(writer!=null)writer.flush();}
+     public synchronized void close()throws IOException {if(writer!=null){try{writer.close();}finally{writer=null;}}}
++    /** Copy retained tracking rows to a user-chosen document, independently of public log checkpoints. */
++    public long copyTrackingTrace(Writer output) throws IOException {
++        Map<File,Long> sizes = new TreeMap<>();
++        synchronized (this) {
++            flush();
++            File[] files = dir.listFiles((d,n) -> n.matches("log-\\d{4}-\\d{2}-\\d{2}\\.txt"));
++            if (files == null) throw new IOException("Cannot list the camera journal");
++            for (File file : files) sizes.put(file,file.length());
++        }
++        long written = 0;
++        for (Map.Entry<File,Long> day : sizes.entrySet()) {
++            // The writer can append new rows while the user-selected destination is slow.
++            try (FileInputStream input = new FileInputStream(day.getKey());
++                 BufferedReader lines = snapshotReader(input,day.getValue())) {
++                for (String line; (line = lines.readLine()) != null;) {
++                    if (line.startsWith(" I/M9HeadTrace: tNs=", 23)) {
++                        output.write(line);
++                        output.write('\n');
++                        written++;
++                    }
++                }
++            }
++        }
++        output.flush();
++        return written;
++    }
++
++    private static BufferedReader snapshotReader(FileInputStream input,long size) {
++        InputStream prefix = new FilterInputStream(input) {
++            long remaining = size;
++            @Override public int read(byte[] dst, int off, int len) throws IOException {
++                if (len == 0) return 0;
++                if (remaining == 0) return -1;
++                int n = super.read(dst, off, (int)Math.min(remaining, len));
++                if (n > 0) remaining -= n;
++                return n;
++            }
++            @Override public int read() throws IOException {
++                if (remaining == 0) return -1;
++                int value = super.read();
++                if (value >= 0) remaining--;
++                return value;
++            }
++        };
++        return new BufferedReader(new InputStreamReader(prefix, StandardCharsets.UTF_8));
++    }
++
+     private long offset(File file){try{return Long.parseLong(new String(Files.readAllBytes(new File(dir,file.getName()+".offset").toPath()),StandardCharsets.US_ASCII).trim());}catch(Exception e){return 0;}}
+     private void checkpoint(File file,long offset)throws IOException {
+         Path target=new File(dir,file.getName()+".offset").toPath(),temp=new File(dir,file.getName()+".offset.tmp").toPath();
+--- a/app/src/main/res/values/m9_output.xml
++++ b/app/src/main/res/values/m9_output.xml
+@@ -4,4 +4,8 @@
+     <string name="m9_save_unfiltered_dng_summary">Save an extra RAW_UNFILTERED.dng for comparison when RAW is selected. JPEG-only never saves a DNG.</string>
+     <string name="m9_save_diagnostic_files_title">Save diagnostic files</string>
+     <string name="m9_save_diagnostic_files_summary">Save JSON reports, diagnostic images and exported logs for testing. Existing files are kept.</string>
++    <string name="m9_export_tracking_trace">Export tracking trace</string>
++    <string name="m9_tracking_trace_empty">No tracking entries were retained. Enable Save diagnostic files before the next tracking recording.</string>
++    <string name="m9_tracking_trace_saved">Saved %1$d tracking entries.</string>
++    <string name="m9_tracking_trace_failed">Could not save the tracking trace. Choose a writable document and try again.</string>
+ </resources>
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -358,6 +358,7 @@
+                 android:summary="@string/m9_save_diagnostic_files_summary"
+                 android:defaultValue="false"
+                 android:layout="@layout/preference_with_margin"/>
++        <Preference android:key="pref_export_tracking_trace" android:title="@string/m9_export_tracking_trace" android:persistent="false" android:layout="@layout/preference_with_margin" />
+         <ListPreference
+                 android:key="pref_m9_saturation"
+                 android:layout="@layout/preference_with_margin"
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -88,6 +88,7 @@
+     <PreferenceScreen android:key="pref_m9_advanced_screen" android:title="@string/m9_menu_advanced" android:summary="@string/m9_menu_advanced_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_tune_black_24dp" android:orderingFromXml="true">
+         <PreferenceCategory android:key="pref_m9_diagnostics_category" android:title="@string/m9_menu_diagnostics" android:layout="@layout/preference_category_layout">
+             <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_save_diagnostic_files" android:title="@string/m9_save_diagnostic_files_title" android:summary="@string/m9_save_diagnostic_files_summary" android:defaultValue="false" android:layout="@layout/preference_with_margin" />
++            <Preference android:key="pref_export_tracking_trace" android:title="@string/m9_export_tracking_trace" android:persistent="false" android:layout="@layout/preference_with_margin" />
+             <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_save_unfiltered_dng" android:title="@string/m9_save_unfiltered_dng_title" android:summary="@string/m9_save_unfiltered_dng_summary" android:defaultValue="false" android:layout="@layout/preference_with_margin" />
+             <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_full_frame_sat_audit" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_full_frame_sat_audit_title" android:summary="@string/m9_full_frame_sat_audit_summary" android:icon="@drawable/ic_developer" />
+             <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_omit_auto_remosaic" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_capture_test_title" android:summary="@string/m9_capture_test_summary" android:icon="@drawable/ic_developer" />
+--- a/app/src/main/res/xml/preferences_monochrom.xml
++++ b/app/src/main/res/xml/preferences_monochrom.xml
+@@ -87,6 +87,7 @@
+   <PreferenceScreen android:key="pref_m9_advanced_screen" android:title="@string/m9_menu_advanced" android:summary="@string/m9_menu_advanced_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_tune_black_24dp" android:orderingFromXml="true">
+     <PreferenceCategory android:key="pref_m9_diagnostics_category" android:title="@string/m9_menu_diagnostics" android:layout="@layout/preference_category_layout">
+       <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_save_diagnostic_files" android:title="@string/m9_save_diagnostic_files_title" android:summary="@string/m9_save_diagnostic_files_summary" android:defaultValue="false" android:layout="@layout/preference_with_margin" />
++      <Preference android:key="pref_export_tracking_trace" android:title="@string/m9_export_tracking_trace" android:persistent="false" android:layout="@layout/preference_with_margin" />
+       <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_save_unfiltered_dng" android:title="Original Sensor RAW" android:summary="Also save the untouched Bayer/color DNG from the phone sensor" android:defaultValue="false" android:layout="@layout/preference_with_margin" />
+       <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_full_frame_sat_audit" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_full_frame_sat_audit_title" android:summary="@string/m9_full_frame_sat_audit_summary" android:icon="@drawable/ic_developer" />
+       <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference android:key="pref_m9_omit_auto_remosaic" android:defaultValue="false" android:layout="@layout/preference_with_margin" android:title="@string/m9_capture_test_title" android:summary="@string/m9_capture_test_summary" android:icon="@drawable/ic_developer" />
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/settings/TrackingTraceSettingsTest.java
+@@ -0,0 +1,49 @@
++package com.particlesdevs.photoncamera.ui.settings;
++
++import android.app.Application;
++import android.content.Context;
++import androidx.activity.result.ActivityResultLauncher;
++import androidx.preference.Preference;
++import com.particlesdevs.photoncamera.util.Log;
++import java.io.StringWriter;
++import java.util.concurrent.CompletableFuture;
++import java.util.concurrent.TimeUnit;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.RuntimeEnvironment;
++import org.robolectric.annotation.Config;
++import org.robolectric.util.ReflectionHelpers;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35,application=Application.class)
++public class TrackingTraceSettingsTest {
++    @Test public void tappingExportOpensPickerWithNamedTextFile() {
++        SettingsActivity.SettingsFragment fragment = new SettingsActivity.SettingsFragment();
++        ActivityResultLauncher<String> picker = mock(ActivityResultLauncher.class);
++        ReflectionHelpers.setField(fragment,"trackingTraceLauncher",picker);
++        Preference entry = new Preference(RuntimeEnvironment.getApplication());
++        entry.setKey("pref_export_tracking_trace");
++        assertTrue(fragment.onPreferenceTreeClick(entry));
++        verify(picker).launch(matches("M9_TRACKING_TRACE_[0-9]{8}_[0-9]{6}\\.txt"));
++    }
++
++    @Test public void exportSeesTrackingRowsQueuedImmediatelyBeforeRequest() throws Exception {
++        Context app = RuntimeEnvironment.getApplication();
++        Log.initPrivate(app);
++        Log.i("M9HeadTrace","tNs=987654321 display squares=2");
++        CompletableFuture<String> result = new CompletableFuture<>();
++        Log.exportTrackingTrace(journal -> {
++            try {
++                StringWriter file = new StringWriter();
++                journal.copyTrackingTrace(file);
++                result.complete(file.toString());
++            } catch (Exception failure) {
++                result.completeExceptionally(failure);
++            }
++        });
++        assertTrue(result.get(6,TimeUnit.SECONDS).contains("I/M9HeadTrace: tNs=987654321 display squares=2"));
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/util/TrackingTraceExportTest.java
+@@ -0,0 +1,80 @@
++package com.particlesdevs.photoncamera.util;
++
++import java.io.File;
++import java.io.IOException;
++import java.io.StringWriter;
++import java.io.Writer;
++import org.junit.Rule;
++import org.junit.Test;
++import org.junit.rules.TemporaryFolder;
++import static org.junit.Assert.*;
++
++public class TrackingTraceExportTest {
++    @Rule public TemporaryFolder temp = new TemporaryFolder();
++    private static final long DAY = 86_400_000L;
++    private static final long START = 1_780_000_000_000L;
++
++    @Test public void recoversPreviousVersionAcrossDaysAheadOfBacklog() throws Exception {
++        File folder = temp.newFolder();
++        M9LocalLog1E previous = new M9LocalLog1E(folder);
++        StringBuilder bulk = new StringBuilder();
++        for (int i=0;i<4096;i++) bulk.append('x');
++        for (int i=0;i<100;i++) previous.append(START,"D","Converter",bulk.toString());
++        previous.append(START+DAY,"I","M9HeadTrace","tNs=101 display squares=2");
++        previous.append(START+2*DAY,"I","M9HeadTrace","tNs=222 display squares=1");
++        previous.close();
++        M9LocalLog1E upgraded = new M9LocalLog1E(folder);
++        StringWriter out = new StringWriter();
++        assertEquals(2,upgraded.copyTrackingTrace(out));
++        assertTrue(out.toString().indexOf("tNs=101") < out.toString().indexOf("tNs=222"));
++        assertFalse(out.toString().contains("Converter"));
++        assertEquals(0,folder.listFiles((d,n)->n.endsWith(".offset")).length);
++    }
++
++    @Test public void skipsOtherTagsAndReportsEmptyWhenNoTraceWasSaved() throws Exception {
++        M9LocalLog1E journal = new M9LocalLog1E(temp.newFolder());
++        journal.append(START,"I","Other","mentions I/M9HeadTrace: tNs=1");
++        journal.append(START,"I","M9HeadTraceExtra","tNs=2");
++        journal.append(START,"I","M9HeadTrace","unrelated text");
++        StringWriter out = new StringWriter();
++        assertEquals(0,journal.copyTrackingTrace(out));
++        assertEquals("",out.toString());
++        journal.close();
++    }
++
++    @Test public void snapshotIncludesBufferedWritesAndExcludesLaterAppends() throws Exception {
++        M9LocalLog1E journal = new M9LocalLog1E(temp.newFolder());
++        journal.append(START,"I","M9HeadTrace","tNs=1");
++        Writer sink = new Writer() {
++            boolean added;
++            @Override public void write(char[] chars,int start,int length) throws IOException {
++                if (!added) {
++                    added = true;
++                    journal.append(START,"I","M9HeadTrace","tNs=2");
++                    journal.flush();
++                }
++            }
++            @Override public void close() {}
++            @Override public void flush() {}
++        };
++        assertEquals(1,journal.copyTrackingTrace(sink));
++        assertEquals(2,journal.copyTrackingTrace(new StringWriter()));
++        journal.close();
++    }
++
++    @Test public void failedSaveCanBeRetriedFromSameRetainedRows() throws Exception {
++        M9LocalLog1E journal = new M9LocalLog1E(temp.newFolder());
++        journal.append(START,"I","M9HeadTrace","tNs=1");
++        Writer failed = new Writer() {
++            @Override public void write(char[] c,int off,int len) throws IOException { throw new IOException("full"); }
++            @Override public void close() {}
++            @Override public void flush() {}
++        };
++        try {
++            journal.copyTrackingTrace(failed);
++            fail("Storage error must reach caller");
++        } catch (IOException expected) { assertEquals("full",expected.getMessage()); }
++        assertEquals(1,journal.copyTrackingTrace(new StringWriter()));
++        journal.close();
++    }
++}

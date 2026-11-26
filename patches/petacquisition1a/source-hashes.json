@@ -1,0 +1,30 @@
+{
+  "app/build.gradle": {
+    "before": "d621c8e3e445f3c8aac659d2f3b6aa313575b3e86f71eac4c8e2cbab97837b43",
+    "after": "bb4c9d52c0ed18cb02ed05d3e5e4ba4c9cc2854d02c6e7b4e7281f20dc19ccf3"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AnimalEyeTargetPolicy.java": {
+    "before": "22b79b81b60db63c087b88e5bf32d8b5b0d83a2d9b2961ddacc00111832d47e2",
+    "after": "9b8a0dadd4ec252eb85367706c15e275d4e76a8170ae1b9597dba41b4b20f200"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java": {
+    "before": "7098cdd4b9d6c241fe333627e5420cf8fa8f8bd548ec9ba81c90fe56325ad4aa",
+    "after": "087895b9ea58447fbf034d55b4e41989b13ae8d1b38bae84c63a884e1e71d656"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java": {
+    "before": "581815b8f4f507ed4afafcd188d70798e28033b1da1f74f09937f5647aeddc0b",
+    "after": "36516ca83e2d4e9759de8a72c6111b0db989cc349a5e9dbb9ed1ccf4bd6f5310"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/AnimalEyePoseEstimator.java": {
+    "before": "c235d88a08b20ab460bd037037332c60b4835fc19ee982de2af15a18dc55ee73",
+    "after": "d4b1f2f12143a660b58ec125d65c5d0b08203790b06ecfc92050523404f27750"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "9a09ec3c8cca09a54b9f860797e01c0b75c075c6bcd042ac62aac0f6fb1d0c17",
+    "after": "aca31fb23b4e508f06c57986362f1e794e5288eb3dd00576303e5f692ff36a8b"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java": {
+    "before": "59f53de40371b80bf82e1740da7777225bc4f9ab2531c3e329aacb7f4dac2266",
+    "after": "1ac5f9643de2a33cb9439d4b7e1ae99741a8c330c36d0dc12d04cc8f4529e415"
+  }
+}

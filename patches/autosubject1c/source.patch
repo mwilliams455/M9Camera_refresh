@@ -1,0 +1,267 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index a3fa118..f86eec3 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27316
++        versionCode 27317
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.16-autosubject1b'
++        versionName '3.17-autosubject1c'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.16_AUTOSUBJECT1B-${variant.name}.apk"
++            outputFileName = "M9Cam_3.17_AUTOSUBJECT1C-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+index d642687..6b9ab1b 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -77,6 +77,7 @@ public final class AutomaticSubjectSelection {
+     private Box active;
+     private long lastSeen = Long.MIN_VALUE, lastFrame = Long.MIN_VALUE;
+     private int hits;
++    private boolean confirmed, lastWasRecovery;
+     private long selectionId;
+     private int faceRotation;
+ 
+@@ -84,6 +85,7 @@ public final class AutomaticSubjectSelection {
+         active = null;
+         lastSeen = lastFrame = Long.MIN_VALUE;
+         faceRotation = 0;
++        confirmed = lastWasRecovery = false;
+         hits = 0;
+     }
+ 
+@@ -121,6 +123,30 @@ public final class AutomaticSubjectSelection {
+         return iou >= .18f ? iou : 0f;
+     }
+ 
++    /** Snapshot of an established close subject for the worker's optional second pass. */
++    public Box recoveryAnchor(long time) {
++        return confirmed && visibleAt(time) && active.type == ClassId.PERSON && active.area() >= .08f
++                ? active : null;
++    }
++
++    public static boolean needsPersonRecovery(Box anchor, List<Box> primary) {
++        if (anchor == null) return false;
++        for (Box box : primary) if (continuity(anchor,box) > 0f) return false;
++        return true;
++    }
++
++    public static boolean matchesRecovery(Box anchor, Box candidate) {
++        if (anchor == null || anchor.type != ClassId.PERSON || candidate == null
++                || candidate.face || candidate.type != ClassId.PERSON)
++            return false;
++        if (anchor.face) {
++            return candidate.left <= anchor.left && candidate.right >= anchor.right
++                    && candidate.top <= anchor.top && candidate.bottom >= anchor.bottom
++                    && anchor.area() >= candidate.area()*.12f;
++        }
++        return overlap(anchor,candidate) >= .50f;
++    }
++
+     /** Skip object inference if a face already covers the current human selection. */
+     public boolean facesSuffice(List<Box> faces) {
+         if (active == null) return !faces.isEmpty();
+@@ -129,10 +155,14 @@ public final class AutomaticSubjectSelection {
+     }
+ 
+     public Box observe(long frame, long now, List<Box> boxes) {
++        return observe(frame,now,boxes,null);
++    }
++
++    public Box observe(long frame, long now, List<Box> boxes, Box recoveredPerson) {
+         if (frame <= lastFrame || frame <= 0 || now < frame) return null;
+         lastFrame = frame;
+         if (now-frame > MAX_AGE_NS) { hits=0; return null; }
+-        if (active != null && frame-lastSeen > HOLD_NS) { active=null; hits=0; }
++        if (active != null && frame-lastSeen > HOLD_NS) { active=null; hits=0; confirmed=false; }
+         Box best=null;
+         double score=-Double.MAX_VALUE, runner=-Double.MAX_VALUE;
+         for (Box box : boxes) {
+@@ -146,9 +176,16 @@ public final class AutomaticSubjectSelection {
+             if (rank>score) { runner=score; score=rank; best=box; }
+             else runner=Math.max(runner,rank);
+         }
+-        if (best==null || (active!=null && score-runner<.06)) { hits=0; return null; }
++        if (best!=null && active!=null && score-runner<.06) { hits=0; return null; }
++        boolean recovered=best==null && matchesRecovery(recoveryAnchor(now),recoveredPerson);
++        if (recovered) best=recoveredPerson;
++        if (best==null) { hits=0; return null; }
+         if (active == null) selectionId++;
+-        hits=Math.min(2,hits+1);
++        // A lone secondary observation can maintain the frame. Require a second
++        // coherent observation before moving the lens on secondary evidence.
++        hits=recovered && !lastWasRecovery ? 1 : Math.min(2,hits+1);
++        lastWasRecovery=recovered;
++        if (hits>=2) confirmed=true;
+         lastSeen=frame;
+         active=best;
+         return best;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PersonRecoveryInput.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PersonRecoveryInput.java
+new file mode 100644
+index 0000000..8f8dcb6
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PersonRecoveryInput.java
+@@ -0,0 +1,32 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++
++/** The second detector view fits the complete preview inside the centre half of a square. */
++public final class PersonRecoveryInput {
++    public static final int SIZE = 320;
++    public final int left, top, width, height;
++
++    public PersonRecoveryInput(int previewWidth, int previewHeight) {
++        float scale = (.5f * SIZE) / Math.max(previewWidth, previewHeight);
++        width = Math.max(1, Math.round(previewWidth * scale));
++        height = Math.max(1, Math.round(previewHeight * scale));
++        left = (SIZE-width)/2;
++        top = (SIZE-height)/2;
++    }
++
++    public AutomaticSubjectSelection.Box toPreview(Candidate c) {
++        if (c == null || c.category != ClassId.PERSON || !Float.isFinite(c.score) || c.score < .55f)
++            return null;
++        float x = c.cx()*SIZE, y = c.cy()*SIZE;
++        if (x < left || x > left+width || y < top || y > top+height) return null;
++        return AutomaticSubjectSelection.Box.fromBody(new Candidate("person", c.score,
++                clamp((c.left*SIZE-left)/width), clamp((c.top*SIZE-top)/height),
++                clamp((c.right*SIZE-left)/width), clamp((c.bottom*SIZE-top)/height)));
++    }
++
++    private static float clamp(float coordinate) {
++        return Math.max(0f, Math.min(1f, coordinate));
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 2d99865..56f20d0 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -63,7 +63,7 @@ final class HumanSubjectFocusController {
+     private final ExecutorService objectWorker = Executors.newSingleThreadExecutor();
+     // Created, used and closed exclusively on objectWorker.
+     private TrackingSemanticDetector objects;
+-    private boolean objectsUnavailable;
++    private boolean objectsUnavailable, recoveryUnavailable;
+     private boolean automaticMode, boxVisible;
+     private final SubjectFrame displayFrame = new SubjectFrame();
+     private int lastFaceRotation;
+@@ -482,6 +482,7 @@ final class HumanSubjectFocusController {
+         // PixelCopy and ML Kit have finished reading this bitmap. Keep the sample
+         // in flight until this worker returns; TrackingSemanticDetector owns its copy.
+         final Bitmap preview=bitmap;
++        final Box anchor=automatic.recoveryAnchor(frame);
+         objectWorker.execute(() -> {
+             List<SubjectAnchorPolicy.Candidate> bodies=Collections.emptyList();
+             if (objects!=null && !objectsUnavailable) {
+@@ -506,13 +507,28 @@ final class HumanSubjectFocusController {
+                 }
+                 if (!represented) faces.add(box);
+             }
+-            main.post(() -> applyAutomatic(ticket,g,frame,faces));
++            Box recovered=null;
++            if (objects!=null && !objectsUnavailable && !recoveryUnavailable
++                    && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS
++                    && AutomaticSubjectSelection.needsPersonRecovery(anchor,faces)) {
++                try {
++                    recovered=objects.recoverPerson(preview,anchor);
++                } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++                    recoveryUnavailable=true;
++                }
++            }
++            final Box secondary=recovered;
++            main.post(() -> applyAutomatic(ticket,g,frame,faces,secondary));
+         });
+     }
+ 
+     private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes) {
++        applyAutomatic(ticket,g,frame,boxes,null);
++    }
++
++    private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes, Box secondary) {
+         if (!accepts(ticket,g)) { finish(); return; }
+-        Box box=automatic.observe(frame,SystemClock.elapsedRealtimeNanos(),boxes);
++        Box box=automatic.observe(frame,SystemClock.elapsedRealtimeNanos(),boxes,secondary);
+         if (box==null) {
+             if (boxVisible && !automatic.visibleAt(SystemClock.elapsedRealtimeNanos())) releaseFocus();
+             finish();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+index 4ac4e96..da1d13c 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+@@ -2,6 +2,12 @@ package com.particlesdevs.photoncamera.ui.camera;
+ 
+ import android.content.Context;
+ import android.graphics.Bitmap;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.graphics.Rect;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.PersonRecoveryInput;
+ import android.graphics.RectF;
+ import com.google.mediapipe.framework.image.BitmapImageBuilder;
+ import com.google.mediapipe.framework.image.MPImage;
+@@ -26,6 +32,8 @@ import java.util.List;
+ final class TrackingSemanticDetector implements AutoCloseable {
+     private final ObjectDetector detector;
+     private boolean closed;
++    private Bitmap recoveryInput;
++    private final Paint filter = new Paint(Paint.FILTER_BITMAP_FLAG);
+     TrackingSemanticDetector(Context appContext){
+         ObjectDetector.ObjectDetectorOptions options=ObjectDetector.ObjectDetectorOptions.builder()
+             .setBaseOptions(BaseOptions.builder().setModelAssetPath("efficientdet-lite0.tflite").build())
+@@ -38,6 +46,24 @@ final class TrackingSemanticDetector implements AutoCloseable {
+     List<SubjectAnchorPolicy.Candidate> detect(Bitmap frame){
+         return detect(frame,null,0,0,false);
+     }
++    /** Called only on the serial worker when the primary pass loses a known person. */
++    Box recoverPerson(Bitmap frame, Box anchor) {
++        PersonRecoveryInput layout = new PersonRecoveryInput(frame.getWidth(), frame.getHeight());
++        if (recoveryInput == null) recoveryInput = Bitmap.createBitmap(
++                PersonRecoveryInput.SIZE, PersonRecoveryInput.SIZE, Bitmap.Config.ARGB_8888);
++        Canvas canvas = new Canvas(recoveryInput);
++        canvas.drawColor(0xff7f7f7f);
++        canvas.drawBitmap(frame, null, new Rect(layout.left, layout.top,
++                layout.left+layout.width, layout.top+layout.height), filter);
++        Box match = null;
++        for (SubjectAnchorPolicy.Candidate candidate : detect(recoveryInput)) {
++            Box body = layout.toPreview(candidate);
++            if (!AutomaticSubjectSelection.matchesRecovery(anchor,body)) continue;
++            if (match != null) return null;
++            match = body;
++        }
++        return match;
++    }
+     /** The immutable, read-only preview pixels are already obtained by PixelCopy. */
+     List<SubjectAnchorPolicy.Candidate> detect(Bitmap frame,int[] pixels,
+                                                 int width,int height,boolean identity){
+@@ -69,5 +95,9 @@ final class TrackingSemanticDetector implements AutoCloseable {
+         return candidates;
+     }
+     private static float clamp(float x){return Math.max(0f,Math.min(1f,x));}
+-    @Override public void close(){if(!closed){closed=true;detector.close();}}
++    @Override public void close(){if(!closed){
++        closed=true;
++        detector.close();
++        if(recoveryInput!=null) recoveryInput.recycle();
++    }}
+ }

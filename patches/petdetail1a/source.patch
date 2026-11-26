@@ -1,0 +1,212 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index b06f1ab..929ca0d 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27318
++        versionCode 27319
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.18-autoreframe1a'
++        versionName '3.19-petdetail1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.18_AUTOREFRAME1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.19_PETDETAIL1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+index 2e0e8d4..5c332d7 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -71,6 +71,11 @@ public final class AutomaticSubjectSelection {
+                     c.cx(), c.top + c.height() * (c.category == ClassId.PERSON ? .5f : .45f), false);
+         }
+ 
++        static Box verifiedPet(ClassId species, float left, float top, float right, float bottom) {
++            return new Box(species, -1, 0, false, left, top, right, bottom,
++                    (left+right)*.5f, top+(bottom-top)*.45f, false);
++        }
++
+         /** A subject-sized square in preview pixels, shared by portrait and landscape. */
+         public float squareSide(int width, int height) {
+             float shortEdge = Math.min(width, height);
+@@ -140,6 +145,17 @@ public final class AutomaticSubjectSelection {
+                 ? active : null;
+     }
+ 
++    public Box petDetailAnchor(long frame) {
++        return visibleAt(frame) && active.type != ClassId.PERSON ? active : null;
++    }
++
++    public static boolean needsPetDetail(Box pet, List<Box> primary) {
++        if (primary.isEmpty()) return true;
++        if (pet == null) return false;
++        for (Box box : primary) if (continuity(pet, box) > 0f) return false;
++        return true;
++    }
++
+     public static boolean needsPersonRecovery(Box anchor, List<Box> primary) {
+         if (anchor == null) return false;
+         for (Box box : primary) if (continuity(anchor,box) > 0f) return false;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+new file mode 100644
+index 0000000..d417df5
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/PetDetailInput.java
+@@ -0,0 +1,66 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.List;
++
++/** A low-confidence cat or dog can request one closer look. Only corroborated geometry is actionable. */
++public final class PetDetailInput {
++    public final int left, top, side;
++    private final int width, height;
++    private final Candidate proposal;
++
++    private PetDetailInput(int width, int height, Candidate proposal) {
++        this.width = width;
++        this.height = height;
++        this.proposal = proposal;
++        int shortEdge = Math.min(width, height);
++        float extent = Math.max(proposal.width()*width, proposal.height()*height);
++        side = Math.min(shortEdge, Math.max(1, Math.round(Math.max(shortEdge*.22f, 1.6f*extent))));
++        left = Math.max(0, Math.min(width-side, Math.round(proposal.cx()*width-side*.5f)));
++        top = Math.max(0, Math.min(height-side, Math.round(proposal.cy()*height-side*.5f)));
++    }
++
++    public static PetDetailInput choose(int width, int height, List<Candidate> candidates, Box trackedPet) {
++        if (width <= 0 || height <= 0) return null;
++        Candidate best = null;
++        double bestRank = Double.NEGATIVE_INFINITY;
++        for (Candidate c : candidates) {
++            if (!plausible(c)) continue;
++            if (trackedPet != null && overlap(c, trackedPet.left, trackedPet.top,
++                    trackedPet.right, trackedPet.bottom) < .18f) continue;
++            double rank = c.score - .28*Math.hypot(c.cx()-.5f, c.cy()-.5f);
++            if (rank > bestRank) { bestRank = rank; best = c; }
++        }
++        return best == null ? null : new PetDetailInput(width, height, best);
++    }
++
++    private static boolean plausible(Candidate c) {
++        return c != null && (c.category == ClassId.CAT || c.category == ClassId.DOG)
++                && Float.isFinite(c.score) && c.score >= .30f && c.score <= 1f
++                && c.left >= 0f && c.top >= 0f && c.right <= 1f && c.bottom <= 1f
++                && c.width() >= .04f && c.height() >= .035f && c.width()*c.height() <= .15f;
++    }
++
++    public Box confirm(List<Candidate> details) {
++        Box match = null;
++        for (Candidate c : details) {
++            if (c == null || (c.category != ClassId.CAT && c.category != ClassId.DOG)
++                    || !c.valid() || c.score < .55f || c.score > 1f) continue;
++            float l=(left+c.left*side)/width, r=(left+c.right*side)/width;
++            float t=(top+c.top*side)/height, b=(top+c.bottom*side)/height;
++            if (overlap(proposal, l,t,r,b) < .40f) continue;
++            if (match != null) return null;
++            match = Box.verifiedPet(c.category, l,t,r,b);
++        }
++        return match;
++    }
++
++    private static float overlap(Candidate c, float l, float t, float r, float b) {
++        float w=Math.max(0f, Math.min(c.right,r)-Math.max(c.left,l));
++        float h=Math.max(0f, Math.min(c.bottom,b)-Math.max(c.top,t));
++        float intersection=w*h;
++        return intersection/(c.width()*c.height()+(r-l)*(b-t)-intersection);
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+index 61ebbe0..576578b 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -33,6 +33,7 @@ import java.util.concurrent.Executors;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.subject.SubjectFrame;
++import com.particlesdevs.photoncamera.control.subject.PetDetailInput;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy;
+ 
+ /**
+@@ -63,7 +64,7 @@ final class HumanSubjectFocusController {
+     private final ExecutorService objectWorker = Executors.newSingleThreadExecutor();
+     // Created, used and closed exclusively on objectWorker.
+     private TrackingSemanticDetector objects;
+-    private boolean objectsUnavailable, recoveryUnavailable;
++    private boolean objectsUnavailable, recoveryUnavailable, petDetailUnavailable;
+     private boolean automaticMode, boxVisible;
+     private final SubjectFrame displayFrame = new SubjectFrame();
+     private int lastFaceRotation;
+@@ -483,6 +484,7 @@ final class HumanSubjectFocusController {
+         // in flight until this worker returns; TrackingSemanticDetector owns its copy.
+         final Bitmap preview=bitmap;
+         final Box anchor=automatic.recoveryAnchor(frame);
++        final Box petAnchor=automatic.petDetailAnchor(frame);
+         objectWorker.execute(() -> {
+             List<SubjectAnchorPolicy.Candidate> bodies=Collections.emptyList();
+             if (objects!=null && !objectsUnavailable) {
+@@ -516,6 +518,18 @@ final class HumanSubjectFocusController {
+                 } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+                     recoveryUnavailable=true;
+                 }
++            } else if (objects!=null && !objectsUnavailable && !petDetailUnavailable
++                    && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS
++                    && AutomaticSubjectSelection.needsPetDetail(petAnchor,faces)) {
++                PetDetailInput crop=PetDetailInput.choose(preview.getWidth(),preview.getHeight(),bodies,petAnchor);
++                if (crop!=null) {
++                    try {
++                        Box pet=objects.verifyPet(preview,crop);
++                        if (pet!=null) faces.add(pet);
++                    } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++                        petDetailUnavailable=true;
++                    }
++                }
+             }
+             final Box secondary=recovered;
+             main.post(() -> applyAutomatic(ticket,g,frame,faces,secondary));
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+index da1d13c..4ba40ae 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+@@ -8,6 +8,7 @@ import android.graphics.Rect;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.subject.PersonRecoveryInput;
++import com.particlesdevs.photoncamera.control.subject.PetDetailInput;
+ import android.graphics.RectF;
+ import com.google.mediapipe.framework.image.BitmapImageBuilder;
+ import com.google.mediapipe.framework.image.MPImage;
+@@ -64,6 +65,16 @@ final class TrackingSemanticDetector implements AutoCloseable {
+         }
+         return match;
+     }
++    /** Verify one small animal proposal at a larger scale on the same preview frame. */
++    Box verifyPet(Bitmap frame, PetDetailInput crop) {
++        if (recoveryInput == null) recoveryInput = Bitmap.createBitmap(
++                PersonRecoveryInput.SIZE, PersonRecoveryInput.SIZE, Bitmap.Config.ARGB_8888);
++        Canvas canvas = new Canvas(recoveryInput);
++        Rect region = new Rect(crop.left, crop.top, crop.left+crop.side, crop.top+crop.side);
++        canvas.drawBitmap(frame, region, new Rect(0, 0, recoveryInput.getWidth(), recoveryInput.getHeight()), filter);
++        return crop.confirm(detect(recoveryInput));
++    }
++
+     /** The immutable, read-only preview pixels are already obtained by PixelCopy. */
+     List<SubjectAnchorPolicy.Candidate> detect(Bitmap frame,int[] pixels,
+                                                 int width,int height,boolean identity){

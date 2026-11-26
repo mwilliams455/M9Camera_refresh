@@ -1,0 +1,414 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27338
++        versionCode 27339
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.38-petevidence1a'
++        versionName '3.39-dogface1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.38_PETEVIDENCE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.39_DOGFACE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -112,6 +112,10 @@
+     }
+ 
+     private Box active;
++    // Only the main looper records completed same-frame face / body / pose checks.
++    private long dogFaceOwner = -1, dogEvidenceFrame;
++    private Box dogEvidenceFace, dogEvidenceBody;
++    private boolean dogEvidenceRepeated;
+     private Box pendingLowerBody;
+     private long broadMissFrame;
+ 
+@@ -131,11 +135,58 @@
+ 
+     public void reset() {
+         active = challenger = pendingLowerBody = null;
++        clearDogFaceEvidence();
+         broadMissFrame = 0;
+         lastSeen = lastFrame = Long.MIN_VALUE;
+         faceRotation = 0;
+         confirmed = lastWasRecovery = false;
+         hits = 0;
++    }
++
++    public void clearDogFaceEvidence() {
++        dogFaceOwner = -1;
++        dogEvidenceFrame = 0;
++        dogEvidenceFace = dogEvidenceBody = null;
++        dogEvidenceRepeated = false;
++    }
++
++    private static boolean sameFace(Box a, Box b) {
++        return a != null && b != null && a.face && b.face
++                && (a.faceId < 0 || b.faceId < 0 || a.rotation != b.rotation || a.faceId == b.faceId)
++                && overlap(a,b) >= .50f;
++    }
++
++    public static boolean dogContainsFace(Box dog, Box face) {
++        return dog != null && dog.type == ClassId.DOG && face != null && face.face
++                && face.cx() >= dog.left && face.cx() <= dog.right
++                && face.cy() >= dog.top && face.cy() <= dog.bottom;
++    }
++
++    public void recordDogFace(long owner, Box face, Box dog, long frame, long now) {
++        if (owner != selectionId || frame <= dogEvidenceFrame || now < frame
++                || now-frame > MAX_AGE_NS || !sameFace(active,face)) return;
++        dogEvidenceRepeated = dogFaceOwner == owner && frame-dogEvidenceFrame <= HOLD_NS
++                && sameFace(face,dogEvidenceFace) && samePet(dog,dogEvidenceBody)
++                && dogContainsFace(dog,face);
++        dogFaceOwner = owner;
++        dogEvidenceFrame = frame;
++        dogEvidenceFace = face;
++        dogEvidenceBody = dogContainsFace(dog,face) ? dog : null;
++    }
++
++    /** Correct only the face that actually won this new frame. Other people remain selectable. */
++    public Box correctDogFace(Box selected, long frame, long now) {
++        if (!dogEvidenceRepeated || selectionId != dogFaceOwner || selected != active
++                || frame != lastFrame || frame < dogEvidenceFrame || now < frame
++                || now-dogEvidenceFrame > MAX_AGE_NS || !sameFace(selected,dogEvidenceFace)
++                || !dogContainsFace(dogEvidenceBody,selected)) return null;
++        active = dogEvidenceBody;
++        clearDogFaceEvidence();
++        selectionId++;
++        hits = 1;
++        confirmed = lastWasRecovery = false;
++        challenger = pendingLowerBody = null;
++        return active;
+     }
+ 
+     public boolean mayAim() { return active != null && hits >= 2; }
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -126,6 +126,8 @@
+     private long lastAttemptMs, lastResultMs, lastFacesMs;
+     private final PetSpeciesLabel speciesLabel = new PetSpeciesLabel();
+     private final PetAcquisitionGate petAcquisition = new PetAcquisitionGate();
++    private Bitmap dogFaceInput;
++    private boolean dogFaceBusy;
+     private int petSearchPhase; // Serial object worker only.
+     private long nextAutomaticAfMs;
+     private String camera;
+@@ -179,6 +181,7 @@
+         stop();
+         closed=true;
+         objectWorker.execute(() -> {
++            if (dogFaceInput != null) dogFaceInput.recycle();
+             if (objects != null) objects.close();
+             if (sceneDetector != null) sceneDetector.close();
+             sceneDetector = null;
+@@ -999,9 +1002,17 @@
+         if (!accepts(ticket,g)) { finish(); return; }
+         long now=SystemClock.elapsedRealtimeNanos();
+         petAcquisition.filter(boxes,automatic.petDetailAnchor(frame),frame,now);
+-        Box box=automatic.observe(frame,now,boxes,secondary);
++        Box observed = automatic.observe(frame,now,boxes,secondary);
++        Box correction = automatic.correctDogFace(observed,frame,now);
++        final Box box = correction == null ? observed : correction;
++        if (correction != null) {
++            boxes = new ArrayList<>(boxes);
++            boxes.remove(observed);
++            boxes.removeIf(other -> AutomaticSubjectSelection.samePet(correction,other));
++            boxes.add(correction);
++        }
+         if (headTrace!=null) {
+-            String origin=box==null ? "miss" : box==confirmedFace ? "supported_face" : box.face ? "face" : box==secondary ? "recovered_body" : "body";
++            String origin=correction!=null ? "verified_dog_face" : box==null ? "miss" : box==confirmedFace ? "supported_face" : box.face ? "face" : box==secondary ? "recovered_body" : "body";
+             int broadBodies = secondary != null && secondary.fillsPreview() ? 1 : 0;
+             for (Box proposal : boxes) if (proposal.fillsPreview()) broadBodies++;
+             headTrace.primary(frame,automatic.selectionId(),origin,box,broadBodies);
+@@ -1046,8 +1057,14 @@
+         if (primaryPerson != null) {
+             speciesLabel.reset();
+             setSubjectLabel(box.type);
++            if (box.face) checkDogFace(ticket,g,owner,box,frame);
+         } else {
+-            setSubjectLabel(speciesLabel.displayed(owner));
++            SubjectAnchorPolicy.ClassId shownSpecies = speciesLabel.displayed(owner);
++            if (correction != null) {
++                // The new selection inherits only the just-verified species of this dog.
++                shownSpecies = speciesLabel.record(owner,box.type,box.type,frame,now);
++            }
++            setSubjectLabel(shownSpecies);
+             speciesLabel.observe(overlay.getContext(), bitmap, box, owner, frame, (result, stage) -> {
+                 long completed = SystemClock.elapsedRealtimeNanos();
+                 if (closed || !boxVisible || ticket != epoch || owner != automatic.selectionId()
+@@ -1062,6 +1079,53 @@
+         updateAutomaticAf(ticket,g,box);
+     }
+ 
++    private void checkDogFace(long ticket, TrackingGeometry g, long owner, Box face, long frame) {
++        if (dogFaceBusy || !speciesLabel.canClassify()) return;
++        // Inference outlives this preview. Reuse one private snapshot until both workers finish.
++        try {
++            if (dogFaceInput == null || dogFaceInput.isRecycled() || dogFaceInput.getWidth() != bitmap.getWidth()
++                    || dogFaceInput.getHeight() != bitmap.getHeight()) {
++                if (dogFaceInput != null) dogFaceInput.recycle();
++                dogFaceInput = Bitmap.createBitmap(bitmap.getWidth(),bitmap.getHeight(),Bitmap.Config.ARGB_8888);
++            }
++            new Canvas(dogFaceInput).drawBitmap(bitmap,null,
++                    new Rect(0,0,bitmap.getWidth(),bitmap.getHeight()),null);
++        } catch (RuntimeException | OutOfMemoryError unavailable) {
++            return;
++        }
++        final Bitmap snapshot = dogFaceInput;
++        dogFaceBusy = speciesLabel.classifyCrop(overlay.getContext(),snapshot,face,(species,stage) -> {
++            long now = SystemClock.elapsedRealtimeNanos();
++            if (!accepts(ticket,g) || owner != automatic.selectionId() || now-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
++                dogFaceBusy = false;
++                return;
++            }
++            if (species != SubjectAnchorPolicy.ClassId.DOG) {
++                automatic.recordDogFace(owner,face,null,frame,now);
++                dogFaceBusy = false;
++                return;
++            }
++            objectWorker.execute(() -> {
++                Box dog = null;
++                try {
++                    if (objects != null && !objectsUnavailable
++                            && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS)
++                        dog = objects.dogAroundFace(snapshot,face,frame);
++                } catch (RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++                    // A failed optional check contributes no dog evidence.
++                }
++                final Box verified = dog;
++                main.post(() -> {
++                    dogFaceBusy = false;
++                    if (!accepts(ticket,g) || owner != automatic.selectionId()) return;
++                    long completed = SystemClock.elapsedRealtimeNanos();
++                    automatic.recordDogFace(owner,face,verified,frame,completed);
++                    if (headTrace != null) headTrace.dogFace(frame,owner,verified != null,completed);
++                });
++            });
++        });
++    }
++
+     private void setSubjectLabel(SubjectAnchorPolicy.ClassId species) {
+         int label = com.particlesdevs.photoncamera.R.string.auto_subject_animal;
+         if (species == SubjectAnchorPolicy.ClassId.PERSON) label = com.particlesdevs.photoncamera.R.string.auto_subject_person;
+@@ -1107,6 +1171,7 @@
+     }
+ 
+     private void releaseFocus() {
++        automatic.clearDogFaceEvidence();
+         speciesLabel.reset();
+         headGeneration++;
+         uprightPair=Collections.emptyList();
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java
+@@ -18,7 +18,7 @@
+ import java.util.concurrent.ExecutorService;
+ import java.util.concurrent.Executors;
+ 
+-/** An independent species reading for a pet already acquired by the focus tracker. */
++/** Independent species readings for a pet label or a selected face crop. */
+ final class PetSpeciesLabel implements AutoCloseable {
+     interface Callback { void complete(ClassId species, String stage); }
+ 
+@@ -80,12 +80,23 @@
+     }
+ 
+     void observe(Context context, Bitmap frame, Box pet, long selection, long frameNs, Callback callback) {
+-        if (closed || busy || unavailable || verified != null || owner != selection || frame == null) return;
++        if (verified != null || owner != selection) return;
++        classifyCrop(context, frame, pet, (species, stage) -> {
++            if (owner == selection) callback.complete(species, stage);
++        });
++    }
++
++    boolean canClassify() {
++        return !closed && !busy && !unavailable;
++    }
++
++    boolean classifyCrop(Context context, Bitmap frame, Box pet, Callback callback) {
++        if (!canClassify() || frame == null) return false;
+         int w = frame.getWidth(), h = frame.getHeight();
+         float mx = (pet.right-pet.left)*.06f, my = (pet.bottom-pet.top)*.06f;
+         Rect region = new Rect(Math.max(0, Math.round((pet.left-mx)*w)), Math.max(0, Math.round((pet.top-my)*h)),
+                 Math.min(w, Math.round((pet.right+mx)*w)), Math.min(h, Math.round((pet.bottom+my)*h)));
+-        if (region.isEmpty()) return;
++        if (region.isEmpty()) return false;
+         // PixelCopy reuses the preview. Only the independent 224-pixel crop crosses the thread boundary.
+         Bitmap crop = null;
+         try {
+@@ -93,7 +104,7 @@
+             new Canvas(crop).drawBitmap(frame, region, new Rect(0, 0, SIZE, SIZE), filter);
+         } catch (RuntimeException | OutOfMemoryError failure) {
+             if (crop != null) crop.recycle();
+-            return;
++            return false;
+         }
+         final Bitmap owned = crop;
+         started = busy = true;
+@@ -129,10 +140,11 @@
+             main.post(() -> {
+                 busy = false;
+                 unavailable = error;
+-                if (!closed && owner == selection)
++                if (!closed)
+                     callback.complete(result, error ? "unavailable" : result == null ? "abstain" : "classified");
+             });
+         });
++        return true;
+     }
+ 
+     @Override public void close() {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/TrackingSemanticDetector.java
+@@ -34,6 +34,7 @@
+     private final ObjectDetector detector;
+     private final PetPoseWorker petPose;
+     private long lastPoseFrame=Long.MIN_VALUE;
++    private Box lastSupportedPose;
+     private boolean closed;
+     private Bitmap recoveryInput;
+     private final Paint filter = new Paint(Paint.FILTER_BITMAP_FLAG);
+@@ -100,8 +101,32 @@
+     private boolean supportsPet(Bitmap frame, Box pet, long frameNs) {
+         if (pet == null || lastPoseFrame == frameNs || petPose.unavailable()) return false;
+         lastPoseFrame = frameNs;
+-        return petPose.supports(frame, pet, frameNs,
++        lastSupportedPose = null;
++        boolean supported = petPose.supports(frame, pet, frameNs,
+                 com.particlesdevs.photoncamera.m9.M9OutputSettings.diagnosticsEnabled());
++        if (supported) lastSupportedPose = pet;
++        return supported;
++    }
++
++    /** A species-positive face needs exactly one enclosing dog with a pose on these pixels. */
++    Box dogAroundFace(Bitmap frame, Box face, long sample) {
++        if (sample < lastPoseFrame) return null;
++        Box match = null;
++        for (SubjectAnchorPolicy.Candidate candidate : detect(frame)) {
++            Box body = Box.fromBody(candidate);
++            if (!AutomaticSubjectSelection.dogContainsFace(body,face)) continue;
++            if (match != null) return null;
++            match = body;
++        }
++        if (match == null) return null;
++        if (lastPoseFrame == sample) {
++            // A primary pass can already have verified the same full-frame detection.
++            return lastSupportedPose != null && lastSupportedPose.type == match.type
++                    && lastSupportedPose.left == match.left && lastSupportedPose.top == match.top
++                    && lastSupportedPose.right == match.right && lastSupportedPose.bottom == match.bottom
++                    ? match : null;
++        }
++        return supportsPet(frame,match,sample) ? match : null;
+     }
+ 
+     /** The immutable, read-only preview pixels are already obtained by PixelCopy. */
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
+@@ -80,6 +80,11 @@
+                 +(broadBodies == 0 ? "" : " frameFillingBodies="+broadBodies)+timing);
+     }
+ 
++    public void dogFace(long frame, long owner, boolean supported, long completed) {
++        record(completed, "dog_face frameNs="+frame+" selection="+owner+" bodyPose="+supported
++                +" ageMs="+millis(frame,completed));
++    }
++
+     public void petLabel(long frame, long owner, Object detector, Object classifier, Object displayed, String stage) {
+         long now = SystemClock.elapsedRealtimeNanos();
+         record(now, "pet_label frameNs="+frame+" selection="+owner+" detector="+detector+" classifier="+classifier
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/control/subject/DogFaceCorrectionTest.java
+@@ -0,0 +1,78 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.Arrays;
++import java.util.Collections;
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class DogFaceCorrectionTest {
++    private static final long MS = 1_000_000L;
++    private final AutomaticSubjectSelection selection = new AutomaticSubjectSelection();
++    private final Box head = Box.fromHead(.40f,.27f,.58f,.45f,0);
++    private final Box person = Box.fromHead(.11f,.32f,.25f,.49f,0);
++    private final Box dog = Box.verifiedPet(ClassId.DOG,.31f,.19f,.80f,.89f);
++
++    private void probe(long ms, Box result) {
++        long frame = ms*MS;
++        assertSame(head,selection.observe(frame,frame,Collections.singletonList(head)));
++        selection.recordDogFace(selection.selectionId(),head,result,frame,frame+50*MS);
++    }
++
++    private Box next(long ms) {
++        long frame=ms*MS;
++        Box chosen=selection.observe(frame,frame,Arrays.asList(head,person));
++        return selection.correctDogFace(chosen,frame,frame);
++    }
++
++    @Test public void promotionChangesTargetAndRequiresAnotherDogObservationToAim() {
++        probe(1000,dog);
++        assertNull(next(1100));
++        probe(1200,dog);
++        long previousOwner=selection.selectionId();
++        assertSame(dog,next(1400));
++        assertNotEquals(previousOwner,selection.selectionId());
++        assertFalse(selection.mayAim());
++        assertSame(dog,selection.observe(1600*MS,1600*MS,Arrays.asList(person,dog)));
++        assertTrue(selection.mayAim());
++        assertSame(person,selection.observe(2400*MS,2400*MS,Collections.singletonList(person)));
++    }
++
++    @Test public void conflictingAndSeparatedVotesCannotPromote() {
++        probe(1000,dog); probe(1200,null); probe(1400,dog);
++        assertNull(next(1500));
++        probe(2200,dog);
++        assertNull(next(2300));
++    }
++
++    @Test public void staleDuplicateAndWrongOwnerResultsCannotConfirm() {
++        probe(1000,dog);
++        long owner=selection.selectionId();
++        selection.recordDogFace(owner,head,dog,1000*MS,1100*MS);
++        selection.recordDogFace(owner+1,head,dog,1100*MS,1150*MS);
++        selection.recordDogFace(owner,head,dog,1100*MS,1500*MS);
++        assertNull(next(1500));
++        probe(1600,dog);
++        assertNull(next(1980));
++    }
++
++    @Test public void anotherFaceAndAnUnenclosedHeadCannotPromote() {
++        probe(1000,dog);
++        selection.recordDogFace(selection.selectionId(),person,dog,1100*MS,1150*MS);
++        assertNull(next(1200));
++        Box otherBody=Box.verifiedPet(ClassId.DOG,0,.1f,.3f,.8f);
++        probe(1300,otherBody); probe(1500,dog);
++        assertNull(next(1600));
++    }
++
++    @Test public void catAndResetCannotCarryDogEvidence() {
++        Box cat=Box.verifiedPet(ClassId.CAT,dog.left,dog.top,dog.right,dog.bottom);
++        probe(1000,cat); probe(1200,dog);
++        assertNull(next(1300));
++        probe(1400,dog);
++        selection.reset();
++        probe(1500,dog);
++        assertNull(next(1600));
++    }
++}

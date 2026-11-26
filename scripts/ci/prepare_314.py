@@ -57,37 +57,109 @@ def apply_stages(source, reports):
             run_python(PATCHES / stage / "host/verify_staged.py", source)
 
 
-def apply_ci_fixture(source, reports):
+def apply_ci_fixture(source, reports, version="3.14-trackingrecovery1a", pin="source-314.sha256"):
     before = inventory(source)
     baseline = fingerprint(before)
-    expected = (REPO / "scripts/ci/source-314.sha256").read_text().strip()
+    expected = (REPO / "scripts/ci" / pin).read_text().strip()
     if baseline != expected:
-        raise ValueError(f"Unexpected 3.14 production source fingerprint: {baseline}")
+        raise ValueError(f"Unexpected {version} production source fingerprint: {baseline}")
     fixture = REPO / "scripts/ci/capture-test-fixture.patch"
     subprocess.run(["git", "apply", str(fixture)], cwd=source, check=True)
     after = inventory(source)
     changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
     if changed != [TEST_PATH]:
         raise ValueError(f"Unexpected CI fixture changes: {changed}")
-    report = {"version": "3.14-trackingrecovery1a", "productionScopedSha256": baseline,
+    report = {"version": version, "productionScopedSha256": baseline,
               "ciScopedSha256": fingerprint(after), "fixtureChanges": changed}
     (reports / "SOURCE_VERIFICATION.json").write_text(json.dumps(report, indent=2) + "\n")
+
+
+def apply_exposure_stage(source, reports, stage, version, parent):
+    directory = PATCHES / stage
+    hashes = json.loads((directory / "source-hashes.json").read_text())
+
+    def verify(key):
+        for name, pins in hashes.items():
+            path = source / name
+            actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+            if actual != pins[key]:
+                raise ValueError(f"{stage} {key} fingerprint mismatch: {name}")
+
+    verify("before")
+    subprocess.run(["git", "apply", "--whitespace=error", directory / "source.patch"],
+                   cwd=source, check=True)
+    verify("after")
+    report = {"status": "STAGED_FOR_ANDROID_BUILD", "version": version, "parent": parent,
+              "changedFiles": sorted(hashes), "sourceHashes": hashes}
+    (reports / f"{stage}.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
-    dest = parser.parse_args().destination.resolve()
+    versions = (
+        (314, "3.14-trackingrecovery1a", None, None),
+        (315, "3.15-autosubject1a", "autosubject1a", "--auto-subject"),
+        (316, "3.16-autosubject1b", "autosubject1b", "--stable-framing"),
+        (317, "3.17-autosubject1c", "autosubject1c", "--person-recovery"),
+        (318, "3.18-autoreframe1a", "autoreframe1a", "--auto-reframe"),
+        (319, "3.19-petdetail1a", "petdetail1a", "--pet-detail"),
+        (320, "3.20-petcontinuity1a", "petcontinuity1a", "--pet-continuity"),
+        (321, "3.21-petacquisition1a", "petacquisition1a", "--pet-acquisition"),
+        (322, "3.22-multiface1a", "multiface1a", "--multi-face"),
+        (323, "3.23-headpair1a", "headpair1a", "--head-pair"),
+        (324, "3.24-widepet1a", "widepet1a", "--wide-pet"),
+        (325, "3.25-subjectcheck1a", "subjectcheck1a", "--subject-check"),
+        (326, "3.26-headbody1a", "headbody1a", "--head-body"),
+        (327, "3.27-headcontinuity1a", "headcontinuity1a", "--head-continuity"),
+        (328, "3.28-trackingstability1a", "trackingstability1a", "--tracking-stability"),
+        (329, "3.29-headjni1a", "headjni1a", "--head-jni"),
+        (330, "3.30-headframe1a", "headframe1a", "--head-frame"),
+        (331, "3.31-traceexport1a", "traceexport1a", "--trace-export"),
+        (332, "3.32-facefollow1a", "facefollow1a", "--face-follow"),
+        (333, "3.33-facepair1a", "facepair1a", "--upright-pair"),
+        (334, "3.34-singleface1a", "singleface1a", "--single-face"),
+        (335, "3.35-bodyconfirm1a", "bodyconfirm1a", "--body-confirm"),
+        (336, "3.36-objectwork1a", "objectwork1a", "--object-work"),
+        (337, "3.37-petlabel1a", "petlabel1a", "--pet-label"),
+        (338, "3.38-petevidence1a", "petevidence1a", "--pet-evidence"),
+        (339, "3.39-dogface1a", "dogface1a", "--dog-face"),
+        (340, "3.40-subjectae1a", "subjectae1a", "--subject-ae"),
+        (341, "3.41-facehighlight1a", "facehighlight1a", "--face-highlight"),
+        (342, "3.42-facehighlight1b", "facehighlight1b", "--adaptive-face-highlight"),
+    )
+    for number, label, stage, flag in versions[1:]:
+        parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,
+                            help=f"Apply automatic subject tracking through {label}")
+    args = parser.parse_args()
+    dest = args.destination.resolve()
     dest.mkdir(parents=True, exist_ok=False)
     if subprocess.run(["git", "-C", dest, "rev-parse", "--show-toplevel"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         raise ValueError("Reconstruct outside the Git checkout")
-    source = dest / "PhotonCamera_314"
+    version = max(args.requested_versions or [314])
+    source = dest / f"PhotonCamera_{version}"
     reports = dest / "verification"
     reports.mkdir()
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
-    apply_ci_fixture(source, reports)
+    previous_label = None
+    for number, label, stage, _ in versions:
+        # 3.28 is the separate rollback to 3.26. 3.29 resumes the 3.27 detector.
+        if (number == 327 and version == 328) or (number == 328 and version > 328):
+            continue
+        if number >= 340:
+            apply_exposure_stage(source, reports, stage, label, previous_label)
+        elif stage:
+            run_python(PATCHES / stage / "apply.py", source, reports / f"{stage}.json")
+        previous_label = label
+        pin = f"source-{number}.sha256"
+        if number == version:
+            apply_ci_fixture(source, reports, label, pin)
+            break
+        if fingerprint(inventory(source)) != (REPO / "scripts/ci" / pin).read_text().strip():
+            raise ValueError(f"Unexpected production source before continuing beyond {label}")
+
 
 
 if __name__ == "__main__":

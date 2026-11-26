@@ -1,0 +1,10 @@
+{
+  "app/build.gradle": {
+    "before": "1fa1234acc44fa1cd31fbdebc5f9eb5987578ad540b76c2ccf3bdd020ac3b79e",
+    "after": "67c7db666eaca9cb293a53164069201979d283e77bcafa4dd8b73b0e0f847276"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java": {
+    "before": "b31b2810598c17f8967adc2e7d3dee140e1f7dcb093e1ae07e61e1886b4c4c67",
+    "after": "6cace138cdc7a577d21cfbc501064819d7041732f82d30689620c47e3a5ce4a7"
+  }
+}

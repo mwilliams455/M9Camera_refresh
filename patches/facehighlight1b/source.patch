@@ -1,0 +1,127 @@
+diff --git a/app/build.gradle b/app/build.gradle
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27341
++        versionCode 27342
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.41-facehighlight1a'
++        versionName '3.42-facehighlight1b'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.41_FACEHIGHLIGHT1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.42_FACEHIGHLIGHT1B-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeter.java
+@@ -17,7 +17,12 @@
+ 
+     // Counts are restricted to the central part of a confirmed face box.
+     private static final int MIN_HIGHLIGHT_SAMPLES = 5;
+-    private static boolean previousFaceHot, protectFace;
++    // Give the first correction time to appear on the viewfinder before requesting another.
++    private static final long SETTLE_NS = 450_000_000L;
++    private static boolean previousFaceHot;
++    private static double highlightTrim;
++    private static long quarterStopSince;
++    private static int residualHotFrames, clearFrames;
+     private static int faceHotSamples = -1;
+ 
+     private M9TrackedSubjectMeter() {}
+@@ -26,7 +31,10 @@
+         camera = mode = null;
+         selection = frame = 0;
+         lift = 0;
+-        previousFaceHot = protectFace = false;
++        previousFaceHot = false;
++        highlightTrim = 0;
++        quarterStopSince = 0;
++        residualHotFrames = clearFrames = 0;
+         faceHotSamples = -1;
+         subjectMedian = background95 = -1;
+     }
+@@ -86,14 +94,41 @@
+         if (same && timestamp <= frame) return;
+         boolean consecutive = same && timestamp-frame <= HOLD_NS;
+         boolean hotFace = hot >= MIN_HIGHLIGHT_SAMPLES;
+-        protectFace = consecutive && ((hotFace && previousFaceHot)
+-                || (protectFace && near >= MIN_HIGHLIGHT_SAMPLES));
++        if (!consecutive || hot < 0) {
++            highlightTrim = 0;
++            residualHotFrames = clearFrames = 0;
++        } else if (highlightTrim == 0) {
++            if (hotFace && previousFaceHot) {
++                highlightTrim = -.25;
++                quarterStopSince = timestamp;
++            }
++        } else if (highlightTrim == -.25) {
++            if (near < MIN_HIGHLIGHT_SAMPLES) {
++                highlightTrim = 0;
++                residualHotFrames = 0;
++            } else {
++                boolean settled = timestamp - quarterStopSince >= SETTLE_NS;
++                residualHotFrames = settled && hotFace ? residualHotFrames + 1 : 0;
++                if (residualHotFrames >= 2) {
++                    highlightTrim = -.50;
++                    clearFrames = 0;
++                }
++            }
++        } else {
++            // Keep the extra quarter stop while the corrected face is close to clipping.
++            clearFrames = near < MIN_HIGHLIGHT_SAMPLES ? clearFrames + 1 : 0;
++            if (clearFrames >= 2) {
++                highlightTrim = -.25;
++                quarterStopSince = timestamp;
++                residualHotFrames = clearFrames = 0;
++            }
++        }
+         previousFaceHot = hotFace;
+         faceHotSamples = hot;
+         boolean continuing = consecutive && lift > 0;
+         boolean qualifies = middle >= 0 && middle <= (continuing ? 36 : 24)
+                 && bright >= (continuing ? 175 : 185);
+-        lift = qualifies && !protectFace ? (continuing ? .50 : .25) : 0;
++        lift = qualifies && highlightTrim == 0 ? (continuing ? .50 : .25) : 0;
+         camera = cameraId; mode = shotMode; selection = id; frame = timestamp;
+         subjectMedian = middle; background95 = bright;
+     }
+@@ -103,11 +138,14 @@
+     }
+ 
+     public static synchronized double faceTrim(String cameraId, String shotMode, long now) {
+-        return protectFace ? -.25 * freshness(cameraId, shotMode, now) : 0;
++        return highlightTrim * freshness(cameraId, shotMode, now);
+     }
+ 
+     public static synchronized void missed(long timestamp) {
+-        if (timestamp > frame) previousFaceHot = false;
++        if (timestamp > frame) {
++            previousFaceHot = false;
++            residualHotFrames = clearFrames = 0;
++        }
+     }
+ 
+     private static double freshness(String cameraId, String shotMode, long now) {
+@@ -125,6 +163,6 @@
+     public static synchronized String trace(long timestamp) {
+         if (timestamp != frame) return "";
+         return " subjectMedian=" + subjectMedian + " outsideP95=" + background95 + " subjectRequestEv=" + lift
+-                + " faceHotSamples=" + faceHotSamples + " faceTrimEv=" + (protectFace ? -.25 : 0);
++                + " faceHotSamples=" + faceHotSamples + " faceTrimEv=" + highlightTrim;
+     }
+ }

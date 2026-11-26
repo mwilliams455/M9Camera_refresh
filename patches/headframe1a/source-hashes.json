@@ -1,0 +1,26 @@
+{
+  "app/build.gradle": {
+    "before": "5f8a5e80689789295da74e8212503bad13fb9c17131b2bd76306f1823ab09887",
+    "after": "5c5d3410ee06e670208380a28ee2bcf5d75a7006a640b6a5ed05b6b69d63f3e9"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "e8300d2d63d876908474fc1ec0dddaa19812b789fca93c80e98882bee6378b65",
+    "after": "19918375bbcf9dcbd46b990e39b72918f3f61220729685e2217f5771432cf770"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java": {
+    "before": "5c862b3e9524da6398c4acc8b0a6377355cb20e52bcd3ed75ca35169c858edc9",
+    "after": "a55bd034de6beea023acbb461c7d4803acec23ba5196fb552e218f120efdab4a"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java": {
+    "before": null,
+    "after": "52408a1f3fa86bf72f6b288a1d1c6a591d71f837a27d63cfcfb97025f257f0ba"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java": {
+    "before": "2062c36c0700c33bdded50f373cbb0ff57efc67479bdddf1b5a121cfe0d98e73",
+    "after": "008ae795eb7af4feb918c0dd7f0f9c3f6d2df5c645b6616f35aa7f3dbb6a12ea"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/HeadFrameTimingTest.java": {
+    "before": null,
+    "after": "1f71b363934a71f3ffc74eb46ed6a4c5058b020f69f001c429aafba94f3e50f1"
+  }
+}

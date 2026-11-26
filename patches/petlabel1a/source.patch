@@ -1,0 +1,596 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27336
++        versionCode 27337
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.36-objectwork1a'
++        versionName '3.37-petlabel1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.36_OBJECTWORK1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.37_PETLABEL1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- /dev/null
++++ b/app/src/main/assets/PET_SPECIES_LICENSE.txt
+@@ -0,0 +1,203 @@
++Copyright 2020 The TensorFlow Authors.  All rights reserved.
++
++                                 Apache License
++                           Version 2.0, January 2004
++                        http://www.apache.org/licenses/
++
++   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
++
++   1. Definitions.
++
++      "License" shall mean the terms and conditions for use, reproduction,
++      and distribution as defined by Sections 1 through 9 of this document.
++
++      "Licensor" shall mean the copyright owner or entity authorized by
++      the copyright owner that is granting the License.
++
++      "Legal Entity" shall mean the union of the acting entity and all
++      other entities that control, are controlled by, or are under common
++      control with that entity. For the purposes of this definition,
++      "control" means (i) the power, direct or indirect, to cause the
++      direction or management of such entity, whether by contract or
++      otherwise, or (ii) ownership of fifty percent (50%) or more of the
++      outstanding shares, or (iii) beneficial ownership of such entity.
++
++      "You" (or "Your") shall mean an individual or Legal Entity
++      exercising permissions granted by this License.
++
++      "Source" form shall mean the preferred form for making modifications,
++      including but not limited to software source code, documentation
++      source, and configuration files.
++
++      "Object" form shall mean any form resulting from mechanical
++      transformation or translation of a Source form, including but
++      not limited to compiled object code, generated documentation,
++      and conversions to other media types.
++
++      "Work" shall mean the work of authorship, whether in Source or
++      Object form, made available under the License, as indicated by a
++      copyright notice that is included in or attached to the work
++      (an example is provided in the Appendix below).
++
++      "Derivative Works" shall mean any work, whether in Source or Object
++      form, that is based on (or derived from) the Work and for which the
++      editorial revisions, annotations, elaborations, or other modifications
++      represent, as a whole, an original work of authorship. For the purposes
++      of this License, Derivative Works shall not include works that remain
++      separable from, or merely link (or bind by name) to the interfaces of,
++      the Work and Derivative Works thereof.
++
++      "Contribution" shall mean any work of authorship, including
++      the original version of the Work and any modifications or additions
++      to that Work or Derivative Works thereof, that is intentionally
++      submitted to Licensor for inclusion in the Work by the copyright owner
++      or by an individual or Legal Entity authorized to submit on behalf of
++      the copyright owner. For the purposes of this definition, "submitted"
++      means any form of electronic, verbal, or written communication sent
++      to the Licensor or its representatives, including but not limited to
++      communication on electronic mailing lists, source code control systems,
++      and issue tracking systems that are managed by, or on behalf of, the
++      Licensor for the purpose of discussing and improving the Work, but
++      excluding communication that is conspicuously marked or otherwise
++      designated in writing by the copyright owner as "Not a Contribution."
++
++      "Contributor" shall mean Licensor and any individual or Legal Entity
++      on behalf of whom a Contribution has been received by Licensor and
++      subsequently incorporated within the Work.
++
++   2. Grant of Copyright License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      copyright license to reproduce, prepare Derivative Works of,
++      publicly display, publicly perform, sublicense, and distribute the
++      Work and such Derivative Works in Source or Object form.
++
++   3. Grant of Patent License. Subject to the terms and conditions of
++      this License, each Contributor hereby grants to You a perpetual,
++      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
++      (except as stated in this section) patent license to make, have made,
++      use, offer to sell, sell, import, and otherwise transfer the Work,
++      where such license applies only to those patent claims licensable
++      by such Contributor that are necessarily infringed by their
++      Contribution(s) alone or by combination of their Contribution(s)
++      with the Work to which such Contribution(s) was submitted. If You
++      institute patent litigation against any entity (including a
++      cross-claim or counterclaim in a lawsuit) alleging that the Work
++      or a Contribution incorporated within the Work constitutes direct
++      or contributory patent infringement, then any patent licenses
++      granted to You under this License for that Work shall terminate
++      as of the date such litigation is filed.
++
++   4. Redistribution. You may reproduce and distribute copies of the
++      Work or Derivative Works thereof in any medium, with or without
++      modifications, and in Source or Object form, provided that You
++      meet the following conditions:
++
++      (a) You must give any other recipients of the Work or
++          Derivative Works a copy of this License; and
++
++      (b) You must cause any modified files to carry prominent notices
++          stating that You changed the files; and
++
++      (c) You must retain, in the Source form of any Derivative Works
++          that You distribute, all copyright, patent, trademark, and
++          attribution notices from the Source form of the Work,
++          excluding those notices that do not pertain to any part of
++          the Derivative Works; and
++
++      (d) If the Work includes a "NOTICE" text file as part of its
++          distribution, then any Derivative Works that You distribute must
++          include a readable copy of the attribution notices contained
++          within such NOTICE file, excluding those notices that do not
++          pertain to any part of the Derivative Works, in at least one
++          of the following places: within a NOTICE text file distributed
++          as part of the Derivative Works; within the Source form or
++          documentation, if provided along with the Derivative Works; or,
++          within a display generated by the Derivative Works, if and
++          wherever such third-party notices normally appear. The contents
++          of the NOTICE file are for informational purposes only and
++          do not modify the License. You may add Your own attribution
++          notices within Derivative Works that You distribute, alongside
++          or as an addendum to the NOTICE text from the Work, provided
++          that such additional attribution notices cannot be construed
++          as modifying the License.
++
++      You may add Your own copyright statement to Your modifications and
++      may provide additional or different license terms and conditions
++      for use, reproduction, or distribution of Your modifications, or
++      for any such Derivative Works as a whole, provided Your use,
++      reproduction, and distribution of the Work otherwise complies with
++      the conditions stated in this License.
++
++   5. Submission of Contributions. Unless You explicitly state otherwise,
++      any Contribution intentionally submitted for inclusion in the Work
++      by You to the Licensor shall be under the terms and conditions of
++      this License, without any additional terms or conditions.
++      Notwithstanding the above, nothing herein shall supersede or modify
++      the terms of any separate license agreement you may have executed
++      with Licensor regarding such Contributions.
++
++   6. Trademarks. This License does not grant permission to use the trade
++      names, trademarks, service marks, or product names of the Licensor,
++      except as required for reasonable and customary use in describing the
++      origin of the Work and reproducing the content of the NOTICE file.
++
++   7. Disclaimer of Warranty. Unless required by applicable law or
++      agreed to in writing, Licensor provides the Work (and each
++      Contributor provides its Contributions) on an "AS IS" BASIS,
++      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
++      implied, including, without limitation, any warranties or conditions
++      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
++      PARTICULAR PURPOSE. You are solely responsible for determining the
++      appropriateness of using or redistributing the Work and assume any
++      risks associated with Your exercise of permissions under this License.
++
++   8. Limitation of Liability. In no event and under no legal theory,
++      whether in tort (including negligence), contract, or otherwise,
++      unless required by applicable law (such as deliberate and grossly
++      negligent acts) or agreed to in writing, shall any Contributor be
++      liable to You for damages, including any direct, indirect, special,
++      incidental, or consequential damages of any character arising as a
++      result of this License or out of the use or inability to use the
++      Work (including but not limited to damages for loss of goodwill,
++      work stoppage, computer failure or malfunction, or any and all
++      other commercial damages or losses), even if such Contributor
++      has been advised of the possibility of such damages.
++
++   9. Accepting Warranty or Additional Liability. While redistributing
++      the Work or Derivative Works thereof, You may choose to offer,
++      and charge a fee for, acceptance of support, warranty, indemnity,
++      or other liability obligations and/or rights consistent with this
++      License. However, in accepting such obligations, You may act only
++      on Your own behalf and on Your sole responsibility, not on behalf
++      of any other Contributor, and only if You agree to indemnify,
++      defend, and hold each Contributor harmless for any liability
++      incurred by, or claims asserted against, such Contributor by reason
++      of your accepting any such warranty or additional liability.
++
++   END OF TERMS AND CONDITIONS
++
++   APPENDIX: How to apply the Apache License to your work.
++
++      To apply the Apache License to your work, attach the following
++      boilerplate notice, with the fields enclosed by brackets "[]"
++      replaced with your own identifying information. (Don't include
++      the brackets!)  The text should be enclosed in the appropriate
++      comment syntax for the file format. We also recommend that a
++      file or class name and description of purpose be included on the
++      same "printed page" as the copyright notice for easier
++      identification within third-party archives.
++
++   Copyright [yyyy] [name of copyright owner]
++
++   Licensed under the Apache License, Version 2.0 (the "License");
++   you may not use this file except in compliance with the License.
++   You may obtain a copy of the License at
++
++       http://www.apache.org/licenses/LICENSE-2.0
++
++   Unless required by applicable law or agreed to in writing, software
++   distributed under the License is distributed on an "AS IS" BASIS,
++   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++   See the License for the specific language governing permissions and
++   limitations under the License.
+--- /dev/null
++++ b/app/src/main/assets/PET_SPECIES_MODEL.md
+@@ -0,0 +1,5 @@
++# Pet species crop classifier
++
++Quantized MobileNet V2, 1.0 width, 224-pixel RGB input. Obtained from tensorflow/tflite-support at revision 5b56ec4d1479d3330d4f18f9a647d4c21d375d00, under tensorflow_lite_support/metadata/python/tests/testdata/image_classifier/mobilenet_v2_1.0_224_quant.tflite. The accompanying labels.txt defines the 1,001 output indices, including background at 0. The model and license are distributed unchanged. SHA-256 f08d447cde49b4e0446428aa921aff0a14ea589fa9c5817b31f83128e9a43c1d.
++
++The classifier reads an existing pet track cropped with a 6% margin on each side. Its result may update the viewfinder species label. A top domestic dog or cat class needs a lead of at least 2.0 logits over the other group in two fresh observations. The quantized output step is 0.09889254.
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -43,6 +43,11 @@
+             return !face && type == ClassId.PERSON && right-left >= .80f && bottom-top >= .80f
+                     && (left <= .025f || top <= .025f || right >= .975f || bottom >= .975f);
+         }
++        // A body spanning both sides and the bottom can be two legs seen from above.
++        // Apply this narrower shape check only in a run of already rejected broad bodies.
++        public boolean spansLowerFrame() {
++            return !face && type == ClassId.PERSON && left <= .025f && right >= .975f && bottom >= .975f;
++        }
+         private float area() { return (right - left) * (bottom - top); }
+ 
+         /** The upper torso approximates the composition point when a face is turned away. */
+@@ -108,6 +113,7 @@
+ 
+     private Box active;
+     private Box pendingLowerBody;
++    private long broadMissFrame;
+ 
+     // A body entirely below mid-frame and clipped at the bottom can be feet alone.
+     private static boolean lowerBodyOnly(Box box) {
+@@ -125,6 +131,7 @@
+ 
+     public void reset() {
+         active = challenger = pendingLowerBody = null;
++        broadMissFrame = 0;
+         lastSeen = lastFrame = Long.MIN_VALUE;
+         faceRotation = 0;
+         confirmed = lastWasRecovery = false;
+@@ -271,6 +278,10 @@
+         return nearest;
+     }
+ 
++    private static boolean rejectBody(Box candidate, boolean followsBroadMiss) {
++        return candidate.fillsPreview() || (followsBroadMiss && candidate.spansLowerFrame());
++    }
++
+     public Box observe(long frame, long now, List<Box> boxes) {
+         return observe(frame,now,boxes,null);
+     }
+@@ -283,14 +294,21 @@
+         lastFrame = frame;
+         if (now-frame > MAX_AGE_NS) { hits=0; challenger=null; return null; }
+         if (active != null && frame-lastSeen > HOLD_NS) { active=challenger=null; hits=0; confirmed=false; }
++        boolean followsBroadMiss = broadMissFrame > 0 && frame - broadMissFrame <= MAX_AGE_NS;
++        boolean blocked = false;
+         for (Box candidate : boxes) {
+-            if (candidate.fillsPreview()) {
++            if (rejectBody(candidate, followsBroadMiss)) {
++                blocked = true;
+                 boxes = new ArrayList<>(boxes);
+-                boxes.removeIf(Box::fillsPreview);
++                boxes.removeIf(box -> rejectBody(box, followsBroadMiss));
+                 break;
+             }
+         }
+-        if (recoveredPerson != null && recoveredPerson.fillsPreview()) recoveredPerson = null;
++        if (recoveredPerson != null && rejectBody(recoveredPerson, followsBroadMiss)) {
++            blocked = true;
++            recoveredPerson = null;
++        }
++        if (blocked) broadMissFrame = frame;
+         Box best=null;
+         double score=-Double.MAX_VALUE, runner=-Double.MAX_VALUE;
+         int people=0;
+@@ -345,6 +363,7 @@
+         hits=recovered && !lastWasRecovery ? 1 : Math.min(2,hits+1);
+         lastWasRecovery=recovered;
+         if (hits>=2) confirmed=true;
++        broadMissFrame = 0;
+         lastSeen=frame;
+         active=best;
+         return best;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -124,6 +124,7 @@
+     private boolean running, closed, inFlight, manualOverride, unsupported;
+     private long epoch, freshSinceNs, lastFrameNs = Long.MIN_VALUE;
+     private long lastAttemptMs, lastResultMs, lastFacesMs;
++    private final PetSpeciesLabel speciesLabel = new PetSpeciesLabel();
+     private final PetAcquisitionGate petAcquisition = new PetAcquisitionGate();
+     private int petSearchPhase; // Serial object worker only.
+     private long nextAutomaticAfMs;
+@@ -192,6 +193,7 @@
+         });
+         headWorker.shutdown();
+         headMotionWorker.shutdown();
++        speciesLabel.close();
+         releaseIfIdle();
+     }
+ 
+@@ -1040,13 +1042,31 @@
+             traceDecision("animal",frame);
+             overlay.setHeadFrames(boxes,box,false,left,top,g.w,g.h,frame);
+         }
+-        int label = box.type==SubjectAnchorPolicy.ClassId.CAT ? com.particlesdevs.photoncamera.R.string.auto_subject_cat
+-                : box.type==SubjectAnchorPolicy.ClassId.DOG ? com.particlesdevs.photoncamera.R.string.auto_subject_dog
+-                : com.particlesdevs.photoncamera.R.string.auto_subject_person;
+-        overlay.setContentDescription(overlay.getContext().getString(label));
++        long owner = automatic.selectionId();
++        if (primaryPerson != null) {
++            speciesLabel.reset();
++            setSubjectLabel(box.type);
++        } else {
++            setSubjectLabel(speciesLabel.displayed(owner, box.type));
++            speciesLabel.observe(overlay.getContext(), bitmap, box, owner, frame, (result, stage) -> {
++                long completed = SystemClock.elapsedRealtimeNanos();
++                if (closed || !boxVisible || ticket != epoch || owner != automatic.selectionId()
++                        || !AutomaticSubjectSelection.samePet(automatic.petDetailAnchor(completed), box)) return;
++                SubjectAnchorPolicy.ClassId shown = speciesLabel.record(owner, box.type, result, frame, completed);
++                setSubjectLabel(shown);
++                if (headTrace != null) headTrace.petLabel(frame, owner, box.type, result, shown, stage);
++            });
++        }
+         boxVisible=true;
+         if (!automatic.mayAim()) { finish(); return; }
+         updateAutomaticAf(ticket,g,box);
++    }
++
++    private void setSubjectLabel(SubjectAnchorPolicy.ClassId species) {
++        int label = species == SubjectAnchorPolicy.ClassId.CAT ? com.particlesdevs.photoncamera.R.string.auto_subject_cat
++                : species == SubjectAnchorPolicy.ClassId.DOG ? com.particlesdevs.photoncamera.R.string.auto_subject_dog
++                : com.particlesdevs.photoncamera.R.string.auto_subject_person;
++        overlay.setContentDescription(overlay.getContext().getString(label));
+     }
+ 
+     void updateAutomaticAf(long ticket, TrackingGeometry g, Box box) {
+@@ -1086,6 +1106,7 @@
+     }
+ 
+     private void releaseFocus() {
++        speciesLabel.reset();
+         headGeneration++;
+         uprightPair=Collections.emptyList();
+         uprightAt=0;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java
+@@ -0,0 +1,143 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.content.Context;
++import android.graphics.Bitmap;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.graphics.Rect;
++import android.os.Handler;
++import android.os.Looper;
++import com.google.ai.edge.litert.Accelerator;
++import com.google.ai.edge.litert.CompiledModel;
++import com.google.ai.edge.litert.LiteRtException;
++import com.google.ai.edge.litert.TensorBuffer;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.List;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++
++/** An independent species reading for a pet already acquired by the focus tracker. */
++final class PetSpeciesLabel implements AutoCloseable {
++    interface Callback { void complete(ClassId species, String stage); }
++
++    private static final int SIZE = 224;
++    private final Handler main = new Handler(Looper.getMainLooper());
++    private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> new Thread(r, "M9 pet label"));
++    private final Paint filter = new Paint(Paint.FILTER_BITMAP_FLAG);
++    // Model and native buffers belong to worker. All track state belongs to the main looper.
++    private CompiledModel model;
++    private List<TensorBuffer> inputs, outputs;
++    private boolean busy, closed, unavailable, started;
++    private long owner = -1, previousFrame;
++    private ClassId previous, verified;
++
++    void reset() {
++        owner = -1;
++        previousFrame = 0;
++        previous = verified = null;
++    }
++
++    ClassId displayed(long selection, ClassId detector) {
++        if (owner != selection) {
++            reset();
++            owner = selection;
++        }
++        return verified != null ? verified : detector;
++    }
++
++    ClassId record(long selection, ClassId detector, ClassId species, long frame, long now) {
++        if (owner != selection) return detector;
++        if (now >= frame && now-frame <= AutomaticSubjectSelection.MAX_AGE_NS && frame > previousFrame) {
++            if (species != null && species == previous && frame-previousFrame <= AutomaticSubjectSelection.HOLD_NS)
++                verified = species;
++            previous = species;
++            previousFrame = frame;
++        }
++        return verified != null ? verified : detector;
++    }
++
++    static ClassId classify(byte[] scores) {
++        if (scores.length != 1001) throw new IllegalArgumentException("Expected 1001 species scores");
++        int dog = -1, cat = -1, other = -1;
++        for (int i = 0; i < scores.length; i++) {
++            int value = scores[i] & 255;
++            if (i >= 152 && i <= 269) dog = Math.max(dog, value);
++            else if (i >= 282 && i <= 286) cat = Math.max(cat, value);
++            else other = Math.max(other, value);
++        }
++        // The output step is 0.09889254 logits. A 21-step lead exceeds two logits.
++        if (dog > other && dog-cat >= 21) return ClassId.DOG;
++        if (cat > other && cat-dog >= 21) return ClassId.CAT;
++        return null;
++    }
++
++    void observe(Context context, Bitmap frame, Box pet, long selection, long frameNs, Callback callback) {
++        if (closed || busy || unavailable || verified != null || owner != selection || frame == null) return;
++        int w = frame.getWidth(), h = frame.getHeight();
++        float mx = (pet.right-pet.left)*.06f, my = (pet.bottom-pet.top)*.06f;
++        Rect region = new Rect(Math.max(0, Math.round((pet.left-mx)*w)), Math.max(0, Math.round((pet.top-my)*h)),
++                Math.min(w, Math.round((pet.right+mx)*w)), Math.min(h, Math.round((pet.bottom+my)*h)));
++        if (region.isEmpty()) return;
++        // PixelCopy reuses the preview. Only the independent 224-pixel crop crosses the thread boundary.
++        Bitmap crop = null;
++        try {
++            crop = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888);
++            new Canvas(crop).drawBitmap(frame, region, new Rect(0, 0, SIZE, SIZE), filter);
++        } catch (RuntimeException | OutOfMemoryError failure) {
++            if (crop != null) crop.recycle();
++            return;
++        }
++        final Bitmap owned = crop;
++        started = busy = true;
++        worker.execute(() -> {
++            ClassId classified = null;
++            boolean failed = false;
++            try {
++                if (model == null) {
++                    model = CompiledModel.create(context.getAssets(), "pet_species_mobilenet_v2.tflite",
++                            new CompiledModel.Options(Accelerator.CPU), null);
++                    inputs = model.createInputBuffers();
++                    outputs = model.createOutputBuffers();
++                }
++                int[] pixels = new int[SIZE*SIZE];
++                byte[] rgb = new byte[SIZE*SIZE*3];
++                owned.getPixels(pixels, 0, SIZE, 0, 0, SIZE, SIZE);
++                int offset = 0;
++                for (int argb : pixels) {
++                    rgb[offset++] = (byte)(argb >> 16);
++                    rgb[offset++] = (byte)(argb >> 8);
++                    rgb[offset++] = (byte)argb;
++                }
++                inputs.get(0).writeInt8(rgb);
++                model.run(inputs, outputs);
++                classified = classify(outputs.get(0).readInt8());
++            } catch (LiteRtException | RuntimeException | LinkageError | OutOfMemoryError failure) {
++                failed = true;
++            } finally {
++                owned.recycle();
++            }
++            final ClassId result = classified;
++            final boolean error = failed;
++            main.post(() -> {
++                busy = false;
++                unavailable = error;
++                if (!closed && owner == selection)
++                    callback.complete(result, error ? "unavailable" : result == null ? "abstain" : "classified");
++            });
++        });
++    }
++
++    @Override public void close() {
++        if (closed) return;
++        closed = true;
++        reset();
++        if (started) worker.execute(() -> {
++            if (inputs != null) for (TensorBuffer buffer : inputs) buffer.close();
++            if (outputs != null) for (TensorBuffer buffer : outputs) buffer.close();
++            if (model != null) model.close();
++        });
++        worker.shutdown();
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
+@@ -80,6 +80,12 @@
+                 +(broadBodies == 0 ? "" : " frameFillingBodies="+broadBodies)+timing);
+     }
+ 
++    public void petLabel(long frame, long owner, Object detector, Object classifier, Object displayed, String stage) {
++        long now = SystemClock.elapsedRealtimeNanos();
++        record(now, "pet_label frameNs="+frame+" selection="+owner+" detector="+detector+" classifier="+classifier
++                +" displayed="+displayed+" result="+stage+" ageMs="+millis(frame,now));
++    }
++
+     public void decision(String path, long selection, long primaryFrame, long headFrame) {
+         this.path = path;
+         this.selection = selection;
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetLabelTest.java
+@@ -0,0 +1,55 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Application;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.Collections;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import static org.junit.Assert.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class PetLabelTest {
++    @Test public void topDomesticClassNeedsASeparateSpeciesMargin() {
++        byte[] scores = new byte[1001];
++        scores[152] = (byte)235; scores[282] = (byte)215;
++        assertNull(PetSpeciesLabel.classify(scores));
++        scores[282] = (byte)214;
++        assertEquals(ClassId.DOG, PetSpeciesLabel.classify(scores));
++        scores[350] = (byte)235;
++        assertNull(PetSpeciesLabel.classify(scores));
++        scores[286] = (byte)255; scores[152] = (byte)200;
++        assertEquals(ClassId.CAT, PetSpeciesLabel.classify(scores));
++    }
++    @Test public void staleAndPreviousOwnerCannotRelabelCurrentPet() {
++        try (PetSpeciesLabel label = new PetSpeciesLabel()) {
++            label.displayed(1, ClassId.CAT);
++            assertEquals(ClassId.CAT, label.record(1,ClassId.CAT,ClassId.DOG,100,102));
++            assertEquals(ClassId.DOG, label.record(1,ClassId.CAT,ClassId.DOG,200,210));
++            assertEquals(ClassId.CAT, label.displayed(2,ClassId.CAT));
++            label.record(1,ClassId.CAT,ClassId.DOG,300,310);
++            label.record(2,ClassId.CAT,ClassId.DOG,400,400+AutomaticSubjectSelection.MAX_AGE_NS+1);
++            assertEquals(ClassId.CAT, label.record(2,ClassId.CAT,ClassId.DOG,500,510));
++        }
++    }
++    @Test public void lowerThreeEdgesContinueOnlyAfterABroadMiss() {
++        AutomaticSubjectSelection s = new AutomaticSubjectSelection();
++        Box full = Box.fromBody(new Candidate("person",.9f,0,0,1,1));
++        Box lap = Box.fromBody(new Candidate("person",.9f,.002f,.27f,.994f,.989f));
++        Box local = Box.fromBody(new Candidate("person",.9f,.2f,.2f,.7f,.8f));
++        long t = 1_000_000_000L;
++        assertNull(s.observe(t,t,Collections.singletonList(full)));
++        t += 200_000_000L; assertNull(s.observe(t,t,Collections.singletonList(lap)));
++        t += 200_000_000L; assertNull(s.observe(t,t,Collections.singletonList(lap)));
++        t += 200_000_000L; assertSame(local,s.observe(t,t,Collections.singletonList(local)));
++        s.reset();
++        assertSame(lap,s.observe(t,t,Collections.singletonList(lap)));
++        s.reset(); assertNull(s.observe(t,t,Collections.singletonList(full)));
++        t += AutomaticSubjectSelection.MAX_AGE_NS+1; assertSame(lap,s.observe(t,t,Collections.singletonList(lap)));
++    }
++}
