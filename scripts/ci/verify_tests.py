@@ -32,9 +32,11 @@ SUITES = {
     "NoiseBoundaryTest": 9,
 }
 PHONE_CASE = "phoneReportMissingAeModeAndStateUsesMeasuredExposureAndAppliesEvOnce"
-# Gradle/Robolectric discovery emits an empty report for this unselected AF suite.
-# It is not an additional selected suite and contributes no tests to the gate.
-EMPTY_FIXTURE_REPORT = "com.particlesdevs.photoncamera.capture.AfContinuityTest"
+# Robolectric discovery can emit empty XML reports for these unselected suites.
+EMPTY_FIXTURE_REPORTS = {
+    "com.particlesdevs.photoncamera.capture.AfContinuityTest",
+    "com.particlesdevs.photoncamera.ui.camera.views.M9LinearManualLifecycleTest",
+}
 
 
 def verify(directory):
@@ -45,10 +47,10 @@ def verify(directory):
         if any(c.find(k) is not None for c in suite.findall("testcase")
                for k in ["failure", "error", "skipped"]):
             raise ValueError(f"Failing or skipped testcase in {suite.get('name')}")
-    empty = [s for s in suites if s.get("name") == EMPTY_FIXTURE_REPORT]
-    if len(empty) > 1 or any(int(s.attrib["tests"]) != 0 or s.findall("testcase") for s in empty):
+    empty = [s for s in suites if s.get("name") in EMPTY_FIXTURE_REPORTS]
+    if len({s.get("name") for s in empty}) != len(empty) or any(int(s.attrib["tests"]) != 0 or s.findall("testcase") for s in empty):
         raise ValueError("Unexpected tests in the unselected AF fixture report")
-    suites = [s for s in suites if s.get("name") != EMPTY_FIXTURE_REPORT]
+    suites = [s for s in suites if s.get("name") not in EMPTY_FIXTURE_REPORTS]
     by_name = {s.get("name", "").rsplit(".", 1)[-1]: s for s in suites}
     if set(by_name) != set(SUITES) or len(suites) != len(SUITES):
         raise ValueError(f"Expected all {len(SUITES)} suites exactly once; found {sorted(by_name)}")
@@ -77,6 +79,30 @@ if __name__ == "__main__":
     if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/views/MultiFaceOverlayTest.java").is_file():
         head_pairs = args.source / "app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java"
         SUITES["MultiFaceOverlayTest"] = 4 if head_pairs.is_file() else 3
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadDisplayTest.java").is_file():
+        SUITES["SceneHeadDisplayTest"] = 3
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadOutputNamesTest.java").is_file():
+        SUITES["SceneHeadOutputNamesTest"] = 1
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/HeadFrameTimingTest.java").is_file():
+        controller = args.source / "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java"
+        SUITES["HeadFrameTimingTest"] = 11 if "startPrimaryMotion(" in controller.read_text() else 5
+        if "uprightSelection" in controller.read_text():
+            SUITES["HeadFrameTimingTest"] = 16
+        if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RepeatedFaceSupportTest.java").is_file():
+            SUITES["RepeatedFaceSupportTest"] = 3
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/LowerBodyAcquisitionTest.java").is_file():
+        SUITES["LowerBodyAcquisitionTest"] = 3
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/ObjectWorkTest.java").is_file():
+        SUITES["ObjectWorkTest"] = 5
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetLabelTest.java").is_file():
+        SUITES["PetLabelTest"] = 3
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesEvidenceTest.java").is_file():
+        SUITES["PetSpeciesEvidenceTest"] = 4
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/control/subject/DogFaceCorrectionTest.java").is_file():
+        SUITES["DogFaceCorrectionTest"] = 5
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/util/TrackingTraceExportTest.java").is_file():
+        SUITES["TrackingTraceExportTest"] = 4
+        SUITES["TrackingTraceSettingsTest"] = 2
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]

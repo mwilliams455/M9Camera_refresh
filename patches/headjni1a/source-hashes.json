@@ -1,0 +1,18 @@
+{
+  "app/build.gradle": {
+    "before": "14827e48be97b83f1b3cfc7bd6158306f61f1ca3f3bed83e04eb8384c1e69bdb",
+    "after": "5f8a5e80689789295da74e8212503bad13fb9c17131b2bd76306f1823ab09887"
+  },
+  "app/src/androidTest/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadNativeTest.java": {
+    "before": null,
+    "after": "1d0c4ee9f6d3f39c0ee17974ce12ba0651e709ce7acfbba828f9160fdf1e69c7"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java": {
+    "before": "763b24b8f72eb729284b5675c7b7cb221fdd416ffbd3d64f7ecf4d6f017171e0",
+    "after": "5c862b3e9524da6398c4acc8b0a6377355cb20e52bcd3ed75ca35169c858edc9"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadOutputNamesTest.java": {
+    "before": null,
+    "after": "1652fcc9ae0380e0933ac8d11d7ddd83a1f70d909f79012dce0dda193915b54d"
+  }
+}

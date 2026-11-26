@@ -1,0 +1,6 @@
+{
+  "app/build.gradle": {
+    "before": "aee278766b24fe9a380e83769a5f6cece9b3bdd42f18dc808e3652435566fcc3",
+    "after": "efe7d7e97626c007dbcec75516d45aed1686d686ad2250e41ef21a828bd422ee"
+  }
+}

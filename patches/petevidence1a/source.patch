@@ -1,0 +1,209 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27337
++        versionCode 27338
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.37-petlabel1a'
++        versionName '3.38-petevidence1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.37_PETLABEL1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.38_PETEVIDENCE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -1047,7 +1047,7 @@
+             speciesLabel.reset();
+             setSubjectLabel(box.type);
+         } else {
+-            setSubjectLabel(speciesLabel.displayed(owner, box.type));
++            setSubjectLabel(speciesLabel.displayed(owner));
+             speciesLabel.observe(overlay.getContext(), bitmap, box, owner, frame, (result, stage) -> {
+                 long completed = SystemClock.elapsedRealtimeNanos();
+                 if (closed || !boxVisible || ticket != epoch || owner != automatic.selectionId()
+@@ -1063,9 +1063,10 @@
+     }
+ 
+     private void setSubjectLabel(SubjectAnchorPolicy.ClassId species) {
+-        int label = species == SubjectAnchorPolicy.ClassId.CAT ? com.particlesdevs.photoncamera.R.string.auto_subject_cat
+-                : species == SubjectAnchorPolicy.ClassId.DOG ? com.particlesdevs.photoncamera.R.string.auto_subject_dog
+-                : com.particlesdevs.photoncamera.R.string.auto_subject_person;
++        int label = com.particlesdevs.photoncamera.R.string.auto_subject_animal;
++        if (species == SubjectAnchorPolicy.ClassId.PERSON) label = com.particlesdevs.photoncamera.R.string.auto_subject_person;
++        if (species == SubjectAnchorPolicy.ClassId.CAT) label = com.particlesdevs.photoncamera.R.string.auto_subject_cat;
++        if (species == SubjectAnchorPolicy.ClassId.DOG) label = com.particlesdevs.photoncamera.R.string.auto_subject_dog;
+         overlay.setContentDescription(overlay.getContext().getString(label));
+     }
+ 
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java
+@@ -30,32 +30,38 @@
+     private CompiledModel model;
+     private List<TensorBuffer> inputs, outputs;
+     private boolean busy, closed, unavailable, started;
+-    private long owner = -1, previousFrame;
++    // Corroboration is scoped to one live selection. Neutral readings do not vote.
++    private static final long EVIDENCE_WINDOW_NS = 1_000_000_000L;
++    private long owner = -1, lastFrame, previousVoteFrame;
+     private ClassId previous, verified;
+ 
+     void reset() {
+         owner = -1;
+-        previousFrame = 0;
++        lastFrame = previousVoteFrame = 0;
+         previous = verified = null;
+     }
+ 
+-    ClassId displayed(long selection, ClassId detector) {
++    ClassId displayed(long selection) {
+         if (owner != selection) {
+             reset();
+             owner = selection;
+         }
+-        return verified != null ? verified : detector;
++        return verified;
+     }
+ 
+     ClassId record(long selection, ClassId detector, ClassId species, long frame, long now) {
+-        if (owner != selection) return detector;
+-        if (now >= frame && now-frame <= AutomaticSubjectSelection.MAX_AGE_NS && frame > previousFrame) {
+-            if (species != null && species == previous && frame-previousFrame <= AutomaticSubjectSelection.HOLD_NS)
+-                verified = species;
+-            previous = species;
+-            previousFrame = frame;
+-        }
+-        return verified != null ? verified : detector;
++        if (owner != selection) return null;
++        if (verified != null || frame <= lastFrame || now < frame
++                || now-frame > AutomaticSubjectSelection.MAX_AGE_NS) return verified;
++        lastFrame = frame;
++        if (species == null) return null;
++        // A matching independent reading can confirm the detector immediately. An override
++        // needs a second confident reading on this animal, with no conflicting vote between.
++        if (species == detector || (previous == species && frame-previousVoteFrame <= EVIDENCE_WINDOW_NS))
++            verified = species;
++        previous = species;
++        previousVoteFrame = frame;
++        return verified;
+     }
+ 
+     static ClassId classify(byte[] scores) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
+@@ -83,7 +83,7 @@
+     public void petLabel(long frame, long owner, Object detector, Object classifier, Object displayed, String stage) {
+         long now = SystemClock.elapsedRealtimeNanos();
+         record(now, "pet_label frameNs="+frame+" selection="+owner+" detector="+detector+" classifier="+classifier
+-                +" displayed="+displayed+" result="+stage+" ageMs="+millis(frame,now));
++                +" displayed="+(displayed == null ? "ANIMAL" : displayed)+" result="+stage+" ageMs="+millis(frame,now));
+     }
+ 
+     public void decision(String path, long selection, long primaryFrame, long headFrame) {
+--- a/app/src/main/res/values/trackingdefault1a.xml
++++ b/app/src/main/res/values/trackingdefault1a.xml
+@@ -4,5 +4,6 @@
+     <string name="tracking_default_subject_summary1a">Automatically frame and follow a person, cat or dog in Wide AF-C. Tap to choose a subject.</string>
+     <string name="auto_subject_person">Tracking person</string>
+     <string name="auto_subject_cat">Tracking cat</string>
++    <string name="auto_subject_animal">Tracking animal</string>
+     <string name="auto_subject_dog">Tracking dog</string>
+ </resources>
+--- a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetLabelTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetLabelTest.java
+@@ -28,13 +28,13 @@
+     }
+     @Test public void staleAndPreviousOwnerCannotRelabelCurrentPet() {
+         try (PetSpeciesLabel label = new PetSpeciesLabel()) {
+-            label.displayed(1, ClassId.CAT);
+-            assertEquals(ClassId.CAT, label.record(1,ClassId.CAT,ClassId.DOG,100,102));
++            label.displayed(1);
++            assertNull(label.record(1,ClassId.CAT,ClassId.DOG,100,102));
+             assertEquals(ClassId.DOG, label.record(1,ClassId.CAT,ClassId.DOG,200,210));
+-            assertEquals(ClassId.CAT, label.displayed(2,ClassId.CAT));
++            assertNull(label.displayed(2));
+             label.record(1,ClassId.CAT,ClassId.DOG,300,310);
+             label.record(2,ClassId.CAT,ClassId.DOG,400,400+AutomaticSubjectSelection.MAX_AGE_NS+1);
+-            assertEquals(ClassId.CAT, label.record(2,ClassId.CAT,ClassId.DOG,500,510));
++            assertNull(label.record(2,ClassId.CAT,ClassId.DOG,500,510));
+         }
+     }
+     @Test public void lowerThreeEdgesContinueOnlyAfterABroadMiss() {
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesEvidenceTest.java
+@@ -0,0 +1,61 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Application;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import static org.junit.Assert.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class PetSpeciesEvidenceTest {
++    @Test public void abstentionsNeverPromoteTheDetectorsDogGuess() {
++        try (PetSpeciesLabel label = new PetSpeciesLabel()) {
++            assertNull(label.displayed(23));
++            for (int i=1; i<=17; i++) {
++                long frame = i*220_000_000L;
++                ClassId reading = i==9 ? ClassId.CAT : null;
++                assertNull(label.record(23, ClassId.DOG, reading, frame, frame+170_000_000L));
++            }
++        }
++    }
++
++    @Test public void catReadingsFromTheSameSelectionSurviveAbstentions() {
++        try (PetSpeciesLabel label = new PetSpeciesLabel()) {
++            label.displayed(33);
++            long[] frames = {254141512674241L, 254141821520803L, 254142029090960L,
++                    254142336460907L, 254142537876116L, 254142745657470L};
++            for (int i=0; i<frames.length; i++) {
++                ClassId reading = i==1 || i==4 ? ClassId.CAT : null;
++                ClassId shown = label.record(33, ClassId.DOG, reading, frames[i], frames[i]+200_000_000L);
++                assertEquals(i>=4 ? ClassId.CAT : null, shown);
++            }
++            assertNull(label.displayed(37));
++        }
++    }
++
++    @Test public void matchingClassifiersConfirmEitherSpeciesOnOneFreshFrame() {
++        try (PetSpeciesLabel label = new PetSpeciesLabel()) {
++            for (ClassId species : new ClassId[]{ClassId.CAT, ClassId.DOG}) {
++                label.reset();
++                assertNull(label.displayed(1));
++                assertEquals(species, label.record(1,species,species,100,101));
++                assertEquals(species, label.displayed(1));
++            }
++        }
++    }
++
++    @Test public void expiredAndOutOfOrderVotesCannotConfirmACorrection() {
++        try (PetSpeciesLabel label = new PetSpeciesLabel()) {
++            label.displayed(3);
++            assertNull(label.record(3,ClassId.DOG,ClassId.CAT,1,2));
++            long late = 1_200_000_000L;
++            assertNull(label.record(3,ClassId.DOG,ClassId.CAT,late,late+1));
++            assertNull(label.record(3,ClassId.DOG,ClassId.CAT,late-1,late));
++            assertNull(label.record(3,ClassId.DOG,ClassId.CAT,late+100,late+400_000_000L));
++            assertEquals(ClassId.CAT,label.record(3,ClassId.DOG,ClassId.CAT,late+200,late+201));
++        }
++    }
++}

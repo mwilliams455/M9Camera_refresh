@@ -91,6 +91,19 @@ def main():
         (324, "3.24-widepet1a", "widepet1a", "--wide-pet"),
         (325, "3.25-subjectcheck1a", "subjectcheck1a", "--subject-check"),
         (326, "3.26-headbody1a", "headbody1a", "--head-body"),
+        (327, "3.27-headcontinuity1a", "headcontinuity1a", "--head-continuity"),
+        (328, "3.28-trackingstability1a", "trackingstability1a", "--tracking-stability"),
+        (329, "3.29-headjni1a", "headjni1a", "--head-jni"),
+        (330, "3.30-headframe1a", "headframe1a", "--head-frame"),
+        (331, "3.31-traceexport1a", "traceexport1a", "--trace-export"),
+        (332, "3.32-facefollow1a", "facefollow1a", "--face-follow"),
+        (333, "3.33-facepair1a", "facepair1a", "--upright-pair"),
+        (334, "3.34-singleface1a", "singleface1a", "--single-face"),
+        (335, "3.35-bodyconfirm1a", "bodyconfirm1a", "--body-confirm"),
+        (336, "3.36-objectwork1a", "objectwork1a", "--object-work"),
+        (337, "3.37-petlabel1a", "petlabel1a", "--pet-label"),
+        (338, "3.38-petevidence1a", "petevidence1a", "--pet-evidence"),
+        (339, "3.39-dogface1a", "dogface1a", "--dog-face"),
     )
     for number, label, stage, flag in versions[1:]:
         parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,
@@ -108,6 +121,9 @@ def main():
     run_python(PATCHES / "diagindex1a/assemble.py", source)
     apply_stages(source, reports)
     for number, label, stage, _ in versions:
+        # 3.28 is the separate rollback to 3.26. 3.29 resumes the 3.27 detector.
+        if (number == 327 and version == 328) or (number == 328 and version > 328):
+            continue
         if stage:
             run_python(PATCHES / stage / "apply.py", source, reports / f"{stage}.json")
         pin = f"source-{number}.sha256"

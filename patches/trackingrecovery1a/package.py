@@ -30,6 +30,19 @@ auto_versions = {
     '3.24-widepet1a': ('3.23-headpair1a', 'widepet1a', 27324, 'M9Cam_3.24_WIDEPET1A.apk'),
     '3.25-subjectcheck1a': ('3.24-widepet1a', 'subjectcheck1a', 27325, 'M9Cam_3.25_SUBJECTCHECK1A.apk'),
     '3.26-headbody1a': ('3.25-subjectcheck1a', 'headbody1a', 27326, 'M9Cam_3.26_HEADBODY1A.apk'),
+    '3.27-headcontinuity1a': ('3.26-headbody1a', 'headcontinuity1a', 27327, 'M9Cam_3.27_HEADCONTINUITY1A.apk'),
+    '3.28-trackingstability1a': ('3.26-headbody1a', 'trackingstability1a', 27328, 'M9Cam_3.28_TRACKINGSTABILITY1A.apk'),
+    '3.29-headjni1a': ('3.27-headcontinuity1a', 'headjni1a', 27329, 'M9Cam_3.29_HEADJNI1A.apk'),
+    '3.30-headframe1a': ('3.29-headjni1a', 'headframe1a', 27330, 'M9Cam_3.30_HEADFRAME1A.apk'),
+    '3.31-traceexport1a': ('3.30-headframe1a', 'traceexport1a', 27331, 'M9Cam_3.31_TRACEEXPORT1A.apk'),
+    '3.32-facefollow1a': ('3.31-traceexport1a', 'facefollow1a', 27332, 'M9Cam_3.32_FACEFOLLOW1A.apk'),
+    '3.33-facepair1a': ('3.32-facefollow1a', 'facepair1a', 27333, 'M9Cam_3.33_FACEPAIR1A.apk'),
+    '3.34-singleface1a': ('3.33-facepair1a', 'singleface1a', 27334, 'M9Cam_3.34_SINGLEFACE1A.apk'),
+    '3.35-bodyconfirm1a': ('3.34-singleface1a', 'bodyconfirm1a', 27335, 'M9Cam_3.35_BODYCONFIRM1A.apk'),
+    '3.36-objectwork1a': ('3.35-bodyconfirm1a', 'objectwork1a', 27336, 'M9Cam_3.36_OBJECTWORK1A.apk'),
+    '3.37-petlabel1a': ('3.36-objectwork1a', 'petlabel1a', 27337, 'M9Cam_3.37_PETLABEL1A.apk'),
+    '3.38-petevidence1a': ('3.37-petlabel1a', 'petevidence1a', 27338, 'M9Cam_3.38_PETEVIDENCE1A.apk'),
+    '3.39-dogface1a': ('3.38-petevidence1a', 'dogface1a', 27339, 'M9Cam_3.39_DOGFACE1A.apk'),
     '3.17-autosubject1c': ('3.16-autosubject1b', 'autosubject1c', 27317, 'M9Cam_3.17_AUTOSUBJECT1C.apk'),
     '3.16-autosubject1b': ('3.15-autosubject1a', 'autosubject1b', 27316, 'M9Cam_3.16_AUTOSUBJECT1B.apk'),
 }
@@ -88,7 +101,17 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     new_names = set(new.namelist())
     assert len(new_names) == len(new.infolist()), 'Duplicate APK entries'
     extra_assets = {'assets/face_detection_yunet.onnx', 'assets/YUNET_LICENSE.txt'} if code >= 27323 else set()
-    assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == asset_names | extra_assets
+    scene_assets = {'assets/person_head.onnx', 'assets/PERSON_HEAD_MODEL.md'} if code in (27327, 27329, 27330, 27331, 27332, 27333, 27334, 27335, 27336, 27337, 27338, 27339) else set()
+    species_assets = {'assets/pet_species_mobilenet_v2.tflite', 'assets/PET_SPECIES_LICENSE.txt', 'assets/PET_SPECIES_MODEL.md'} if code in (27337, 27338, 27339) else set()
+    if species_assets:
+        hashes = json.loads((baseline_dir.parents[1] / 'petlabel1a/source-hashes.json').read_text())
+        for name in species_assets:
+            assert sha(new.read(name)) == hashes['app/src/main/' + name]['after']
+    assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == asset_names | extra_assets | scene_assets | species_assets
+    if scene_assets:
+        scene_hashes = json.loads((baseline_dir.parents[1] / 'headcontinuity1a/source-hashes.json').read_text())
+        for name in scene_assets:
+            assert sha(new.read(name)) == scene_hashes['app/src/main/' + name]['after']
     if extra_assets:
         head_assets = json.loads((baseline_dir.parents[1] / 'headpair1a/source-hashes.json').read_text())
         for name in extra_assets:
@@ -110,6 +133,9 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     dex=b''.join(new.read(n) for n in new_names if n.endswith('.dex'))
     if auto_subject:
         assert b'AutomaticSubjectSelection' in dex, 'Missing automatic tracking code'
+    if code == 27328:
+        assert b'SceneHeadTracker' not in dex and b'HeadContinuity;' not in dex
+        assert b'SceneFaceDetector' in dex and b'PetAcquisitionGate' in dex
     for marker in ['SubjectAppearanceDescriptor','SubjectAnchorPolicy','TrackingTogglePolicy','FocusMotionPredictor',
                    'TrackingSemanticDetector','FocusTrackingController','pref_focus_tracking_identity',
                    'pref_focus_tracking_predictive','pref_focus_tracking_semantic','HumanSubjectFocusController','AutoEyeFocusPolicy','ProfileEyeAdmissionGate','pref_focus_auto_eye_enabled',
@@ -131,6 +157,8 @@ for profile in ('m9','monochrom'):
     for marker in ('pref_focus_tracking','pref_focus_tracking_semantic','pref_focus_tracking_predictive','pref_focus_tracking_identity',
                    'pref_focus_auto_eye_enabled','pref_focus_subject_pet'):
         assert marker in menu,(profile,marker)
+    if code >= 27331:
+        assert "pref_export_tracking_trace" in menu
 with zipfile.ZipFile(final) as signed:
     assert signed.testzip() is None
     actual={n:sha(signed.read(n)) for n in signed.namelist() if not signing(n)}

@@ -1,0 +1,768 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27326
++        versionCode 27327
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.26-headbody1a'
++        versionName '3.27-headcontinuity1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.26_HEADBODY1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.27_HEADCONTINUITY1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -30,6 +30,11 @@
+             this.aimY = aimY;
+             this.eye = eye;
+         }
++        /** Viewfinder-only translation of a detected head after its patch matches the current frame. */
++        public Box translated(float dx,float dy) {
++            return new Box(type,faceId,rotation,face,left+dx,top+dy,right+dx,bottom+dy,aimX+dx,aimY+dy,eye);
++        }
++
+         public float cx() { return (left + right) * .5f; }
+         public float cy() { return (top + bottom) * .5f; }
+         private float area() { return (right - left) * (bottom - top); }
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/HeadContinuity.java
+@@ -0,0 +1,157 @@
++package com.particlesdevs.photoncamera.control.subject;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++
++/** Tracks independently observed heads in upright preview coordinates. Results are viewfinder hints. */
++public final class HeadContinuity {
++    public interface Motion {
++        Candidate locate(Candidate previous);
++    }
++
++    private static final long GAP_NS = 600_000_000L;
++    private static final int MAX_TRACKS = 8;
++    private long lastFrame;
++    private List<Candidate> pending = Collections.emptyList();
++    private List<Track> tracks = Collections.emptyList();
++
++    private static final class Track {
++        final Candidate head;
++        final long observed;
++        final boolean visible;
++
++        Track(Candidate head, long observed, boolean visible) {
++            this.head = head;
++            this.observed = observed;
++            this.visible = visible;
++        }
++    }
++
++    public void reset() {
++        pending = Collections.emptyList();
++        tracks = Collections.emptyList();
++        lastFrame = 0;
++    }
++
++    public static float overlap(Candidate a, Candidate b) {
++        float w = Math.max(0f, Math.min(a.right,b.right)-Math.max(a.left,b.left));
++        float h = Math.max(0f, Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
++        float intersection = w*h;
++        return intersection/(a.width()*a.height()+b.width()*b.height()-intersection);
++    }
++
++    private static boolean supports(Candidate h, Candidate b) {
++        return h.score >= .40f && b.score >= .35f
++                && h.cx() > b.left-.05f*b.width() && h.cx() < b.right+.05f*b.width()
++                && h.cy() > b.top-.85f*h.height() && h.cy() < b.top+.38f*b.height()
++                && h.height() < .70f*b.height() && h.width() < .87f*b.width();
++    }
++
++    private static boolean higherHead(Candidate head, List<Candidate> heads) {
++        for (Candidate other : heads) {
++            float rise = head.top-other.top;
++            if (other != head && other.score >= .40f && rise > 0 && rise < 1.25f*head.height()
++                    && Math.abs(other.cx()-head.cx()) < .62f*head.width()
++                    && other.bottom > head.top-.25f*head.height()) return true;
++        }
++        return false;
++    }
++
++    private static List<Candidate> supported(List<Candidate> heads, List<Candidate> bodies) {
++        Candidate[] best = new Candidate[bodies.size()];
++        for (Candidate head : heads) {
++            int owner = -1;
++            for (int i=0; i<bodies.size(); i++) {
++                if (!supports(head,bodies.get(i))) continue;
++                if (owner >= 0) { owner = -1; break; }
++                owner = i;
++            }
++            if (owner >= 0 && (best[owner] == null || head.score > best[owner].score)) best[owner] = head;
++        }
++        List<Candidate> result = new ArrayList<>();
++        for (Candidate head : best) if (head != null && !higherHead(head,heads)) result.add(head);
++        return result;
++    }
++
++    private static Candidate unique(Candidate head, List<Candidate> options, float minimum) {
++        Candidate match = null;
++        for (Candidate candidate : options) {
++            if (overlap(head,candidate) < minimum) continue;
++            if (match != null) return null;
++            match = candidate;
++        }
++        return match;
++    }
++
++    private static boolean overlapsAny(Candidate h, List<Candidate> options, float limit) {
++        for (Candidate option : options) if (overlap(h,option) >= limit) return true;
++        return false;
++    }
++
++    public List<Box> observe(long frame, List<Candidate> heads, List<Candidate> bodies, Motion motion) {
++        if (frame <= lastFrame) return Collections.emptyList();
++        if (frame-lastFrame > GAP_NS) reset();
++        lastFrame = frame;
++        List<Candidate> strong = supported(heads,bodies);
++        List<Track> next = new ArrayList<>();
++        List<Candidate> occupied = new ArrayList<>(), visible = new ArrayList<>(), used = new ArrayList<>();
++        for (Track old : tracks) {
++            if (frame-old.observed > GAP_NS) continue;
++            Candidate position = old.visible ? motion.locate(old.head) : null;
++            Candidate found = unique(position != null ? position : old.head, heads,.32f);
++            boolean current = found != null && !used.contains(found)
++                    && (strong.contains(found) || (found.score >= .43f
++                        && (overlap(old.head,found) >= .65f || (position != null && overlap(position,found) >= .44f))));
++            if (current) {
++                used.add(found);
++                visible.add(found);
++                next.add(new Track(found,frame,true));
++                occupied.add(found);
++            } else if (position != null && !overlapsAny(position,strong,.25f)
++                    && !overlapsAny(position,visible,.25f)) {
++                visible.add(position);
++                next.add(new Track(position,old.observed,true));
++                occupied.add(position);
++            } else if (frame-old.observed < GAP_NS) {
++                // Remember the identity briefly. A missed match has no visible rectangle.
++                next.add(new Track(old.head,old.observed,false));
++                occupied.add(old.head);
++            }
++        }
++        for (Candidate head : strong) {
++            if (next.size() >= MAX_TRACKS) break;
++            if (unique(head,pending,.35f) != null && !overlapsAny(head,occupied,.25f)) {
++                visible.add(head);
++                next.add(new Track(head,frame,true));
++                occupied.add(head);
++            }
++        }
++        tracks = next;
++        pending = strong;
++        List<Box> boxes = new ArrayList<>();
++        for (Candidate h : visible) boxes.add(Box.fromHead(h.left,h.top,h.right,h.bottom,0));
++        return boxes;
++    }
++
++    /** Only replace the main square when exactly one indicated head belongs to the selected person. */
++    public static Box focusOwner(Box selected, List<Box> heads) {
++        if (selected == null || selected.type != ClassId.PERSON || heads.size() < 2) return null;
++        Box result = null;
++        for (Box h : heads) {
++            if (selected.face) {
++                float dx = Math.abs(selected.cx()-h.cx()), dy = Math.abs(selected.cy()-h.cy());
++                if (dx >= .45f*Math.max(selected.right-selected.left,h.right-h.left)
++                        || dy >= .45f*Math.max(selected.bottom-selected.top,h.bottom-h.top)) continue;
++            } else if (h.cx() < selected.left || h.cx() > selected.right
++                    || h.cy() < selected.top-.85f*(h.bottom-h.top)
++                    || h.cy() > selected.top+.48f*(selected.bottom-selected.top)) continue;
++            if (result != null) return null;
++            result=h;
++        }
++        return result;
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -2,6 +2,7 @@
+ 
+ import android.hardware.camera2.CaptureRequest;
+ import android.graphics.Bitmap;
++import android.graphics.Canvas;
+ import android.graphics.Rect;
+ import android.os.Handler;
+ import android.os.Looper;
+@@ -34,6 +35,7 @@
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.subject.SubjectFrame;
+ import com.particlesdevs.photoncamera.control.subject.SceneHeads;
++import com.particlesdevs.photoncamera.control.subject.HeadContinuity;
+ import com.particlesdevs.photoncamera.control.subject.PetAcquisitionGate;
+ import com.particlesdevs.photoncamera.control.subject.PetDetailInput;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy;
+@@ -76,6 +78,21 @@
+     private long sceneEpoch = Long.MIN_VALUE;
+     private final SubjectFrame displayFrame = new SubjectFrame();
+     private boolean displayedFace;
++    private final ExecutorService headWorker = Executors.newSingleThreadExecutor(task -> new Thread(() -> {
++        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
++        task.run();
++    }, "M9 head detection"));
++    private SceneHeadTracker headTracker; // worker-owned
++    private boolean headBusy, headUnavailable;
++    private Bitmap headInput;
++    private Box primaryPerson;
++    private List<Box> primaryCandidates = Collections.emptyList(), additionalHeads = Collections.emptyList();
++    private long primaryAt, additionalAt;
++    private final ExecutorService headMotionWorker=Executors.newSingleThreadExecutor();
++    private boolean motionBusy;
++    private Bitmap referenceThumb, latestThumb;
++    private long referenceAt, latestAt, checkedReference, checkedPreview;
++    private List<Box> referenceHeads=Collections.emptyList();
+     private int lastFaceRotation;
+     private boolean objectWarmupQueued;
+ 
+@@ -152,6 +169,14 @@
+             sceneDetector = null;
+         });
+         objectWorker.shutdown();
++        final Bitmap input=headInput;
++        headWorker.execute(() -> {
++            if (headTracker != null) headTracker.close();
++            headTracker=null;
++            if (input != null) input.recycle();
++        });
++        headWorker.shutdown();
++        headMotionWorker.shutdown();
+         releaseIfIdle();
+     }
+ 
+@@ -364,6 +389,7 @@
+                     bitmap,status -> {
+                 if (!accepts(ticket,g)) {finish();return;}
+                 if (status!=PixelCopy.SUCCESS) {finish();return;}
++                if (automaticMode && primaryPerson != null && boxVisible) sampleAdditionalHeads(ticket,g,startedNs);
+                 if (rotation == 0) processFaceInput(ticket,g,startedNs,rotation,bitmap);
+                 else objectWorker.execute(() -> {
+                     try {
+@@ -378,6 +404,111 @@
+             finish();
+         }
+     }
++    private void sampleAdditionalHeads(long ticket, TrackingGeometry g, long frame) {
++        if (headUnavailable || closed) return;
++        int w=bitmap.getWidth(), h=bitmap.getHeight();
++        try {
++            latestThumb=Bitmap.createScaledBitmap(bitmap,Math.max(1,w/2),Math.max(1,h/2),true);
++            latestAt=frame;
++            refreshHeads(ticket,g);
++            if (headBusy) return;
++            if (headInput==null || headInput.getWidth()!=w || headInput.getHeight()!=h) {
++                if (headInput!=null) headInput.recycle();
++                headInput=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
++            }
++            new Canvas(headInput).drawBitmap(bitmap,null,new Rect(0,0,w,h),null);
++        } catch (RuntimeException | OutOfMemoryError failure) {
++            headUnavailable=true;
++            return;
++        }
++        headBusy=true;
++        Bitmap sample=headInput;
++        Bitmap thumbnail=latestThumb;
++        headWorker.execute(() -> {
++            List<Box> result=Collections.emptyList();
++            boolean failed=false;
++            try {
++                if (headTracker==null) headTracker=SceneHeadTracker.open(source.getContext().getApplicationContext());
++                if (SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS)
++                    result=headTracker.detect(sample,ticket,frame);
++            } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError unavailable) {
++                failed=true;
++            }
++            List<Box> heads=result;
++            boolean unavailable=failed;
++            main.post(() -> {
++                headBusy=false;
++                headUnavailable=unavailable;
++                if (!accepts(ticket,g) || !boxVisible || primaryPerson==null) return;
++                referenceAt=frame;
++                referenceThumb=thumbnail;
++                referenceHeads=heads;
++                refreshHeads(ticket,g);
++            });
++        });
++    }
++
++    private void refreshHeads(long ticket, TrackingGeometry g) {
++        if (referenceThumb==null || latestThumb==null || primaryPerson==null || motionBusy) return;
++        if (referenceAt==checkedReference && latestAt==checkedPreview) return;
++        checkedReference=referenceAt;
++        checkedPreview=latestAt;
++        long span=latestAt-referenceAt;
++        if (referenceHeads.size()<2 || span<0 || span>600_000_000L) {
++            additionalHeads=Collections.emptyList();
++            additionalAt=0;
++            drawPersonFrames(g);
++            return;
++        }
++        if (span==0) {
++            additionalHeads=referenceHeads;
++            additionalAt=referenceAt;
++            drawPersonFrames(g);
++            return;
++        }
++        final long target=latestAt, origin=referenceAt;
++        final Bitmap before=referenceThumb, after=latestThumb;
++        final List<Box> hints=referenceHeads;
++        motionBusy=true;
++        headMotionWorker.execute(() -> {
++            List<Box> matched=Collections.emptyList();
++            try { matched=SceneHeadTracker.follow(before,after,hints); }
++            catch (RuntimeException | LinkageError | OutOfMemoryError ignored) { /* Normal detector remains active. */ }
++            List<Box> result=matched;
++            main.post(() -> {
++                motionBusy=false;
++                if (!accepts(ticket,g) || !boxVisible || primaryPerson==null) return;
++                if (referenceAt==origin && latestAt==target) {
++                    additionalHeads=result;
++                    additionalAt=target;
++                    drawPersonFrames(g);
++                } else refreshHeads(ticket,g);
++            });
++        });
++    }
++
++    private void drawPersonFrames(TrackingGeometry g) {
++        int[] src=new int[2], dst=new int[2];
++        source.getLocationInWindow(src);
++        overlay.getLocationInWindow(dst);
++        int left=src[0]-dst[0]+g.left, top=src[1]-dst[1]+g.top;
++        long now=SystemClock.elapsedRealtimeNanos();
++        int faceCount=0;
++        for (Box b : primaryCandidates) if (b.face) faceCount++;
++        if (faceCount<2 && additionalAt>0 && now-additionalAt<AutomaticSubjectSelection.MAX_AGE_NS
++                && now-primaryAt<AutomaticSubjectSelection.MAX_AGE_NS) {
++            Box owner=HeadContinuity.focusOwner(primaryPerson,additionalHeads);
++            boolean covered=true;
++            for (Box b : primaryCandidates)
++                if (b.face && HeadContinuity.focusOwner(b,additionalHeads)==null) covered=false;
++            if (owner!=null && covered) {
++                overlay.setHeadFrames(additionalHeads,owner,false,left,top,g.w,g.h,Math.min(primaryAt,additionalAt));
++                return;
++            }
++        }
++        overlay.setHeadFrames(primaryCandidates,primaryPerson,false,left,top,g.w,g.h,primaryAt);
++    }
++
+     private void processFaceInput(long ticket,TrackingGeometry g,long frame,int rotation,Bitmap input) {
+         detector.process(input,
+                 faces -> main.post(() -> received(ticket,g,frame,rotation,faces)),
+@@ -657,6 +788,8 @@
+         int left = src[0] - dst[0] + g.left;
+         int top = src[1] - dst[1] + g.top;
+         if (box == null) {
++            primaryPerson=null;
++            primaryCandidates=Collections.emptyList();
+             overlay.setHeadFrames(boxes, null, displayedFace, left, top, g.w, g.h, frame);
+             finish();
+             return;
+@@ -665,7 +798,16 @@
+         displayFrame.update(automatic.selectionId(),box,g.w,g.h);
+         float half=displayFrame.side*.5f;
+         overlay.show(left+displayFrame.x,top+displayFrame.y,half,half,false);
+-        overlay.setHeadFrames(boxes, box, false, left, top, g.w, g.h, frame);
++        primaryPerson=box.type==SubjectAnchorPolicy.ClassId.PERSON ? box : null;
++        if (primaryPerson!=null) {
++            primaryAt=frame;
++            primaryCandidates=boxes;
++            drawPersonFrames(g);
++        } else {
++            additionalHeads=Collections.emptyList();
++            additionalAt=0;
++            overlay.setHeadFrames(boxes,box,false,left,top,g.w,g.h,frame);
++        }
+         int label = box.type==SubjectAnchorPolicy.ClassId.CAT ? com.particlesdevs.photoncamera.R.string.auto_subject_cat
+                 : box.type==SubjectAnchorPolicy.ClassId.DOG ? com.particlesdevs.photoncamera.R.string.auto_subject_dog
+                 : com.particlesdevs.photoncamera.R.string.auto_subject_person;
+@@ -712,6 +854,13 @@
+     }
+ 
+     private void releaseFocus() {
++        referenceThumb=latestThumb=null;
++        referenceHeads=Collections.emptyList();
++        referenceAt=latestAt=checkedReference=checkedPreview=0;
++        primaryPerson=null;
++        primaryCandidates=Collections.emptyList();
++        additionalHeads=Collections.emptyList();
++        additionalAt=0;
+         if (focus!=null) focus.close();
+         if (focus!=null || boxVisible) overlay.setVisibility(View.GONE);
+         focus=null;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java
+@@ -0,0 +1,262 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.content.Context;
++import android.graphics.Bitmap;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.HeadContinuity;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import java.io.File;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.io.InputStream;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Comparator;
++import java.util.List;
++import org.opencv.android.OpenCVLoader;
++import org.opencv.android.Utils;
++import org.opencv.core.Core;
++import org.opencv.core.CvType;
++import org.opencv.core.Mat;
++import org.opencv.core.Point;
++import org.opencv.core.Rect;
++import org.opencv.core.MatOfByte;
++import org.opencv.core.MatOfFloat;
++import org.opencv.core.MatOfPoint;
++import org.opencv.core.MatOfPoint2f;
++import org.opencv.core.TermCriteria;
++import org.opencv.video.Video;
++import org.opencv.core.Scalar;
++import org.opencv.core.Size;
++import org.opencv.dnn.Dnn;
++import org.opencv.dnn.Net;
++import org.opencv.imgproc.Imgproc;
++
++/** Runs on its own single-flight worker. The native model outputs cx,cy,w,h in padded input pixels. */
++final class SceneHeadTracker implements AutoCloseable {
++    private static final int SIZE = 640;
++    private static final int ANCHORS = 8400;
++    private static final int MAX_DETECTIONS = 24;
++    private static final List<String> OUTPUTS = Arrays.asList("boxes","scores","classes");
++    private final Net network;
++    private final HeadContinuity tracker = new HeadContinuity();
++    private final Mat rgba = new Mat(), bgr = new Mat(), resized = new Mat();
++    private final Mat padded = new Mat(SIZE,SIZE,CvType.CV_8UC3);
++    private Mat previous = new Mat(), gray = new Mat();
++    private final float[] coords = new float[4*ANCHORS], scores = new float[ANCHORS], classes = new float[ANCHORS];
++    private long epoch = Long.MIN_VALUE;
++
++    static SceneHeadTracker open(Context context) throws IOException {
++        if (!OpenCVLoader.initLocal()) throw new IOException("OpenCV unavailable");
++        File temp = File.createTempFile("subject-head-", ".onnx", context.getCacheDir());
++        try {
++            try (InputStream in = context.getAssets().open("person_head.onnx");
++                 FileOutputStream out = new FileOutputStream(temp)) {
++                byte[] buffer = new byte[65536];
++                for (int count; (count=in.read(buffer)) != -1;) out.write(buffer,0,count);
++            }
++            return new SceneHeadTracker(Dnn.readNetFromONNX(temp.getAbsolutePath()));
++        } finally {
++            temp.delete();
++        }
++    }
++
++    private SceneHeadTracker(Net network) { this.network=network; }
++
++    List<Box> detect(Bitmap sample, long ticket, long frame) {
++        if (ticket != epoch || previous.cols() != sample.getWidth() || previous.rows() != sample.getHeight()) {
++            tracker.reset();
++            previous.release();
++            epoch=ticket;
++        }
++        Utils.bitmapToMat(sample,rgba);
++        Imgproc.cvtColor(rgba,bgr,Imgproc.COLOR_RGBA2BGR);
++        Imgproc.cvtColor(bgr,gray,Imgproc.COLOR_BGR2GRAY);
++        int w=bgr.cols(), h=bgr.rows();
++        double scale=(double)SIZE/Math.max(w,h);
++        int rw=Math.max(1,(int)(w*scale)), rh=Math.max(1,(int)(h*scale));
++        int x=(SIZE-rw)/2, y=(SIZE-rh)/2;
++        padded.setTo(Scalar.all(114));
++        Imgproc.resize(bgr,resized,new Size(rw,rh));
++        Mat roi=padded.submat(new Rect(x,y,rw,rh));
++        try { resized.copyTo(roi); } finally { roi.release(); }
++        Mat blob=Dnn.blobFromImage(padded,1.0/255.0);
++        List<Mat> out=new ArrayList<>();
++        try {
++            network.setInput(blob);
++            network.forward(out,OUTPUTS);
++            read(out.get(0),coords);
++            read(out.get(1),scores);
++            read(out.get(2),classes);
++        } finally {
++            blob.release();
++            for (Mat m : out) m.release();
++        }
++        List<Candidate> heads=new ArrayList<>(), bodies=new ArrayList<>();
++        for (int i=0;i<ANCHORS;i++) {
++            if (!Float.isFinite(scores[i]) || scores[i]<.35f || scores[i]>1f) continue;
++            int j=4*i;
++            float left=(coords[j]-coords[j+2]*.5f-x)/rw, top=(coords[j+1]-coords[j+3]*.5f-y)/rh;
++            float right=(coords[j]+coords[j+2]*.5f-x)/rw, bottom=(coords[j+1]+coords[j+3]*.5f-y)/rh;
++            if (!(left<right && top<bottom && right>0 && bottom>0 && left<1 && top<1)) continue;
++            Candidate c=new Candidate("person",scores[i],Math.max(0,left),Math.max(0,top),Math.min(1,right),Math.min(1,bottom));
++            if (classes[i]==1f) heads.add(c);
++            else if (classes[i]==0f) bodies.add(c);
++        }
++        List<Box> result=tracker.observe(frame,suppress(heads),suppress(bodies),head -> locate(previous,gray,head));
++        Mat swap=previous; previous=gray; gray=swap;
++        return result;
++    }
++
++    private static void read(Mat tensor,float[] target) {
++        if (tensor.type()!=CvType.CV_32F || tensor.total()!=target.length)
++            throw new IllegalStateException("Unexpected head detector tensor");
++        tensor.get(new int[tensor.dims()],target);
++    }
++
++    private static List<Candidate> suppress(List<Candidate> raw) {
++        raw.sort(Comparator.comparingDouble((Candidate c)->c.score).reversed());
++        List<Candidate> kept=new ArrayList<>();
++        for (Candidate c : raw) {
++            boolean duplicate=false;
++            for (Candidate k : kept) if (HeadContinuity.overlap(k,c)>.50f) { duplicate=true; break; }
++            if (!duplicate) kept.add(c);
++            if (kept.size()>=MAX_DETECTIONS) break;
++        }
++        return kept;
++    }
++
++    /** Recheck late detections against a newer preview sample before drawing them. */
++    static List<Box> follow(Bitmap reference, Bitmap current, List<Box> heads) {
++        List<Box> result=new ArrayList<>();
++        if (reference.getWidth()!=current.getWidth() || reference.getHeight()!=current.getHeight()) return result;
++        Mat color=new Mat(), before=new Mat(), after=new Mat();
++        try {
++            Utils.bitmapToMat(reference,color);
++            Imgproc.cvtColor(color,before,Imgproc.COLOR_RGBA2GRAY);
++            Utils.bitmapToMat(current,color);
++            Imgproc.cvtColor(color,after,Imgproc.COLOR_RGBA2GRAY);
++            for (Box head : heads) {
++                Candidate prior=new Candidate("person",1f,head.left,head.top,head.right,head.bottom);
++                Candidate q=locate(before,after,prior);
++                if (q!=null) {
++                    result.add(head.translated(q.left-head.left,q.top-head.top));
++                } else {
++                    Point move=featureMotion(before,after,prior);
++                    if (move!=null) result.add(head.translated((float)move.x,(float)move.y));
++                }
++            }
++        } finally { color.release(); before.release(); after.release(); }
++        return result;
++    }
++
++    private static double median(double[] values,int count) {
++        Arrays.sort(values,0,count);
++        return (values[(count-1)/2]+values[count/2])*.5;
++    }
++
++    /** Allow a turning head to change shape if its interior features move together in both directions. */
++    private static Point featureMotion(Mat before,Mat after,Candidate head) {
++        int w=before.cols(), h=before.rows();
++        double width=head.width()*w, height=head.height()*h;
++        int l=(int)((head.left+.12f*head.width())*w), t=(int)((head.top+.12f*head.height())*h);
++        int r=(int)((head.right-.12f*head.width())*w), b=(int)((head.bottom-.12f*head.height())*h);
++        if (Math.min(width,height)<9 || Math.min(r-l,b-t)<6) return null;
++        Mat region=before.submat(new Rect(l,t,r-l,b-t));
++        MatOfPoint corners=new MatOfPoint();
++        MatOfPoint2f from=new MatOfPoint2f(), to=new MatOfPoint2f(), back=new MatOfPoint2f();
++        MatOfByte forwardStatus=new MatOfByte(), backStatus=new MatOfByte();
++        MatOfFloat error=new MatOfFloat(), backError=new MatOfFloat();
++        try {
++            Imgproc.goodFeaturesToTrack(region,corners,24,.015,3);
++            Point[] points=corners.toArray();
++            if (points.length<5) return null;
++            for (Point p : points) { p.x+=l; p.y+=t; }
++            from.fromArray(points);
++            Size window=new Size(15,15);
++            TermCriteria criteria=new TermCriteria(TermCriteria.COUNT|TermCriteria.EPS,20,.03);
++            Video.calcOpticalFlowPyrLK(before,after,from,to,forwardStatus,error,window,2,criteria);
++            Video.calcOpticalFlowPyrLK(after,before,to,back,backStatus,backError,window,2,criteria);
++            Point[] moved=to.toArray(), returned=back.toArray();
++            byte[] ok=forwardStatus.toArray(), reverse=backStatus.toArray();
++            float[] errors=error.toArray();
++            double[] xs=new double[points.length], ys=new double[points.length];
++            boolean[] reliable=new boolean[points.length];
++            int count=0;
++            for (int i=0;i<points.length;i++) {
++                reliable[i]=ok[i]!=0 && reverse[i]!=0 && errors[i]<22 && Math.hypot(
++                        returned[i].x-points[i].x,returned[i].y-points[i].y)<1.1;
++                if (reliable[i]) {
++                    xs[count]=moved[i].x-points[i].x;
++                    ys[count++]=moved[i].y-points[i].y;
++                }
++            }
++            if (count<Math.max(5,points.length*.60)) return null;
++            double dx=median(xs,count), dy=median(ys,count);
++            double spread=Math.max(1.6,.09*Math.min(width,height));
++            double minX=w,maxX=0,minY=h,maxY=0;
++            count=0;
++            for (int i=0;i<points.length;i++) {
++                double x=moved[i].x-points[i].x, y=moved[i].y-points[i].y;
++                if (!reliable[i] || Math.hypot(x-dx,y-dy)>=spread) continue;
++                xs[count]=x;
++                ys[count++]=y;
++                minX=Math.min(minX,points[i].x); maxX=Math.max(maxX,points[i].x);
++                minY=Math.min(minY,points[i].y); maxY=Math.max(maxY,points[i].y);
++            }
++            if (count<Math.max(5,points.length*.59) || maxX-minX<width*.22 || maxY-minY<height*.22)
++                return null;
++            dx=median(xs,count)/w; dy=median(ys,count)/h;
++            if (Math.abs(dx)>.7*head.width() || Math.abs(dy)>.7*head.height() || head.left+dx<0
++                    || head.top+dy<0 || head.right+dx>1 || head.bottom+dy>1) return null;
++            return new Point(dx,dy);
++        } finally {
++            region.release(); corners.release(); from.release(); to.release(); back.release();
++            forwardStatus.release(); backStatus.release(); error.release(); backError.release();
++        }
++    }
++
++    private static Candidate locate(Mat previous,Mat gray,Candidate head) {
++        if (previous.empty()) return null;
++        int w=gray.cols(), h=gray.rows();
++        int l=Math.round((head.left+.13f*head.width())*w), r=Math.round((head.right-.13f*head.width())*w);
++        int t=Math.round((head.top+.13f*head.height())*h), b=Math.round((head.bottom-.13f*head.height())*h);
++        if (Math.min(r-l,b-t)<7) return null;
++        Rect patch=new Rect(l,t,r-l,b-t);
++        int pad=Math.max(7,Math.round(.45f*Math.max(head.width()*w,head.height()*h)));
++        Point f=match(previous,gray,patch,pad);
++        if (f==null) return null;
++        Point back=match(gray,previous,new Rect((int)f.x,(int)f.y,r-l,b-t),pad);
++        if (back==null || Math.hypot(back.x-l,back.y-t)>Math.max(2,.06f*Math.min(head.width()*w,head.height()*h)))
++            return null;
++        float dx=(float)(f.x-l)/w, dy=(float)(f.y-t)/h;
++        if (head.left+dx<0 || head.right+dx>1 || head.top+dy<0 || head.bottom+dy>1) return null;
++        return new Candidate("person",head.score,head.left+dx,head.top+dy,head.right+dx,head.bottom+dy);
++    }
++
++    private static Point match(Mat from,Mat to,Rect patch,int pad) {
++        int l=Math.max(0,patch.x-pad), t=Math.max(0,patch.y-pad);
++        int r=Math.min(to.cols(),patch.x+patch.width+pad), b=Math.min(to.rows(),patch.y+patch.height+pad);
++        Mat pattern=from.submat(patch), region=to.submat(new Rect(l,t,r-l,b-t)), response=new Mat();
++        org.opencv.core.MatOfDouble mean=new org.opencv.core.MatOfDouble(), sd=new org.opencv.core.MatOfDouble();
++        try {
++            Core.meanStdDev(pattern,mean,sd);
++            if (sd.toArray()[0]<8) return null;
++            Imgproc.matchTemplate(region,pattern,response,Imgproc.TM_CCOEFF_NORMED);
++            Core.MinMaxLocResult best=Core.minMaxLoc(response);
++            if (best.maxVal<.80) return null;
++            int rad=Math.max(3,Math.round(.22f*Math.min(patch.width,patch.height)));
++            int x=(int)best.maxLoc.x,y=(int)best.maxLoc.y;
++            Imgproc.rectangle(response,new Point(Math.max(0,x-rad),Math.max(0,y-rad)),
++                    new Point(Math.min(response.cols()-1,x+rad),Math.min(response.rows()-1,y+rad)),Scalar.all(-1),-1);
++            if (best.maxVal-Core.minMaxLoc(response).maxVal<.055) return null;
++            return new Point(l+x,t+y);
++        } finally {
++            pattern.release(); region.release(); response.release(); mean.release(); sd.release();
++        }
++    }
++
++    @Override public void close() {
++        rgba.release(); bgr.release(); resized.release(); padded.release(); previous.release(); gray.release();
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadDisplayTest.java
+@@ -0,0 +1,83 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Application;
++import android.os.SystemClock;
++import android.view.SurfaceView;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.HeadContinuity;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.TrackingGeometry;
++import com.particlesdevs.photoncamera.ui.camera.views.TrackingFocusView;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import org.robolectric.util.ReflectionHelpers;
++import static org.mockito.Mockito.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class SceneHeadDisplayTest {
++    private TrackingFocusView overlay;
++    private HumanSubjectFocusController controller;
++    private CameraFragment fragment;
++    private List<Box> pair;
++    private List<Box> existing;
++    private Box person;
++    private long now;
++
++    private static Candidate region(float l,float t,float r,float b) {
++        return new Candidate("person",.9f,l,t,r,b);
++    }
++
++    @Before public void setup() {
++        fragment=mock(CameraFragment.class);
++        overlay=mock(TrackingFocusView.class);
++        controller=new HumanSubjectFocusController(fragment,mock(SurfaceView.class),overlay);
++        List<Candidate> heads=Arrays.asList(region(.12f,.2f,.24f,.32f),region(.60f,.25f,.74f,.4f));
++        List<Candidate> bodies=Arrays.asList(region(.04f,.15f,.42f,.85f),region(.52f,.22f,.94f,.92f));
++        HeadContinuity track=new HeadContinuity();
++        track.observe(200_000_000L,heads,bodies,h->null);
++        pair=track.observe(400_000_000L,heads,bodies,h->null);
++        person=Box.fromBody(bodies.get(1));
++        existing=Collections.singletonList(person);
++        SystemClock.sleep(600);
++        now=SystemClock.elapsedRealtimeNanos();
++        ReflectionHelpers.setField(controller,"primaryPerson",person);
++        ReflectionHelpers.setField(controller,"primaryCandidates",existing);
++        ReflectionHelpers.setField(controller,"primaryAt",now);
++        ReflectionHelpers.setField(controller,"additionalHeads",pair);
++        ReflectionHelpers.setField(controller,"additionalAt",now);
++    }
++
++    @After public void close() { controller.close(); }
++
++    private void draw() {
++        ReflectionHelpers.callInstanceMethod(controller,"drawPersonFrames",
++                ReflectionHelpers.ClassParameter.from(TrackingGeometry.class,mock(TrackingGeometry.class)));
++    }
++
++    @Test public void freshPairHighlightsTheHeadOfTheExistingFocusOwner() {
++        draw();
++        verify(overlay).setHeadFrames(same(pair),same(pair.get(1)),eq(false),anyInt(),anyInt(),anyInt(),anyInt(),eq(now));
++        verify(fragment,never()).getCaptureController();
++    }
++
++    @Test public void staleEvidenceRestoresTheOriginalPersonFrame() {
++        ReflectionHelpers.setField(controller,"additionalAt",now-351_000_000L);
++        draw();
++        verify(overlay).setHeadFrames(same(existing),same(person),eq(false),anyInt(),anyInt(),anyInt(),anyInt(),eq(now));
++    }
++
++    @Test public void originalFacePairKeepsPriority() {
++        ReflectionHelpers.setField(controller,"primaryCandidates",pair);
++        ReflectionHelpers.setField(controller,"primaryPerson",pair.get(0));
++        draw();
++        verify(overlay).setHeadFrames(same(pair),same(pair.get(0)),eq(false),anyInt(),anyInt(),anyInt(),anyInt(),eq(now));
++    }
++}

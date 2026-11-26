@@ -1,0 +1,288 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27333
++        versionCode 27334
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.33-facepair1a'
++        versionName '3.34-singleface1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.33_FACEPAIR1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.34_SINGLEFACE1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/SceneHeads.java
+@@ -2,6 +2,7 @@
+ 
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.ClassId;
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.List;
+@@ -9,11 +10,56 @@
+ /** Supplements landmark tracking when two distinct faces share the preview. */
+ public final class SceneHeads {
+     private long pairedAt;
++    private long previousSample, currentSample, singleAt;
++    private Box single;
+     private List<Box> lastPair = Collections.emptyList();
+ 
+     public void clear() {
+         lastPair = Collections.emptyList();
+         pairedAt = 0;
++    }
++
++    public void resetSamples() {
++        previousSample=currentSample=singleAt=0;
++        single=null;
++    }
++
++    public void beginSample(long frame) {
++        previousSample=currentSample;
++        currentSample=frame;
++    }
++
++    /** Only a face measured on two consecutive, upright preview samples can use
++     * the smaller head-to-body geometry. A skipped or stale sample breaks the chain. */
++    public boolean repeatedUpright(Box head,long frame) {
++        if (frame!=currentSample || head==null || !head.face) return false;
++        boolean successive=single!=null && singleAt==previousSample && frame>singleAt
++                && frame-singleAt<=AutomaticSubjectSelection.MAX_AGE_NS;
++        boolean matched=false;
++        if (successive) {
++            float w=Math.max(0,Math.min(single.right,head.right)-Math.max(single.left,head.left));
++            float h=Math.max(0,Math.min(single.bottom,head.bottom)-Math.max(single.top,head.top));
++            float area=(single.right-single.left)*(single.bottom-single.top)
++                    +(head.right-head.left)*(head.bottom-head.top)-w*h;
++            matched=w*h>=.40f*area;
++        }
++        single=head;
++        singleAt=frame;
++        return matched;
++    }
++
++    public static int upperBodyMatches(Box head,List<Box> bodies) {
++        int matches=0;
++        float w=head.right-head.left, h=head.bottom-head.top;
++        for (Box body : bodies) {
++            if (body==null || body.face || body.type!=ClassId.PERSON)
++                continue;
++            float bw=body.right-body.left, bh=body.bottom-body.top;
++            if (head.cx()>=body.left && head.cx()<=body.right
++                    && head.cy()>=body.top-.20f*h && head.cy()<=body.top+.38f*bh
++                    && w>=.12f*bw && w<=.85f*bw && h>=.09f*bh && h<=.65f*bh) matches++;
++        }
++        return matches;
+     }
+ 
+     public void merge(List<Box> landmarkFaces, List<Box> proposals, long frame) {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -200,6 +200,7 @@
+         automatic.reset();
+         petAcquisition.reset();
+         sceneHeads.clear();
++        sceneHeads.resetSamples();
+         policy.beginSession(epoch);
+         admissionGate.beginSession(epoch);
+         profileEyeGate.beginSession(epoch);
+@@ -379,6 +380,7 @@
+     private void sample(TrackingGeometry g) {
+         final long ticket=epoch;
+         final long startedNs=SystemClock.elapsedRealtimeNanos();
++        if (automaticMode) sceneHeads.beginSample(startedNs);
+         boolean traceEnabled = automaticMode && M9OutputSettings.diagnosticsEnabled();
+         if (traceEnabled != (headTrace != null)) {
+             headTrace = traceEnabled ? new HeadDisplayTrace() : null;
+@@ -823,26 +825,36 @@
+         objectWorker.execute(() -> {
+             if (sceneEpoch != ticket) { sceneEpoch=ticket; lastSceneAngle=null; }
+             List<Box> found=Collections.emptyList();
++            int angle=(!faces.isEmpty() || lastSceneAngle==null) ? rotation : lastSceneAngle;
+             if (!sceneDetectorUnavailable && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
+                 try {
+                     if (sceneDetector==null) sceneDetector=new SceneFaceDetector(source.getContext());
+-                    int angle=(!faces.isEmpty() || lastSceneAngle==null) ? rotation : lastSceneAngle;
+                     found=sceneDetector.detect(detector.faceInput(bitmap,angle),angle);
++                    if (found.isEmpty() && angle!=0 && faces.isEmpty()
++                            && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
++                        List<Box> uprightFaces=sceneDetector.detect(bitmap,0);
++                        if (uprightFaces.size()==1) {
++                            angle=0;
++                            found=uprightFaces;
++                        }
++                    }
+                     lastSceneAngle=found.isEmpty() ? null : Integer.valueOf(angle);
+                 } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+                     sceneDetectorUnavailable=true;
+                 }
+             }
+             final List<Box> heads=found;
++            boolean upright=angle==0;
+             main.post(() -> {
+                 if (!accepts(ticket,g)) { finish(); return; }
+                 if (SystemClock.elapsedRealtimeNanos()-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
+                     applyAutomatic(ticket,g,frame,Collections.emptyList());
+                     return;
+                 }
++                boolean repeated=upright && heads.size()==1 && sceneHeads.repeatedUpright(heads.get(0),frame);
+                 sceneHeads.admitLandmarks(faces,sustained,heads,frame);
+                 if (faces.isEmpty() && heads.size()==1)
+-                    detectBodies(ticket,g,frame,faces,heads.get(0));
++                    detectBodies(ticket,g,frame,faces,heads.get(0),repeated);
+                 else dispatchFaces(ticket,g,frame,faces);
+             });
+         });
+@@ -851,7 +863,7 @@
+     private void dispatchFaces(long ticket, TrackingGeometry g, long frame, List<Box> faces) {
+         if (automatic.facesSuffice(faces) && !automatic.checkOtherPeople(faces,SystemClock.elapsedRealtimeNanos()))
+             applyAutomatic(ticket,g,frame,faces);
+-        else detectBodies(ticket,g,frame,faces,null);
++        else detectBodies(ticket,g,frame,faces,null,false);
+     }
+ 
+     private void prepareObjects() {
+@@ -862,7 +874,7 @@
+             objectsUnavailable=true;
+         }
+     }
+-    private void detectBodies(long ticket, TrackingGeometry g, long frame, List<Box> faces, Box singleHead) {
++    private void detectBodies(long ticket, TrackingGeometry g, long frame, List<Box> faces, Box singleHead, boolean repeatedUpright) {
+         // PixelCopy and ML Kit have finished reading this bitmap. Keep the sample
+         // in flight until this worker returns; TrackingSemanticDetector owns its copy.
+         final Bitmap preview=bitmap;
+@@ -881,8 +893,26 @@
+                     objectsUnavailable=true;
+                 }
+             }
+-            if (SceneHeads.supportedByOnePerson(singleHead,bodies)) faces.add(singleHead);
+             List<Box> secondView=null;
++            Box corroborated=null;
++            if (SceneHeads.supportedByOnePerson(singleHead,bodies)) {
++                faces.add(singleHead);
++            } else if (repeatedUpright && petAnchor==null && objects!=null && !objectsUnavailable) {
++                List<Box> full=new ArrayList<>();
++                for (SubjectAnchorPolicy.Candidate candidate : bodies) {
++                    Box body=Box.fromBody(candidate);
++                    if (body!=null) full.add(body);
++                }
++                int matches=SceneHeads.upperBodyMatches(singleHead,full);
++                if (matches==0) {
++                    secondView=peopleAtSecondScale(preview,frame);
++                    matches=SceneHeads.upperBodyMatches(singleHead,secondView);
++                }
++                if (matches==1) {
++                    corroborated=singleHead;
++                    faces.add(singleHead);
++                }
++            }
+             Box unverifiedPet=null;
+             float bestPetScore=0f;
+             for (SubjectAnchorPolicy.Candidate candidate : bodies) {
+@@ -940,7 +970,8 @@
+                 }
+             }
+             final Box secondary=recovered;
+-            main.post(() -> applyAutomatic(ticket,g,frame,faces,secondary));
++            final Box confirmedFace=corroborated;
++            main.post(() -> applyAutomatic(ticket,g,frame,faces,secondary,confirmedFace));
+         });
+     }
+ 
+@@ -956,16 +987,16 @@
+     }
+ 
+     private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes) {
+-        applyAutomatic(ticket,g,frame,boxes,null);
+-    }
+-
+-    private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes, Box secondary) {
++        applyAutomatic(ticket,g,frame,boxes,null,null);
++    }
++
++    private void applyAutomatic(long ticket, TrackingGeometry g, long frame, List<Box> boxes, Box secondary, Box confirmedFace) {
+         if (!accepts(ticket,g)) { finish(); return; }
+         long now=SystemClock.elapsedRealtimeNanos();
+         petAcquisition.filter(boxes,automatic.petDetailAnchor(frame),frame,now);
+         Box box=automatic.observe(frame,now,boxes,secondary);
+         if (headTrace!=null) {
+-            String origin=box==null ? "miss" : box.face ? "face" : box==secondary ? "recovered_body" : "body";
++            String origin=box==null ? "miss" : box==confirmedFace ? "supported_face" : box.face ? "face" : box==secondary ? "recovered_body" : "body";
+             headTrace.primary(frame,automatic.selectionId(),origin,box);
+         }
+         if (box==null && (!boxVisible || !automatic.visibleAt(SystemClock.elapsedRealtimeNanos()))) {
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/RepeatedFaceSupportTest.java
+@@ -0,0 +1,56 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.SceneHeads;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import java.util.Arrays;
++import java.util.Collections;
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class RepeatedFaceSupportTest {
++    private static final long STEP=200_000_000L;
++    private final SceneHeads scene=new SceneHeads();
++    private static Box head(int x,int y) {
++        return SceneHeads.decode(new float[]{x,y,50,60,x+13,y+17,x+37,y+17,x+25,y+31,
++                x+15,y+44,x+35,y+44,.9f},400,400,0);
++    }
++    private boolean sample(long frame,Box h) {
++        scene.beginSample(frame);
++        return scene.repeatedUpright(h,frame);
++    }
++    private static Box body(String type,float l,float t,float r,float b) {
++        return Box.fromBody(new Candidate(type,.8f,l,t,r,b));
++    }
++    @Test public void onlyAdjacentFreshMeasurementsOfSameHeadQualify() {
++        assertFalse(sample(STEP,head(100,80)));
++        assertTrue(sample(2*STEP,head(104,78)));
++        scene.beginSample(3*STEP);
++        assertFalse(sample(4*STEP,head(104,78)));
++        assertFalse(sample(5*STEP,head(250,60)));
++        assertFalse(sample(7*STEP,head(250,60)));
++        scene.resetSamples();
++        assertFalse(sample(8*STEP,head(250,60)));
++    }
++    @Test public void repeatedSmallHeadCanUseOnePersonAtTheCorrectHeight() {
++        Box h=head(100,80), person=body("person",.12f,.14f,.62f,.96f);
++        assertFalse(SceneHeads.supportedByOnePerson(h,Collections.singletonList(
++                new Candidate("person",.8f,.12f,.14f,.62f,.96f))));
++        assertEquals(1,SceneHeads.upperBodyMatches(h,Collections.singletonList(person)));
++        assertEquals(2,SceneHeads.upperBodyMatches(h,Arrays.asList(person,person)));
++        assertEquals(0,SceneHeads.upperBodyMatches(head(100,240),Collections.singletonList(person)));
++        assertEquals(0,SceneHeads.upperBodyMatches(h,Arrays.asList(
++                body("dog",.12f,.14f,.62f,.96f),body("person",.7f,.1f,1f,.9f),h)));
++    }
++    @Test public void ordinarySelectionStillRequiresFreshConfirmationBeforeAiming() {
++        AutomaticSubjectSelection selection=new AutomaticSubjectSelection();
++        Box h=head(100,80);
++        assertSame(h,selection.observe(STEP,STEP,Collections.singletonList(h)));
++        assertFalse(selection.mayAim());
++        assertSame(h,selection.observe(2*STEP,2*STEP,Collections.singletonList(h)));
++        assertTrue(selection.mayAim());
++        assertNull(selection.observe(3*STEP,5*STEP,Collections.singletonList(h)));
++        assertFalse(selection.mayAim());
++    }
++}

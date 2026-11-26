@@ -1,0 +1,246 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27334
++        versionCode 27335
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.34-singleface1a'
++        versionName '3.35-bodyconfirm1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.34_SINGLEFACE1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.35_BODYCONFIRM1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java
+@@ -101,6 +101,12 @@
+     }
+ 
+     private Box active;
++    private Box pendingLowerBody;
++
++    // A body entirely below mid-frame and clipped at the bottom can be feet alone.
++    private static boolean lowerBodyOnly(Box box) {
++        return box.type == ClassId.PERSON && !box.face && box.top >= .5f && box.bottom >= .975f;
++    }
+     private long lastSeen = Long.MIN_VALUE, lastFrame = Long.MIN_VALUE;
+     private int hits;
+     private boolean confirmed, lastWasRecovery;
+@@ -112,7 +118,7 @@
+     private static final long REFRAME_GAP_NS = 400_000_000L;
+ 
+     public void reset() {
+-        active = challenger = null;
++        active = challenger = pendingLowerBody = null;
+         lastSeen = lastFrame = Long.MIN_VALUE;
+         faceRotation = 0;
+         confirmed = lastWasRecovery = false;
+@@ -265,14 +271,29 @@
+ 
+     public Box observe(long frame, long now, List<Box> boxes, Box recoveredPerson) {
+         if (frame <= lastFrame || frame <= 0 || now < frame) return null;
++        Box previousLower = pendingLowerBody != null && frame - lastFrame <= MAX_AGE_NS
++                ? pendingLowerBody : null;
++        pendingLowerBody = null;
+         lastFrame = frame;
+         if (now-frame > MAX_AGE_NS) { hits=0; challenger=null; return null; }
+         if (active != null && frame-lastSeen > HOLD_NS) { active=challenger=null; hits=0; confirmed=false; }
+         Box best=null;
+         double score=-Double.MAX_VALUE, runner=-Double.MAX_VALUE;
+         int people=0;
+-        if (active==null) for (Box box : boxes) if (box.type==ClassId.PERSON) people++;
++        Box lower = null;
++        int lowerCount = 0;
++        if (active == null) {
++            for (Box box : boxes) {
++                if (box.type == ClassId.PERSON) people++;
++                if (lowerBodyOnly(box)) {
++                    lower = box;
++                    lowerCount++;
++                }
++            }
++        }
++        boolean repeatedLower = lowerCount == 1 && previousLower != null && overlap(previousLower, lower) >= .50f;
+         for (Box box : boxes) {
++            if (active == null && lowerBodyOnly(box) && !repeatedLower) continue;
+             double rank;
+             if (active != null) {
+                 rank=continuity(active,box);
+@@ -297,7 +318,13 @@
+             recovered=false;
+             best=transfer;
+         }
+-        if (best==null) { hits=0; return null; }
++        if (best == null) {
++            if (active == null && lowerCount == 1) pendingLowerBody = lower;
++            hits = 0;
++            return null;
++        }
++        // Both consecutive observations already agreed before the clipped body became selectable.
++        if (active == null && repeatedLower && best == lower) hits = 1;
+         if (active == null) selectionId++;
+         // A lone secondary observation can maintain the frame. Require a second
+         // coherent observation before moving the lens on secondary evidence.
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -714,6 +714,7 @@
+                           List<SubjectFocusPolicy.Face> faces) {
+         if (!accepts(ticket,g)) {finish();return;}
+         long nowNs=SystemClock.elapsedRealtimeNanos();
++        if (headTrace != null) headTrace.landmarksReceived(startedNs, nowNs);
+         // FOCUSSUBJECT1B: a solitary face-shaped detector box is NOT proof of
+         // a human eye. Only multiple consistent frames with coherent eyes,
+         // nose and mouth may reach the Camera2 focus-region controller.
+@@ -847,6 +848,7 @@
+             boolean upright=angle==0;
+             main.post(() -> {
+                 if (!accepts(ticket,g)) { finish(); return; }
++                if (headTrace != null) headTrace.sceneReceived(frame, SystemClock.elapsedRealtimeNanos());
+                 if (SystemClock.elapsedRealtimeNanos()-frame > AutomaticSubjectSelection.MAX_AGE_NS) {
+                     applyAutomatic(ticket,g,frame,Collections.emptyList());
+                     return;
+@@ -877,6 +879,7 @@
+     private void detectBodies(long ticket, TrackingGeometry g, long frame, List<Box> faces, Box singleHead, boolean repeatedUpright) {
+         // PixelCopy and ML Kit have finished reading this bitmap. Keep the sample
+         // in flight until this worker returns; TrackingSemanticDetector owns its copy.
++        if (headTrace != null) headTrace.bodiesStarted(frame, SystemClock.elapsedRealtimeNanos());
+         final Bitmap preview=bitmap;
+         final Box anchor=automatic.recoveryAnchor(frame);
+         final Box petAnchor=automatic.petDetailAnchor(frame);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.ui.camera.views;
+ 
+ import android.os.SystemClock;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
+ import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.util.Log;
+ 
+@@ -14,6 +15,23 @@
+     private long previousSelection;
+     private long windowStart;
+     private int logged, skipped;
++    private long sampledFrame, copiedAt, landmarksAt, sceneAt, bodiesStartedAt;
++
++    public void landmarksReceived(long frame, long now) {
++        if (frame == sampledFrame) landmarksAt = now;
++    }
++
++    public void sceneReceived(long frame, long now) {
++        if (frame == sampledFrame) sceneAt = now;
++    }
++
++    public void bodiesStarted(long frame, long now) {
++        if (frame == sampledFrame) bodiesStartedAt = now;
++    }
++
++    private static long millis(long from, long to) {
++        return from == 0 || to < from ? -1 : (to - from) / 1_000_000L;
++    }
+ 
+     private void record(long now, String message) {
+         if (now-windowStart >= 1_000_000_000L) {
+@@ -30,7 +48,10 @@
+     }
+ 
+     public void preview(long frame, long cameraFrame, boolean hasPerson, boolean detectorBusy) {
+-        record(SystemClock.elapsedRealtimeNanos(), "preview frameNs=" + frame + " cameraFrameNs=" + cameraFrame
++        sampledFrame = frame;
++        copiedAt = SystemClock.elapsedRealtimeNanos();
++        landmarksAt = sceneAt = bodiesStartedAt = 0;
++        record(copiedAt, "preview frameNs=" + frame + " cameraFrameNs=" + cameraFrame
+                 + " primaryPerson=" + hasPerson + " detectorBusy=" + detectorBusy);
+     }
+ 
+@@ -47,8 +68,15 @@
+     public void primary(long frame,long selectionId,String origin,Box box) {
+         String area = box==null ? "" : " type="+box.type+" bounds1000="+Math.round(box.left*1000)+","
+                 +Math.round(box.top*1000)+","+Math.round(box.right*1000)+","+Math.round(box.bottom*1000);
+-        record(SystemClock.elapsedRealtimeNanos(),"primary frameNs="+frame+" selection="+selectionId
+-                +" origin="+origin+area);
++        long now = SystemClock.elapsedRealtimeNanos();
++        String timing = "";
++        if (frame == sampledFrame && now - frame > AutomaticSubjectSelection.MAX_AGE_NS) {
++            timing = " totalMs=" + millis(frame, now) + " copyMs=" + millis(frame, copiedAt)
++                    + " landmarksMs=" + millis(copiedAt, landmarksAt)
++                    + " sceneMs=" + millis(landmarksAt, sceneAt)
++                    + " objectsMs=" + millis(bodiesStartedAt, now);
++        }
++        record(now,"primary frameNs="+frame+" selection="+selectionId+" origin="+origin+area+timing);
+     }
+ 
+     public void decision(String path, long selection, long primaryFrame, long headFrame) {
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/LowerBodyAcquisitionTest.java
+@@ -0,0 +1,56 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import java.util.Arrays;
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class LowerBodyAcquisitionTest {
++    private static final long STEP = 200_000_000L;
++    private final AutomaticSubjectSelection selection = new AutomaticSubjectSelection();
++    private final Box foot = body("person", .702f, .643f, .996f, .989f);
++    private final Box nearby = body("person", .69f, .65f, .99f, 1f);
++    private final Box other = body("person", 0f, .6f, .3f, 1f);
++    private static Box body(String type, float l, float t, float r, float b) {
++        return Box.fromBody(new Candidate(type, .8f, l, t, r, b));
++    }
++    private Box sample(int n, Box... boxes) {
++        return selection.observe(n * STEP, n * STEP, Arrays.asList(boxes));
++    }
++
++    @Test public void floorObservationAloneCannotCreateOwner() {
++        assertNull(sample(1, foot));
++        assertEquals(0, selection.selectionId());
++        assertFalse(selection.visibleAt(STEP));
++        assertFalse(selection.mayAim());
++        assertNull(sample(2));
++        assertNull(sample(3, foot));
++        assertSame(nearby, sample(4, nearby));
++        assertEquals(1, selection.selectionId());
++        assertTrue(selection.mayAim());
++    }
++    @Test public void onlyOneAdjacentMatchingLowerBodyCanConfirm() {
++        assertNull(sample(1, foot));
++        assertNull(sample(2, other));
++        assertNull(sample(3, nearby, other));
++        assertNull(sample(4, foot));
++        assertNull(sample(6, nearby));
++        assertNull(selection.observe(7 * STEP, 9 * STEP, Arrays.asList(foot)));
++        assertNull(sample(8, foot));
++        selection.reset();
++        assertNull(sample(9, nearby));
++    }
++    @Test public void existingPersonAndNewCentralPersonOrPetRemainEligible() {
++        Box normal = body("person", .45f, .28f, 1f, 1f);
++        assertSame(normal, sample(1, foot, normal));
++        assertSame(foot, sample(2, foot));
++        selection.reset();
++        Box dog = body("dog", .69f, .59f, .99f, 1f);
++        assertSame(dog, sample(3, foot, dog));
++        selection.reset();
++        Box complete = body("person", .4f, .5f, .65f, .91f);
++        assertSame(complete, sample(4, complete));
++    }
++}

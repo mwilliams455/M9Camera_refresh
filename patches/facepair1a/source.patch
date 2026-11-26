@@ -1,0 +1,287 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27332
++        versionCode 27333
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.32-facefollow1a'
++        versionName '3.33-facepair1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.32_FACEFOLLOW1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.33_FACEPAIR1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -85,7 +85,11 @@
+         task.run();
+     }, "M9 head detection"));
+     private SceneHeadTracker headTracker; // worker-owned
++    private SceneFaceDetector uprightDetector; // used and closed on headWorker
++    private boolean uprightUnavailable, slowHeadUnavailable; // headWorker only
+     private boolean headBusy, headUnavailable;
++    private List<Box> uprightPair = Collections.emptyList();
++    private long uprightAt, uprightSelection, headGeneration;
+     private Bitmap headInput;
+     private Box primaryPerson;
+     private List<Box> primaryCandidates = Collections.emptyList(), additionalHeads = Collections.emptyList();
+@@ -181,6 +185,7 @@
+         objectWorker.shutdown();
+         final Bitmap input=headInput;
+         headWorker.execute(() -> {
++            if (uprightDetector != null) uprightDetector.close();
+             if (headTracker != null) headTracker.close();
+             headTracker=null;
+             if (input != null) input.recycle();
+@@ -442,35 +447,61 @@
+         HeadDisplayTrace sampledTrace = headTrace;
+         Bitmap sample=headInput;
+         Bitmap thumbnail=latestThumb;
++        long generation=headGeneration, selection=automatic.selectionId();
++        Box sampledOwner=primaryPerson;
++        List<Box> sampledCandidates=primaryCandidates;
+         headWorker.execute(() -> {
++            long start=SystemClock.elapsedRealtimeNanos();
+             List<Box> result=Collections.emptyList();
+-            boolean failed=false;
+-            long detectStart=0;
+             int raw=-1;
+-            try {
+-                if (headTracker==null) headTracker=SceneHeadTracker.open(source.getContext().getApplicationContext());
+-                if (SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
+-                    detectStart=SystemClock.elapsedRealtimeNanos();
+-                    result=headTracker.detect(sample,ticket,frame);
+-                    raw=headTracker.rawHeadCount();
+-                }
+-            } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+-                failed=true;
+-            }
+-            long start=detectStart, finish=SystemClock.elapsedRealtimeNanos();
++            boolean direct=false;
++            if (start-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
++                if (!uprightUnavailable) {
++                    try {
++                        if (uprightDetector==null)
++                            uprightDetector=new SceneFaceDetector(source.getContext().getApplicationContext());
++                        List<Box> faces=uprightDetector.detect(sample,0);
++                        if (pairOwner(sampledOwner,sampledCandidates,faces)!=null) {
++                            direct=true;
++                            result=faces;
++                            raw=faces.size();
++                        }
++                    } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError failure) {
++                        uprightUnavailable=true;
++                    }
++                }
++                if (!direct && !slowHeadUnavailable && SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
++                    try {
++                        if (headTracker==null) headTracker=SceneHeadTracker.open(source.getContext().getApplicationContext());
++                        result=headTracker.detect(sample,ticket,frame);
++                        raw=headTracker.rawHeadCount();
++                    } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError failure) {
++                        slowHeadUnavailable=true;
++                    }
++                }
++            } else start=0;
++            long started=start, finish=SystemClock.elapsedRealtimeNanos();
+             int rawHeads=raw;
+             List<Box> heads=result;
+-            boolean unavailable=failed;
++            boolean measured=direct, unavailable=uprightUnavailable && slowHeadUnavailable;
+             main.post(() -> {
+                 headBusy=false;
+                 headUnavailable=unavailable;
+-                boolean accepted=accepts(ticket,g) && boxVisible && primaryPerson!=null;
++                boolean accepted=accepts(ticket,g) && boxVisible && primaryPerson!=null
++                        && generation==headGeneration && selection==automatic.selectionId();
+                 if (sampledTrace!=null && sampledTrace==headTrace) {
+-                    String outcome = unavailable ? "unavailable" : start==0 ? "expired_before_start"
+-                            : !accepted ? "owner_or_session_gone" : "accepted";
+-                    headTrace.detector(frame,start,finish,rawHeads,heads.size(),outcome);
++                    String outcome = unavailable ? "unavailable" : started==0 ? "expired_before_start"
++                            : !accepted ? "owner_or_session_gone" : measured ? "upright_pair" : "accepted";
++                    headTrace.detector(frame,started,finish,rawHeads,heads.size(),outcome);
+                 }
+                 if (!accepted) return;
++                uprightPair=measured ? heads : Collections.emptyList();
++                uprightAt=measured ? frame : 0;
++                uprightSelection=selection;
++                if (measured) {
++                    drawPersonFrames(g);
++                    return;
++                }
+                 referenceAt=frame;
+                 referenceThumb=thumbnail;
+                 referenceHeads=heads;
+@@ -597,12 +628,42 @@
+                 && now>=followedAt && now-followedAt<AutomaticSubjectSelection.MAX_AGE_NS;
+     }
+ 
++    // Every measured face from the primary observation must map to a different new face.
++    private static Box pairOwner(Box primary,List<Box> candidates,List<Box> faces) {
++        if (faces.size()!=2) return null;
++        Box owner=HeadContinuity.focusOwner(primary,faces);
++        if (owner==null) return null;
++        int covered=0;
++        for (Box box : candidates) {
++            if (!box.face) continue;
++            Box match=HeadContinuity.focusOwner(box,faces);
++            if (match==null) return null;
++            int bit=match==faces.get(0) ? 1 : 2;
++            if ((covered & bit)!=0) return null;
++            covered |= bit;
++        }
++        return owner;
++    }
++
+     private void drawPersonFrames(TrackingGeometry g) {
+         int[] src=new int[2], dst=new int[2];
+         source.getLocationInWindow(src);
+         overlay.getLocationInWindow(dst);
+         int left=src[0]-dst[0]+g.left, top=src[1]-dst[1]+g.top;
+         long now=SystemClock.elapsedRealtimeNanos();
++        // The measured pair can lead a slow primary callback. A later primary observation
++        // is authoritative. Bound the measured deadline by the existing owner hold as well.
++        if (uprightAt>0 && uprightAt>=primaryAt && uprightAt>=followedAt
++                && uprightSelection==automatic.selectionId()
++                && uprightAt-primaryAt<=AutomaticSubjectSelection.HOLD_NS-AutomaticSubjectSelection.MAX_AGE_NS
++                && now>=uprightAt && now-uprightAt<AutomaticSubjectSelection.MAX_AGE_NS) {
++            Box owner=pairOwner(primaryPerson,primaryCandidates,uprightPair);
++            if (owner!=null) {
++                if (headTrace!=null) headTrace.decision("upright_pair",uprightSelection,primaryAt,uprightAt);
++                overlay.setHeadFrames(uprightPair,owner,false,left,top,g.w,g.h,uprightAt);
++                return;
++            }
++        }
+         if (hasFollowedPair(now)) {
+             if (headTrace!=null) headTrace.decision("primary_motion_pair",primaryPairSelection,primaryPairFrame,followedAt);
+             overlay.setHeadFrames(followedPair,followedPair.get(primaryPairOwner),false,left,top,g.w,g.h,followedAt);
+@@ -903,6 +964,10 @@
+         long now=SystemClock.elapsedRealtimeNanos();
+         petAcquisition.filter(boxes,automatic.petDetailAnchor(frame),frame,now);
+         Box box=automatic.observe(frame,now,boxes,secondary);
++        if (headTrace!=null) {
++            String origin=box==null ? "miss" : box.face ? "face" : box==secondary ? "recovered_body" : "body";
++            headTrace.primary(frame,automatic.selectionId(),origin,box);
++        }
+         if (box==null && (!boxVisible || !automatic.visibleAt(SystemClock.elapsedRealtimeNanos()))) {
+             if (boxVisible) releaseFocus();
+             finish();
+@@ -985,6 +1050,9 @@
+     }
+ 
+     private void releaseFocus() {
++        headGeneration++;
++        uprightPair=Collections.emptyList();
++        uprightAt=0;
+         forgetPrimaryPair();
+         headEvidence="no_head_pair";
+         traceDecision("release",primaryAt);
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.ui.camera.views;
+ 
+ import android.os.SystemClock;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
+ import com.particlesdevs.photoncamera.util.Log;
+ 
+ /** Main-looper diagnostic for a tracking session. All sample and event times use elapsed realtime. */
+@@ -43,6 +44,13 @@
+                 + " matched=" + matched + " result=" + result);
+     }
+ 
++    public void primary(long frame,long selectionId,String origin,Box box) {
++        String area = box==null ? "" : " type="+box.type+" bounds1000="+Math.round(box.left*1000)+","
++                +Math.round(box.top*1000)+","+Math.round(box.right*1000)+","+Math.round(box.bottom*1000);
++        record(SystemClock.elapsedRealtimeNanos(),"primary frameNs="+frame+" selection="+selectionId
++                +" origin="+origin+area);
++    }
++
+     public void decision(String path, long selection, long primaryFrame, long headFrame) {
+         this.path = path;
+         this.selection = selection;
+--- a/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/HeadFrameTimingTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/HeadFrameTimingTest.java
+@@ -260,6 +260,67 @@
+         assertFalse(queued);
+     }
+ 
++    private void upright(List<Box> faces,long frame) {
++        ReflectionHelpers.setField(controller,"uprightPair",faces);
++        ReflectionHelpers.setField(controller,"uprightAt",frame);
++    }
++
++    @Test public void measuredUprightFacesRenewPairAndExpireFromTheNewImage() {
++        seedMeasuredPair();
++        SystemClock.sleep(164);
++        upright(observedPair,previewAt);
++        redrawFromEvidence();
++        assertEquals(2,drawnSquares());
++        assertEquals(1,(int)ReflectionHelpers.getField(view,"primaryHead"));
++        verify(fragment,never()).getCaptureController();
++        SystemClock.sleep(186);
++        assertEquals(1,drawnSquares());
++    }
++
++    @Test public void directPairBringsBackSecondaryBesideASinglePrimaryFace() {
++        seedMeasuredPair();
++        ReflectionHelpers.setField(controller,"primaryCandidates",Collections.singletonList(observedPair.get(1)));
++        upright(observedPair,previewAt);
++        redrawFromEvidence();
++        assertEquals(2,drawnSquares());
++        assertEquals(1,(int)ReflectionHelpers.getField(view,"primaryHead"));
++    }
++
++    @Test public void conflictingOrOutdatedMeasurementsCannotDecorateNewPrimary() {
++        seedMeasuredPair();
++        ReflectionHelpers.setField(controller,"additionalAt",0L);
++        ReflectionHelpers.setField(controller,"primaryCandidates",Collections.singletonList(observedPair.get(1)));
++        upright(Arrays.asList(observedPair.get(0),observedPair.get(0)),previewAt);
++        redrawFromEvidence();
++        assertEquals(1,drawnSquares());
++        upright(observedPair,observedAt-1);
++        redrawFromEvidence();
++        assertEquals(1,drawnSquares());
++        upright(observedPair,previewAt);
++        ReflectionHelpers.setField(controller,"uprightSelection",99L);
++        redrawFromEvidence();
++        assertEquals(1,drawnSquares());
++    }
++
++    @Test public void releaseInvalidatesPendingWorkerAndClearsItsMeasuredFaces() {
++        seedMeasuredPair();
++        upright(observedPair,previewAt);
++        long before=ReflectionHelpers.getField(controller,"headGeneration");
++        ReflectionHelpers.callInstanceMethod(controller,"releaseFocus");
++        assertTrue((long)ReflectionHelpers.getField(controller,"headGeneration")>before);
++        assertEquals(0L,(long)ReflectionHelpers.getField(controller,"uprightAt"));
++    }
++
++    @Test public void measuredFramesCannotOutliveThePrimaryHold() {
++        seedMeasuredPair();
++        ReflectionHelpers.setField(controller,"primaryCandidates",Collections.singletonList(observedPair.get(1)));
++        ReflectionHelpers.setField(controller,"primaryAt",previewAt-301_000_000L);
++        ReflectionHelpers.setField(controller,"additionalAt",0L);
++        upright(observedPair,previewAt);
++        redrawFromEvidence();
++        assertEquals(1,drawnSquares());
++    }
++
+     private static String lastTrace() {
+         List<ShadowLog.LogItem> lines = ShadowLog.getLogsForTag("M9HeadTrace");
+         return lines.get(lines.size()-1).msg;

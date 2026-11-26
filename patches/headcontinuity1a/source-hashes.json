@@ -1,0 +1,34 @@
+{
+  "app/build.gradle": {
+    "before": "aee278766b24fe9a380e83769a5f6cece9b3bdd42f18dc808e3652435566fcc3",
+    "after": "14827e48be97b83f1b3cfc7bd6158306f61f1ca3f3bed83e04eb8384c1e69bdb"
+  },
+  "app/src/main/assets/PERSON_HEAD_MODEL.md": {
+    "before": null,
+    "after": "58c00d86cc64a72f1255358af932d28c61b03fff388f86b39420f1d2202f220b"
+  },
+  "app/src/main/assets/person_head.onnx": {
+    "before": null,
+    "after": "3f0a061b37f1398be76fc344c116a8a6c42fb835583cabe33ddd80812ef4af10"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java": {
+    "before": "912a23721e2fcb33e69c5061a090b0ec97894abcfc307b831f2f70f8bcda3909",
+    "after": "0adf1afb6b86928cf078f430a2475b0db0c554fd7fc57cb6164880cc9d010f15"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/HeadContinuity.java": {
+    "before": null,
+    "after": "96e4270f803d20cef2dc62d6d233cd1b2fcb2550f2c732726acc003e93cc33e4"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "8b24dd4d290dd8759a93267227070a36dff419c3002f937dddf099cd17b31808",
+    "after": "e8300d2d63d876908474fc1ec0dddaa19812b789fca93c80e98882bee6378b65"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java": {
+    "before": null,
+    "after": "763b24b8f72eb729284b5675c7b7cb221fdd416ffbd3d64f7ecf4d6f017171e0"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadDisplayTest.java": {
+    "before": null,
+    "after": "925784c4bcc25fcb8f2af56ea5653631a47c2eebfbf2233aba7328c34afee202"
+  }
+}

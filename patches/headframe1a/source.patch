@@ -1,0 +1,560 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27329
++        versionCode 27330
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.29-headjni1a'
++        versionName '3.30-headframe1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.29_HEADJNI1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.30_HEADFRAME1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java
+@@ -20,6 +20,8 @@
+ import com.particlesdevs.photoncamera.control.subject.AutoEyeFocusPolicy;
+ import com.particlesdevs.photoncamera.control.tracking.TrackingGeometry;
+ import com.particlesdevs.photoncamera.m9.M9Config;
++import com.particlesdevs.photoncamera.m9.M9OutputSettings;
++import com.particlesdevs.photoncamera.ui.camera.views.HeadDisplayTrace;
+ import com.particlesdevs.photoncamera.renderprofile.RenderProfile;
+ import com.particlesdevs.photoncamera.settings.PreferenceKeys;
+ import com.particlesdevs.photoncamera.settings.SettingsManager;
+@@ -93,6 +95,8 @@
+     private Bitmap referenceThumb, latestThumb;
+     private long referenceAt, latestAt, checkedReference, checkedPreview;
+     private List<Box> referenceHeads=Collections.emptyList();
++    private HeadDisplayTrace headTrace;
++    private String headEvidence = "no_head_pair";
+     private int lastFaceRotation;
+     private boolean objectWarmupQueued;
+ 
+@@ -364,6 +368,11 @@
+     private void sample(TrackingGeometry g) {
+         final long ticket=epoch;
+         final long startedNs=SystemClock.elapsedRealtimeNanos();
++        boolean traceEnabled = automaticMode && M9OutputSettings.diagnosticsEnabled();
++        if (traceEnabled != (headTrace != null)) {
++            headTrace = traceEnabled ? new HeadDisplayTrace() : null;
++            overlay.setHeadTrace(headTrace);
++        }
+         final int rotation=automaticMode ? automatic.faceRotation() : 0;
+         if (rotation != lastFaceRotation) {
+             admissionGate.beginSession(epoch);
+@@ -389,7 +398,9 @@
+                     bitmap,status -> {
+                 if (!accepts(ticket,g)) {finish();return;}
+                 if (status!=PixelCopy.SUCCESS) {finish();return;}
+-                if (automaticMode && primaryPerson != null && boxVisible) sampleAdditionalHeads(ticket,g,startedNs);
++                boolean hasPerson = primaryPerson != null && boxVisible;
++                if (headTrace!=null) headTrace.preview(startedNs,g.frameTime,hasPerson,headBusy);
++                if (automaticMode && hasPerson) sampleAdditionalHeads(ticket,g,startedNs);
+                 if (rotation == 0) processFaceInput(ticket,g,startedNs,rotation,bitmap);
+                 else objectWorker.execute(() -> {
+                     try {
+@@ -422,24 +433,38 @@
+             return;
+         }
+         headBusy=true;
++        HeadDisplayTrace sampledTrace = headTrace;
+         Bitmap sample=headInput;
+         Bitmap thumbnail=latestThumb;
+         headWorker.execute(() -> {
+             List<Box> result=Collections.emptyList();
+             boolean failed=false;
++            long detectStart=0;
++            int raw=-1;
+             try {
+                 if (headTracker==null) headTracker=SceneHeadTracker.open(source.getContext().getApplicationContext());
+-                if (SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS)
++                if (SystemClock.elapsedRealtimeNanos()-frame < AutomaticSubjectSelection.MAX_AGE_NS) {
++                    detectStart=SystemClock.elapsedRealtimeNanos();
+                     result=headTracker.detect(sample,ticket,frame);
++                    raw=headTracker.rawHeadCount();
++                }
+             } catch (java.io.IOException | RuntimeException | LinkageError | OutOfMemoryError unavailable) {
+                 failed=true;
+             }
++            long start=detectStart, finish=SystemClock.elapsedRealtimeNanos();
++            int rawHeads=raw;
+             List<Box> heads=result;
+             boolean unavailable=failed;
+             main.post(() -> {
+                 headBusy=false;
+                 headUnavailable=unavailable;
+-                if (!accepts(ticket,g) || !boxVisible || primaryPerson==null) return;
++                boolean accepted=accepts(ticket,g) && boxVisible && primaryPerson!=null;
++                if (sampledTrace!=null && sampledTrace==headTrace) {
++                    String outcome = unavailable ? "unavailable" : start==0 ? "expired_before_start"
++                            : !accepted ? "owner_or_session_gone" : "accepted";
++                    headTrace.detector(frame,start,finish,rawHeads,heads.size(),outcome);
++                }
++                if (!accepted) return;
+                 referenceAt=frame;
+                 referenceThumb=thumbnail;
+                 referenceHeads=heads;
+@@ -455,12 +480,15 @@
+         checkedPreview=latestAt;
+         long span=latestAt-referenceAt;
+         if (referenceHeads.size()<2 || span<0 || span>600_000_000L) {
++            headEvidence = referenceHeads.size()<2 ? "reference_under_two" : "motion_span";
++            if (headTrace!=null) headTrace.motion(referenceAt,latestAt,-1,headEvidence);
+             additionalHeads=Collections.emptyList();
+             additionalAt=0;
+             drawPersonFrames(g);
+             return;
+         }
+         if (span==0) {
++            headEvidence="confirmed_heads";
+             additionalHeads=referenceHeads;
+             additionalAt=referenceAt;
+             drawPersonFrames(g);
+@@ -477,8 +505,13 @@
+             List<Box> result=matched;
+             main.post(() -> {
+                 motionBusy=false;
+-                if (!accepts(ticket,g) || !boxVisible || primaryPerson==null) return;
+-                if (referenceAt==origin && latestAt==target) {
++                boolean accepted=accepts(ticket,g) && boxVisible && primaryPerson!=null;
++                boolean current=referenceAt==origin && latestAt==target;
++                if (headTrace!=null) headTrace.motion(origin,target,result.size(),!accepted ? "owner_or_session_gone"
++                        : !current ? "superseded" : result.size()<2 ? "motion_under_two" : "motion_heads");
++                if (!accepted) return;
++                if (current) {
++                    headEvidence=result.size()<2 ? "motion_under_two" : "motion_heads";
+                     additionalHeads=result;
+                     additionalAt=target;
+                     drawPersonFrames(g);
+@@ -495,6 +528,8 @@
+         long now=SystemClock.elapsedRealtimeNanos();
+         int faceCount=0;
+         for (Box b : primaryCandidates) if (b.face) faceCount++;
++        String path = faceCount>=2 ? "primary_faces" : additionalAt<=0 ? headEvidence
++                : now-additionalAt>=AutomaticSubjectSelection.MAX_AGE_NS ? "head_expired" : "primary_expired";
+         if (faceCount<2 && additionalAt>0 && now-additionalAt<AutomaticSubjectSelection.MAX_AGE_NS
+                 && now-primaryAt<AutomaticSubjectSelection.MAX_AGE_NS) {
+             Box owner=HeadContinuity.focusOwner(primaryPerson,additionalHeads);
+@@ -502,11 +537,20 @@
+             for (Box b : primaryCandidates)
+                 if (b.face && HeadContinuity.focusOwner(b,additionalHeads)==null) covered=false;
+             if (owner!=null && covered) {
+-                overlay.setHeadFrames(additionalHeads,owner,false,left,top,g.w,g.h,Math.min(primaryAt,additionalAt));
++                // Both observations were fresh when associated. The rectangles are measured
++                // on the head frame, so expire them from that sample even if AF reported earlier.
++                traceDecision(headEvidence,primaryAt);
++                overlay.setHeadFrames(additionalHeads,owner,false,left,top,g.w,g.h,additionalAt);
+                 return;
+             }
+-        }
++            path = additionalHeads.size()<2 ? headEvidence : owner==null ? "no_unique_owner" : "face_uncovered";
++        }
++        traceDecision(path,primaryAt);
+         overlay.setHeadFrames(primaryCandidates,primaryPerson,false,left,top,g.w,g.h,primaryAt);
++    }
++
++    private void traceDecision(String path, long primaryFrame) {
++        if (headTrace!=null) headTrace.decision(path,automatic.selectionId(),primaryFrame,additionalAt);
+     }
+ 
+     private void processFaceInput(long ticket,TrackingGeometry g,long frame,int rotation,Bitmap input) {
+@@ -790,6 +834,7 @@
+         if (box == null) {
+             primaryPerson=null;
+             primaryCandidates=Collections.emptyList();
++            traceDecision("primary_miss",frame);
+             overlay.setHeadFrames(boxes, null, displayedFace, left, top, g.w, g.h, frame);
+             finish();
+             return;
+@@ -806,6 +851,8 @@
+         } else {
+             additionalHeads=Collections.emptyList();
+             additionalAt=0;
++            headEvidence="no_head_pair";
++            traceDecision("animal",frame);
+             overlay.setHeadFrames(boxes,box,false,left,top,g.w,g.h,frame);
+         }
+         int label = box.type==SubjectAnchorPolicy.ClassId.CAT ? com.particlesdevs.photoncamera.R.string.auto_subject_cat
+@@ -854,6 +901,8 @@
+     }
+ 
+     private void releaseFocus() {
++        headEvidence="no_head_pair";
++        traceDecision("release",primaryAt);
+         referenceThumb=latestThumb=null;
+         referenceHeads=Collections.emptyList();
+         referenceAt=latestAt=checkedReference=checkedPreview=0;
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java
+@@ -41,6 +41,9 @@
+     private static final ArrayList<String> OUTPUTS =
+             new ArrayList<>(Arrays.asList("boxes", "scores", "classes"));
+     private final Net network;
++    private int rawHeadCount;
++
++    int rawHeadCount() { return rawHeadCount; }
+     private final HeadContinuity tracker = new HeadContinuity();
+     private final Mat rgba = new Mat(), bgr = new Mat(), resized = new Mat();
+     private final Mat padded = new Mat(SIZE,SIZE,CvType.CV_8UC3);
+@@ -105,6 +108,7 @@
+             if (classes[i]==1f) heads.add(c);
+             else if (classes[i]==0f) bodies.add(c);
+         }
++        rawHeadCount=heads.size();
+         List<Box> result=tracker.observe(frame,suppress(heads),suppress(bodies),head -> locate(previous,gray,head));
+         Mat swap=previous; previous=gray; gray=swap;
+         return result;
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java
+@@ -0,0 +1,66 @@
++package com.particlesdevs.photoncamera.ui.camera.views;
++
++import android.os.SystemClock;
++import com.particlesdevs.photoncamera.util.Log;
++
++/** Main-looper diagnostic for a tracking session. All sample and event times use elapsed realtime. */
++public final class HeadDisplayTrace {
++    private static final String TAG = "M9HeadTrace";
++    private String path = "overlay";
++    private long selection, primaryFrame, headFrame;
++    private int previousCount = -1, previousIndex = -2;
++    private String previousPath, previousState;
++    private long previousSelection;
++    private long windowStart;
++    private int logged, skipped;
++
++    private void record(long now, String message) {
++        if (now-windowStart >= 1_000_000_000L) {
++            windowStart = now;
++            logged = 0;
++        }
++        if (logged >= 48) {
++            skipped++;
++            return;
++        }
++        Log.i(TAG, "tNs=" + now + " " + message + (skipped == 0 ? "" : " skipped=" + skipped));
++        logged++;
++        skipped = 0;
++    }
++
++    public void preview(long frame, long cameraFrame, boolean hasPerson, boolean detectorBusy) {
++        record(SystemClock.elapsedRealtimeNanos(), "preview frameNs=" + frame + " cameraFrameNs=" + cameraFrame
++                + " primaryPerson=" + hasPerson + " detectorBusy=" + detectorBusy);
++    }
++
++    public void detector(long frame, long start, long finish, int raw, int confirmed, String result) {
++        record(SystemClock.elapsedRealtimeNanos(), "detector frameNs=" + frame + " startNs=" + start
++                + " finishNs=" + finish + " raw=" + raw + " confirmed=" + confirmed + " result=" + result);
++    }
++
++    public void motion(long reference, long preview, int matched, String result) {
++        record(SystemClock.elapsedRealtimeNanos(), "motion refNs=" + reference + " previewNs=" + preview
++                + " matched=" + matched + " result=" + result);
++    }
++
++    public void decision(String path, long selection, long primaryFrame, long headFrame) {
++        this.path = path;
++        this.selection = selection;
++        this.primaryFrame = primaryFrame;
++        this.headFrame = headFrame;
++    }
++
++    public void displayed(int count, int selectedIndex, String state, long deadline) {
++        if (count == previousCount && selectedIndex == previousIndex && previousSelection == selection
++                && path.equals(previousPath) && state.equals(previousState)) return;
++        previousCount = count;
++        previousIndex = selectedIndex;
++        previousSelection = selection;
++        previousPath = path;
++        previousState = state;
++        long now = SystemClock.elapsedRealtimeNanos();
++        record(now, "display squares=" + count + " selectedHead=" + selectedIndex + " selection=" + selection
++                + " path=" + path + " state=" + state + " primaryNs=" + primaryFrame
++                + " headNs=" + headFrame + " deadlineNs=" + deadline);
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/TrackingFocusView.java
+@@ -19,8 +19,16 @@
+     private boolean lost, holding, pending;
+     private float[] headFrames = new float[0]; // x, y and half-side in overlay pixels
+     private int headCount, primaryHead;
+-    private boolean replacePrimary;
++    private boolean replacePrimary, expiredOnSet;
+     private long headDeadlineNs;
++    private HeadDisplayTrace headTrace;
++
++    public void setHeadTrace(HeadDisplayTrace trace) { headTrace = trace; }
++
++    @Override protected void onVisibilityChanged(View changedView, int visibility) {
++        super.onVisibilityChanged(changedView, visibility);
++        if (headTrace != null && visibility != VISIBLE) headTrace.displayed(0,-1,"hidden",0);
++    }
+ 
+     /** Draw only face detections from this preview sample. The focus owner is chosen upstream. */
+     public void setHeadFrames(List<Box> candidates, Box selected, boolean heldFace,
+@@ -32,6 +40,7 @@
+         }
+         long now = SystemClock.elapsedRealtimeNanos();
+         headDeadlineNs = frameNs + AutomaticSubjectSelection.MAX_AGE_NS;
++        expiredOnSet = headCount > 0 && now >= headDeadlineNs;
+         if (now < frameNs || now >= headDeadlineNs || headCount == 0) {
+             headCount = 0;
+         } else {
+@@ -55,7 +64,10 @@
+     public void show(float x, float y, float halfX, float halfY, boolean lost) {
+         this.x = x; this.y = y; this.halfX = halfX; this.halfY = halfY;
+         this.lost = lost; this.holding = false; this.pending = false;
++        if (headTrace!=null) headTrace.decision("overlay_show",0,0,0);
+         headCount = 0;
++        headDeadlineNs = 0;
++        expiredOnSet = false;
+         setVisibility(VISIBLE);
+         setContentDescription(getContext().getString(lost ? R.string.focus_tracking_lost : R.string.focus_tracking_active));
+         invalidate();
+@@ -64,7 +76,10 @@
+     public void showHolding(float x, float y, float halfX, float halfY) {
+         this.x = x; this.y = y; this.halfX = halfX; this.halfY = halfY;
+         lost = false; holding = true; pending = false;
++        if (headTrace!=null) headTrace.decision("overlay_hold",0,0,0);
+         headCount = 0;
++        headDeadlineNs = 0;
++        expiredOnSet = false;
+         setVisibility(VISIBLE);
+         setContentDescription(getContext().getString(R.string.focus_tracking_hold3a));
+         invalidate();
+@@ -73,18 +88,21 @@
+     public void showPending(float x,float y,float halfX,float halfY){
+         this.x=x;this.y=y;this.halfX=halfX;this.halfY=halfY;
+         lost=false;holding=false;pending=true;
++        if (headTrace!=null) headTrace.decision("overlay_pending",0,0,0);
+         headCount = 0;
++        headDeadlineNs = 0;
++        expiredOnSet = false;
+         setVisibility(VISIBLE);
+         setContentDescription(getContext().getString(R.string.focus_tracking_pending3b));
+         invalidate();
+     }
+-    private void drawHead(Canvas canvas, int i, float density, int color) {
++    private boolean drawHead(Canvas canvas, int i, float density, int color) {
+         float half = headFrames[3*i+2];
+-        drawTicks(canvas, headFrames[3*i], headFrames[3*i+1], half, half, density, color);
++        return drawTicks(canvas, headFrames[3*i], headFrames[3*i+1], half, half, density, color);
+     }
+ 
+-    private void drawTicks(Canvas canvas, float cx, float cy, float w, float h, float density, int color) {
+-        if (!FocusTickGeometry.populate(cx, cy, w, h, getWidth(), getHeight(), density, ticks)) return;
++    private boolean drawTicks(Canvas canvas, float cx, float cy, float w, float h, float density, int color) {
++        if (!FocusTickGeometry.populate(cx, cy, w, h, getWidth(), getHeight(), density, ticks)) return false;
+         paint.setStyle(Paint.Style.STROKE);
+         paint.setStrokeCap(Paint.Cap.ROUND);
+         paint.setColor(0x99000000);
+@@ -93,21 +111,31 @@
+         paint.setColor(color);
+         paint.setStrokeWidth(1.5f * density);
+         canvas.drawLines(ticks, paint);
++        return true;
+     }
+ 
+     @Override protected void onDraw(Canvas canvas) {
+         super.onDraw(canvas);
+         float density = getResources().getDisplayMetrics().density;
+         boolean freshHeads = headCount > 0 && SystemClock.elapsedRealtimeNanos() < headDeadlineNs;
++        int squares = 0, drawnOwner = -1;
+         if (freshHeads) {
+             for (int i = 0; i < headCount; i++) {
+-                if (i != primaryHead) drawHead(canvas, i, density, 0xcceeeeee);
++                if (i != primaryHead && drawHead(canvas, i, density, 0xcceeeeee)) squares++;
+             }
+-            if (primaryHead >= 0) drawHead(canvas, primaryHead, density, 0xfffcfcf8);
+-            if (replacePrimary) return;
++            if (primaryHead >= 0 && drawHead(canvas, primaryHead, density, 0xfffcfcf8)) {
++                squares++;
++                drawnOwner = primaryHead;
++            }
++            if (replacePrimary) {
++                if (headTrace!=null) headTrace.displayed(squares,drawnOwner,"heads",headDeadlineNs);
++                return;
++            }
+         }
+         boolean uncertain = holding || pending || lost;
+-        drawTicks(canvas, x, y, halfX, halfY, density, uncertain ? 0xffffba59 : 0xfffcfcf8);
++        if (drawTicks(canvas, x, y, halfX, halfY, density, uncertain ? 0xffffba59 : 0xfffcfcf8)) squares++;
++        if (headTrace!=null) headTrace.displayed(squares,drawnOwner,
++                expiredOnSet ? "expired_on_set" : !freshHeads && headCount>0 ? "expired_on_draw" : "primary",headDeadlineNs);
+ 
+         // Active tracking has NO persistent text plaque. Important amber states
+         // remain visually distinguishable and accessible by original description.
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/HeadFrameTimingTest.java
+@@ -0,0 +1,155 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.app.Activity;
++import android.app.Application;
++import android.graphics.Bitmap;
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.os.SystemClock;
++import android.view.SurfaceView;
++import android.view.View;
++import com.particlesdevs.photoncamera.ui.camera.views.HeadDisplayTrace;
++import com.particlesdevs.photoncamera.control.subject.AutomaticSubjectSelection.Box;
++import com.particlesdevs.photoncamera.control.subject.HeadContinuity;
++import com.particlesdevs.photoncamera.control.tracking.SubjectAnchorPolicy.Candidate;
++import com.particlesdevs.photoncamera.control.tracking.TrackingGeometry;
++import com.particlesdevs.photoncamera.ui.camera.views.TrackingFocusView;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.Robolectric;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.RuntimeEnvironment;
++import org.robolectric.annotation.Config;
++import org.robolectric.util.ReflectionHelpers;
++import org.robolectric.shadows.ShadowLog;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=35, application=Application.class)
++public class HeadFrameTimingTest {
++    private TrackingFocusView view;
++    private HumanSubjectFocusController controller;
++    private TrackingGeometry geometry;
++    private final Box primary = Box.fromBody(new Candidate("person",.9f,.52f,.22f,.94f,.92f));
++    private long now;
++
++    private List<Box> confirmedHeads() {
++        List<Candidate> heads=Arrays.asList(new Candidate("person",.9f,.12f,.2f,.24f,.32f),
++                new Candidate("person",.9f,.60f,.25f,.74f,.40f));
++        List<Candidate> bodies=Arrays.asList(new Candidate("person",.9f,.04f,.15f,.42f,.85f),
++                new Candidate("person",.9f,primary.left,primary.top,primary.right,primary.bottom));
++        HeadContinuity tracker = new HeadContinuity();
++        tracker.observe(200_000_000L,heads,bodies,h->null);
++        List<Box> pair = tracker.observe(400_000_000L,heads,bodies,h->null);
++        assertEquals(2,pair.size());
++        return pair;
++    }
++
++    @Before public void setup() {
++        Application app = RuntimeEnvironment.getApplication();
++        view = new TrackingFocusView(app,null);
++        view.layout(0,0,600,800);
++        view.show(400,300,60,60,false);
++        controller = new HumanSubjectFocusController(mock(CameraFragment.class),new SurfaceView(app),view);
++        geometry = new TrackingGeometry(this,"0","PHOTO",600,800,0,0,600,800,1,0,false,1,1);
++        ReflectionHelpers.setField(controller,"primaryCandidates",Collections.singletonList(primary));
++        ReflectionHelpers.setField(controller,"primaryPerson",primary);
++        ReflectionHelpers.setField(controller,"additionalHeads",confirmedHeads());
++        SystemClock.sleep(1000);
++        now = SystemClock.elapsedRealtimeNanos();
++    }
++
++    @After public void close() { controller.close(); }
++
++    private void decide(int primaryAgeMs, int headAgeMs) {
++        ReflectionHelpers.setField(controller,"primaryAt",now-primaryAgeMs*1_000_000L);
++        ReflectionHelpers.setField(controller,"additionalAt",now-headAgeMs*1_000_000L);
++        ReflectionHelpers.callInstanceMethod(controller,"drawPersonFrames",
++                ReflectionHelpers.ClassParameter.from(TrackingGeometry.class,geometry));
++    }
++
++    private int drawnSquares() {
++        int[] count = {0};
++        Canvas canvas = mock(Canvas.class);
++        doAnswer(call -> {
++            Paint paint = call.getArgument(1);
++            if (paint.getColor() != 0x99000000) count[0]++;
++            return null;
++        }).when(canvas).drawLines(any(float[].class), any(Paint.class));
++        view.draw(canvas);
++        return count[0];
++    }
++
++    @Test public void newerAssociatedHeadPairExpiresFromItsOwnFrame() {
++        decide(300,50);
++        assertEquals(2,drawnSquares());
++        SystemClock.sleep(51);
++        assertEquals("Head evidence is still only 101 ms old",2,drawnSquares());
++        SystemClock.sleep(249);
++        assertEquals("Head evidence reaches its own 350 ms deadline",1,drawnSquares());
++    }
++
++    @Test public void newerPrimaryCannotExtendOlderHeadEvidence() {
++        decide(50,300);
++        assertEquals(2,drawnSquares());
++        SystemClock.sleep(50);
++        assertEquals(1,drawnSquares());
++    }
++
++    @Test public void stalePrimaryCannotAuthoriseANewHeadPair() {
++        decide(351,50);
++        assertEquals(1,drawnSquares());
++    }
++
++    @Test public void newerSingleHeadResultClearsSecondSquareImmediately() {
++        decide(300,50);
++        assertEquals(2,drawnSquares());
++        Bitmap thumb = Bitmap.createBitmap(8,8,Bitmap.Config.ARGB_8888);
++        ReflectionHelpers.setField(controller,"referenceThumb",thumb);
++        ReflectionHelpers.setField(controller,"latestThumb",thumb);
++        ReflectionHelpers.setField(controller,"referenceAt",now);
++        ReflectionHelpers.setField(controller,"latestAt",now);
++        ReflectionHelpers.setField(controller,"referenceHeads",Collections.singletonList(confirmedHeads().get(1)));
++        ReflectionHelpers.callInstanceMethod(controller,"refreshHeads",
++                ReflectionHelpers.ClassParameter.from(long.class,1L),
++                ReflectionHelpers.ClassParameter.from(TrackingGeometry.class,geometry));
++        assertEquals(1,drawnSquares());
++    }
++
++    @Test public void drawTraceDistinguishesExpiryAndReplacementAndSkipsIdenticalDraws() {
++        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
++        activity.setContentView(view);
++        view.layout(0,0,600,800);
++        now = SystemClock.elapsedRealtimeNanos();
++        HeadDisplayTrace trace = new HeadDisplayTrace();
++        view.setHeadTrace(trace);
++        ReflectionHelpers.setField(controller,"headTrace",trace);
++        ReflectionHelpers.setField(controller,"headEvidence","confirmed_heads");
++        decide(300,50);
++        assertEquals(2,drawnSquares());
++        int entries = ShadowLog.getLogsForTag("M9HeadTrace").size();
++        assertTrue(lastTrace().contains("squares=2 selectedHead=1"));
++        assertTrue(lastTrace().contains("path=confirmed_heads state=heads"));
++        assertEquals(2,drawnSquares());
++        assertEquals(entries,ShadowLog.getLogsForTag("M9HeadTrace").size());
++        SystemClock.sleep(300);
++        assertEquals(1,drawnSquares());
++        assertTrue(lastTrace().contains("expired_on_draw"));
++        view.show(100,100,30,30,false);
++        assertEquals(1,drawnSquares());
++        assertTrue(lastTrace().contains("path=overlay_show state=primary"));
++        view.setVisibility(View.GONE);
++        assertTrue(lastTrace().contains("state=hidden"));
++    }
++
++    private static String lastTrace() {
++        List<ShadowLog.LogItem> lines = ShadowLog.getLogsForTag("M9HeadTrace");
++        return lines.get(lines.size()-1).msg;
++    }
++}

@@ -62,6 +62,9 @@ heads="$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/sub
 if [[ -f "$heads" ]] && grep -Fq 'supportedByOnePerson(' "$heads"; then
   tests+=(patches/headbody1a/host/HeadBodyAcquisitionTest.java)
 fi
+if [[ -f "$source_tree/app/src/main/java/com/particlesdevs/photoncamera/control/subject/HeadContinuity.java" ]]; then
+  tests+=(patches/headcontinuity1a/host/HeadContinuityTest.java)
+fi
 javac -Xlint:all -sourcepath "$source_tree/app/src/main/java" -d "$classes" "${tests[@]}"
 for suite in "${tests[@]}"; do
   java -ea -cp "$classes" "$(basename "$suite" .java)"

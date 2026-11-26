@@ -1,0 +1,38 @@
+{
+  "app/build.gradle": {
+    "before": "985a963542a1689c005dc4580bfb360512b3c2abc5930665bfa03652d90fa07d",
+    "after": "2e1abd18a5780da99186742963b37c3cd59bcddb3f230122a7b9a331c02be6eb"
+  },
+  "app/src/main/assets/PET_SPECIES_LICENSE.txt": {
+    "before": null,
+    "after": "6c3f6ee3067cb3d74ad4e8f2e39da8ffcd4560391a4a228a9a8c3bf872e89a32"
+  },
+  "app/src/main/assets/PET_SPECIES_MODEL.md": {
+    "before": null,
+    "after": "55c2899dfce059c0de49dc72fa824fd387bd5511521c729867d7123a8d0ef1b6"
+  },
+  "app/src/main/assets/pet_species_mobilenet_v2.tflite": {
+    "before": null,
+    "after": "f08d447cde49b4e0446428aa921aff0a14ea589fa9c5817b31f83128e9a43c1d"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/subject/AutomaticSubjectSelection.java": {
+    "before": "5cc108dfec0012c228549ac9d998ee5326206b92c14dc61f14525db7e25181e3",
+    "after": "815ffa399f816a5e95053df2bbf5cee6ca221e0f1ab964de56ee382fcf478871"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/HumanSubjectFocusController.java": {
+    "before": "6f2ab8800d3a010fee8c2b3a41288cae854fba02e4731ec5921d87965ad709f5",
+    "after": "3a69a92be845a1d29a65aa62a8c4f55b13b711f4965fe62740c7dd77b3145c20"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/PetSpeciesLabel.java": {
+    "before": null,
+    "after": "9f9352a1ad55ba3238bd1afc3049290ea9f585c416e5dafe3a902432536caa9c"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/HeadDisplayTrace.java": {
+    "before": "60f17031fa5d17a2a769a1e6f08e40b4138bb72e25c72202d3721589e559f34e",
+    "after": "1a9701530bac615e49c2db18d08eab8ce98949cd67697268c8c750bc5860090f"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/ui/camera/PetLabelTest.java": {
+    "before": null,
+    "after": "46d46652d79e035732f4403a5cc89d3f73c14137c9a55cae871f0486af3db047"
+  }
+}

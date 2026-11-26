@@ -1,0 +1,87 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27327
++        versionCode 27329
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.27-headcontinuity1a'
++        versionName '3.29-headjni1a'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.27_HEADCONTINUITY1A-${variant.name}.apk"
++            outputFileName = "M9Cam_3.29_HEADJNI1A-${variant.name}.apk"
+         }
+     }
+     testOptions {
+--- /dev/null
++++ b/app/src/androidTest/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadNativeTest.java
+@@ -0,0 +1,24 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import android.content.Context;
++import android.graphics.Bitmap;
++import androidx.test.ext.junit.runners.AndroidJUnit4;
++import androidx.test.platform.app.InstrumentationRegistry;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import static org.junit.Assert.assertTrue;
++
++@RunWith(AndroidJUnit4.class)
++public class SceneHeadNativeTest {
++    @Test public void repeatedInferenceAcceptsTheThreeNamedOutputs() throws Exception {
++        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
++        Bitmap blank = Bitmap.createBitmap(540, 720, Bitmap.Config.ARGB_8888);
++        try (SceneHeadTracker tracker = SceneHeadTracker.open(context)) {
++            for (int i = 1; i <= 3; i++) {
++                assertTrue(tracker.detect(blank, 1L, i * 200_000_000L).isEmpty());
++            }
++        } finally {
++            blank.recycle();
++        }
++    }
++}
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadTracker.java
+@@ -37,7 +37,9 @@
+     private static final int SIZE = 640;
+     private static final int ANCHORS = 8400;
+     private static final int MAX_DETECTIONS = 24;
+-    private static final List<String> OUTPUTS = Arrays.asList("boxes","scores","classes");
++    // OpenCV 4.13 JNI looks up size() and get() on java.util.ArrayList.
++    private static final ArrayList<String> OUTPUTS =
++            new ArrayList<>(Arrays.asList("boxes", "scores", "classes"));
+     private final Net network;
+     private final HeadContinuity tracker = new HeadContinuity();
+     private final Mat rgba = new Mat(), bgr = new Mat(), resized = new Mat();
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/ui/camera/SceneHeadOutputNamesTest.java
+@@ -0,0 +1,17 @@
++package com.particlesdevs.photoncamera.ui.camera;
++
++import java.lang.reflect.Field;
++import java.util.ArrayList;
++import java.util.Arrays;
++import org.junit.Test;
++import static org.junit.Assert.assertEquals;
++
++public class SceneHeadOutputNamesTest {
++    @Test public void outputNamesAreCompatibleWithOpenCvNativeArrayListMethods() throws Exception {
++        Field field = SceneHeadTracker.class.getDeclaredField("OUTPUTS");
++        field.setAccessible(true);
++        // ART aborts if the JNI receiver is an Arrays.asList view, even with the right names.
++        ArrayList<?> names = ArrayList.class.cast(field.get(null));
++        assertEquals(Arrays.asList("boxes", "scores", "classes"), names);
++    }
++}
