@@ -1,0 +1,145 @@
+name: M9Cam 3.45 Performance build, parity, tests and installer
+
+on:
+  push:
+    branches: ['codex/m9cam-3.45-performance']
+    paths:
+      - 'patches/exactperf1a/**'
+      - 'patches/performance345/**'
+      - 'scripts/ci/**'
+      - '.github/workflows/build-m9cam-performance345.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m9cam-performance345-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+
+      - name: Reconstruct the released 3.44 and verified 3.45 source
+        run: python3 scripts/ci/prepare_345.py "$RUNNER_TEMP/ci-source"
+
+      - name: Rebuild parent native libraries at the accepted build path
+        # The accepted libraries embed /home/runner/work/M9Camera_refresh/M9Camera_refresh/PhotonCamera.
+        run: |
+          cp -a "$RUNNER_TEMP/ci-source/PhotonCamera_344" "$GITHUB_WORKSPACE/PhotonCamera"
+          # Retry: Maven Central occasionally rate-limits hosted runners (HTTP 429).
+          for attempt in 1 2 3; do
+            (cd PhotonCamera && bash gradlew :app:externalNativeBuildDebug --no-daemon --max-workers=2) && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 60
+          done
+          for abi in arm64-v8a armeabi-v7a; do
+            mkdir -p "$RUNNER_TEMP/native-parent/$abi"
+            find PhotonCamera/app/build/intermediates/cxx -path "*/obj/$abi/*.so" -exec cp -n {} "$RUNNER_TEMP/native-parent/$abi/" \;
+            ls -la "$RUNNER_TEMP/native-parent/$abi"
+          done
+          rm -rf "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Place the 3.45 candidate at the same build path
+        run: |
+          mv "$RUNNER_TEMP/ci-source/PhotonCamera_345" "$GITHUB_WORKSPACE/PhotonCamera"
+          mkdir -p ci-reports
+          cp -r "$RUNNER_TEMP/ci-source/verification" ci-reports/verification
+
+      - name: Host native parity (parent vs candidate kernels, ThreadSanitizer, DNG writer -O0/-O2)
+        run: python3 patches/exactperf1a/host/native_parity.py "$RUNNER_TEMP/ci-source/PhotonCamera_344" PhotonCamera ci-reports/native-parity
+
+      - name: Exercise DNG storage failures, worker memory pressure and face-meter frame matching
+        run: |
+          bash patches/performance345/host/check_java.sh PhotonCamera
+          python3 patches/performance345/host/worker_pressure.py PhotonCamera ci-reports/native-parity
+
+      - name: Run tracking and focus policy checks against 3.45
+        run: bash scripts/ci/test_tracking.sh PhotonCamera
+
+      - name: Initialize Java and Kotlin analysis
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          source-root: PhotonCamera
+          threads: 2
+
+      - name: Build and run all selected regression suites
+        # Retry: Maven Central occasionally rate-limits hosted runners (HTTP 429).
+        run: |
+          for attempt in 1 2 3; do
+            python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/PhotonCamera" --run && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 60
+          done
+
+      - name: Verify library release resources
+        working-directory: PhotonCamera
+        run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
+
+      - name: Native provenance gate
+        run: |
+          mkdir -p installer
+          python3 patches/exactperf1a/native_provenance.py patches/trackingrecovery1a/baseline \
+            "$RUNNER_TEMP/native-parent" \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.45_PERFORMANCE-debug.apk installer
+
+      - name: Package and verify the 3.45 installer
+        run: |
+          cp ci-reports/verification/performance345.json installer/SOURCE_VERIFICATION.json
+          cp ci-reports/verification/MODEL_PROVENANCE.json installer/
+          cp ci-reports/native-parity/NATIVE_PARITY.json installer/
+          cp TEST_VERIFICATION.json installer/
+          python3 patches/exactperf1a/package.py PhotonCamera \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.45_PERFORMANCE-debug.apk \
+            patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" installer
+
+      - name: Upload verified installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-3.45-Performance-installer
+          path: installer/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Analyze reconstructed production source
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /m9cam-performance345/java-kotlin
+          output: ci-reports/codeql
+          wait-for-processing: true
+
+      - name: Retain verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9cam-performance345-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci-reports/**
+            installer/*.json
+            TEST_VERIFICATION.json
+            PhotonCamera/app/build/test-results/testDebugUnitTest/**
+            PhotonCamera/app/build/reports/tests/testDebugUnitTest/**
+          retention-days: 30
+          if-no-files-found: warn

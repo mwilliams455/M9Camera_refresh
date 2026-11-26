@@ -1,0 +1,805 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 52d4809..87e2b45 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27343
++        versionCode 27344
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.43-tungstenguard'
++        versionName '3.44-lensfalloff'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.43_TUNGSTENGUARD-${variant.name}.apk"
++            outputFileName = "M9Cam_3.44_LENSFALLOFF-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/assets/shaders/preview/main_fs.glsl b/app/src/main/assets/shaders/preview/main_fs.glsl
+index 95704cf..ab08499 100644
+--- a/app/src/main/assets/shaders/preview/main_fs.glsl
++++ b/app/src/main/assets/shaders/preview/main_fs.glsl
+@@ -22,6 +22,16 @@ uniform mat3 uM9SensorToPp2A;
+ uniform mat3 uM9PpToTarget2A;
+ uniform vec3 uM9ClipWhite2A;
+ uniform float uM9Tungsten2A;
++uniform float uFalloffStrength;
++uniform vec2 uFalloffWeights;
++uniform vec3 uFalloffModel;
++
++float lensFalloffGain(vec2 uv) {
++    if (uFalloffStrength == 0.0) return 1.0;
++    vec2 offset = (2.0 * uv - 1.0) * uFalloffWeights;
++    float r2 = min(dot(offset, offset), 1.0);
++    return exp2(-uFalloffStrength * r2 * (uFalloffModel.x + r2 * (uFalloffModel.y + r2 * uFalloffModel.z)));
++}
+ // Rounded viewfinder corners (px, 0 = square). Fragments outside the rounded
+ // rect are dropped so the blurred backdrop beneath the preview shows through.
+ uniform float uCornerRadius;
+@@ -133,11 +143,12 @@ vec3 m9DisplayTransform(vec3 oes,vec2 uv) {
+     // Never run RAW matrices on a vendor-rendered fallback.
+     if (!uM9Enabled)
+         return clamp(linearToSrgbM9(srgbToLinearM9(clamp(oes,0.0,1.0))*uM9ExposureScale1B),0.0,1.0);
++    float falloff = lensFalloffGain(uv);
+     if (!uM9SourceReady2A) {
+         // M9TUNGSTENCONT1A: source inversion may fail closed, but the encoded-domain
+         // TG1 guard is independent and remains safe on the exposure-adjusted OES RGB.
+         vec3 fallback1A=clamp(linearToSrgbM9(
+-                srgbToLinearM9(clamp(oes,0.0,1.0))*uM9ExposureScale1B),0.0,1.0);
++                srgbToLinearM9(clamp(oes,0.0,1.0))*falloff*uM9ExposureScale1B),0.0,1.0);
+         // Avoid the integer BT.601 round-trip when the guard is inactive.
+         if (uM9Tungsten2A <= 0.000001) return fallback1A;
+         return tungsten2A(fallback1A);
+@@ -145,7 +156,7 @@ vec3 m9DisplayTransform(vec3 oes,vec2 uv) {
+     vec3 linear=vec3(inverseChannel2A(oes.r,0),inverseChannel2A(oes.g,1),inverseChannel2A(oes.b,2));
+     vec3 sensor=max(uM9InputToSensor2A*linear,vec3(0));
+     // Deliberate exposure changes sensor energy before the native white and scene gamut boundaries.
+-    sensor=min(sensor*uM9ExposureScale1B,uM9ClipWhite2A);
++    sensor=min(sensor*falloff*uM9ExposureScale1B,uM9ClipWhite2A);
+     vec3 pp=clamp(uM9SensorToPp2A*sensor,0.0,1.0);
+     // TARGETDIRECT identity HSM; no historical Cobalt/HSM/LUT or post-EV auto-normalization.
+     vec3 m9=max(uM9PpToTarget2A*pp,vec3(0));
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+index 1b0d411..336b490 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -3134,6 +3134,10 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+ 
+             //Camera output
+             texture.setDefaultBufferSize(mBufferSize.getHeight(), mBufferSize.getWidth());
++            if (mImageReaderRaw != null) {
++                mTextureView.setFalloffGeometry(mImageReaderRaw.getWidth(), mImageReaderRaw.getHeight(),
++                        mBufferSize.getHeight(), mBufferSize.getWidth());
++            }
+ 
+             // This is the output Surface we need to start preview.
+             if(surface == null)
+@@ -5190,7 +5194,8 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+                 +":"+com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings.selected()
+                 +":"+paramController.WB;
+         return new com.particlesdevs.photoncamera.m9.M9Bracket1A.Context(context,generation,settings,
+-                com.particlesdevs.photoncamera.m9.render.M9TungstenGuardSettings.enabled());
++                com.particlesdevs.photoncamera.m9.render.M9TungstenGuardSettings.enabled(),
++                com.particlesdevs.photoncamera.m9.render.M9TargetFalloff1A.selected());
+     }
+     public boolean isM9BracketActive(){return m9Bracket.active() || monoBracketActive1H;}
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
+index 48869ff..720cb73 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
+@@ -41,33 +41,40 @@ public final class M9Bracket1A {
+         public final long lockGeneration;
+         public final String settings;
+         public final boolean tungstenGuardEnabled;
++        public final int falloffStrength;
+         public Context(M9AeLock1A.Context exposure,long lockGeneration,String settings){
+             this(exposure, lockGeneration, settings, true);
+         }
+         public Context(M9AeLock1A.Context exposure, long lockGeneration, String settings, boolean tungstenGuardEnabled) {
++            this(exposure, lockGeneration, settings, tungstenGuardEnabled, 0);
++        }
++        public Context(M9AeLock1A.Context exposure, long lockGeneration, String settings, boolean tungstenGuardEnabled, int falloffStrength) {
++            this.falloffStrength = falloffStrength;
+             this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.exposure=exposure;this.lockGeneration=lockGeneration;this.settings=settings;
+         }
+         @Override public boolean equals(Object other){
+             if(!(other instanceof Context))return false;Context c=(Context)other;
+-            return tungstenGuardEnabled==c.tungstenGuardEnabled && lockGeneration==c.lockGeneration && Objects.equals(exposure,c.exposure)
++            return falloffStrength==c.falloffStrength && tungstenGuardEnabled==c.tungstenGuardEnabled && lockGeneration==c.lockGeneration && Objects.equals(exposure,c.exposure)
+                     && Objects.equals(settings,c.settings);
+         }
+-        @Override public int hashCode(){return Objects.hash(exposure,lockGeneration,settings,tungstenGuardEnabled);}
++        @Override public int hashCode(){return Objects.hash(exposure,lockGeneration,settings,tungstenGuardEnabled,falloffStrength);}
+     }
+     public static final class Frame {
+         public final long seriesId,planId,basePlanId,baseExposureNs;
+         public final int index,count,baseIso,saveMode,saturation,contrast,sharpness;
+         public final boolean unfiltered, tungstenGuardEnabled;
++        public final int falloffStrength;
+         public final double requestedEv,actualEv;
+         public Frame(long seriesId,long planId,long basePlanId,long baseTime,int baseIso,int index,int count,
+                 double requestedEv,long time,int saveMode,boolean unfiltered,int saturation,int contrast,int sharpness){
+             this(seriesId, planId, basePlanId, baseTime, baseIso, index, count, requestedEv, time,
+-                    saveMode, unfiltered, saturation, contrast, sharpness, true);
++                    saveMode, unfiltered, saturation, contrast, sharpness, true, 0);
+         }
+         private Frame(long seriesId,long planId,long basePlanId,long baseTime,int baseIso,int index,int count,
+                 double requestedEv,long time,int saveMode,boolean unfiltered,int saturation,int contrast,int sharpness,
+-                boolean tungstenGuardEnabled) {
++                boolean tungstenGuardEnabled, int falloffStrength) {
++            this.falloffStrength = falloffStrength;
+             this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.seriesId=seriesId;this.planId=planId;this.basePlanId=basePlanId;this.baseExposureNs=baseTime;
+             this.baseIso=baseIso;this.index=index;this.count=count;this.requestedEv=requestedEv;
+@@ -131,7 +138,7 @@ public final class M9Bracket1A {
+             if(base==null)base=live;
+             double offset=settings.offsets()[index];long time=shutter(base.exposureNs,offset,min,max);
+             pending=new Frame(ticket,id,base.id,base.exposureNs,base.iso,index,settings.frames,offset,time,
+-                    saveMode,unfiltered,saturation,contrast,sharpness,context.tungstenGuardEnabled);
++                    saveMode,unfiltered,saturation,contrast,sharpness,context.tungstenGuardEnabled,context.falloffStrength);
+             state=SAVING;deadline=now+120000+time/1000000;
+             return project(base,live,id,now,pending,time);
+         }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
+index d1cad99..e62987a 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9ShootingProfiles.java
+@@ -4,6 +4,7 @@ import android.content.SharedPreferences;
+ import com.particlesdevs.photoncamera.circularbarlib.control.LeicaEv;
+ import com.particlesdevs.photoncamera.m9.render.M9SaturationSettings;
+ import com.particlesdevs.photoncamera.m9.render.M9ContrastSettings;
++import com.particlesdevs.photoncamera.m9.render.M9TargetFalloff1A;
+ import com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings;
+ import org.json.JSONArray;
+ import org.json.JSONException;
+@@ -30,13 +31,18 @@ public final class M9ShootingProfiles {
+     }
+ 
+     public static final class Snapshot {
+-        public final int saturation, contrast, sharpness, autoIsoMax, slowestMode;
++        public final int saturation, contrast, sharpness, autoIsoMax, slowestMode, falloffStrength;
+         /** Effective Leica EV. Legacy ±4/off-grid values remain readable and normalize to thirds. */
+         public final String ev;
+         public Snapshot(int saturation, int contrast, int sharpness, String ev) {
+             this(saturation,contrast,sharpness,ev,M9AutoIsoSettings.DEFAULT_MAX_ISO,M9AutoIsoSettings.DEFAULT_SLOWEST);
+         }
+         public Snapshot(int saturation, int contrast, int sharpness, String ev, int autoIsoMax, int slowestMode) {
++            this(saturation, contrast, sharpness, ev, autoIsoMax, slowestMode, 0);
++        }
++        public Snapshot(int saturation, int contrast, int sharpness, String ev, int autoIsoMax, int slowestMode, int falloffStrength) {
++            if (falloffStrength < 0 || falloffStrength > 100) throw new ProfileException(Problem.SETTINGS);
++            this.falloffStrength = falloffStrength;
+             if (!M9AutoIsoSettings.validMaxIso(autoIsoMax) || !M9AutoIsoSettings.validSlowest(slowestMode))
+                 throw new ProfileException(Problem.SETTINGS);
+             this.autoIsoMax=autoIsoMax; this.slowestMode=slowestMode;
+@@ -54,12 +60,12 @@ public final class M9ShootingProfiles {
+         public boolean sameSettings(Snapshot other) {
+             return other != null && saturation == other.saturation && contrast == other.contrast
+                     && sharpness == other.sharpness && Double.parseDouble(ev) == Double.parseDouble(other.ev)
+-                    && autoIsoMax == other.autoIsoMax && slowestMode == other.slowestMode;
++                    && autoIsoMax == other.autoIsoMax && slowestMode == other.slowestMode && falloffStrength == other.falloffStrength;
+         }
+         JSONObject toJson() throws JSONException {
+             return new JSONObject().put("saturation",saturation).put("contrast",contrast)
+                     .put("sharpness",sharpness).put("ev",ev)
+-                    .put("autoIsoMax",autoIsoMax).put("slowestMode",slowestMode);
++                    .put("autoIsoMax",autoIsoMax).put("slowestMode",slowestMode).put("falloffStrength",falloffStrength);
+         }
+         static Snapshot fromJson(JSONObject json) throws JSONException {
+             Object ev = json.get("ev");
+@@ -67,7 +73,8 @@ public final class M9ShootingProfiles {
+             return new Snapshot(integer(json,"saturation"),integer(json,"contrast"),
+                     integer(json,"sharpness"),(String)ev,
+                     json.has("autoIsoMax") ? integer(json,"autoIsoMax") : M9AutoIsoSettings.DEFAULT_MAX_ISO,
+-                    json.has("slowestMode") ? integer(json,"slowestMode") : M9AutoIsoSettings.DEFAULT_SLOWEST);
++                    json.has("slowestMode") ? integer(json,"slowestMode") : M9AutoIsoSettings.DEFAULT_SLOWEST,
++                    json.has("falloffStrength") ? integer(json,"falloffStrength") : 0);
+         }
+         private static int integer(JSONObject json, String key) throws JSONException {
+             Object value = json.get(key);
+@@ -96,7 +103,8 @@ public final class M9ShootingProfiles {
+                     Integer.parseInt(text(all,M9ContrastSettings.KEY,"2")),
+                     Integer.parseInt(text(all,M9SharpnessSettings.KEY,"2")),text(all,EV_KEY,"0.0"),
+                     Integer.parseInt(text(all,M9AutoIsoSettings.MAX_ISO_KEY,"2500")),
+-                    Integer.parseInt(text(all,M9AutoIsoSettings.SLOWEST_KEY,"0")));
++                    Integer.parseInt(text(all,M9AutoIsoSettings.SLOWEST_KEY,"0")),
++                    Integer.parseInt(text(all,M9TargetFalloff1A.KEY,"0")));
+         } catch (RuntimeException invalid) { throw new ProfileException(Problem.SETTINGS); }
+     }
+     private static String text(Map<String,?> all, String key, String fallback) {
+@@ -154,11 +162,12 @@ public final class M9ShootingProfiles {
+     public void apply(String id) {
+         Profile profile = required(list(),id);
+         Snapshot settings = profile.settings;
+-        // One edit makes all six photographic preferences visible together to listeners.
++        // One edit makes all photographic preferences visible together to listeners.
+         // Manual sensor controls, output, diagnostics, WB, lens and display are untouched.
+         preferences.edit().putString(M9SaturationSettings.KEY,Integer.toString(settings.saturation))
+                 .putString(M9ContrastSettings.KEY,Integer.toString(settings.contrast))
+                 .putString(M9SharpnessSettings.KEY,Integer.toString(settings.sharpness))
++                .putString(M9TargetFalloff1A.KEY,Integer.toString(settings.falloffStrength))
+                 .putString(EV_KEY,settings.ev)
+                 .putString(M9AutoIsoSettings.MAX_ISO_KEY,Integer.toString(settings.autoIsoMax))
+                 .putString(M9AutoIsoSettings.SLOWEST_KEY,Integer.toString(settings.slowestMode))
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+index d3a4bde..309935b 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+@@ -61,6 +61,7 @@ public final class M9PreviewFrameState1W {
+         public final long textureTimestampNs, submittedElapsedNs, sequence;
+         public final boolean transformEnabled, tungstenGuardEnabled;
+         public final float previewToneGain;
++        public final int falloffStrength;
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+                 long submittedElapsedNs, long sequence, boolean transformEnabled) {
+@@ -74,6 +75,12 @@ public final class M9PreviewFrameState1W {
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs, long submittedElapsedNs,
+                 long sequence, boolean transformEnabled, float previewToneGain, boolean tungstenGuardEnabled) {
++            this(state, textureTimestampNs, submittedElapsedNs, sequence, transformEnabled, previewToneGain, tungstenGuardEnabled, 0);
++        }
++        public Draw(M9PreviewFrameState1W state, long textureTimestampNs, long submittedElapsedNs,
++                long sequence, boolean transformEnabled, float previewToneGain, boolean tungstenGuardEnabled,
++                int falloffStrength) {
++            this.falloffStrength = falloffStrength;
+             this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.previewToneGain=bounded(previewToneGain,1,.70710678f,1.41421356f);
+             this.state = state;
+@@ -115,6 +122,7 @@ public final class M9PreviewFrameState1W {
+                 o.put("curve02Live", transformEnabled && state.source2A.ready);
+                 o.put("sat2Live", transformEnabled && state.source2A.ready);
+                 o.put("tungstenGuardEnabled", tungstenGuardEnabled);
++                o.put("lensFalloffPercent", transformEnabled ? falloffStrength : 0);
+                 o.put("tungstenGuardLive", transformEnabled && tungstenGuardEnabled);
+                 o.put("tungstenGuardWeight", transformEnabled ? state.effectiveTungstenWeight(tungstenGuardEnabled) : 0);
+                 o.put("tungstenGuardAuthority", !tungstenGuardEnabled ? "off" :
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+index 62cc692..3230be7 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -345,6 +345,7 @@ public final class M9PrimaryRenderQueue {
+         // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
+         final int saturationBank = bracket==null?M9SaturationSettings.selected():bracket.saturation;
+         final int contrastLevel = bracket==null?M9ContrastSettings.selected():bracket.contrast;
++        final int falloffStrength = bracket == null ? M9TargetFalloff1A.selected() : bracket.falloffStrength;
+         final boolean tungstenGuardEnabled = bracket == null ? M9TungstenGuardSettings.enabled() : bracket.tungstenGuardEnabled;
+         final int sharpnessLevel = bracket==null?M9SharpnessSettings.selected():bracket.sharpness;
+         final M9SaveSelection output = M9SaveSelection.fromMode(
+@@ -390,7 +391,7 @@ public final class M9PrimaryRenderQueue {
+                 long renderStartedNs = System.nanoTime();
+                 M9PhotonBoundary2Q.frame(ownedFrame, "rendererEntry", captureResult, null);
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+-                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, output.jpeg);
++                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, falloffStrength, output.jpeg);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
+                 if (renderResult != null && renderResult.diagnostics != null) {
+                     try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index b591a40..072852f 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -96,13 +96,15 @@ public final class M9R35Renderer {
+         final int contrast;
+         final int sharpness;
+         final boolean tungstenGuardEnabled;
++        final int falloffStrength;
+         final long[] even, odd;
+         SaturationState(int bank) { this(bank, M9Contrast.STANDARD); }
+         SaturationState(int bank, int contrast) {this(bank,contrast,com.particlesdevs.photoncamera.processing.M9Sharpness.STANDARD);}
+         SaturationState(int bank, int contrast, int sharpness) {
+-            this(bank, contrast, sharpness, true);
++            this(bank, contrast, sharpness, true, 0);
+         }
+-        SaturationState(int bank, int contrast, int sharpness, boolean tungstenGuardEnabled) {
++        SaturationState(int bank, int contrast, int sharpness, boolean tungstenGuardEnabled, int falloffStrength) {
++            this.falloffStrength = falloffStrength;
+             this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.sharpness = com.particlesdevs.photoncamera.processing.M9Sharpness.normalize(sharpness);
+             this.contrast = M9Contrast.normalize(contrast);
+@@ -555,15 +557,15 @@ public final class M9R35Renderer {
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+             int contrastLevel, int sharpnessLevel, boolean saveJpeg) {
+         return renderAndSavePrimary(dngPath, frame, characteristics, captureResult, captureRequest,
+-                cameraRotation, saturationBank, contrastLevel, sharpnessLevel, M9TungstenGuardSettings.enabled(), saveJpeg);
++                cameraRotation, saturationBank, contrastLevel, sharpnessLevel, M9TungstenGuardSettings.enabled(), M9TargetFalloff1A.selected(), saveJpeg);
+     }
+ 
+     static Result renderAndSavePrimary(Path dngPath, ImageFrame frame,
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+-            int contrastLevel, int sharpnessLevel, boolean tungstenGuardEnabled, boolean saveJpeg) {
++            int contrastLevel, int sharpnessLevel, boolean tungstenGuardEnabled, int falloffStrength, boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled));
++        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, falloffStrength));
+         try {
+             return renderAndSaveInternal(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, true, saveJpeg);
+@@ -584,7 +586,7 @@ public final class M9R35Renderer {
+             CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute,
+             boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected(), M9SharpnessSettings.selected(), M9TungstenGuardSettings.enabled()));
++        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected(), M9SharpnessSettings.selected(), M9TungstenGuardSettings.enabled(), M9TargetFalloff1A.selected()));
+         try {
+             return renderAndSaveSelected(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, primaryRoute, saveJpeg);
+@@ -740,8 +742,8 @@ public final class M9R35Renderer {
+                     com.particlesdevs.photoncamera.m9.provenance.M9SourceProvenance1A.describe(
+                             params,characteristics,diagnosticCaptureResult1A,
+                             sourceCalibrationAudit1A,rawShadingAudit1A));
+-            out.diagnostics.put("targetFalloff1A", M9TargetFalloff1A.describe());
+-            out.diagnostics.put("targetFalloffPixelMutationEnabled", false);
++            out.diagnostics.put("targetFalloff1A", M9TargetFalloff1A.describe(saturation().falloffStrength));
++            out.diagnostics.put("targetFalloffPixelMutationEnabled", saturation().falloffStrength > 0);
+             out.diagnostics.put("sourceShadingAndTargetFalloffSeparatedArchitecturally", true);
+ 
+             long renderCoreElapsedMs = (System.nanoTime() - renderCoreStartedNs) / 1_000_000L;
+@@ -960,7 +962,7 @@ public final class M9R35Renderer {
+                     previewDiag.put("edgePlacementIncluded", true);
+                     previewDiag.put("postRenderDisplayDownscaleOnly", true);
+                     previewDiag.put("sensorDescriptor1A", M9_LIVE_PREVIEW_1A_SENSOR_DESCRIPTOR.get());
+-                    previewDiag.put("targetFalloff1A", M9TargetFalloff1A.describe());
++                    previewDiag.put("targetFalloff1A", M9TargetFalloff1A.describe(saturation().falloffStrength));
+                     previewDiag.put("sourceGeometryAuthority",
+                             "full_resolution_RAW_is_renderer_input_no_pre_render_reduction");
+                     previewDiag.put("liveCaptureEvidence1C", edgePlacementLiveEvidence1C);
+@@ -2266,6 +2268,7 @@ public final class M9R35Renderer {
+             final double effectiveRenderGain = meter.gain * Math.pow(2.0, edgePlacementGainEv);
+ 
+             long fullRenderStartedNs = System.nanoTime();
++            M9TargetFalloff1A.apply(cam16, saturation().falloffStrength);
+             // COLORNATIVE2A keeps ORIENT1A's source-horizontal BT.601 4:2:2 pairing and
+             // uses bounded 384-row native blocks. PERF3H CVDIRECT1A reads the packed OpenCV
+             // camera Mat in-place when its layout is explicitly validated; otherwise it falls
+@@ -4484,6 +4487,7 @@ public final class M9R35Renderer {
+             }
+ 
+             long fullRenderStartedNs = System.nanoTime();
++            M9TargetFalloff1A.apply(cam16, saturation().falloffStrength);
+             // COLORNATIVE2A keeps ORIENT1A's source-horizontal BT.601 4:2:2 pairing and
+             // uses bounded 384-row native blocks. PERF3H CVDIRECT1A reads the packed OpenCV
+             // camera Mat in-place when its layout is explicitly validated; otherwise it falls
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SensorDescriptor1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SensorDescriptor1A.java
+index 31f2668..b3fb33d 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SensorDescriptor1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9SensorDescriptor1A.java
+@@ -261,12 +261,8 @@ public final class M9SensorDescriptor1A {
+ 
+     private static void attachFalloffContract(JSONObject out) throws Exception {
+         out.put("sourceShadingRole", "source_normalization_only_not_M9_look");
+-        out.put("targetFalloffStage", "after_common_scene_source_normalization");
+-        out.put("targetFalloffCoordinateSpace", "normalized_image_coordinates_center_0_corner_radius_1");
+-        out.put("targetFalloffModel", "EV(r)=a2*r^2+a4*r^4+a6*r^6");
+-        out.put("targetFalloffCalibrationStatus", "PENDING_GENUINE_M9_EVIDENCE");
+-        out.put("targetFalloffPixelMutationEnabled", false);
+-        out.put("targetFalloffIdentityGainIn1A", true);
++        out.put("targetFalloffProfile", M9TargetFalloff1A.PROFILE);
++        out.put("targetFalloffStage", "linear_demosaiced_RGB_before_target_tone");
+     }
+ 
+     private static boolean hasRawCapability(CameraCharacteristics c) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java
+index 19d652e..ec6abb4 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java
+@@ -1,43 +1,107 @@
+ package com.particlesdevs.photoncamera.m9.render;
+ 
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
+ import org.json.JSONObject;
++import org.opencv.core.CvType;
++import org.opencv.core.Mat;
+ 
+-/**
+- * FALLOFFTGT1A coordinate/model contract only.
+- *
+- * The radial model is defined now so still and live paths can share one target-domain
+- * coordinate system. Coefficients are intentionally not guessed; 1A is identity until
+- * genuine Leica M9 evidence calibrates a2/a4/a6.
+- */
++/** 35 mm Summicron-M ASPH at f/2.8. The polynomial fits Leica's published radial
++ * illumination in EV, scaled to the 0.89 EV corrected M9 corner measured by OpticalLimits. */
+ public final class M9TargetFalloff1A {
+-    public static final String VERSION = "fallofftgt1a-contract";
+-    public static final boolean PIXEL_MUTATION_ENABLED = false;
++    public static final String KEY = "pref_m9_lens_falloff";
++    public static final String PROFILE = "M9_Summicron_M_35_ASPH_f2.8_corrected_corner";
++    public static final float A2 = 0.748885f, A4 = -0.451345f, A6 = 0.592460f;
++    private static final int STEPS = 4096;
++    private static final int ONE = 1 << 15;
+ 
+     private M9TargetFalloff1A() {}
+ 
+-    /** Center is radius 0; every image corner is radius 1 regardless of raster size. */
+-    public static double normalizedRadius(int x, int y, int width, int height) {
+-        if (width <= 0 || height <= 0) return 0.0;
+-        double nx = (2.0 * ((x + 0.5) / (double) width)) - 1.0;
+-        double ny = (2.0 * ((y + 0.5) / (double) height)) - 1.0;
+-        return Math.min(1.0, Math.sqrt(nx * nx + ny * ny) / Math.sqrt(2.0));
++    public static int selected() {
++        SettingsManager settings = PhotonCamera.getSettingsManagerStatic();
++        if (settings == null) return 0;
++        try {
++            int value = Integer.parseInt(settings.getString(SettingsManager.SCOPE_GLOBAL, KEY, "0"));
++            return Math.max(0, Math.min(100, value));
++        } catch (NumberFormatException | ClassCastException invalid) {
++            return 0;
++        }
+     }
+ 
+-    /** Identity until coefficients are calibrated from genuine M9 evidence. */
+-    public static double gainForRadius(double r) {
+-        return 1.0;
++    static double gain(double radiusSquared, int strength) {
++        double r2 = Math.max(0, Math.min(1, radiusSquared));
++        double loss = r2 * (A2 + r2 * (A4 + r2 * A6));
++        return Math.pow(2.0, -loss * strength / 100.0);
+     }
+ 
+-    public static JSONObject describe() throws Exception {
+-        JSONObject j = new JSONObject();
+-        j.put("revision", "FALLOFFTGT1A");
+-        j.put("coordinateSpace", "normalized_image_coordinates_center_0_corner_radius_1");
+-        j.put("model", "EV(r)=a2*r^2+a4*r^4+a6*r^6");
+-        j.put("applicationDomain", "linear_RGB_after_source_normalization_before_M9_target_tone");
+-        j.put("calibrationStatus", "PENDING_GENUINE_M9_EVIDENCE");
+-        j.put("pixelMutationEnabled", PIXEL_MUTATION_ENABLED);
+-        j.put("gainIn1A", 1.0);
+-        j.put("sourceLensShadingIsTargetFalloff", false);
+-        return j;
++    /** Squared radial distance along one image axis in units of the half-diagonal. */
++    private static double axisTerm(int coordinate, int length, double diagonalSquared) {
++        double offset = 2.0 * coordinate + 1.0 - length;
++        return offset * offset / diagonalSquared;
++    }
++
++    static final class Raster {
++        private final int width, height;
++        private final double diagonalSquared;
++        private final double[] xTerms;
++        private final int[] gains = new int[STEPS + 1];
++
++        Raster(int width, int height, int strength) {
++            this.width = width;
++            this.height = height;
++            diagonalSquared = (double) width * width + (double) height * height;
++            xTerms = new double[width];
++            for (int x = 0; x < width; x++)
++                xTerms[x] = STEPS * axisTerm(x, width, diagonalSquared);
++            for (int i = 0; i <= STEPS; i++)
++                gains[i] = (int) Math.round(ONE * gain((double) i / STEPS, strength));
++        }
++
++        void applyRows(short[] rgb, int firstRow, int rows) {
++            int index = 0;
++            for (int y = firstRow; y < firstRow + rows; y++) {
++                double yTerm = STEPS * axisTerm(y, height, diagonalSquared) + 0.5;
++                for (int x = 0; x < width; x++) {
++                    int scale = gains[(int) (xTerms[x] + yTerm)];
++                    for (int c = 0; c < 3; c++, index++)
++                        rgb[index] = (short) (((rgb[index] & 65535) * scale + ONE / 2) >>> 15);
++                }
++            }
++        }
++    }
++
++    /** Input is demosaiced, source-normalized linear RGB. Metering already consumed its unshaded copy. */
++    static void apply(Mat rgb, int strength) {
++        if (strength == 0) return;
++        if (rgb.type() != CvType.CV_16UC3 || rgb.empty())
++            throw new IllegalArgumentException("Lens falloff requires linear RGB16");
++        int width = rgb.cols(), height = rgb.rows();
++        Raster raster = new Raster(width, height, strength);
++        int stripHeight = Math.min(32, height);
++        short[] strip = new short[width * stripHeight * 3];
++        for (int y = 0; y < height; y += stripHeight) {
++            int rows = Math.min(stripHeight, height - y);
++            int bytes = rows * width * 3 * Short.BYTES;
++            if (rgb.get(y, 0, strip) != bytes) throw new IllegalStateException("Incomplete RGB16 strip");
++            raster.applyRows(strip, y, rows);
++            if (rgb.put(y, 0, strip) != bytes) throw new IllegalStateException("Incomplete RGB16 write");
++        }
++    }
++
++    public static JSONObject describe(int strength) throws Exception {
++        return new JSONObject().put("profile", PROFILE).put("strengthPercent", strength)
++                .put("cornerLossEV", 0.89 * strength / 100.0).put("pixelMutationEnabled", strength > 0)
++                .put("domain", "linear_demosaiced_RGB_after_source_shading_before_target_tone")
++                .put("radius", "distance_from_frame_centre_divided_by_half_diagonal")
++                .put("calibration", "manufacturer_radial_shape_scaled_to_measured_M9_corner")
++                .put("a2", (double) A2).put("a4", (double) A4).put("a6", (double) A6);
++    }
++
++    /** Map a centered preview crop into the full RAW's radial coordinates. */
++    public static float[] previewWeights(int rawWidth, int rawHeight, int previewWidth, int previewHeight) {
++        double scale = Math.min(rawWidth / (double) previewWidth, rawHeight / (double) previewHeight);
++        double diagonal = Math.hypot(rawWidth, rawHeight);
++        return new float[] {(float) (previewWidth * scale / diagonal),
++                (float) (previewHeight * scale / diagonal)};
+     }
+ }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java
+index e237f7f..ee640b8 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/GLPreview.java
+@@ -19,6 +19,13 @@ import com.particlesdevs.photoncamera.circularbarlib.api.ManualModeConsole;
+ public class GLPreview extends GLSurfaceView {
+     MainRenderer mRenderer;
+     public Point cameraSize;
++    volatile float[] falloffWeights = {0.70710678f, 0.70710678f};
++
++    public void setFalloffGeometry(int rawWidth, int rawHeight, int previewWidth, int previewHeight) {
++        if (rawWidth > 0 && rawHeight > 0 && previewWidth > 0 && previewHeight > 0)
++            falloffWeights = com.particlesdevs.photoncamera.m9.render.M9TargetFalloff1A.previewWeights(
++                    rawWidth, rawHeight, previewWidth, previewHeight);
++    }
+     private TextureView.SurfaceTextureListener surfaceTextureListener;
+     private Handler handler;
+     private boolean isPlaceholder;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+index 30ab9e0..de91146 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -1,6 +1,7 @@
+ package com.particlesdevs.photoncamera.ui.camera.views.viewfinder;
+ 
+ import com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W;
++import com.particlesdevs.photoncamera.m9.render.M9TargetFalloff1A;
+ import android.graphics.Color;
+ import android.graphics.Rect;
+ import android.graphics.RectF;
+@@ -394,6 +395,10 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+         // M9TUNGSTENCONT1A: TG1 is illuminant authority, not source-contract authority.
+         // Preserve the native exact weight on a normal GL2A frame. If the source is
+         // held or genuinely falls back, use the independently updated live neutral.
++        int falloff = com.particlesdevs.photoncamera.renderprofile.RenderProfile.isMonochrom() ? 0 : M9TargetFalloff1A.selected();
++        float[] weights = mView.falloffWeights;
++        GLES20.glUniform2f(uFalloffWeights, weights[0], weights[1]);
++        GLES20.glUniform1f(uFalloffStrength, falloff / 100f);
+         boolean tungstenGuardEnabled = com.particlesdevs.photoncamera.m9.render.M9TungstenGuardSettings.enabled();
+         GLES20.glUniform1f(uTungsten2A, frame1W.effectiveTungstenWeight(tungstenGuardEnabled));
+         GLES20.glUniform1i(uM9Curve, 1);
+@@ -420,7 +425,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+                     android.os.SystemClock.elapsedRealtimeNanos());
+         }
+         mM9LastDraw1W = new M9PreviewFrameState1W.Draw(frame1W, textureTimestamp1W,
+-                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A, tungstenGuardEnabled);
++                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A, tungstenGuardEnabled, falloff);
+         // Rounded screen corners do not apply to offscreen meter/probe tiles.
+         GLES20.glUniform1f(uCornerRadius, 0f);
+         try {
+@@ -428,10 +433,13 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+             // Their old shared 250ms cadence could submit/map both PBOs on the same GL frame.
+             final boolean m9EvidenceBusy1A = mM9Evidence2E != null && mM9Evidence2E.isBusy();
+             boolean m9AutoProbeSubmitted1A = false;
+-            if (!m9EvidenceBusy1A && mM9CurveTex != 0 && mM9Meter2D != null)
++            if (!m9EvidenceBusy1A && mM9CurveTex != 0 && mM9Meter2D != null) {
++                GLES20.glUniform1f(uFalloffStrength, 0f);
+                 m9AutoProbeSubmitted1A = mM9Meter2D.sample(frame1W, textureTimestamp1W,
+                         uM9ExposureScale1B, enablePeak, peakEnabled,
+                         uM9PreviewTc20Gain1A, previewTc20Gain1A);
++                GLES20.glUniform1f(uFalloffStrength, falloff / 100f);
++            }
+             final boolean m9AutoProbeBusy1A = mM9Meter2D != null && mM9Meter2D.isBusy();
+             if (!m9AutoProbeSubmitted1A && !m9AutoProbeBusy1A && mM9Evidence2E != null)
+                 mM9Evidence2E.sample(frame1W, textureTimestamp1W, mSTexture,
+@@ -631,6 +639,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+ 
+     private int uM9SaturationBank;
+     private int uM9ContrastLevel;
++    private int uFalloffStrength, uFalloffWeights;
+     private int mM9CurveTex, uM9Enabled, uM9Curve, uM9ExposureScale1B, uM9PreviewTc20Gain1A;
+     private int mInverseTex2A, uSourceReady2A, uInputToSensor2A, uSensorToPp2A, uPpToTarget2A;
+     private int uClipWhite2A, uTungsten2A;
+@@ -719,6 +728,10 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+                 mirror = GLES20.glGetUniformLocation(mSharpProgram, "mirror");
+                 uM9EvidenceStage2E = GLES20.glGetUniformLocation(mSharpProgram, "uM9EvidenceStage2E");
+                 uM9Enabled = GLES20.glGetUniformLocation(mSharpProgram, "uM9Enabled");
++                uFalloffStrength = GLES20.glGetUniformLocation(mSharpProgram, "uFalloffStrength");
++                uFalloffWeights = GLES20.glGetUniformLocation(mSharpProgram, "uFalloffWeights");
++                GLES20.glUniform3f(GLES20.glGetUniformLocation(mSharpProgram, "uFalloffModel"),
++                        M9TargetFalloff1A.A2, M9TargetFalloff1A.A4, M9TargetFalloff1A.A6);
+                 uM9ContrastLevel = GLES20.glGetUniformLocation(mSharpProgram, "uM9ContrastLevel");
+                 uM9SaturationBank = GLES20.glGetUniformLocation(mSharpProgram, "uM9SaturationBank");
+                 uM9Curve = GLES20.glGetUniformLocation(mSharpProgram, "uM9Curve");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
+index 48cfdf9..1c2ec3d 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/settings/M9ProfilesUi.java
+@@ -22,6 +22,7 @@ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.Snapshot;
+ import com.particlesdevs.photoncamera.m9.M9ShootingProfiles.ProfileException;
+ import com.particlesdevs.photoncamera.m9.render.M9SaturationSettings;
+ import com.particlesdevs.photoncamera.m9.render.M9ContrastSettings;
++import com.particlesdevs.photoncamera.m9.render.M9TargetFalloff1A;
+ import com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings;
+ import com.particlesdevs.photoncamera.util.BlurSupport;
+ import java.util.List;
+@@ -44,7 +45,7 @@ final class M9ProfilesUi {
+     void changed(String key) {
+         if (key == null || key.equals(M9ShootingProfiles.LIBRARY_KEY) || key.equals(M9ShootingProfiles.ACTIVE_KEY)
+                 || key.equals(M9ShootingProfiles.EV_KEY) || key.equals(M9SaturationSettings.KEY)
+-                || key.equals(M9ContrastSettings.KEY) || key.equals(M9SharpnessSettings.KEY)
++                || key.equals(M9TargetFalloff1A.KEY) || key.equals(M9ContrastSettings.KEY) || key.equals(M9SharpnessSettings.KEY)
+                 || key.equals(M9AutoIsoSettings.MAX_ISO_KEY) || key.equals(M9AutoIsoSettings.SLOWEST_KEY)) refresh();
+     }
+ 
+@@ -121,7 +122,7 @@ final class M9ProfilesUi {
+         return context.getString(R.string.m9_profile_values,saturation[settings.saturation],
+                 contrast[settings.contrast],sharpness[settings.sharpness],
+                 LeicaEv.label(Double.parseDouble(settings.ev)),Integer.toString(settings.autoIsoMax),
+-                context.getResources().getStringArray(R.array.m9_auto_iso_slowest_entries)[settings.slowestMode]);
++                context.getResources().getStringArray(R.array.m9_auto_iso_slowest_entries)[settings.slowestMode], settings.falloffStrength);
+     }
+ 
+     private void showProfile(Profile profile) {
+diff --git a/app/src/main/res/values/m9_menu.xml b/app/src/main/res/values/m9_menu.xml
+index 2903ece..8e23e62 100644
+--- a/app/src/main/res/values/m9_menu.xml
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -24,6 +24,8 @@
+     <string-array name="m9_menu_timer_indices" translatable="false">
+         <item>0</item><item>1</item><item>2</item>
+     </string-array>
++    <string name="m9_lens_falloff_summary">0 is off. 100 models the 35 mm Summicron-M ASPH at f/2.8 on the M9.</string>
++    <string name="m9_lens_falloff">Lens falloff (%)</string>
+     <string name="m9_tungsten_guard_title">Tungsten guard</string>
+     <string name="m9_tungsten_guard_summary">Reduce yellow and green casts in warm light.</string>
+ </resources>
+diff --git a/app/src/main/res/values/m9_profiles.xml b/app/src/main/res/values/m9_profiles.xml
+index 2d16cff..3c36aa8 100644
+--- a/app/src/main/res/values/m9_profiles.xml
++++ b/app/src/main/res/values/m9_profiles.xml
+@@ -2,12 +2,12 @@
+ <resources>
+     <string name="m9_profiles_title">Shooting profiles</string>
+     <string name="m9_profiles_summary">Save and recall your image settings</string>
+-    <string name="m9_profiles_info">Profiles save saturation, contrast, sharpness, exposure compensation, Auto ISO maximum and slowest shutter. Output, diagnostics and other settings stay as you set them.</string>
++    <string name="m9_profiles_info">Profiles save saturation, contrast, sharpness, lens falloff, exposure compensation, Auto ISO maximum and slowest shutter. Output, diagnostics and other settings stay as you set them.</string>
+     <string name="m9_profile_entry_summary">%1$s · Save and recall settings</string>
+     <string name="m9_profile_current_title">Current: %1$s</string>
+     <string name="m9_profile_custom">Custom settings</string>
+     <string name="m9_profile_modified">%1$s (modified)</string>
+-    <string name="m9_profile_values">Saturation: %1$s · Contrast: %2$s\nSharpness: %3$s · EV: %4$s\nAuto ISO max: %5$s · Slowest: %6$s</string>
++    <string name="m9_profile_values">Saturation: %1$s · Contrast: %2$s\nSharpness: %3$s · EV: %4$s\nAuto ISO max: %5$s · Slowest: %6$s\nLens falloff %7$d%%</string>
+     <string name="m9_profile_save">Save current settings</string>
+     <string name="m9_profile_save_summary">Create a named profile from these settings</string>
+     <string name="m9_profile_saved">Saved profiles</string>
+diff --git a/app/src/main/res/xml/preferences.xml b/app/src/main/res/xml/preferences.xml
+index 8c1de59..54421da 100644
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -359,6 +359,12 @@
+                 android:defaultValue="false"
+                 android:layout="@layout/preference_with_margin"/>
+         <Preference android:key="pref_export_tracking_trace" android:title="@string/m9_export_tracking_trace" android:persistent="false" android:layout="@layout/preference_with_margin" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
++            android:key="pref_m9_lens_falloff" android:layout="@layout/preference_seekbar"
++            android:title="@string/m9_lens_falloff" android:summary="@string/m9_lens_falloff_summary"
++            android:defaultValue="0"
++            app:minValue="0" app:maxValue="100" app:stepPerUnit="1"
++            app:showSeekBarValue="true" android:icon="@drawable/ic_saturation" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+             android:key="pref_m9_tungsten_guard"
+             android:title="@string/m9_tungsten_guard_title"
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+index 19cea16..48ba0d1 100644
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -7,6 +7,12 @@
+             <Preference android:key="m9_profile_save" android:title="@string/m9_profile_save" android:summary="@string/m9_profile_save_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_save" android:persistent="false" />
+             <PreferenceCategory android:key="m9_profile_saved" android:title="@string/m9_profile_saved" android:layout="@layout/preference_category_layout" />
+         </PreferenceScreen>
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.UniversalSeekBarPreference
++            android:key="pref_m9_lens_falloff" android:layout="@layout/preference_seekbar"
++            android:title="@string/m9_lens_falloff" android:summary="@string/m9_lens_falloff_summary"
++            android:defaultValue="0"
++            app:minValue="0" app:maxValue="100" app:stepPerUnit="1"
++            app:showSeekBarValue="true" android:icon="@drawable/ic_saturation" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+             android:key="pref_m9_tungsten_guard"
+             android:title="@string/m9_tungsten_guard_title"
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
+index 5c419a8..fe9adea 100644
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9ShootingProfilesTest.java
+@@ -86,7 +86,7 @@ public class M9ShootingProfilesTest {
+         memory.values.putAll(outside);
+         int count=memory.edits.size(); memory.store().apply(p.id);
+         assertEquals(count+1,memory.edits.size());
+-        assertEquals(new HashSet<>(Arrays.asList(SAT,CONTRAST,SHARP,EV,ACTIVE,M9AutoIsoSettings.MAX_ISO_KEY,M9AutoIsoSettings.SLOWEST_KEY)),memory.edits.get(count));
++        assertEquals(new HashSet<>(Arrays.asList(SAT,CONTRAST,SHARP,EV,ACTIVE,"pref_m9_lens_falloff",M9AutoIsoSettings.MAX_ISO_KEY,M9AutoIsoSettings.SLOWEST_KEY)),memory.edits.get(count));
+         assertTrue(memory.store().current().sameSettings(p.settings));
+         outside.forEach((key,value) -> assertEquals(key,value,memory.values.get(key)));
+         Map<String,Object> observer=memory.observed.get(count);
+@@ -110,6 +110,18 @@ public class M9ShootingProfilesTest {
+         assertTrue(profile.settings.sameSettings(memory.store().current()));
+     }
+ 
++    @Test public void falloffRecallRestoresSavedValueAndLegacyProfilesRecallZero() throws Exception {
++        Memory memory = new Memory();
++        memory.values.put("pref_m9_lens_falloff", "65");
++        Profile profile = memory.store().save("Falloff");
++        memory.values.put("pref_m9_lens_falloff", "100");
++        memory.store().apply(profile.id);
++        assertEquals("65", memory.values.get("pref_m9_lens_falloff"));
++        JSONObject legacy = profile.settings.toJson();
++        legacy.remove("falloffStrength");
++        assertEquals(0, Snapshot.fromJson(legacy).falloffStrength);
++    }
++
+     @Test public void legacyProfileGetsDocumentedAutoIsoDefaultsWithoutReadMigration() throws Exception {
+         Memory memory=new Memory(); Profile profile=memory.store().save("Legacy");
+         JSONObject root=new JSONObject((String)memory.values.get(LIB));
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffTest.java
+new file mode 100644
+index 0000000..9760815
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffTest.java
+@@ -0,0 +1,50 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++
++public class M9LensFalloffTest {
++    @Test public void measuredEndpointsAndEvStrength() {
++        assertEquals(1, M9TargetFalloff1A.gain(0, 100), 0);
++        assertEquals(1, M9TargetFalloff1A.gain(1, 0), 0);
++        assertEquals(Math.pow(2, -.89), M9TargetFalloff1A.gain(1, 100), 1e-7);
++        assertEquals(Math.pow(2, -.445), M9TargetFalloff1A.gain(1, 50), 1e-7);
++        double previous = 1;
++        for (int i = 1; i <= 1000; i++) {
++            double gain = M9TargetFalloff1A.gain(i / 1000.0, 100);
++            assertTrue(gain <= previous);
++            previous = gain;
++        }
++    }
++
++    @Test public void stillAndPreviewGeometryAgreeInBothOrientationsAndAcrossStrips() {
++        for (int[] dims : new int[][] {{101, 75}, {75, 101}, {1, 1}}) {
++            int width = dims[0], height = dims[1];
++            float[] weights = M9TargetFalloff1A.previewWeights(width, height, width, height);
++            for (int strength : new int[] {0, 50, 100}) {
++                M9TargetFalloff1A.Raster raster = new M9TargetFalloff1A.Raster(width, height, strength);
++                for (int first = 0; first < height; first += 32) {
++                    int rows = Math.min(32, height - first);
++                    short[] rgb = new short[width * rows * 3];
++                    int[] color = {65535, 32767, 8191};
++                    for (int i = 0; i < rgb.length; i++) rgb[i] = (short) color[i % 3];
++                    raster.applyRows(rgb, first, rows);
++                    for (int i = 0; i < rgb.length; i++) {
++                        int x = i / 3 % width, y = first + i / (3 * width);
++                        double dx = (2.0 * (x + 0.5) / width - 1) * weights[0];
++                        double dy = (2.0 * (y + 0.5) / height - 1) * weights[1];
++                        double expected = color[i % 3] * M9TargetFalloff1A.gain(dx * dx + dy * dy, strength);
++                        assertEquals(expected, rgb[i] & 65535, strength == 0 ? 0 : 10);
++                    }
++                }
++            }
++        }
++    }
++
++    @Test public void widePreviewMapsToCenterCropOfRaw() {
++        float[] full = M9TargetFalloff1A.previewWeights(4000, 3000, 800, 600);
++        float[] crop = M9TargetFalloff1A.previewWeights(4000, 3000, 1920, 1080);
++        assertArrayEquals(new float[] {.8f, .6f}, full, .00001f);
++        assertArrayEquals(new float[] {.8f, .45f}, crop, .00001f);
++    }
++}

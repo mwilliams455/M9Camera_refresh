@@ -14,15 +14,21 @@ here = Path(__file__).resolve().parent
 patches = here.parent
 sha = lambda data: hashlib.sha256(data).hexdigest()
 certificate = '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
-version, code, filename = '3.43-exactperf1a', 27343, 'M9Cam_3.43_EXACTPERF1A.apk'
+scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
+integrated = scope['version'] == '3.45-performance'
+if integrated:
+    version, code, filename = '3.45-performance', 27345, 'M9Cam_3.45_Performance.apk'
+    stage, parent = patches / 'performance345', '3.44-lensfalloff'
+else:
+    version, code, filename = '3.43-exactperf1a', 27343, 'M9Cam_3.43_EXACTPERF1A.apk'
+    stage, parent = here, '3.42-facehighlight1b'
 rebuilt_libs = ('libm9color.so', 'libm9dngnoise.so', 'libdngCreator.so')
 
 provenance = json.loads((out / 'NATIVE_PROVENANCE.json').read_text())
 assert provenance['status'] == 'PASS', 'Native provenance gate has not passed'
-scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
 assert scope['status'] == 'STAGED_FOR_ANDROID_BUILD' and scope['version'] == version
-assert scope['parent'] == '3.42-facehighlight1b'
-assert scope['sourceHashes'] == json.loads((here / 'source-hashes.json').read_text())
+assert scope['parent'] == parent
+assert scope['sourceHashes'] == json.loads((stage / 'source-hashes.json').read_text())
 for path, hashes in scope['sourceHashes'].items():
     file = root / path
     if hashes['after'] is None:
@@ -90,12 +96,20 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
         payload = native_overrides[name]
         expected[name] = sha(payload)
         dst.writestr(zipfile.ZipInfo(name), payload, compress_type=zipfile.ZIP_STORED)
+    preview_shader = 'assets/shaders/preview/main_fs.glsl'
+    if integrated:
+        # The released 3.44 shader is the only optical asset changed since the native baseline.
+        assert expected[preview_shader] == sha((root / 'app/src/main' / preview_shader).read_bytes())
+        assert expected[preview_shader] == '40f0123d6cf5a00df07ef4c06154cdd0429d639d43b09286148c298c0dd79231'
     for name, digest in manifest.items():
         if name in rebuilt:
             assert expected.get(name) not in (None, digest), f'Rebuilt library unchanged: {name}'
-        else:
+        elif not (integrated and name == preview_shader):
             assert expected.get(name) == digest, f'Accepted APK payload changed: {name}'
     dex = b''.join(new.read(n) for n in new_names if n.endswith('.dex'))
+    if integrated:
+        for marker in ('M9DngPublication', 'M9SubjectMeterFrames', 'M9TungstenGuardSettings', 'M9TargetFalloff1A'):
+            assert marker.encode() in dex, marker
     for marker in ['M9ShadingParallel1A', 'M9EXACTPERF1A_SHADING_ROWBANDS_EXACT', 'saveSingleRawM9PhysicalCfaStaged',
                    'embedInPlace', 'embedStaged', 'StagingNotRestoredException', 'publishStagedDng',
                    'M9PHASENOISEPERF1D_DYNAMIC_EXACT', 'dynamic_tiles_chunk1', 'AutomaticSubjectSelection',
@@ -137,6 +151,9 @@ for profile in ('m9', 'monochrom'):
     menu_files[profile] = resource_file('xml/preferences_' + profile)
     menu = subprocess.check_output([str(bt / 'aapt2'), 'dump', 'xmltree', '--file',
                                     menu_files[profile], str(final)], text=True)
+    if integrated:
+        for control in ('pref_m9_lens_falloff', 'pref_m9_tungsten_guard'):
+            assert (control in menu) == (profile == 'm9'), (profile, control)
     for marker in ('pref_focus_tracking', 'pref_focus_tracking_semantic', 'pref_focus_tracking_predictive',
                    'pref_focus_tracking_identity', 'pref_focus_auto_eye_enabled', 'pref_focus_subject_pet',
                    'pref_export_tracking_trace'):
@@ -159,14 +176,16 @@ with zipfile.ZipFile(final) as signed:
         assert marker in symbols, (name, marker)
         lib.unlink()
 report = dict(status='PASS', version=version, versionCode=code, sha256=sha(final.read_bytes()),
-              bytes=final.stat().st_size, parent='3.42-facehighlight1b',
+              bytes=final.stat().st_size, parent=parent,
               rebuiltNativeLibraries=rebuilt_hashes,
               otherNativeLibrariesByteIdenticalTo313=sorted(native_names - rebuilt),
-              preserved301OriginalAssets=True, bundledModelSha256=expected_model,
+              preserved301OriginalAssets=not integrated, bundledModelSha256=expected_model,
               artBaselineProfileAssets=packaged_profile_assets,
               applicationDebuggable=False, signatureMatchesPrior=True, sixteenKiBAligned=True,
               bothProfileMenusVerified=True, packagedMenuFiles=menu_files, nativeProvenance='PASS',
               phoneTimingAndVisualValidationPending=True)
+if integrated:
+    report['released344ShaderSha256'] = expected[preview_shader]
 (out / 'PACKAGED_VERIFICATION.json').write_text(json.dumps(report, indent=2) + '\n')
 (out / 'SHA256SUMS.txt').write_text(report['sha256'] + '  ' + final.name + '\n')
 unsigned.unlink(); aligned.unlink()

@@ -1,0 +1,467 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index dbc78d5..52d4809 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27342
++        versionCode 27343
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.42-facehighlight1b'
++        versionName '3.43-tungstenguard'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -97,7 +97,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.42_FACEHIGHLIGHT1B-${variant.name}.apk"
++            outputFileName = "M9Cam_3.43_TUNGSTENGUARD-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+index 516a287..1b0d411 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -5189,7 +5189,8 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+                 +":"+com.particlesdevs.photoncamera.m9.render.M9ContrastSettings.selected()
+                 +":"+com.particlesdevs.photoncamera.m9.render.M9SharpnessSettings.selected()
+                 +":"+paramController.WB;
+-        return new com.particlesdevs.photoncamera.m9.M9Bracket1A.Context(context,generation,settings);
++        return new com.particlesdevs.photoncamera.m9.M9Bracket1A.Context(context,generation,settings,
++                com.particlesdevs.photoncamera.m9.render.M9TungstenGuardSettings.enabled());
+     }
+     public boolean isM9BracketActive(){return m9Bracket.active() || monoBracketActive1H;}
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
+index 6eae120..48869ff 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9Bracket1A.java
+@@ -40,23 +40,35 @@ public final class M9Bracket1A {
+         public final M9AeLock1A.Context exposure;
+         public final long lockGeneration;
+         public final String settings;
++        public final boolean tungstenGuardEnabled;
+         public Context(M9AeLock1A.Context exposure,long lockGeneration,String settings){
++            this(exposure, lockGeneration, settings, true);
++        }
++        public Context(M9AeLock1A.Context exposure, long lockGeneration, String settings, boolean tungstenGuardEnabled) {
++            this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.exposure=exposure;this.lockGeneration=lockGeneration;this.settings=settings;
+         }
+         @Override public boolean equals(Object other){
+             if(!(other instanceof Context))return false;Context c=(Context)other;
+-            return lockGeneration==c.lockGeneration && Objects.equals(exposure,c.exposure)
++            return tungstenGuardEnabled==c.tungstenGuardEnabled && lockGeneration==c.lockGeneration && Objects.equals(exposure,c.exposure)
+                     && Objects.equals(settings,c.settings);
+         }
+-        @Override public int hashCode(){return Objects.hash(exposure,lockGeneration,settings);}
++        @Override public int hashCode(){return Objects.hash(exposure,lockGeneration,settings,tungstenGuardEnabled);}
+     }
+     public static final class Frame {
+         public final long seriesId,planId,basePlanId,baseExposureNs;
+         public final int index,count,baseIso,saveMode,saturation,contrast,sharpness;
+-        public final boolean unfiltered;
++        public final boolean unfiltered, tungstenGuardEnabled;
+         public final double requestedEv,actualEv;
+         public Frame(long seriesId,long planId,long basePlanId,long baseTime,int baseIso,int index,int count,
+                 double requestedEv,long time,int saveMode,boolean unfiltered,int saturation,int contrast,int sharpness){
++            this(seriesId, planId, basePlanId, baseTime, baseIso, index, count, requestedEv, time,
++                    saveMode, unfiltered, saturation, contrast, sharpness, true);
++        }
++        private Frame(long seriesId,long planId,long basePlanId,long baseTime,int baseIso,int index,int count,
++                double requestedEv,long time,int saveMode,boolean unfiltered,int saturation,int contrast,int sharpness,
++                boolean tungstenGuardEnabled) {
++            this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.seriesId=seriesId;this.planId=planId;this.basePlanId=basePlanId;this.baseExposureNs=baseTime;
+             this.baseIso=baseIso;this.index=index;this.count=count;this.requestedEv=requestedEv;
+             this.actualEv=Math.log(time/(double)baseTime)/Math.log(2.0);this.saveMode=saveMode;
+@@ -119,7 +131,7 @@ public final class M9Bracket1A {
+             if(base==null)base=live;
+             double offset=settings.offsets()[index];long time=shutter(base.exposureNs,offset,min,max);
+             pending=new Frame(ticket,id,base.id,base.exposureNs,base.iso,index,settings.frames,offset,time,
+-                    saveMode,unfiltered,saturation,contrast,sharpness);
++                    saveMode,unfiltered,saturation,contrast,sharpness,context.tungstenGuardEnabled);
+             state=SAVING;deadline=now+120000+time/1000000;
+             return project(base,live,id,now,pending,time);
+         }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
+index d2d639f..8349d61 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9GpuPreview2A.java
+@@ -144,6 +144,9 @@ public final class M9GpuPreview2A {
+         public float[] white() { return white.clone(); }
+         public byte[] inverseTexture() { return inverse.clone(); }
+         public JSONObject diagnostics() {
++            return diagnostics(com.particlesdevs.photoncamera.m9.render.M9TungstenGuardSettings.enabled());
++        }
++        public JSONObject diagnostics(boolean tungstenGuardEnabled) {
+             JSONObject o=new JSONObject();
+             try {
+                 o.put("revision",REVISION).put("ready",ready).put("reason",reason).put("cameraId",cameraId);
+@@ -151,7 +154,7 @@ public final class M9GpuPreview2A {
+                 o.put("continuityHeld",continuityHeld);
+                 o.put("currentContractReason",continuityContractReason);
+                 o.put("lastGoodAgeMs",continuityLastGoodAgeMs>=0?continuityLastGoodAgeMs:JSONObject.NULL);
+-                o.put("tungstenGuardPolicy",ready
++                o.put("tungstenGuardPolicy", !tungstenGuardEnabled ? "off" : ready
+                         ? (continuityHeld?"held_source_current_live_TG1":"native_source_TG1")
+                         : "OES_fallback_current_live_TG1");
+                 o.put("inputDomain",ready?"reported_contrast_curve_OES_reconstructed_sensor_RGB":"processed_OES_exposure_only_fallback");
+@@ -163,7 +166,7 @@ public final class M9GpuPreview2A {
+                 o.put("limitations","ISP_CCM_approximation_demosaic_shading_and_preexisting_clipping;_no_RAW_recovery");
+                 o.put("toneNormalization","unity_pending_live_linear_TC20_meter");
+                 o.put("rawCpuPreview",false).put("fittedResidualStack",false);
+-                o.put("sat2",ready).put("curve02",ready).put("tungstenWeight",tungstenWeight);
++                o.put("sat2",ready).put("curve02",ready).put("tungstenWeight",tungstenGuardEnabled ? tungstenWeight : 0);
+                 o.put("inputToSensorGL",new JSONArray(undo));
+                 o.put("sensorToProPhotoGL",new JSONArray(source));
+                 o.put("proPhotoToM9GL",new JSONArray(target));
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+index 430bfbc..d3a4bde 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PreviewFrameState1W.java
+@@ -41,6 +41,12 @@ public final class M9PreviewFrameState1W {
+         this.stats = stats == null ? new float[0] : stats.clone();
+     }
+ 
++    public float effectiveTungstenWeight(boolean enabled) {
++        if (!enabled) return 0.0f;
++        float weight = source2A.continuityHeld || !source2A.ready ? tungstenWeight : source2A.tungstenWeight;
++        return bounded(weight, 0, 0, 1);
++    }
++
+     public static M9PreviewFrameState1W defaults() {
+         return new M9PreviewFrameState1W(null, -1, -1, 1, 0, 0, -.30f, 0, 1.120f, .20f, null);
+     }
+@@ -53,7 +59,7 @@ public final class M9PreviewFrameState1W {
+     public static final class Draw {
+         public final M9PreviewFrameState1W state;
+         public final long textureTimestampNs, submittedElapsedNs, sequence;
+-        public final boolean transformEnabled;
++        public final boolean transformEnabled, tungstenGuardEnabled;
+         public final float previewToneGain;
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+@@ -63,6 +69,12 @@ public final class M9PreviewFrameState1W {
+ 
+         public Draw(M9PreviewFrameState1W state, long textureTimestampNs,
+                 long submittedElapsedNs, long sequence, boolean transformEnabled, float previewToneGain) {
++            this(state, textureTimestampNs, submittedElapsedNs, sequence, transformEnabled, previewToneGain, true);
++        }
++
++        public Draw(M9PreviewFrameState1W state, long textureTimestampNs, long submittedElapsedNs,
++                long sequence, boolean transformEnabled, float previewToneGain, boolean tungstenGuardEnabled) {
++            this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.previewToneGain=bounded(previewToneGain,1,.70710678f,1.41421356f);
+             this.state = state;
+             this.textureTimestampNs = textureTimestampNs;
+@@ -96,14 +108,16 @@ public final class M9PreviewFrameState1W {
+                 o.put("previewToneRevision",M9PreviewTc20Math1A.REVISION);
+                 o.put("previewToneAuthorityEv","[-0.5,+0.5]");
+                 o.put("toneModel", "M9LIVEGL2A_CONTROLLEDOES");
+-                o.put("source2A", state.source2A.diagnostics());
++                o.put("source2A", state.source2A.diagnostics(tungstenGuardEnabled));
+                 o.put("colourPath", state.source2A.ready && transformEnabled
+                         ? "reconstructed_sensor_native_M9_SAT2_curve02"
+-                        : "processed_OES_exposure_plus_TG1_fallback");
++                        : (tungstenGuardEnabled ? "processed_OES_exposure_plus_TG1_fallback" : "processed_OES_exposure_only_fallback"));
+                 o.put("curve02Live", transformEnabled && state.source2A.ready);
+                 o.put("sat2Live", transformEnabled && state.source2A.ready);
+-                o.put("tungstenGuardLive", transformEnabled);
+-                o.put("tungstenGuardAuthority",
++                o.put("tungstenGuardEnabled", tungstenGuardEnabled);
++                o.put("tungstenGuardLive", transformEnabled && tungstenGuardEnabled);
++                o.put("tungstenGuardWeight", transformEnabled ? state.effectiveTungstenWeight(tungstenGuardEnabled) : 0);
++                o.put("tungstenGuardAuthority", !tungstenGuardEnabled ? "off" :
+                         (state.source2A.continuityHeld || !state.source2A.ready)
+                                 ? "live_neutral_independent_of_source_contract"
+                                 : "native_source_context");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+index 7b79b91..62cc692 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -345,6 +345,7 @@ public final class M9PrimaryRenderQueue {
+         // Freeze once at RAW enqueue: later settings changes cannot split JPEG and DNG.
+         final int saturationBank = bracket==null?M9SaturationSettings.selected():bracket.saturation;
+         final int contrastLevel = bracket==null?M9ContrastSettings.selected():bracket.contrast;
++        final boolean tungstenGuardEnabled = bracket == null ? M9TungstenGuardSettings.enabled() : bracket.tungstenGuardEnabled;
+         final int sharpnessLevel = bracket==null?M9SharpnessSettings.selected():bracket.sharpness;
+         final M9SaveSelection output = M9SaveSelection.fromMode(
+                 bracket==null?PreferenceKeys.isSaveRaw():bracket.saveMode,
+@@ -389,7 +390,7 @@ public final class M9PrimaryRenderQueue {
+                 long renderStartedNs = System.nanoTime();
+                 M9PhotonBoundary2Q.frame(ownedFrame, "rendererEntry", captureResult, null);
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+-                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, output.jpeg);
++                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, output.jpeg);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
+                 if (renderResult != null && renderResult.diagnostics != null) {
+                     try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index 920eee1..b591a40 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -95,10 +95,15 @@ public final class M9R35Renderer {
+         final int bank;
+         final int contrast;
+         final int sharpness;
++        final boolean tungstenGuardEnabled;
+         final long[] even, odd;
+         SaturationState(int bank) { this(bank, M9Contrast.STANDARD); }
+         SaturationState(int bank, int contrast) {this(bank,contrast,com.particlesdevs.photoncamera.processing.M9Sharpness.STANDARD);}
+         SaturationState(int bank, int contrast, int sharpness) {
++            this(bank, contrast, sharpness, true);
++        }
++        SaturationState(int bank, int contrast, int sharpness, boolean tungstenGuardEnabled) {
++            this.tungstenGuardEnabled = tungstenGuardEnabled;
+             this.sharpness = com.particlesdevs.photoncamera.processing.M9Sharpness.normalize(sharpness);
+             this.contrast = M9Contrast.normalize(contrast);
+             this.bank = M9Saturation.normalize(bank);
+@@ -549,8 +554,16 @@ public final class M9R35Renderer {
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+             int contrastLevel, int sharpnessLevel, boolean saveJpeg) {
++        return renderAndSavePrimary(dngPath, frame, characteristics, captureResult, captureRequest,
++                cameraRotation, saturationBank, contrastLevel, sharpnessLevel, M9TungstenGuardSettings.enabled(), saveJpeg);
++    }
++
++    static Result renderAndSavePrimary(Path dngPath, ImageFrame frame,
++            CameraCharacteristics characteristics, CaptureResult captureResult,
++            CaptureRequest captureRequest, int cameraRotation, int saturationBank,
++            int contrastLevel, int sharpnessLevel, boolean tungstenGuardEnabled, boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel, sharpnessLevel));
++        RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled));
+         try {
+             return renderAndSaveInternal(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, true, saveJpeg);
+@@ -571,7 +584,7 @@ public final class M9R35Renderer {
+             CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute,
+             boolean saveJpeg) {
+         SaturationState previous = RENDER_SATURATION.get();
+-        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected(), M9SharpnessSettings.selected()));
++        if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected(), M9SharpnessSettings.selected(), M9TungstenGuardSettings.enabled()));
+         try {
+             return renderAndSaveSelected(dngPath, frame, characteristics,
+                     captureResult, captureRequest, cameraRotation, primaryRoute, saveJpeg);
+@@ -2485,7 +2498,8 @@ public final class M9R35Renderer {
+             d.put("longSide", LONG_SIDE);
+             d.put("cct", ctx.cct);
+             d.put("AWeight", ctx.wA);
+-            d.put("tungstenGuard", "TG1");
++            d.put("tungstenGuard", saturation().tungstenGuardEnabled ? "TG1" : "off");
++            d.put("tungstenGuardEnabled", saturation().tungstenGuardEnabled);
+             d.put("tungstenGuardWeight", tgWeight);
+             d.put("tungstenGuardStartK", TG_START_K);
+             d.put("tungstenGuardFullK", TG_FULL_K);
+@@ -4736,7 +4750,8 @@ public final class M9R35Renderer {
+             d.put("longSide", LONG_SIDE);
+             d.put("cct", ctx.cct);
+             d.put("AWeight", ctx.wA);
+-            d.put("tungstenGuard", "TG1");
++            d.put("tungstenGuard", saturation().tungstenGuardEnabled ? "TG1" : "off");
++            d.put("tungstenGuardEnabled", saturation().tungstenGuardEnabled);
+             d.put("tungstenGuardWeight", tgWeight);
+             d.put("tungstenGuardStartK", TG_START_K);
+             d.put("tungstenGuardFullK", TG_FULL_K);
+@@ -5863,6 +5878,11 @@ public final class M9R35Renderer {
+     }
+ 
+     private static double tungstenGuardWeight(double cct) {
++        return tungstenGuardWeight(cct, saturation().tungstenGuardEnabled);
++    }
++
++    static double tungstenGuardWeight(double cct, boolean enabled) {
++        if (!enabled) return 0.0;
+         double x = clamp((TG_START_K - cct) / (TG_START_K - TG_FULL_K), 0.0, 1.0);
+         // Smoothstep avoids a visible regime edge in mixed light.
+         return x * x * (3.0 - 2.0 * x);
+@@ -6170,9 +6190,8 @@ public final class M9R35Renderer {
+     public static double[][] exportPreviewContext2A(CameraCharacteristics chars, CaptureResult result)
+             throws Exception {
+         ColorContext c = buildNativeProspectiveSource(chars, result).ctx;
+-        double x = clamp((TG_START_K - c.cct) / (TG_START_K - TG_FULL_K), 0.0, 1.0);
+         return new double[][]{c.camToPp.clone(), c.ppToM9.clone(), c.cw.clone(),
+-                new double[]{x*x*(3.0-2.0*x)}};
++                new double[]{tungstenGuardWeight(c.cct, true)}};
+     }
+     // M9LIVEGL2A_EXPORT_END
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TungstenGuardSettings.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TungstenGuardSettings.java
+new file mode 100644
+index 0000000..24b81e8
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TungstenGuardSettings.java
+@@ -0,0 +1,23 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++public final class M9TungstenGuardSettings {
++    public static final String KEY = "pref_m9_tungsten_guard";
++
++    private M9TungstenGuardSettings() {}
++
++    public static boolean enabled() {
++        return enabled(PhotonCamera.getSettingsManagerStatic());
++    }
++
++    static boolean enabled(SettingsManager settings) {
++        if (settings == null) return true;
++        try {
++            return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, KEY, true);
++        } catch (NumberFormatException | ClassCastException malformed) {
++            return true;
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+index 3b29435..30ab9e0 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -394,10 +394,8 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+         // M9TUNGSTENCONT1A: TG1 is illuminant authority, not source-contract authority.
+         // Preserve the native exact weight on a normal GL2A frame. If the source is
+         // held or genuinely falls back, use the independently updated live neutral.
+-        float tungsten1A = (frame1W.source2A.continuityHeld || !frame1W.source2A.ready)
+-                ? frame1W.tungstenWeight : frame1W.source2A.tungstenWeight;
+-        if (!Float.isFinite(tungsten1A)) tungsten1A = 0.0f;
+-        GLES20.glUniform1f(uTungsten2A, Math.max(0.0f, Math.min(1.0f, tungsten1A)));
++        boolean tungstenGuardEnabled = com.particlesdevs.photoncamera.m9.render.M9TungstenGuardSettings.enabled();
++        GLES20.glUniform1f(uTungsten2A, frame1W.effectiveTungstenWeight(tungstenGuardEnabled));
+         GLES20.glUniform1i(uM9Curve, 1);
+         GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mM9CurveTex);
+@@ -422,7 +420,7 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+                     android.os.SystemClock.elapsedRealtimeNanos());
+         }
+         mM9LastDraw1W = new M9PreviewFrameState1W.Draw(frame1W, textureTimestamp1W,
+-                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A);
++                android.os.SystemClock.elapsedRealtimeNanos(), ++mM9DrawSequence1W, mM9CurveTex != 0, previewTc20Gain1A, tungstenGuardEnabled);
+         // Rounded screen corners do not apply to offscreen meter/probe tiles.
+         GLES20.glUniform1f(uCornerRadius, 0f);
+         try {
+diff --git a/app/src/main/res/values/m9_menu.xml b/app/src/main/res/values/m9_menu.xml
+index 5ff067a..2903ece 100644
+--- a/app/src/main/res/values/m9_menu.xml
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -24,4 +24,6 @@
+     <string-array name="m9_menu_timer_indices" translatable="false">
+         <item>0</item><item>1</item><item>2</item>
+     </string-array>
++    <string name="m9_tungsten_guard_title">Tungsten guard</string>
++    <string name="m9_tungsten_guard_summary">Reduce yellow and green casts in warm light.</string>
+ </resources>
+diff --git a/app/src/main/res/xml/preferences.xml b/app/src/main/res/xml/preferences.xml
+index 24ef506..8c1de59 100644
+--- a/app/src/main/res/xml/preferences.xml
++++ b/app/src/main/res/xml/preferences.xml
+@@ -359,6 +359,13 @@
+                 android:defaultValue="false"
+                 android:layout="@layout/preference_with_margin"/>
+         <Preference android:key="pref_export_tracking_trace" android:title="@string/m9_export_tracking_trace" android:persistent="false" android:layout="@layout/preference_with_margin" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++            android:key="pref_m9_tungsten_guard"
++            android:title="@string/m9_tungsten_guard_title"
++            android:summary="@string/m9_tungsten_guard_summary"
++            android:defaultValue="true"
++            android:layout="@layout/preference_with_margin"
++            android:icon="@drawable/ic_saturation" />
+         <ListPreference
+                 android:key="pref_m9_saturation"
+                 android:layout="@layout/preference_with_margin"
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+index da53aae..19cea16 100644
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -7,6 +7,13 @@
+             <Preference android:key="m9_profile_save" android:title="@string/m9_profile_save" android:summary="@string/m9_profile_save_summary" android:layout="@layout/preference_with_margin" android:icon="@drawable/ic_save" android:persistent="false" />
+             <PreferenceCategory android:key="m9_profile_saved" android:title="@string/m9_profile_saved" android:layout="@layout/preference_category_layout" />
+         </PreferenceScreen>
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++            android:key="pref_m9_tungsten_guard"
++            android:title="@string/m9_tungsten_guard_title"
++            android:summary="@string/m9_tungsten_guard_summary"
++            android:defaultValue="true"
++            android:layout="@layout/preference_with_margin"
++            android:icon="@drawable/ic_saturation" />
+         <ListPreference android:key="pref_m9_saturation" android:layout="@layout/preference_with_margin" android:title="@string/m9_saturation_title" android:dialogTitle="@string/m9_saturation_title" android:entries="@array/m9_saturation_entries" android:entryValues="@array/m9_saturation_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <ListPreference android:key="pref_m9_contrast" android:layout="@layout/preference_with_margin" android:title="@string/m9_contrast_title" android:dialogTitle="@string/m9_contrast_title" android:entries="@array/m9_contrast_entries" android:entryValues="@array/m9_contrast_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <ListPreference android:key="pref_m9_sharpness" android:layout="@layout/preference_with_margin" android:title="@string/m9_sharpness_title" android:dialogTitle="@string/m9_sharpness_dialog" android:entries="@array/m9_sharpness_entries" android:entryValues="@array/m9_sharpness_values" android:defaultValue="2" app:useSimpleSummaryProvider="true" />
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java
+index 146ab01..04a3dd4 100644
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9BracketTest.java
+@@ -21,6 +21,18 @@ public class M9BracketTest {
+     private long start(M9Bracket1A.Series s,int frames,int step,int order,int mode){
+         return s.start(normal(),new M9Bracket1A.Settings(true,frames,step,order),mode,true,2,2,3,100);
+     }
++    @Test public void bracketFreezesDisabledGuardAndDetectsAChange() {
++        M9Bracket1A.Context original = normal();
++        M9Bracket1A.Context off = new M9Bracket1A.Context(original.exposure, original.lockGeneration,
++                original.settings, false);
++        M9Bracket1A.Series series = new M9Bracket1A.Series();
++        long now = 1000;
++        long token = series.start(off, new M9Bracket1A.Settings(true, 3, 1, 0), 1, false, 2, 2, 2, now);
++        assertTrue(series.request(token, off, now));
++        M9ExposurePlan1A frame = series.frame(token, off, plan(10, now), 11, now, 1, Long.MAX_VALUE);
++        assertFalse(frame.bracket.tungstenGuardEnabled);
++        assertFalse(series.valid(token, original));
++    }
+     @Test public void supportedSequencesAndSevenFrameRestriction(){
+         assertArrayEquals(new double[]{0,.5,-.5},new M9Bracket1A.Settings(true,3,1,0).offsets(),0);
+         assertArrayEquals(new double[]{0,1,-1,2,-2},new M9Bracket1A.Settings(true,5,2,0).offsets(),0);
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9TungstenGuardTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9TungstenGuardTest.java
+new file mode 100644
+index 0000000..4afcf4c
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9TungstenGuardTest.java
+@@ -0,0 +1,38 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import com.particlesdevs.photoncamera.m9.preview.M9PreviewFrameState1W;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++import org.junit.Test;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++import org.mockito.MockMakers;
++
++public class M9TungstenGuardTest {
++    @Test public void existingInstallDefaultsToAutoAndSwitchCanChangeBothWays() {
++        assertTrue(M9TungstenGuardSettings.enabled(null));
++        SettingsManager settings = mock(SettingsManager.class, withSettings().mockMaker(MockMakers.SUBCLASS));
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9TungstenGuardSettings.KEY, true))
++                .thenReturn(true, false, true).thenThrow(new NumberFormatException());
++        assertTrue(M9TungstenGuardSettings.enabled(settings));
++        assertFalse(M9TungstenGuardSettings.enabled(settings));
++        assertTrue(M9TungstenGuardSettings.enabled(settings));
++        assertTrue(M9TungstenGuardSettings.enabled(settings));
++    }
++
++    @Test public void autoRetainsOriginalCurveAndOffBypassesEveryIlluminant() {
++        double[] kelvin = {2800, 3200, 3850, 4500, 6500};
++        double[] expectedAuto = {1, 1, .5, 0, 0};
++        for (int i = 0; i < kelvin.length; i++) {
++            assertEquals(expectedAuto[i], M9R35Renderer.tungstenGuardWeight(kelvin[i], true), 0);
++            assertEquals(0, M9R35Renderer.tungstenGuardWeight(kelvin[i], false), 0);
++        }
++    }
++
++    @Test public void cachedFallbackFrameCanSwitchOffAndBackOn() {
++        M9PreviewFrameState1W frame = new M9PreviewFrameState1W(null, 1, 1, 1, 0, .75f,
++                0, 0, 1, 0, null);
++        assertEquals(.75f, frame.effectiveTungstenWeight(true), 0);
++        assertEquals(0f, frame.effectiveTungstenWeight(false), 0);
++        assertEquals(.75f, frame.effectiveTungstenWeight(true), 0);
++    }
++}
