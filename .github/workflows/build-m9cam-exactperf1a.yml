@@ -1,0 +1,144 @@
+name: M9Cam 3.43 EXACTPERF1A build, parity, tests and installer
+
+on:
+  push:
+    branches: ['claude/dazzling-galileo-rbqoe6']
+    paths:
+      - 'patches/exactperf1a/**'
+      - 'scripts/ci/**'
+      - '.github/workflows/build-m9cam-exactperf1a.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m9cam-exactperf1a-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+
+      - name: Reconstruct and verify 3.43 source
+        # Assemble outside the checkout so historical patches cannot resolve against it.
+        run: python3 scripts/ci/prepare_314.py "$RUNNER_TEMP/ci-source" --exact-perf
+
+      - name: Derive the unchanged 3.42 parent by reversing only the 3.43 patch
+        run: |
+          cp -a "$RUNNER_TEMP/ci-source/PhotonCamera_343" "$RUNNER_TEMP/parent"
+          git -C "$RUNNER_TEMP/parent" apply -R --whitespace=error "$GITHUB_WORKSPACE/patches/exactperf1a/source.patch"
+          python3 - "$RUNNER_TEMP/parent" <<'EOF'
+          import hashlib, json, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          for name, pins in json.loads(Path('patches/exactperf1a/source-hashes.json').read_text()).items():
+              path = root / name
+              actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+              assert actual == pins['before'], f'parent mismatch: {name}'
+          print('3.42 parent restored for every changed file')
+          EOF
+
+      - name: Rebuild parent native libraries at the accepted build path
+        # The accepted libraries embed /home/runner/work/M9Camera_refresh/M9Camera_refresh/PhotonCamera.
+        run: |
+          cp -a "$RUNNER_TEMP/parent" "$GITHUB_WORKSPACE/PhotonCamera"
+          (cd PhotonCamera && bash gradlew :app:externalNativeBuildDebug --no-daemon --max-workers=2)
+          for abi in arm64-v8a armeabi-v7a; do
+            mkdir -p "$RUNNER_TEMP/native-parent/$abi"
+            find PhotonCamera/app/build/intermediates/cxx -path "*/obj/$abi/*.so" -exec cp -n {} "$RUNNER_TEMP/native-parent/$abi/" \;
+            ls -la "$RUNNER_TEMP/native-parent/$abi"
+          done
+          rm -rf "$GITHUB_WORKSPACE/PhotonCamera"
+
+      - name: Place the 3.43 candidate at the same build path
+        run: |
+          mv "$RUNNER_TEMP/ci-source/PhotonCamera_343" "$GITHUB_WORKSPACE/PhotonCamera"
+          mkdir -p ci-reports
+          cp -r "$RUNNER_TEMP/ci-source/verification" ci-reports/verification
+
+      - name: Host native parity (parent vs candidate kernels, ThreadSanitizer, DNG writer -O0/-O2)
+        run: python3 patches/exactperf1a/host/native_parity.py "$RUNNER_TEMP/parent" PhotonCamera ci-reports/native-parity
+
+      - name: Run tracking and focus policy checks against 3.43
+        run: bash scripts/ci/test_tracking.sh PhotonCamera
+
+      - name: Initialize Java and Kotlin analysis
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          source-root: PhotonCamera
+          threads: 2
+
+      - name: Build and run all selected regression suites
+        run: python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/PhotonCamera" --run
+
+      - name: Verify library release resources
+        working-directory: PhotonCamera
+        run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
+
+      - name: Native provenance gate
+        run: |
+          mkdir -p installer
+          python3 patches/exactperf1a/native_provenance.py patches/trackingrecovery1a/baseline \
+            "$RUNNER_TEMP/native-parent" \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.43_EXACTPERF1A-debug.apk installer
+
+      - name: Package and verify the 3.43 installer
+        run: |
+          cp ci-reports/verification/exactperf1a.json installer/SOURCE_VERIFICATION.json
+          cp ci-reports/verification/MODEL_PROVENANCE.json installer/
+          cp ci-reports/native-parity/NATIVE_PARITY.json installer/
+          cp TEST_VERIFICATION.json installer/
+          python3 patches/exactperf1a/package.py PhotonCamera \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.43_EXACTPERF1A-debug.apk \
+            patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" installer
+
+      - name: Analyze reconstructed production source
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /m9cam-exactperf1a/java-kotlin
+          output: ci-reports/codeql
+          wait-for-processing: true
+
+      - name: Upload verified installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-3.43-EXACTPERF1A-installer
+          path: installer/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Retain verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9cam-exactperf1a-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci-reports/**
+            installer/*.json
+            TEST_VERIFICATION.json
+            PhotonCamera/app/build/test-results/testDebugUnitTest/**
+            PhotonCamera/app/build/reports/tests/testDebugUnitTest/**
+          retention-days: 30
+          if-no-files-found: warn

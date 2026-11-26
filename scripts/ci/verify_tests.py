@@ -103,6 +103,10 @@ if __name__ == "__main__":
     if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/util/TrackingTraceExportTest.java").is_file():
         SUITES["TrackingTraceExportTest"] = 4
         SUITES["TrackingTraceSettingsTest"] = 2
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9ShadingParallel1ATest.java").is_file():
+        SUITES["M9ShadingParallel1ATest"] = 4
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/processing/M9DngProfileStagingTest.java").is_file():
+        SUITES["M9DngProfileStagingTest"] = 3
     meter_suite = args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9TrackedSubjectMeterTest.java"
     if meter_suite.is_file():
         SUITES["M9TrackedSubjectMeterTest"] = 9 if "twoIndependentBrightFaceFramesProtectHighlightsOnce" in meter_suite.read_text() else 5

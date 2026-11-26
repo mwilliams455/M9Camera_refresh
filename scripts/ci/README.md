@@ -29,3 +29,10 @@ from the signed 3.13 APK (SHA-256
 The adjacent manifest pins all 37 native libraries and 301 assets. Packaging
 verifies every entry and the signed output. All packaging inputs are available
 independently of previous Actions runs.
+
+## 3.43 EXACTPERF1A candidate
+
+`build-m9cam-exactperf1a.yml` reconstructs the performance-only 3.43 candidate with
+`prepare_314.py <dest> --exact-perf`, rebuilds the 3.42 parent's native libraries for the
+provenance gate, runs the native parity suite and regression tests, and packages the
+installer. See patches/exactperf1a/README.md. The workflow above still builds 3.42.

@@ -127,6 +127,7 @@ def main():
         (340, "3.40-subjectae1a", "subjectae1a", "--subject-ae"),
         (341, "3.41-facehighlight1a", "facehighlight1a", "--face-highlight"),
         (342, "3.42-facehighlight1b", "facehighlight1b", "--adaptive-face-highlight"),
+        (343, "3.43-exactperf1a", "exactperf1a", "--exact-perf"),
     )
     for number, label, stage, flag in versions[1:]:
         parser.add_argument(flag, dest="requested_versions", action="append_const", const=number,

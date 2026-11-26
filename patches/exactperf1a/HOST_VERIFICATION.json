@@ -1,0 +1,41 @@
+{
+  "revision": "M9EXACTPERF1A_HOST_VERIFICATION",
+  "scope": "4-core x86 host; not handset execution or phone timing",
+  "parentSource": "3.42-facehighlight1b reconstructed by scripts/ci/prepare_314.py; production fingerprint c537092768597cb26787be7e29c4ef9f609bf02cda45fea7d0b35db37f35be72 (model binaries stood in by their published SHA-256)",
+  "candidateProductionFingerprint": "578a87323642ab000b2772dedbcf91c6e5d8e9ccd203d00722b461be98e3b091",
+  "nativeKernelParity": {
+    "cases": 87,
+    "failures": 0,
+    "dngNoise4096x3072Mode1": {
+      "parentSerial": "PASS dng-noise parallel 4096x3072 mode 1 workers 1 (changed 5495216; parent 792.0 ms, parallel 773.5 ms)",
+      "parallel4": "PASS dng-noise parallel 4096x3072 mode 1 workers 4 (changed 5495216; parent 792.0 ms, parallel 219.8 ms)"
+    },
+    "phaseNoiseDynamicAllExact": true
+  },
+  "threadSanitizerDngNoise": {
+    "exitCode": 0,
+    "dataRaceReported": false
+  },
+  "dngWriterO0VersusO2": {
+    "files": {
+      "probe0.dng": 25171000,
+      "probe1.dng": 622780,
+      "probe2.dng": 9664,
+      "probe3.dng": 25171000
+    },
+    "identical": true
+  },
+  "javaUnitTestsOnHost": {
+    "M9ShadingParallel1ATest": "4/4 pass",
+    "M9DngProfileStagingTest": "3/3 pass",
+    "mutationCheck": "rounding change in shading and missing truncate in rollback each detected"
+  },
+  "javacChangedFilesAgainstAndroidFrameworkJar": "0 errors in the 7 changed main-source files; identical unrelated-dependency error count to the 3.42 baseline; canary type error detected",
+  "earlierBenchmarks12MP": {
+    "dngNoiseStage": "single thread 620 ms -> 199 ms on 4 threads, byte-identical",
+    "phaseNoiseDynamicScheduling": "~560-580 ms -> ~390-435 ms on 4 workers with a clipped-highlight window, identical output hash",
+    "javaLensShadingPass": "JIT 104-141 ms -> 33-41 ms on 4 threads; interpreted 4.6-6.3 s single-threaded, byte-identical",
+    "dngSerializer": "-O0 172 ms vs -O2 118 ms for a 24 MB RAW16 DNG"
+  },
+  "status": "PASS"
+}
