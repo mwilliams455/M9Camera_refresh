@@ -114,13 +114,6 @@ jobs:
             PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.43_EXACTPERF1A-debug.apk \
             patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" installer
 
-      - name: Analyze reconstructed production source
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: /m9cam-exactperf1a/java-kotlin
-          output: ci-reports/codeql
-          wait-for-processing: true
-
       - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
@@ -128,6 +121,13 @@ jobs:
           path: installer/
           if-no-files-found: error
           retention-days: 90
+
+      - name: Analyze reconstructed production source
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /m9cam-exactperf1a/java-kotlin
+          output: ci-reports/codeql
+          wait-for-processing: true
 
       - name: Retain verification reports
         if: always()

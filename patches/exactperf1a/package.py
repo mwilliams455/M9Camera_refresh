@@ -66,8 +66,14 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
         hashes = json.loads((patches / stage / 'source-hashes.json').read_text())
         for name in names:
             assert sha(new.read(name)) == hashes['app/src/main/' + name]['after'], name
-    assert {n for n in new_names if n.startswith('assets/') and not n.endswith('/')} == \
-        asset_names | extra_assets | scene_assets | species_assets
+    # A non-debuggable variant also packages the AndroidX ART baseline profile. It lets
+    # Android precompile hot library code at install; it contains no app resources.
+    profile_assets = {'assets/dexopt/baseline.prof', 'assets/dexopt/baseline.profm'}
+    actual_assets = {n for n in new_names if n.startswith('assets/') and not n.endswith('/')}
+    required_assets = asset_names | extra_assets | scene_assets | species_assets
+    unexpected, missing = actual_assets - required_assets - profile_assets, required_assets - actual_assets
+    assert not unexpected and not missing, f'Asset set changed: unexpected={sorted(unexpected)} missing={sorted(missing)}'
+    packaged_profile_assets = sorted(actual_assets & profile_assets)
     assert {n for n in new_names if n.startswith('lib/') and n.endswith('.so')} <= native_names
     for info in new.infolist():
         name = info.filename
@@ -137,6 +143,7 @@ report = dict(status='PASS', version=version, versionCode=code, sha256=sha(final
               rebuiltNativeLibraries=rebuilt_hashes,
               otherNativeLibrariesByteIdenticalTo313=sorted(native_names - rebuilt),
               preserved301OriginalAssets=True, bundledModelSha256=expected_model,
+              artBaselineProfileAssets=packaged_profile_assets,
               applicationDebuggable=False, signatureMatchesPrior=True, sixteenKiBAligned=True,
               bothProfileMenusVerified=True, nativeProvenance='PASS',
               phoneTimingAndVisualValidationPending=True)
