@@ -1,0 +1,46 @@
+{
+  "app/build.gradle": {
+    "before": "89ff6a1a6d4b8b0bcc43083fca5a35b819d85fcb4f533577941c7da5b1a72def",
+    "after": "1585c34cbaaab1d72c03b3be6723a3f6fe9886338736a3f06a5bbb5fd546e73f"
+  },
+  "app/src/main/cpp/m9noisecancel1b.cpp": {
+    "before": "054f1c68e05988391efc6ed14477ee53c494eeddc09dd3d1d867aaa111aa4743",
+    "after": "cb8e9910a1bfffa89c20789196bfbd46ad353e18d44f325cbfe523bd8dfcb871"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java": {
+    "before": "0ba79ad3db4e22cea7fcee08c65ae9f84f149fda48ceaa0d1e6e27184f5d4ad4",
+    "after": "be19050672830fffa0622d71c1490a51abacca78381fb506aa02f715621f1ec3"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java": {
+    "before": "959e17a4ce8fb0595ca503e530f92ae1b98a28ed2e64d15df04609d89cf14106",
+    "after": "6ff6102c5a909701b2dd88e201999b9c6e36a8b35de685d800f96d18b3c83b26"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java": {
+    "before": "81ce5e4ac64ccd97ef195316a9533f85e74bce9b878a9ded25b59cb334ef8e08",
+    "after": "4e245d6f39baceccb49d2774de9b78f3550636dddc722a7b2c6e50f1ce889cc4"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java": {
+    "before": null,
+    "after": "d59624436c443eb85dfbe28b5674a9832ce77fb4703e0066fd627b1b54903b87"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java": {
+    "before": "3ae3e46b42e2a4fc58271efa67db43164cbc6d882a7f0766ae0c22e00959d1b8",
+    "after": "409b8d1af4b1d98888d1d5a5795596152cb39732f861619d2d10c8ecf54e087f"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
+    "before": "fc11c635a09dc14041bddbfec8e822b47002602249f4575f3383444970ad7c06",
+    "after": "ad6f6cf3e9b7909a99517ebced126141551a72b40ca3754120377795d96f5e59"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderedLumaDiagnostic.java": {
+    "before": "b4a220cc8b0367f1a9d186f8f514a60ec4736c2592c778ae0255921189e8563f",
+    "after": "55c18caa27f8875f3be54844c3e77ed74eb956a204168e84d568ca3da64c547c"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": {
+    "before": "5162d94b2d6dbef26680785044f1db1b1291e3488ebda51ca6a6c6a373d2349d",
+    "after": "d9d9d1afc47d85e2568b9f945e6839f64c959c29c9c37eede9c58e0ecbe56cf7"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java": {
+    "before": null,
+    "after": "a14cc2cb93819e4f76927873c41eb198ac79a231fbee0fa0fe81165ac5342880"
+  }
+}

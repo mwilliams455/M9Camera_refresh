@@ -1,0 +1,731 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index a1800d1..94a3ca9 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27346
++        versionCode 27347
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.46-jpegperf'
++        versionName '3.47-jpegperf'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -106,7 +106,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.46_JPEGPERF-${variant.name}.apk"
++            outputFileName = "M9Cam_3.47_JPEGPERF-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/cpp/m9noisecancel1b.cpp b/app/src/main/cpp/m9noisecancel1b.cpp
+index 7bbabba..f3014ca 100644
+--- a/app/src/main/cpp/m9noisecancel1b.cpp
++++ b/app/src/main/cpp/m9noisecancel1b.cpp
+@@ -40,8 +40,8 @@ struct Nc1bAccum {
+     double blendSum=0.0,maxCorrection=0.0,sigmaSum=0.0;
+ };
+ struct Nc1bRows {
+-    std::vector<uint16_t> prev,cur,next,out,boundaryAfter;
+-    explicit Nc1bRows(size_t n):prev(n),cur(n),next(n),out(n),boundaryAfter(n){}
++    std::vector<uint16_t> prev, cur;
++    explicit Nc1bRows(size_t n) : prev(n), cur(n) {}
+ };
+ 
+ static inline void nc1b_process_row(const uint16_t* prev,const uint16_t* cur,
+@@ -111,68 +111,57 @@ static void nc1b_finish_stats(double* stats,const Nc1bAccum& a,double elapsedMs,
+     stats[10]=0.65;stats[11]=0.50;stats[12]=double(workers);stats[13]=1.0;
+ }
+ 
+-static void nc1b_process_band(uint16_t* rgb,int w,int h,int startY,int endY,
+-        const double* profile,const double* gains,int mw,int mh,double scale,
+-        Nc1bRows& rows,Nc1bAccum& acc){
+-    const size_t rowSamples=size_t(w)*3;
+-    const size_t rowBytes=rowSamples*sizeof(uint16_t);
+-    for(int y=startY;y<endY;y++){
+-        if(y+1==endY)std::memcpy(rows.next.data(),rows.boundaryAfter.data(),rowBytes);
+-        else std::memcpy(rows.next.data(),rgb+size_t(y+1)*rowSamples,rowBytes);
+-        std::memcpy(rows.out.data(),rows.cur.data(),rowBytes);
+-        nc1b_process_row(rows.prev.data(),rows.cur.data(),rows.next.data(),rows.out.data(),
+-                w,h,y,profile,gains,mw,mh,scale,acc);
+-        std::memcpy(rgb+size_t(y)*rowSamples,rows.out.data(),rowBytes);
+-        rows.prev.swap(rows.cur);
+-        rows.cur.swap(rows.next);
+-    }
+-}
++// Allocate every scratch row before touching RGB. Only the two rows straddling each
++// boundary are shared snapshots; all other rows are read by their owning worker.
++static int nc1b_run(uint16_t* rgb, int w, int h, const double* profile, const double* gains,
++        int mw, int mh, double scale, double* stats, int workers, int bands,
++        std::chrono::steady_clock::time_point started) {
++    const size_t rowSamples = size_t(w) * 3;
++    const size_t rowBytes = rowSamples * sizeof(uint16_t);
++    const int inner = h - 2;
++    auto firstRow = [&](int band) { return 1 + inner * band / bands; };
+ 
+-extern "C" int m9_noisecancel1b_apply(uint16_t* rgb,int w,int h,
+-        const double* profile,const double* gains,int mw,int mh,double scale,double* stats){
+-    if(!nc1b_validate(rgb,w,h,profile,gains,mw,mh,scale,stats))return -1;
+-    const auto started=std::chrono::steady_clock::now();
+-    const int innerRows=h-2;
+-    const int workers=(innerRows>=256)?std::min(8,innerRows):1;
+-    if(workers==1){
+-        const size_t rowSamples=size_t(w)*3,rowBytes=rowSamples*sizeof(uint16_t);
+-        Nc1bRows rows(rowSamples);Nc1bAccum a;
+-        std::memcpy(rows.prev.data(),rgb,rowBytes);
+-        std::memcpy(rows.cur.data(),rgb+rowSamples,rowBytes);
+-        std::memcpy(rows.boundaryAfter.data(),rgb+size_t(h-1)*rowSamples,rowBytes);
+-        nc1b_process_band(rgb,w,h,1,h-1,profile,gains,mw,mh,scale,rows,a);
+-        nc1b_finish_stats(stats,a,std::chrono::duration<double,std::milli>(
+-                std::chrono::steady_clock::now()-started).count(),1);
+-        return 0;
++    std::vector<Nc1bRows> scratch;
++    scratch.reserve(workers);
++    for (int i = 0; i < workers; ++i) scratch.emplace_back(rowSamples);
++    std::vector<Nc1bRows> boundary;
++    boundary.reserve(bands - 1);
++    for (int band = 1; band < bands; ++band) {
++        boundary.emplace_back(rowSamples);
++        const auto* first = rgb + rowSamples * firstRow(band);
++        std::memcpy(boundary.back().prev.data(), first - rowSamples, rowBytes);
++        std::memcpy(boundary.back().cur.data(), first, rowBytes);
+     }
+-
+-    const size_t rowSamples=size_t(w)*3,rowBytes=rowSamples*sizeof(uint16_t);
+-    // JPEGPERF346: split into more bands than threads and let the threads pull bands from a
+-    // queue, so a band of detailed rows no longer holds up the whole filter. Every band's
+-    // cross-boundary neighbour rows are still snapshotted before any thread writes, so each
+-    // band produces exactly the rows it produced before; only the order of bands changes.
+-    const int bands=std::max(workers,std::min(innerRows/32,workers*8));
+-    std::vector<Nc1bRows> rows;rows.reserve(bands);
+     std::vector<Nc1bAccum> acc(bands);
+-    std::vector<int> starts(bands),ends(bands);
+-    for(int i=0;i<bands;i++){
+-        const int s=1+(innerRows*i)/bands;
+-        const int e=1+(innerRows*(i+1))/bands;
+-        starts[i]=s;ends[i]=e;rows.emplace_back(rowSamples);
+-        // All neighbour rows that cross a band boundary are snapshotted before
+-        // any worker starts writing. This is the exact-parity race barrier.
+-        std::memcpy(rows[i].prev.data(),rgb+size_t(s-1)*rowSamples,rowBytes);
+-        std::memcpy(rows[i].cur.data(),rgb+size_t(s)*rowSamples,rowBytes);
+-        std::memcpy(rows[i].boundaryAfter.data(),rgb+size_t(e)*rowSamples,rowBytes);
+-    }
+-
+     std::atomic<int> nextBand{0};
+-    std::vector<std::thread> threads;threads.reserve(workers);
+-    for(int t=0;t<workers;t++)threads.emplace_back([&]{
+-        for(int i=nextBand.fetch_add(1);i<bands;i=nextBand.fetch_add(1))
+-            nc1b_process_band(rgb,w,h,starts[i],ends[i],profile,gains,mw,mh,scale,rows[i],acc[i]);
+-    });
+-    for(auto& t:threads)t.join();
++    auto run = [&](int worker) noexcept {
++        auto& rows = scratch[worker];
++        for (int band = nextBand.fetch_add(1); band < bands; band = nextBand.fetch_add(1)) {
++            const int start = firstRow(band), end = firstRow(band + 1);
++            const auto* before = band == 0 ? rgb : boundary[band - 1].prev.data();
++            const auto* after = band + 1 == bands ? rgb + (h - 1) * rowSamples : boundary[band].cur.data();
++            std::memcpy(rows.prev.data(), before, rowBytes);
++            for (int y = start; y < end; ++y) {
++                auto* out = rgb + y * rowSamples;
++                std::memcpy(rows.cur.data(), out, rowBytes);
++                const auto* next = y + 1 == end ? after : out + rowSamples;
++                // out still holds the original row. The filter writes just the changed channels.
++                nc1b_process_row(rows.prev.data(), rows.cur.data(), next, out, w, h, y,
++                        profile, gains, mw, mh, scale, acc[band]);
++                rows.prev.swap(rows.cur);
++            }
++        }
++    };
++    std::vector<std::thread> helpers;
++    helpers.reserve(workers - 1);
++    try {
++        for (int i = 1; i < workers; ++i) helpers.emplace_back(run, i);
++    } catch (const std::exception&) {
++        // Even if no helper can start, the caller drains every remaining band.
++    }
++    run(0);
++    for (auto& helper : helpers) helper.join();
++    workers = int(helpers.size()) + 1;
+ 
+     // Band totals are combined in band order, independent of which thread ran each band.
+     Nc1bAccum total;
+@@ -187,6 +176,27 @@ extern "C" int m9_noisecancel1b_apply(uint16_t* rgb,int w,int h,
+     return 0;
+ }
+ 
++extern "C" int m9_noisecancel1b_apply(uint16_t* rgb, int w, int h, const double* profile,
++        const double* gains, int mw, int mh, double scale, double* stats) {
++    if (!nc1b_validate(rgb,w,h,profile,gains,mw,mh,scale,stats)) return -1;
++    const auto started = std::chrono::steady_clock::now();
++    const int inner = h - 2;
++    const size_t bytesPerRow = size_t(w) * 3 * sizeof(uint16_t);
++    const int rowBudget = int((1024u * 1024u) / bytesPerRow);
++    int workers = inner >= 256 ? std::min(8, (rowBudget + 2) / 4) : 1;
++    int bands = workers == 1 ? 1 : std::min({workers * 8, inner / 32, 1 + rowBudget / 2 - workers});
++    for (;;) {
++        try {
++            return nc1b_run(rgb,w,h,profile,gains,mw,mh,scale,stats,workers,bands,started);
++        } catch (const std::bad_alloc&) {
++            // All fallible allocations are before the first write or worker dispatch.
++            if (bands == 1) return -2;
++            bands = std::max(1, bands / 2);
++            workers = std::min(workers, bands);
++        }
++    }
++}
++
+ #ifdef M9NOISEPERF1A_HOST
+ // Frozen 1.86 scalar implementation for exact output parity testing only.
+ extern "C" int m9_noisecancel1b_apply_scalar_reference(uint16_t* rgb,int w,int h,
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
+index f4494d7..5a8e989 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
+@@ -159,9 +159,12 @@ public final class M9ShutterTrace1A {
+     }
+     /** Synchronous small streaming digest: must finish before the EXIF worker is allowed to rewrite the file. */
+     public static void payloadWritten(Path path) {
++        payloadWritten(path, path);
++    }
++    public static void payloadWritten(Path path, Path encodedBytes) {
+         Session s=session(LEDGER.byFilename(path.getFileName().toString()));if(s==null)return;
+         long started=SystemClock.elapsedRealtimeNanos();
+-        try {s.payload=M9JpegSignature1A.read(path.toFile());long elapsed=SystemClock.elapsedRealtimeNanos()-started;
++        try {s.payload=M9JpegSignature1A.read(encodedBytes.toFile());long elapsed=SystemClock.elapsedRealtimeNanos()-started;
+             submit(()->{try{s.root.put("encodedBeforeExif",signature(s.payload)).put("payloadDigestNs",elapsed);persist(s,"encoded");}catch(Exception t){Log.w(REVISION,t.toString());}});
+         }catch(Throwable t){submit(()->{try{s.root.put("encodedBeforeExif",error(t));persist(s,"encode_probe_failed");}catch(Exception ignored){}});}
+     }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
+index c40b289..a59ce6c 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
+@@ -152,6 +152,12 @@ public final class M9JpegFinalizeQueue {
+                          ParseExif.ExifData exifData,
+                          ProcessingEventsListener processingEventsListener,
+                          Completion completion) {
++        return submit(jpegPath, exifData, processingEventsListener, completion, null);
++    }
++
++    static Ticket submit(Path jpegPath, ParseExif.ExifData exifData,
++                         ProcessingEventsListener processingEventsListener, Completion completion,
++                         M9PendingJpeg pending) {
+         if (jpegPath == null) throw new IllegalArgumentException("missing JPEG path");
+         if (exifData == null) throw new IllegalArgumentException("missing JPEG EXIF data");
+ 
+@@ -159,7 +165,7 @@ public final class M9JpegFinalizeQueue {
+                 EXECUTOR.getQueue().size(),
+                 EXECUTOR.getActiveCount(),
+                 MAX_PENDING);
+-        Runnable task = () -> runFinalize(ticket, jpegPath, exifData, processingEventsListener, true, completion);
++        Runnable task = () -> runFinalize(ticket, jpegPath, exifData, processingEventsListener, true, completion, pending);
+         try {
+             ticket.asyncAccepted = true;
+             ticket.fallbackCountSnapshot = FALLBACK_COUNT.get();
+@@ -172,7 +178,7 @@ public final class M9JpegFinalizeQueue {
+             ticket.fallbackCountSnapshot = FALLBACK_COUNT.incrementAndGet();
+             Log.d(TAG, "EXIFASYNC1A bounded metadata queue saturated; finalizing synchronously; fallbackCount="
+                     + ticket.fallbackCountSnapshot);
+-            runFinalize(ticket, jpegPath, exifData, processingEventsListener, false, completion);
++            runFinalize(ticket, jpegPath, exifData, processingEventsListener, false, completion, pending);
+         }
+         return ticket;
+     }
+@@ -209,14 +215,14 @@ public final class M9JpegFinalizeQueue {
+                                     ParseExif.ExifData exifData,
+                                     ProcessingEventsListener processingEventsListener,
+                                     boolean backgroundThread,
+-                                    Completion completion) {
++                                    Completion completion, M9PendingJpeg pending) {
+         final long startedNs = System.nanoTime();
+         ticket.queueWaitElapsedMs = (startedNs - ticket.queuedAtNs) / 1_000_000L;
+         try {
+             if (backgroundThread) Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+ 
+             long stageStartedNs = System.nanoTime();
+-            ExifInterface inter = ParseExif.setAllAttributes(jpegPath.toFile(), exifData);
++            ExifInterface inter = ParseExif.setAllAttributes((pending == null ? jpegPath : pending.staged).toFile(), exifData);
+             ticket.exifSetupElapsedNs = System.nanoTime() - stageStartedNs;
+             if (inter == null) throw new IllegalStateException("ParseExif.setAllAttributes returned null");
+ 
+@@ -250,6 +256,7 @@ public final class M9JpegFinalizeQueue {
+             stageStartedNs = System.nanoTime();
+             inter.saveAttributes();
+             ticket.exifSaveElapsedNs = System.nanoTime() - stageStartedNs;
++            if (pending != null) pending.publish();
+             ticket.success = true;
+ 
+             // Photon publication remains strictly after EXIF saveAttributes(), exactly as before.
+@@ -259,6 +266,7 @@ public final class M9JpegFinalizeQueue {
+                 ticket.publishElapsedNs = System.nanoTime() - stageStartedNs;
+             }
+         } catch (Throwable t) {
++            if (pending != null && !ticket.success) pending.recover(t);
+             ticket.success = false;
+             ticket.error = t.toString();
+             Log.e(TAG, "EXIFASYNC1A JPEG finalization failed: " + jpegPath, t);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
+index e327e9b..cd7ad8b 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
+@@ -62,7 +62,7 @@ final class M9NoiseCancel1B {
+         d.put("elapsedMs",stats[9]);
+         d.put("parallelWorkers",(int)stats[12]);
+         d.put("parallelMode",stats[13]==1.0?"disjoint_row_bands_preloaded_boundaries":"scalar_reference");
+-        d.put("bandScheduling","JPEGPERF346_up_to_64_preloaded_bands_work_queue");
++        d.put("bandScheduling","JPEGPERF347_bounded_rows_work_queue");
+         d.put("pixelMathRevision","NOISECANCEL1B_FROZEN_EXACT");
+         d.put("parallelParityPolicy","byte_exact_RGB_output_vs_frozen_1_86_scalar");
+         d.put("greenMutatedSamples",0);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
+new file mode 100644
+index 0000000..735fb8d
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
+@@ -0,0 +1,52 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import java.io.IOException;
++import java.nio.file.AtomicMoveNotSupportedException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.StandardCopyOption;
++
++/** A private, same-directory JPEG until the render and its EXIF have both succeeded. */
++final class M9PendingJpeg {
++    final Path target;
++    final Path staged;
++
++    private M9PendingJpeg(Path target, Path staged) {
++        this.target = target;
++        this.staged = staged;
++    }
++
++    static M9PendingJpeg create(Path target) throws IOException {
++        String name = target.getFileName().toString();
++        int dot = name.lastIndexOf('.');
++        String stem = dot > 0 ? name.substring(0, dot) : name;
++        Path staged = Files.createTempFile(target.toAbsolutePath().getParent(), "." + stem + "_recovered_", ".pending");
++        return new M9PendingJpeg(target, staged);
++    }
++
++    void publish() throws IOException {
++        try {
++            Files.move(staged, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
++        } catch (AtomicMoveNotSupportedException unsupported) {
++            // Both paths are in the same directory; Android rename never copies into the visible name.
++            if (!staged.toFile().renameTo(target.toFile())) throw unsupported;
++        }
++    }
++
++    void discard(Throwable failure) {
++        try { Files.deleteIfExists(staged); }
++        catch (IOException | SecurityException cleanup) { failure.addSuppressed(cleanup); }
++    }
++
++    void recover(Throwable failure) {
++        // Capture-specific and unique. Preserve the private copy if even a recovery rename fails.
++        String name = staged.getFileName().toString();
++        Path recovered = staged.resolveSibling(name.substring(1, name.length() - ".pending".length()) + ".jpg");
++        try {
++            Files.move(staged, recovered);
++            failure.addSuppressed(new IOException("Recovered JPEG at " + recovered));
++        } catch (IOException | SecurityException rename) {
++            failure.addSuppressed(new IOException("Unable to rename pending JPEG at " + staged, rename));
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+index 8bcf0c4..b791b5b 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PrimaryRenderQueue.java
+@@ -391,7 +391,7 @@ public final class M9PrimaryRenderQueue {
+                 long renderStartedNs = System.nanoTime();
+                 M9PhotonBoundary2Q.frame(ownedFrame, "rendererEntry", captureResult, null);
+                 renderResult = M9R35Renderer.renderAndSavePrimary(
+-                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, falloffStrength, output.jpeg);
++                        dngPath, ownedFrame, characteristics, captureResult, captureRequest, cameraRotation, saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, falloffStrength, output.jpeg, true);
+                 renderElapsedMs = (System.nanoTime() - renderStartedNs) / 1_000_000L;
+                 if (renderResult != null && renderResult.diagnostics != null) {
+                     try { renderResult.diagnostics.put("captureRequest1A", m9CaptureAudit); }
+@@ -411,7 +411,7 @@ public final class M9PrimaryRenderQueue {
+                             workerStartedNs, queueTelemetry);
+                     if (jpegPayloadSaved) {
+                         jpegFinalizeTicket = M9JpegFinalizeQueue.submit(jpegPath,
+-                                renderResult.jpegExifData, processingEventsListener, jpegCompletion);
++                                renderResult.jpegExifData, processingEventsListener, jpegCompletion, renderResult.pendingJpeg);
+                     } else {
+                         jpegCompletion.finished(null);
+                     }
+@@ -421,7 +421,7 @@ public final class M9PrimaryRenderQueue {
+                     // PERF3F EXIFASYNC1A: publication moves with EXIF finalization. The renderer
+                     // has already written the exact PERF3E JPEG payload; do not media-scan it here.
+                     jpegFinalizeTicket = M9JpegFinalizeQueue.submit(
+-                            jpegPath, renderResult.jpegExifData, processingEventsListener);
++                            jpegPath, renderResult.jpegExifData, processingEventsListener, null, renderResult.pendingJpeg);
+                 } else if (renderResult == null || !renderResult.success || output.jpeg) {
+                     error = renderResult != null ? renderResult.error : "null renderer result";
+                     Log.e(TAG, "M9SAVEMODE1A render/output failed: " + error);
+@@ -487,6 +487,7 @@ public final class M9PrimaryRenderQueue {
+             } catch (Throwable t) {
+                 // A submitted JPEG finalizer still owns file work even on a later handoff failure.
+                 if (jpegFinalizeTicket != null) jpegFinalizeTicket.awaitCompletion();
++                else if (renderResult != null && renderResult.pendingJpeg != null) renderResult.pendingJpeg.recover(t);
+                 saveTicket.fail(M9SaveStatus.PROCESSING);
+                 error = t.toString();
+                 Log.e(TAG, "PRIMARY2.4 QUEUE1B DNGASYNC1A render worker failed", t);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index e6022ae..483f16a 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -239,9 +239,16 @@ public final class M9R35Renderer {
+         public final String error;
+         public final JSONObject diagnostics;
+         public final ParseExif.ExifData jpegExifData;
++        final M9PendingJpeg pendingJpeg;
+ 
+         Result(boolean success, Path jpegPath, Path parityPngPath, String error, JSONObject diagnostics,
+                ParseExif.ExifData jpegExifData) {
++            this(success, jpegPath, parityPngPath, error, diagnostics, jpegExifData, null);
++        }
++
++        Result(boolean success, Path jpegPath, Path parityPngPath, String error, JSONObject diagnostics,
++               ParseExif.ExifData jpegExifData, M9PendingJpeg pendingJpeg) {
++            this.pendingJpeg = pendingJpeg;
+             this.success = success;
+             this.jpegPath = jpegPath;
+             this.parityPngPath = parityPngPath;
+@@ -557,18 +564,18 @@ public final class M9R35Renderer {
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+             int contrastLevel, int sharpnessLevel, boolean saveJpeg) {
+         return renderAndSavePrimary(dngPath, frame, characteristics, captureResult, captureRequest,
+-                cameraRotation, saturationBank, contrastLevel, sharpnessLevel, M9TungstenGuardSettings.enabled(), M9TargetFalloff1A.selected(), saveJpeg);
++                cameraRotation, saturationBank, contrastLevel, sharpnessLevel, M9TungstenGuardSettings.enabled(), M9TargetFalloff1A.selected(), saveJpeg, false);
+     }
+ 
+     static Result renderAndSavePrimary(Path dngPath, ImageFrame frame,
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, int saturationBank,
+-            int contrastLevel, int sharpnessLevel, boolean tungstenGuardEnabled, int falloffStrength, boolean saveJpeg) {
++            int contrastLevel, int sharpnessLevel, boolean tungstenGuardEnabled, int falloffStrength, boolean saveJpeg, boolean deferPublication) {
+         SaturationState previous = RENDER_SATURATION.get();
+         RENDER_SATURATION.set(new SaturationState(saturationBank, contrastLevel, sharpnessLevel, tungstenGuardEnabled, falloffStrength));
+         try {
+             return renderAndSaveInternal(dngPath, frame, characteristics,
+-                    captureResult, captureRequest, cameraRotation, true, saveJpeg);
++                    captureResult, captureRequest, cameraRotation, true, saveJpeg, deferPublication);
+         } finally {
+             if (previous == null) RENDER_SATURATION.remove(); else RENDER_SATURATION.set(previous);
+         }
+@@ -578,18 +585,18 @@ public final class M9R35Renderer {
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute) {
+         return renderAndSaveInternal(dngPath, frame, characteristics, captureResult,
+-                captureRequest, cameraRotation, primaryRoute, true);
++                captureRequest, cameraRotation, primaryRoute, true, false);
+     }
+ 
+     private static Result renderAndSaveInternal(Path dngPath, ImageFrame frame,
+             CameraCharacteristics characteristics, CaptureResult captureResult,
+             CaptureRequest captureRequest, int cameraRotation, boolean primaryRoute,
+-            boolean saveJpeg) {
++            boolean saveJpeg, boolean deferPublication) {
+         SaturationState previous = RENDER_SATURATION.get();
+         if (previous == null) RENDER_SATURATION.set(new SaturationState(M9SaturationSettings.selected(), M9ContrastSettings.selected(), M9SharpnessSettings.selected(), M9TungstenGuardSettings.enabled(), M9TargetFalloff1A.selected()));
+         try {
+             return renderAndSaveSelected(dngPath, frame, characteristics,
+-                    captureResult, captureRequest, cameraRotation, primaryRoute, saveJpeg);
++                    captureResult, captureRequest, cameraRotation, primaryRoute, saveJpeg, deferPublication);
+         } finally {
+             if (previous == null) RENDER_SATURATION.remove();
+         }
+@@ -665,7 +672,7 @@ public final class M9R35Renderer {
+                                                 CaptureRequest captureRequest,
+                                                 int cameraRotation,
+                                                 boolean primaryRoute,
+-                                                boolean saveJpeg) {
++                                                boolean saveJpeg, boolean deferPublication) {
+         final M9ExposurePlan1A exposurePlan1A = captureRequest != null
+                 && captureRequest.getTag() instanceof M9ExposurePlan1A
+                 ? (M9ExposurePlan1A) captureRequest.getTag() : null;
+@@ -681,6 +688,7 @@ public final class M9R35Renderer {
+         Bitmap bitmap = null;
+         java.util.concurrent.Future<Jpeg346> overlapJpeg346 = null;
+         ParseExif.ExifData overlapExif346 = null;
++        M9PendingJpeg pending = null;
+         if (primaryRoute && !m9LiveWysiwyg1ALiveRoute) M9RenderCrash1D.begin(dngPath);
+         try {
+             long setupStartedNs = System.nanoTime();
+@@ -847,7 +855,8 @@ public final class M9R35Renderer {
+                 M9RenderCrash1D.stage("pre_encode_trace");
+                 com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
+                 M9RenderCrash1D.stage("jpeg_encode_write");
+-                final Path overlapPath346 = jpgPath;
++                pending = M9PendingJpeg.create(jpgPath);
++                final Path overlapPath346 = pending.staged;
+                 final Bitmap overlapBitmap346 = bitmap;
+                 final ParseExif.ExifData overlapExifData346 = overlapExif346;
+                 overlapJpeg346 = JPEG_OVERLAP_346.submit(() -> {
+@@ -863,7 +872,9 @@ public final class M9R35Renderer {
+             final long postRenderDiagnosticsStartedNs346 = System.nanoTime();
+             // RENDERMETER1B read-only sparse sampling of the already-final bitmap.
+             // No pixel, TC20, colour or JPEG state is mutated by this diagnostic.
+-            JSONObject frozenDirectLuma = M9RenderedLumaDiagnostic.measure(bitmap);
++            boolean includeEdgeGrid = exposurePlan1A == null || m9LiveWysiwyg1ALiveRoute
++                    || M9OutputSettings.diagnosticsEnabled();
++            JSONObject frozenDirectLuma = M9RenderedLumaDiagnostic.measure(bitmap, includeEdgeGrid);
+             out.diagnostics.put("directRenderedLuma", frozenDirectLuma);
+             JSONObject edgeDecision;
+             try {
+@@ -1066,7 +1077,7 @@ public final class M9R35Renderer {
+             String dngName = dngPath.getFileName().toString();
+             int dot = dngName.lastIndexOf('.');
+             String stem = dot > 0 ? dngName.substring(0, dot) : dngName;
+-            if (saveJpeg) jpgPath = m9JpegPath(dngPath, primaryRoute);
++            if (saveJpeg && jpgPath == null) jpgPath = m9JpegPath(dngPath, primaryRoute);
+             pngPath = dngPath.resolveSibling(stem + "_M9_PARITY.png");
+             final double postRenderDiagnosticsElapsedMs346 =
+                     (System.nanoTime() - postRenderDiagnosticsStartedNs346) / 1_000_000.0;
+@@ -1096,20 +1107,21 @@ public final class M9R35Renderer {
+                 bitmap = null;
+                 if (!encoded.saved) throw new IllegalStateException("M9 JPEG payload save failed");
+                 M9RenderCrash1D.stage("jpeg_payload_written");
+-                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath);
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath, pending.staged);
+             } else if (saveJpeg) {
+                 exif = m9JpegExif(captureResult, captureRequest);
+                 M9RenderCrash1D.stage("pre_encode_trace");
+                 com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
+                 M9RenderCrash1D.stage("jpeg_encode_write");
+                 long jpegStartedNs = System.nanoTime();
+-                boolean jpgSaved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(jpgPath, bitmap, JPEG_QUALITY, exif);
++                pending = M9PendingJpeg.create(jpgPath);
++                boolean jpgSaved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.staged, bitmap, JPEG_QUALITY, exif);
+                 jpegEncodeWriteElapsedMs = (System.nanoTime() - jpegStartedNs) / 1_000_000L;
+                 jpegTiming = ImageSaver.Util.consumeM9JpegSaveTiming();
+                 bitmap = null;
+                 if (!jpgSaved) throw new IllegalStateException("M9 JPEG payload save failed");
+                 M9RenderCrash1D.stage("jpeg_payload_written");
+-                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath);
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath, pending.staged);
+             } else {
+                 // RAW-only still computes the exact capture-owned Leica profile/AE evidence,
+                 // but never opens a JPEG, encodes it, finalizes EXIF or publishes it.
+@@ -1474,10 +1486,18 @@ public final class M9R35Renderer {
+             // have frozen its own _M9.json queued record while this background job was running.
+             Log.d(TAG, "R3.8-H25/TG1 PRIMARY2.4 COLORNATIVE2A render complete in " + elapsedMs + " ms: " + jpgPath);
+             M9RenderCrash1D.stage("render_complete");
+-            return new Result(true, jpgPath, SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled() ? pngPath : null, null, diag, exif);
++            if (!deferPublication && pending != null) {
++                M9PendingJpeg accepted = pending;
++                pending = null;
++                try { accepted.publish(); }
++                catch (java.io.IOException | SecurityException failure) { accepted.recover(failure); throw failure; }
++            }
++            return new Result(true, jpgPath, SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled() ? pngPath : null,
++                    null, diag, exif, pending);
+         } catch (Throwable t) {
+             M9RenderCrash1D.failure(t);
+             if (overlapJpeg346 != null) awaitJpeg346Quietly(overlapJpeg346);
++            if (pending != null) pending.discard(t);
+             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+             Log.e(TAG, "R3.8-H25/TG1 render failed", t);
+             JSONObject failureDiag = new JSONObject();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderedLumaDiagnostic.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderedLumaDiagnostic.java
+index dc990eb..6d6f5a6 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderedLumaDiagnostic.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderedLumaDiagnostic.java
+@@ -18,6 +18,10 @@ public final class M9RenderedLumaDiagnostic {
+     private M9RenderedLumaDiagnostic() {}
+ 
+     public static JSONObject measure(Bitmap bitmap) {
++        return measure(bitmap, true);
++    }
++
++    static JSONObject measure(Bitmap bitmap, boolean includeEdgeGrid) {
+         JSONObject out = new JSONObject();
+         long startedNs = System.nanoTime();
+         try {
+@@ -77,7 +81,8 @@ public final class M9RenderedLumaDiagnostic {
+             out.put("global", global.toJson());
+             out.put("center50", center50.toJson());
+             out.put("middleCenter33", middleCenter33.toJson());
+-            out.put("edgePlacementGate1A", M9EdgePlacementGate1ADiagnostic.measure(bitmap));
++            if (includeEdgeGrid) out.put("edgePlacementGate1A", M9EdgePlacementGate1ADiagnostic.measure(bitmap));
++            else out.put("edgeGridSkippedForLockedExposure", true);
+             out.put("elapsedMs", (System.nanoTime() - startedNs) / 1_000_000.0);
+             out.put("valid", global.count > 0 && center50.count > 0 && middleCenter33.count > 0);
+             out.put("reason", "direct_finished_bitmap_luma_measured");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+index 2945ef2..4b57bf9 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -262,27 +262,25 @@ public class ImageSaver {
+             long totalStartedNs = System.nanoTime();
+             try {
+                 long stageStartedNs = System.nanoTime();
+-                OutputStream rawOutputStream = Files.newOutputStream(fileToSave);
+-                timing.fileOpenNs = System.nanoTime() - stageStartedNs;
+-                OutputStream timedRawOutputStream = new M9TimingOutputStream(rawOutputStream, timing);
+-                OutputStream outputStream = new java.io.BufferedOutputStream(timedRawOutputStream, 64 * 1024);
+-
+-                stageStartedNs = System.nanoTime();
+-                img.compress(Bitmap.CompressFormat.JPEG, jpgQuality, outputStream);
+-                timing.compressNs = System.nanoTime() - stageStartedNs;
+-                outputStream.flush();
+-                outputStream.close();
+-
+-                if (recycle) {
++                try (OutputStream raw = Files.newOutputStream(fileToSave);
++                     OutputStream output = new java.io.BufferedOutputStream(new M9TimingOutputStream(raw, timing), 64 * 1024)) {
++                    timing.fileOpenNs = System.nanoTime() - stageStartedNs;
+                     stageStartedNs = System.nanoTime();
+-                    img.recycle();
+-                    timing.recycleNs = System.nanoTime() - stageStartedNs;
++                    boolean compressed = img.compress(Bitmap.CompressFormat.JPEG, jpgQuality, output);
++                    timing.compressNs = System.nanoTime() - stageStartedNs;
++                    if (!compressed) throw new IOException("JPEG encoder returned false");
++                    output.flush();
+                 }
+                 return true;
+             } catch (IOException e) {
+                 e.printStackTrace();
+                 return false;
+             } finally {
++                if (recycle && !img.isRecycled()) {
++                    long recycleStart = System.nanoTime();
++                    img.recycle();
++                    timing.recycleNs = System.nanoTime() - recycleStart;
++                }
+                 timing.totalNs = System.nanoTime() - totalStartedNs;
+             }
+         }
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java
+new file mode 100644
+index 0000000..54a79f5
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java
+@@ -0,0 +1,115 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import android.app.Application;
++import android.graphics.Bitmap;
++import androidx.exifinterface.media.ExifInterface;
++
++import com.particlesdevs.photoncamera.api.ParseExif;
++import com.particlesdevs.photoncamera.processing.ImageSaver;
++
++import java.io.IOException;
++import java.io.OutputStream;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.stream.Stream;
++
++import org.json.JSONObject;
++import org.junit.Rule;
++import org.junit.Test;
++import org.junit.rules.TemporaryFolder;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk = 35, application = Application.class)
++public class M9Jpeg347Test {
++    @Rule public TemporaryFolder directory = new TemporaryFolder();
++
++    private Path target() {
++        return directory.getRoot().toPath().resolve("IMG_20261127_120315_00.jpg");
++    }
++
++    @Test public void rejectedRenderLeavesExistingGalleryFileAlone() throws Exception {
++        Path target = target();
++        Files.write(target, new byte[]{9, 8, 7});
++        M9PendingJpeg pending = M9PendingJpeg.create(target);
++        Files.write(pending.staged, new byte[]{1, 2});
++        pending.discard(new IOException("render rejected"));
++        assertArrayEquals(new byte[]{9, 8, 7}, Files.readAllBytes(target));
++        assertFalse(Files.exists(pending.staged));
++    }
++
++    @Test public void overlappingCapturesOwnDifferentStagingFiles() throws Exception {
++        M9PendingJpeg first = M9PendingJpeg.create(target());
++        M9PendingJpeg second = M9PendingJpeg.create(target());
++        assertNotEquals(first.staged, second.staged);
++        Files.write(second.staged, new byte[]{5});
++        first.discard(new IOException("first rejected"));
++        assertFalse(Files.exists(target()));
++        second.publish();
++        assertArrayEquals(new byte[]{5}, Files.readAllBytes(target()));
++    }
++
++    @Test public void rejectedEncodeReturnsFailureAndRetainsCallerOwnedBitmap() throws Exception {
++        Bitmap bitmap = mock(Bitmap.class);
++        when(bitmap.compress(eq(Bitmap.CompressFormat.JPEG), eq(95), any(OutputStream.class))).thenReturn(false);
++        M9PendingJpeg pending = M9PendingJpeg.create(target());
++        assertFalse(ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.staged, bitmap, 95, new ParseExif.ExifData(), false));
++        verify(bitmap, never()).recycle();
++        pending.discard(new IOException("encoder rejected"));
++        assertFalse(Files.exists(pending.staged));
++        assertFalse(Files.exists(target()));
++    }
++
++    @Test public void finalizePublishesEncodedImageWithCaptureTimeAndIso() throws Exception {
++        M9PendingJpeg pending = M9PendingJpeg.create(target());
++        Bitmap bitmap = Bitmap.createBitmap(96, 64, Bitmap.Config.ARGB_8888);
++        bitmap.eraseColor(0xff457938);
++        ParseExif.ExifData exif = new ParseExif.ExifData();
++        exif.PHOTOGRAPHIC_SENSITIVITY = "320";
++        assertTrue(ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.staged, bitmap, 95, exif));
++        assertFalse(Files.exists(target()));
++        M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target(), exif, null, null, pending);
++        ticket.awaitCompletion();
++        assertTrue(ticket.error(), ticket.isSuccess());
++        assertFalse(Files.exists(pending.staged));
++        ExifInterface saved = new ExifInterface(target().toFile());
++        assertEquals("2026:11:27 12:03:15", saved.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
++        assertEquals(320, saved.getAttributeInt(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, -1));
++    }
++
++    @Test public void failedExifRecoversTheCaptureUnderAnotherName() throws Exception {
++        M9PendingJpeg pending = M9PendingJpeg.create(target());
++        byte[] invalid = {12, 34, 56};
++        Files.write(pending.staged, invalid);
++        M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target(), new ParseExif.ExifData(), null, null, pending);
++        ticket.awaitCompletion();
++        assertFalse(ticket.isSuccess());
++        assertFalse(Files.exists(target()));
++        try (Stream<Path> files = Files.list(target().getParent())) {
++            Path[] recovered = files.toArray(Path[]::new);
++            assertEquals(1, recovered.length);
++            assertTrue(recovered[0].getFileName().toString().startsWith("IMG_20261127_120315_00_recovered_"));
++            assertArrayEquals(invalid, Files.readAllBytes(recovered[0]));
++        }
++    }
++
++    @Test public void skippingEdgeGridPreservesFinishedBitmapMeterReadings() throws Exception {
++        Bitmap bitmap = Bitmap.createBitmap(96, 64, Bitmap.Config.ARGB_8888);
++        for (int y = 0; y < 64; y++) for (int x = 0; x < 96; x++)
++            bitmap.setPixel(x, y, 0xff000000 | (x * 2 << 16) | (y * 3 << 8) | (x ^ y));
++        JSONObject full = M9RenderedLumaDiagnostic.measure(bitmap);
++        JSONObject light = M9RenderedLumaDiagnostic.measure(bitmap, false);
++        assertTrue(full.getBoolean("valid"));
++        assertTrue(light.getBoolean("valid"));
++        assertTrue(full.has("edgePlacementGate1A"));
++        assertFalse(light.has("edgePlacementGate1A"));
++        assertTrue(light.getBoolean("edgeGridSkippedForLockedExposure"));
++        for (String name : new String[]{"global", "center50", "middleCenter33"})
++            assertEquals(full.getJSONObject(name).toString(), light.getJSONObject(name).toString());
++    }
++}

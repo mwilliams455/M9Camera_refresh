@@ -115,6 +115,8 @@ if __name__ == "__main__":
     render_tests = args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/render"
     if (render_tests / "M9EdgePlacementGateScanTest.java").is_file():
         SUITES.update(M9EdgePlacementGateScanTest=2, M9LensFalloffBandsTest=2)
+    if (render_tests / "M9Jpeg347Test.java").is_file():
+        SUITES["M9Jpeg347Test"] = 6
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]

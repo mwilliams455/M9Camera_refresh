@@ -15,9 +15,13 @@ patches = here.parent
 sha = lambda data: hashlib.sha256(data).hexdigest()
 certificate = '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
 scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
-integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf')
-jpegperf = scope['version'] == '3.46-jpegperf'
-if jpegperf:
+integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf')
+jpeg347 = scope['version'] == '3.47-jpegperf'
+jpegperf = jpeg347 or scope['version'] == '3.46-jpegperf'
+if jpeg347:
+    version, code, filename = '3.47-jpegperf', 27347, 'M9Cam_3.47_JPEGPERF.apk'
+    stage, parent = patches / 'jpegperf347', '3.46-jpegperf'
+elif jpegperf:
     version, code, filename = '3.46-jpegperf', 27346, 'M9Cam_3.46_JPEGPERF.apk'
     stage, parent = patches / 'jpegperf346', '3.45-performance'
 elif integrated:
@@ -116,8 +120,11 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
             assert marker.encode() in dex, marker
     if jpegperf:
         for marker in ('M9JPEGPERF346_GATE_ROWBANDS_EXACT', 'M9JpegOverlap346', 'jpegOverlapMode',
-                       'JPEGPERF346_dynamic_rows', 'JPEGPERF346_up_to_64_preloaded_bands_work_queue',
+                       'JPEGPERF346_dynamic_rows', ('JPEGPERF347_bounded_rows_work_queue' if jpeg347 else 'JPEGPERF346_up_to_64_preloaded_bands_work_queue'),
                        '.jpegperf346', 'postRenderDiagnosticsElapsedMs'):
+            assert marker.encode() in dex, marker
+    if jpeg347:
+        for marker in ('M9PendingJpeg', 'edgeGridSkippedForLockedExposure', 'JPEG encoder returned false'):
             assert marker.encode() in dex, marker
     for marker in ['M9ShadingParallel1A', 'M9EXACTPERF1A_SHADING_ROWBANDS_EXACT', 'saveSingleRawM9PhysicalCfaStaged',
                    'embedInPlace', 'embedStaged', 'StagingNotRestoredException', 'publishStagedDng',
@@ -195,7 +202,9 @@ report = dict(status='PASS', version=version, versionCode=code, sha256=sha(final
               phoneTimingAndVisualValidationPending=True)
 if integrated:
     report['released344ShaderSha256'] = expected[preview_shader]
-if jpegperf:
+if jpeg347:
+    report['nativeSourceChangesSince346'] = ['libm9color.so']
+elif jpegperf:
     report['nativeSourceChangesSince345'] = ['libm9color.so']
 (out / 'PACKAGED_VERIFICATION.json').write_text(json.dumps(report, indent=2) + '\n')
 (out / 'SHA256SUMS.txt').write_text(report['sha256'] + '  ' + final.name + '\n')
