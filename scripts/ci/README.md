@@ -36,3 +36,12 @@ independently of previous Actions runs.
 `prepare_314.py <dest> --exact-perf`, rebuilds the 3.42 parent's native libraries for the
 provenance gate, runs the native parity suite and regression tests, and packages the
 installer. See patches/exactperf1a/README.md. The workflow above still builds 3.42.
+It now runs on manual dispatch only.
+
+## 3.46 JPEGPERF candidate
+
+`build-m9cam-jpegperf346.yml` reconstructs 3.44, 3.45 and the 3.46 candidate with
+`prepare_346.py <dest>`. It rebuilds the 3.44 native libraries for the 3.13 provenance gate
+and the 3.45 native libraries for the 3.46 delta gate. Then it runs both native parity
+suites and the regression tests, and packages the installer. See
+patches/jpegperf346/README.md.

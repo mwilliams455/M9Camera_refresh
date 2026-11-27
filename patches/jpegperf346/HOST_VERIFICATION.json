@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "scope": "x86 host, not handset timing",
+  "parent": "3.45-performance",
+  "candidate": "3.46-jpegperf",
+  "nativeParity346": {
+    "status": "PASS",
+    "noiseCancelCases": 6,
+    "chromaPrepareCases": 29,
+    "reconstructPeripheryCases": 25,
+    "allExact": true,
+    "note": "even widths only; odd-width CFA 1/3 is non-repeatable in the 3.45 parent itself",
+    "threadSanitizerNoiseQueue": {
+      "exitCode": 0,
+      "dataRaceReported": false
+    }
+  },
+  "exactperf1aNativeParityOn346": "PASS (3.44 parent vs 3.46: DNG noise, phase noise, ThreadSanitizer, DNG writer -O0/-O2)",
+  "javaUnitTests": {
+    "M9EdgePlacementGateScanTest": 2,
+    "M9LensFalloffBandsTest": 2,
+    "M9LensFalloffTest": 3,
+    "failures": 0
+  },
+  "javacChangedFilesVs345": "no new errors",
+  "sourceFingerprints": {
+    "3.45-performance": "526264687da391d68923f65f20df818b0d51d295e6c8dc94edfbdd7733808e2c",
+    "3.46-jpegperf": "3c33df422464ac294648aa7891e774c4836f52744e6b1ffec365f108a2862355"
+  }
+}

@@ -112,6 +112,9 @@ if __name__ == "__main__":
         SUITES["M9TrackedSubjectMeterTest"] = 9 if "twoIndependentBrightFaceFramesProtectHighlightsOnce" in meter_suite.read_text() else 5
     if (args.source / "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9DngPublication.java").is_file():
         SUITES.update(M9LensFalloffTest=3, M9TungstenGuardTest=3, M9ShootingProfilesTest=17, M9BracketTest=13)
+    render_tests = args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/render"
+    if (render_tests / "M9EdgePlacementGateScanTest.java").is_file():
+        SUITES.update(M9EdgePlacementGateScanTest=2, M9LensFalloffBandsTest=2)
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]

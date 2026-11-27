@@ -1,0 +1,58 @@
+{
+  "app/build.gradle": {
+    "before": "df28f24117323c084e4a57b70fc402829997ceb0ea238f3964467952f840a53d",
+    "after": "89ff6a1a6d4b8b0bcc43083fca5a35b819d85fcb4f533577941c7da5b1a72def"
+  },
+  "app/src/main/cpp/colourtrial1c/native.inc": {
+    "before": "237047d11c57c2b0cc0f84a5b44a5f4aa24497d5ed074988d7aedd2d6af37e42",
+    "after": "3e01756b64de170f670e8453885a854881c2218e44b9ceb2511f3a0109ea4c7f"
+  },
+  "app/src/main/cpp/colourtrial1c/reconstruct.cpp": {
+    "before": "7c0f4c026786d15f534a2b3463853ec22f2c078c4060976856541f4fed935382",
+    "after": "eac4f84d8cf8ab68cec85b976f5a654d22495b238f34f00bb27b52f5e1c97881"
+  },
+  "app/src/main/cpp/m9noisecancel1b.cpp": {
+    "before": "000cb5f51bf4252a85532d60438be357be47a43593c0427446028bf1dec6db97",
+    "after": "054f1c68e05988391efc6ed14477ee53c494eeddc09dd3d1d867aaa111aa4743"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java": {
+    "before": "a74d42167f9323be2fe0c83af73d69023901d9d727bb6d3df99609576019abbf",
+    "after": "7e9ba6230647c0d9269a89bd1e7fc44deed144f040fdb35aeecb9ce7fd1a5a02"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGate1ADiagnostic.java": {
+    "before": "0c9fdd55335f4aafb8b6861f78d7780ea64dda9ac8ed234a4b5d17b6cb4686c4",
+    "after": "2b4dcd48ea3706df07a52d814b074252148118dcf3f5f3850988e756a9864d67"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java": {
+    "before": "8594e645771706b1300fccbd14a500f6753b0ff0d63ee4fa524ff470af2674d5",
+    "after": "81ce5e4ac64ccd97ef195316a9533f85e74bce9b878a9ded25b59cb334ef8e08"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
+    "before": "663977cba231ad2844238c9d9b764360aab95016d623ee391da3fed79fcfc8e5",
+    "after": "fc11c635a09dc14041bddbfec8e822b47002602249f4575f3383444970ad7c06"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderCrash1D.java": {
+    "before": "a66d1e63a94e147c61f0d79a938e8414f9a72e0b42286bb6c8497c4bed1e1a7b",
+    "after": "e3c2c9736910aee82f004a18bc46e174a23c79511b977d5ad83c5319b9a709b4"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ShadingParallel1A.java": {
+    "before": "2361dece39b5fc72a2a172fcff22d055ff37d68132d5e00c4deb53c0cacb1f0e",
+    "after": "eec9189db2280a9488dfd0aced6771c7ad10b7852591e91dcb402e4916b139f1"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java": {
+    "before": "5e57787954d284abbf87176968f5b88ced35565192837f876adf25a7af55d4b1",
+    "after": "529de61772bc5af705e5b7f198a204f3d960b657fd63e5f28a8834604a0d3ed8"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java": {
+    "before": "1c39453f63c4dae646d0e3d17c24e1e0febd37de4f2c95d6873be270d67023f0",
+    "after": "5162d94b2d6dbef26680785044f1db1b1291e3488ebda51ca6a6c6a373d2349d"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGateScanTest.java": {
+    "before": null,
+    "after": "2afa8da61a1a75036d1a94462fc4c3cd510e4b9e87f023323340109e9ab11b28"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffBandsTest.java": {
+    "before": null,
+    "after": "daf77d2ac4d7a3113ba2136b004d7b66aa17be804e55ea07e3d8dd7e58bc7023"
+  }
+}

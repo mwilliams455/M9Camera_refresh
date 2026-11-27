@@ -1,12 +1,7 @@
 name: M9Cam 3.43 EXACTPERF1A build, parity, tests and installer
 
+# 3.43 is delivered (run 45822753028); later stages on this branch rebuild it on request only.
 on:
-  push:
-    branches: ['claude/dazzling-galileo-rbqoe6']
-    paths:
-      - 'patches/exactperf1a/**'
-      - 'scripts/ci/**'
-      - '.github/workflows/build-m9cam-exactperf1a.yml'
   workflow_dispatch:
 
 permissions:

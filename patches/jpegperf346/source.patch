@@ -1,0 +1,829 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 65b28b0..a1800d1 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27345
++        versionCode 27346
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.45-performance'
++        versionName '3.46-jpegperf'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -106,7 +106,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.45_PERFORMANCE-${variant.name}.apk"
++            outputFileName = "M9Cam_3.46_JPEGPERF-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/cpp/colourtrial1c/native.inc b/app/src/main/cpp/colourtrial1c/native.inc
+index b3e1305..d64bab8 100644
+--- a/app/src/main/cpp/colourtrial1c/native.inc
++++ b/app/src/main/cpp/colourtrial1c/native.inc
+@@ -74,7 +74,7 @@ static int trialPrepareInPlace(const ColorContext& ctx,jshort* cam,int w,int h,d
+                 }
+ 
+                 // Exact PREPPERF1A camera->M9 per-pixel arithmetic.
+-                #pragma omp for schedule(static)
++                #pragma omp for schedule(dynamic,1)
+                 for(int y=top;y<end;y++) {
+                     for(int x=0;x<w;x++) {
+                         double hsm[3],m[3];
+@@ -96,7 +96,7 @@ static int trialPrepareInPlace(const ColorContext& ctx,jshort* cam,int w,int h,d
+ 
+                 // Exact frozen partial_chroma(.25) arithmetic. Source q is immutable
+                 // and every worker owns disjoint destination rows.
+-                #pragma omp for schedule(static)
++                #pragma omp for schedule(dynamic,1)
+                 for(int y=1;y<bh-1;y++) {
+                     const int delta[4]={1,w,w+1,w-1};
+                     for(int x=1;x<w-1;x++) {
+diff --git a/app/src/main/cpp/colourtrial1c/reconstruct.cpp b/app/src/main/cpp/colourtrial1c/reconstruct.cpp
+index c035302..2843330 100644
+--- a/app/src/main/cpp/colourtrial1c/reconstruct.cpp
++++ b/app/src/main/cpp/colourtrial1c/reconstruct.cpp
+@@ -105,7 +105,7 @@ extern "C" int trial_variance_parallel(const uint16_t* sensor,int w,int h,int cf
+  for(int p=0;p<4;p++)if(!std::isfinite(black[p])||black[p]<0||black[p]>=white)return -1;
+  for(int p=0;p<6;p++)if(!std::isfinite(profile[p])||profile[p]<0||profile[p]>1)return -1;
+  for(int p=0;p<mw*mh*4;p++)if(!std::isfinite(gains[p])||gains[p]<=0||gains[p]>scale*(1.+1e-12))return -1;
+- #pragma omp parallel for num_threads(workers) schedule(static)
++ #pragma omp parallel for num_threads(workers) schedule(dynamic,8)
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){
+   const int i=y*w+x,p=(y&1)*2+(x&1);
+   const bool red=(x&1)==(cfa&1)&&(y&1)==(cfa>>1),blue=(x&1)!=(cfa&1)&&(y&1)!=(cfa>>1);
+@@ -142,7 +142,7 @@ extern "C" int trial_reconstruct_perf(const uint16_t* raw,const float* variance,
+    perf[0]=elapsed(t0,Clock::now());
+    uint64_t changed=0,censoredCount=0;int maxCorrection=0;
+    t0=Clock::now();
+-   #pragma omp parallel for num_threads(workers) schedule(static) reduction(+:changed,censoredCount) reduction(max:maxCorrection)
++   #pragma omp parallel for num_threads(workers) schedule(dynamic,65536) reduction(+:changed,censoredCount) reduction(max:maxCorrection)
+    for(int64_t ii=0;ii<int64_t(count);ii++){
+     const size_t i=size_t(ii);
+     corrected[i]=uint16_t((3u*raw[i]+corrected[i]+2u)/4u);
+@@ -163,7 +163,7 @@ extern "C" int trial_reconstruct_perf(const uint16_t* raw,const float* variance,
+   std::vector<float*> ir(h),r(h),g(h),b(h);
+ 
+   auto t0=Clock::now();
+-  #pragma omp parallel for num_threads(workers) schedule(static)
++  #pragma omp parallel for num_threads(workers) schedule(dynamic,8)
+   for(int y=0;y<h;y++){
+    ir[y]=input.data()+size_t(y)*w;
+    for(int x=0;x<w;x++)ir[y][x]=float(double(inputRaw[size_t(y)*w+x])/n[pattern[y&1][x&1]]/headroom);
+@@ -187,7 +187,7 @@ extern "C" int trial_reconstruct_perf(const uint16_t* raw,const float* variance,
+ 
+    int invalid=0;
+    t0=Clock::now();
+-   #pragma omp parallel for num_threads(workers) schedule(static) reduction(|:invalid)
++   #pragma omp parallel for num_threads(workers) schedule(dynamic,4) reduction(|:invalid)
+    for(int y=top;y<bottom;y++)for(int x=0;x<w;x++){
+     const double v[3]={r[y][x],g[y][x],b[y][x]};
+     for(int ch=0;ch<3;ch++){
+diff --git a/app/src/main/cpp/m9noisecancel1b.cpp b/app/src/main/cpp/m9noisecancel1b.cpp
+index 92c2353..7bbabba 100644
+--- a/app/src/main/cpp/m9noisecancel1b.cpp
++++ b/app/src/main/cpp/m9noisecancel1b.cpp
+@@ -4,6 +4,7 @@
+ // are frozen. Disjoint output row bands use preloaded boundary rows so no worker
+ // can observe a neighbour worker's already-filtered output.
+ #include <algorithm>
++#include <atomic>
+ #include <chrono>
+ #include <cmath>
+ #include <cstdint>
+@@ -146,28 +147,36 @@ extern "C" int m9_noisecancel1b_apply(uint16_t* rgb,int w,int h,
+     }
+ 
+     const size_t rowSamples=size_t(w)*3,rowBytes=rowSamples*sizeof(uint16_t);
+-    std::vector<Nc1bRows> rows;rows.reserve(workers);
+-    std::vector<Nc1bAccum> acc(workers);
+-    std::vector<int> starts(workers),ends(workers);
+-    for(int i=0;i<workers;i++){
+-        const int s=1+(innerRows*i)/workers;
+-        const int e=1+(innerRows*(i+1))/workers;
++    // JPEGPERF346: split into more bands than threads and let the threads pull bands from a
++    // queue, so a band of detailed rows no longer holds up the whole filter. Every band's
++    // cross-boundary neighbour rows are still snapshotted before any thread writes, so each
++    // band produces exactly the rows it produced before; only the order of bands changes.
++    const int bands=std::max(workers,std::min(innerRows/32,workers*8));
++    std::vector<Nc1bRows> rows;rows.reserve(bands);
++    std::vector<Nc1bAccum> acc(bands);
++    std::vector<int> starts(bands),ends(bands);
++    for(int i=0;i<bands;i++){
++        const int s=1+(innerRows*i)/bands;
++        const int e=1+(innerRows*(i+1))/bands;
+         starts[i]=s;ends[i]=e;rows.emplace_back(rowSamples);
+-        // All neighbour rows that cross a worker boundary are snapshotted before
++        // All neighbour rows that cross a band boundary are snapshotted before
+         // any worker starts writing. This is the exact-parity race barrier.
+         std::memcpy(rows[i].prev.data(),rgb+size_t(s-1)*rowSamples,rowBytes);
+         std::memcpy(rows[i].cur.data(),rgb+size_t(s)*rowSamples,rowBytes);
+         std::memcpy(rows[i].boundaryAfter.data(),rgb+size_t(e)*rowSamples,rowBytes);
+     }
+ 
++    std::atomic<int> nextBand{0};
+     std::vector<std::thread> threads;threads.reserve(workers);
+-    for(int i=0;i<workers;i++)threads.emplace_back([&,i]{
+-        nc1b_process_band(rgb,w,h,starts[i],ends[i],profile,gains,mw,mh,scale,rows[i],acc[i]);
++    for(int t=0;t<workers;t++)threads.emplace_back([&]{
++        for(int i=nextBand.fetch_add(1);i<bands;i=nextBand.fetch_add(1))
++            nc1b_process_band(rgb,w,h,starts[i],ends[i],profile,gains,mw,mh,scale,rows[i],acc[i]);
+     });
+     for(auto& t:threads)t.join();
+ 
++    // Band totals are combined in band order, independent of which thread ran each band.
+     Nc1bAccum total;
+-    for(int i=0;i<workers;i++){
++    for(int i=0;i<bands;i++){
+         total.changed+=acc[i].changed;total.changedR+=acc[i].changedR;total.changedB+=acc[i].changedB;
+         total.considered+=acc[i].considered;total.censored+=acc[i].censored;
+         total.blendSum+=acc[i].blendSum;total.sigmaSum+=acc[i].sigmaSum;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java
+index 07be801..34880ea 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java
+@@ -65,9 +65,11 @@ final class M9ColourTrial1C {
+         d.put("amazeOutputQuantizeMs",stats[11]);
+         d.put("amazeBorderMs",stats[12]);
+         d.put("amazePeripheralPolicy","parallel_exact_independent_rows_AMaZE_chunk2_frozen");
++        d.put("amazePeripheralScheduling","JPEGPERF346_dynamic_rows");
+         d.put("border","16px_true_noSharp_MHC_original_RAW");
+         d.put("chromaStrength",.25);d.put("chromaDomain","target_Q14_before_SAT");
+         d.put("prepPerfRevision","M9PREPPERF1B_PERSISTENT8_EXACT");d.put("prepPerfWorkers",8);d.put("prepPerfBandRows",128);
++        d.put("prepPerfScheduling","JPEGPERF346_dynamic_rows");
+         return d;
+     }
+     private static native ByteBuffer prepareInPlace(long context,long camera,int w,int h,double gain);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGate1ADiagnostic.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGate1ADiagnostic.java
+index 54ff90d..bec21f5 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGate1ADiagnostic.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGate1ADiagnostic.java
+@@ -46,6 +46,98 @@ public final class M9EdgePlacementGate1ADiagnostic {
+ 
+     private M9EdgePlacementGate1ADiagnostic() {}
+ 
++    static final String SCAN_REVISION = "M9JPEGPERF346_GATE_ROWBANDS_EXACT";
++
++    /** Reads finished ARGB rows; production reads the Bitmap. */
++    interface RowSource {
++        void read(int[] dst, int width, int y0, int rows);
++    }
++
++    /**
++     * JPEGPERF346: accumulates exactly the grid sums, grid counts and region histograms
++     * of the original serial loop. Every accumulator is an integer sum over pixels, so
++     * splitting rows into bands and adding the per-band totals gives identical values.
++     */
++    static long scan(RowSource source, int width, int height, int[] gridX, int[] gridY,
++                     int[] regX, int[] regY, long[] gridSums, long[] gridCounts,
++                     long[] regionHist, int workers) {
++        final int bands = Math.max(1, Math.min(height, workers <= 1 ? 1 : workers * 4));
++        if (bands == 1) {
++            return scanRows(source, width, 0, height, gridX, gridY, regX, regY,
++                    gridSums, gridCounts, regionHist);
++        }
++        java.util.List<java.util.concurrent.Future<long[][]>> futures = new java.util.ArrayList<>(bands);
++        java.util.concurrent.ExecutorService executor = M9ShadingParallel1A.pool();
++        for (int band = 0; band < bands; band++) {
++            final int y0 = (int) ((long) height * band / bands);
++            final int y1 = (int) ((long) height * (band + 1) / bands);
++            futures.add(executor.submit(() -> {
++                long[] sums = new long[gridSums.length], counts = new long[gridCounts.length];
++                long[] hist = new long[regionHist.length];
++                long n = scanRows(source, width, y0, y1, gridX, gridY, regX, regY, sums, counts, hist);
++                return new long[][] {sums, counts, hist, {n}};
++            }));
++        }
++        long pixelCount = 0L;
++        boolean interrupted = false;
++        RuntimeException failure = null;
++        for (java.util.concurrent.Future<long[][]> future : futures) {
++            while (true) {
++                try {
++                    long[][] part = future.get();
++                    for (int i = 0; i < gridSums.length; i++) gridSums[i] += part[0][i];
++                    for (int i = 0; i < gridCounts.length; i++) gridCounts[i] += part[1][i];
++                    for (int i = 0; i < regionHist.length; i++) regionHist[i] += part[2][i];
++                    pixelCount += part[3][0];
++                    break;
++                } catch (InterruptedException e) {
++                    interrupted = true;
++                } catch (java.util.concurrent.ExecutionException e) {
++                    if (failure == null) failure = new IllegalStateException("JPEGPERF346 gate band failed", e.getCause());
++                    break;
++                }
++            }
++        }
++        if (interrupted) Thread.currentThread().interrupt();
++        if (failure != null) throw failure;
++        return pixelCount;
++    }
++
++    // Per-pixel body copied from the original serial loop.
++    private static long scanRows(RowSource source, int width, int yStart, int yEnd,
++                                 int[] gridX, int[] gridY, int[] regX, int[] regY,
++                                 long[] gridSums, long[] gridCounts, long[] regionHist) {
++        final int rowsPerBlock = Math.max(1, Math.min(SCAN_ROWS, yEnd - yStart));
++        final int[] pixels = new int[Math.multiplyExact(width, rowsPerBlock)];
++        long pixelCount = 0L;
++        for (int y0 = yStart; y0 < yEnd; y0 += rowsPerBlock) {
++            final int rows = Math.min(rowsPerBlock, yEnd - y0);
++            source.read(pixels, width, y0, rows);
++            for (int ly = 0; ly < rows; ly++) {
++                final int y = y0 + ly;
++                final int gy = gridY[y];
++                final int rr = regY[y];
++                final int rowBase = ly * width;
++                for (int x = 0; x < width; x++) {
++                    final int p = pixels[rowBase + x];
++                    final int r = (p >>> 16) & 0xff;
++                    final int g = (p >>> 8) & 0xff;
++                    final int b = p & 0xff;
++                    final int yy = (4899 * r + 9617 * g + 1868 * b) >> 14;
++
++                    final int gi = gy * GRID_C + gridX[x];
++                    gridSums[gi] += yy;
++                    gridCounts[gi]++;
++
++                    final int ri = rr * REG_C + regX[x];
++                    regionHist[(ri << 8) + yy]++;
++                    pixelCount++;
++                }
++            }
++        }
++        return pixelCount;
++    }
++
+     public static JSONObject measure(Bitmap bitmap) {
+         final long startedNs = System.nanoTime();
+         JSONObject out = new JSONObject();
+@@ -81,35 +173,12 @@ public final class M9EdgePlacementGate1ADiagnostic {
+             final long[] gridSums = new long[GRID_R * GRID_C];
+             final long[] gridCounts = new long[GRID_R * GRID_C];
+             final long[] regionHist = new long[REG_R * REG_C * 256];
+-            final int rowsPerBlock = Math.min(SCAN_ROWS, height);
+-            final int[] pixels = new int[Math.multiplyExact(width, rowsPerBlock)];
+-
+-            long pixelCount = 0L;
+-            for (int y0 = 0; y0 < height; y0 += rowsPerBlock) {
+-                final int rows = Math.min(rowsPerBlock, height - y0);
+-                bitmap.getPixels(pixels, 0, width, 0, y0, width, rows);
+-                for (int ly = 0; ly < rows; ly++) {
+-                    final int y = y0 + ly;
+-                    final int gy = gridY[y];
+-                    final int rr = regY[y];
+-                    final int rowBase = ly * width;
+-                    for (int x = 0; x < width; x++) {
+-                        final int p = pixels[rowBase + x];
+-                        final int r = (p >>> 16) & 0xff;
+-                        final int g = (p >>> 8) & 0xff;
+-                        final int b = p & 0xff;
+-                        final int yy = (4899 * r + 9617 * g + 1868 * b) >> 14;
+-
+-                        final int gi = gy * GRID_C + gridX[x];
+-                        gridSums[gi] += yy;
+-                        gridCounts[gi]++;
+-
+-                        final int ri = rr * REG_C + regX[x];
+-                        regionHist[(ri << 8) + yy]++;
+-                        pixelCount++;
+-                    }
+-                }
+-            }
++            // JPEGPERF346: the same full-pixel accumulation on independent row bands.
++            final long pixelCount = scan((dst, w, y0, rows) -> bitmap.getPixels(dst, 0, w, 0, y0, w, rows),
++                    width, height, gridX, gridY, regX, regY, gridSums, gridCounts, regionHist,
++                    M9ShadingParallel1A.WORKERS);
++            out.put("scanRevision", SCAN_REVISION);
++            out.put("scanWorkers", M9ShadingParallel1A.WORKERS);
+ 
+             final double[] grid = new double[GRID_R * GRID_C];
+             double gridMean = 0.0;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
+index 046c861..e327e9b 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
+@@ -62,6 +62,7 @@ final class M9NoiseCancel1B {
+         d.put("elapsedMs",stats[9]);
+         d.put("parallelWorkers",(int)stats[12]);
+         d.put("parallelMode",stats[13]==1.0?"disjoint_row_bands_preloaded_boundaries":"scalar_reference");
++        d.put("bandScheduling","JPEGPERF346_up_to_64_preloaded_bands_work_queue");
+         d.put("pixelMathRevision","NOISECANCEL1B_FROZEN_EXACT");
+         d.put("parallelParityPolicy","byte_exact_RGB_output_vs_frozen_1_86_scalar");
+         d.put("greenMutatedSamples",0);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index 62e9dfe..e6022ae 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -595,6 +595,69 @@ public final class M9R35Renderer {
+         }
+     }
+ 
++    /** JPEGPERF346: one encode thread; the single render worker joins it before returning. */
++    private static final java.util.concurrent.ExecutorService JPEG_OVERLAP_346 =
++            java.util.concurrent.Executors.newSingleThreadExecutor(runnable -> {
++                Thread t = new Thread(runnable, "M9JpegOverlap346");
++                t.setDaemon(true);
++                return t;
++            });
++
++    private static final class Jpeg346 {
++        boolean saved;
++        long elapsedMs;
++        ImageSaver.Util.M9JpegSaveTiming timing;
++    }
++
++    private static Jpeg346 awaitJpeg346(java.util.concurrent.Future<Jpeg346> future) throws Exception {
++        boolean interrupted = false;
++        try {
++            while (true) {
++                try {
++                    return future.get();
++                } catch (InterruptedException e) {
++                    interrupted = true;
++                } catch (java.util.concurrent.ExecutionException e) {
++                    Throwable cause = e.getCause();
++                    if (cause instanceof Exception) throw (Exception) cause;
++                    if (cause instanceof Error) throw (Error) cause;
++                    throw e;
++                }
++            }
++        } finally {
++            if (interrupted) Thread.currentThread().interrupt();
++        }
++    }
++
++    private static void awaitJpeg346Quietly(java.util.concurrent.Future<Jpeg346> future) {
++        try {
++            awaitJpeg346(future);
++        } catch (Throwable ignored) {
++            // The original failure is reported; this wait only keeps the bitmap alive.
++        }
++    }
++
++    private static Path m9JpegPath(Path dngPath, boolean primaryRoute) {
++        String dngName = dngPath.getFileName().toString();
++        int dot = dngName.lastIndexOf('.');
++        String stem = dot > 0 ? dngName.substring(0, dot) : dngName;
++        return Paths.get(FileManager.sDCIM_CAMERA.getAbsolutePath(),
++                stem + (primaryRoute ? ".jpg" : "_M9.jpg"));
++    }
++
++    private static ParseExif.ExifData m9JpegExif(CaptureResult captureResult, CaptureRequest captureRequest) {
++        ParseExif.ExifData exif = ParseExif.parse(captureResult, captureRequest);
++        // METADATAFIX1A_PHYSICAL_ISO
++        // Photon's generic ParseExif.parse() multiplies SENSOR_SENSITIVITY by
++        // IsoExpoSelector.getMPY().  That is useful to Photon internally but is not
++        // the physical ISO that produced this M9 JPEG.  Override only the M9 copy.
++        Integer m9PhysicalIso = captureResult.get(CaptureResult.SENSOR_SENSITIVITY);
++        if (m9PhysicalIso != null && m9PhysicalIso > 0) {
++            exif.PHOTOGRAPHIC_SENSITIVITY = String.valueOf(Math.min(65535, m9PhysicalIso));
++        }
++        return exif;
++    }
++
+     private static Result renderAndSaveSelected(Path dngPath,
+                                                 ImageFrame frame,
+                                                 CameraCharacteristics characteristics,
+@@ -616,6 +679,8 @@ public final class M9R35Renderer {
+         Path jpgPath = null;
+         Path pngPath = null;
+         Bitmap bitmap = null;
++        java.util.concurrent.Future<Jpeg346> overlapJpeg346 = null;
++        ParseExif.ExifData overlapExif346 = null;
+         if (primaryRoute && !m9LiveWysiwyg1ALiveRoute) M9RenderCrash1D.begin(dngPath);
+         try {
+             long setupStartedNs = System.nanoTime();
+@@ -772,6 +837,30 @@ public final class M9R35Renderer {
+             out.diagnostics.put("photonCfaPatternBeforeAuthority", photonCfaPatternBeforeAuthority);
+             out.diagnostics.put("resolvedSourceCfaPattern", sourceCfaPattern);
+             bitmap = out.bitmap;
++            // JPEGPERF346: with a shared exposure plan the edge-placement selector below is
++            // forced to HOLD, so the finished bitmap cannot change after this point. Encode the
++            // same quality-95 JPEG payload on a separate thread while the read-only post-render
++            // diagnostics below run here; the bitmap is recycled only after both have finished.
++            if (saveJpeg && exposurePlan1A != null && !m9LiveWysiwyg1ALiveRoute && !SAVE_PARITY_PNG) {
++                jpgPath = m9JpegPath(dngPath, primaryRoute);
++                overlapExif346 = m9JpegExif(captureResult, captureRequest);
++                M9RenderCrash1D.stage("pre_encode_trace");
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
++                M9RenderCrash1D.stage("jpeg_encode_write");
++                final Path overlapPath346 = jpgPath;
++                final Bitmap overlapBitmap346 = bitmap;
++                final ParseExif.ExifData overlapExifData346 = overlapExif346;
++                overlapJpeg346 = JPEG_OVERLAP_346.submit(() -> {
++                    Jpeg346 result = new Jpeg346();
++                    long encodeStartedNs = System.nanoTime();
++                    result.saved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(
++                            overlapPath346, overlapBitmap346, JPEG_QUALITY, overlapExifData346, false);
++                    result.elapsedMs = (System.nanoTime() - encodeStartedNs) / 1_000_000L;
++                    result.timing = ImageSaver.Util.consumeM9JpegSaveTiming();
++                    return result;
++                });
++            }
++            final long postRenderDiagnosticsStartedNs346 = System.nanoTime();
+             // RENDERMETER1B read-only sparse sampling of the already-final bitmap.
+             // No pixel, TC20, colour or JPEG state is mutated by this diagnostic.
+             JSONObject frozenDirectLuma = M9RenderedLumaDiagnostic.measure(bitmap);
+@@ -814,6 +903,10 @@ public final class M9R35Renderer {
+                 edgeSelector = "HOLD";
+             }
+ 
++            if ((edgeSelector.startsWith("DARK_") || "BRIGHT_LOWKEY_BROAD".equals(edgeSelector))
++                    && overlapJpeg346 != null) {
++                throw new IllegalStateException("JPEGPERF346 pixel treatment requested during overlapped encode");
++            }
+             if (edgeSelector.startsWith("DARK_")) {
+                 double[] ladder = M9EdgePlacementBestFit2AController.darkLadder(edgeSelector);
+                 for (double candidateEv : ladder) {
+@@ -973,9 +1066,10 @@ public final class M9R35Renderer {
+             String dngName = dngPath.getFileName().toString();
+             int dot = dngName.lastIndexOf('.');
+             String stem = dot > 0 ? dngName.substring(0, dot) : dngName;
+-            if (saveJpeg) jpgPath = Paths.get(FileManager.sDCIM_CAMERA.getAbsolutePath(),
+-                    stem + (primaryRoute ? ".jpg" : "_M9.jpg"));
++            if (saveJpeg) jpgPath = m9JpegPath(dngPath, primaryRoute);
+             pngPath = dngPath.resolveSibling(stem + "_M9_PARITY.png");
++            final double postRenderDiagnosticsElapsedMs346 =
++                    (System.nanoTime() - postRenderDiagnosticsStartedNs346) / 1_000_000.0;
+ 
+             boolean pngSaved = true;
+             if (SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled()) pngSaved = savePng(pngPath, bitmap);
+@@ -987,16 +1081,24 @@ public final class M9R35Renderer {
+             ParseExif.ExifData exif = null;
+             long jpegEncodeWriteElapsedMs = 0L;
+             ImageSaver.Util.M9JpegSaveTiming jpegTiming = null;
+-            if (saveJpeg) {
+-                exif = ParseExif.parse(captureResult, captureRequest);
+-                // METADATAFIX1A_PHYSICAL_ISO
+-                // Photon's generic ParseExif.parse() multiplies SENSOR_SENSITIVITY by
+-                // IsoExpoSelector.getMPY().  That is useful to Photon internally but is not
+-                // the physical ISO that produced this M9 JPEG.  Override only the M9 copy.
+-                Integer m9PhysicalIso = captureResult.get(CaptureResult.SENSOR_SENSITIVITY);
+-                if (m9PhysicalIso != null && m9PhysicalIso > 0) {
+-                    exif.PHOTOGRAPHIC_SENSITIVITY = String.valueOf(Math.min(65535, m9PhysicalIso));
+-                }
++            double jpegOverlapWaitElapsedMs346 = -1.0;
++            if (saveJpeg && overlapJpeg346 != null) {
++                exif = overlapExif346;
++                long waitStartedNs = System.nanoTime();
++                Jpeg346 encoded = awaitJpeg346(overlapJpeg346);
++                overlapJpeg346 = null;
++                jpegOverlapWaitElapsedMs346 = (System.nanoTime() - waitStartedNs) / 1_000_000.0;
++                jpegEncodeWriteElapsedMs = encoded.elapsedMs;
++                jpegTiming = encoded.timing;
++                long recycleStartedNs = System.nanoTime();
++                bitmap.recycle();
++                if (jpegTiming != null) jpegTiming.recycleNs = System.nanoTime() - recycleStartedNs;
++                bitmap = null;
++                if (!encoded.saved) throw new IllegalStateException("M9 JPEG payload save failed");
++                M9RenderCrash1D.stage("jpeg_payload_written");
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath);
++            } else if (saveJpeg) {
++                exif = m9JpegExif(captureResult, captureRequest);
+                 M9RenderCrash1D.stage("pre_encode_trace");
+                 com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
+                 M9RenderCrash1D.stage("jpeg_encode_write");
+@@ -1034,6 +1136,10 @@ public final class M9R35Renderer {
+             diag.put("setupParametersElapsedMs", setupElapsedMs);
+             diag.put("renderCoreElapsedMs", renderCoreElapsedMs);
+             diag.put("jpegEncodeWriteElapsedMs", jpegEncodeWriteElapsedMs);
++            diag.put("postRenderDiagnosticsElapsedMs", postRenderDiagnosticsElapsedMs346);
++            diag.put("jpegOverlapMode", jpegOverlapWaitElapsedMs346 >= 0
++                    ? "JPEGPERF346_encode_parallel_with_post_render_diagnostics" : "sequential");
++            diag.put("jpegOverlapWaitElapsedMs", jpegOverlapWaitElapsedMs346);
+             if (jpegTiming != null) {
+                 diag.put("jpegFileOpenElapsedMs", jpegTiming.fileOpenNs / 1_000_000.0);
+                 diag.put("jpegCompressElapsedMs", jpegTiming.compressNs / 1_000_000.0);
+@@ -1371,6 +1477,7 @@ public final class M9R35Renderer {
+             return new Result(true, jpgPath, SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled() ? pngPath : null, null, diag, exif);
+         } catch (Throwable t) {
+             M9RenderCrash1D.failure(t);
++            if (overlapJpeg346 != null) awaitJpeg346Quietly(overlapJpeg346);
+             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+             Log.e(TAG, "R3.8-H25/TG1 render failed", t);
+             JSONObject failureDiag = new JSONObject();
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderCrash1D.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderCrash1D.java
+index daa1b6e..01ff0aa 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderCrash1D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9RenderCrash1D.java
+@@ -90,10 +90,17 @@ public final class M9RenderCrash1D {
+         while(b.size()<limit&&(n=in.read(buf,0,Math.min(buf.length,limit-b.size())))!=-1)b.write(buf,0,n);
+         return b.toByteArray();
+     }
++    // JPEGPERF346: write a sibling file and rename it over the record. The rename is atomic, and
++    // data in the page cache survives an app crash, which is what this breadcrumb records. It no
++    // longer fsyncs on every render stage; that only protected against power loss.
+     private static void persist(String name,JSONObject j){
+-        synchronized(IO){AtomicFile f=new AtomicFile(new File(app.getFilesDir(),name));FileOutputStream out=null;
+-            try{out=f.startWrite();out.write(j.toString().getBytes(StandardCharsets.UTF_8));f.finishWrite(out);}
+-            catch(Throwable e){if(out!=null)f.failWrite(out);}
++        synchronized(IO){
++            File dir=app.getFilesDir(),target=new File(dir,name),temp=new File(dir,name+".jpegperf346");
++            try(FileOutputStream out=new FileOutputStream(temp)){out.write(j.toString().getBytes(StandardCharsets.UTF_8));}
++            catch(Throwable e){temp.delete();return;}
++            // AtomicFile.openRead() prefers a leftover backup; never let a stale one win.
++            new File(dir,name+".bak").delete();new File(dir,name+".new").delete();
++            if(!temp.renameTo(target))temp.delete();
+         }
+     }
+     private static void collect(){
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ShadingParallel1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ShadingParallel1A.java
+index b71e12f..6267233 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ShadingParallel1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ShadingParallel1A.java
+@@ -66,7 +66,8 @@ final class M9ShadingParallel1A {
+         return planes;
+     }
+ 
+-    private static ExecutorService pool() {
++    /** Shared bounded render worker pool (also used by JPEGPERF346 bitmap scans). */
++    static ExecutorService pool() {
+         ExecutorService current = pool;
+         if (current == null) {
+             synchronized (M9ShadingParallel1A.class) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java
+index ec6abb4..f0da841 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9TargetFalloff1A.java
+@@ -77,14 +77,69 @@ public final class M9TargetFalloff1A {
+             throw new IllegalArgumentException("Lens falloff requires linear RGB16");
+         int width = rgb.cols(), height = rgb.rows();
+         Raster raster = new Raster(width, height, strength);
+-        int stripHeight = Math.min(32, height);
++        // JPEGPERF346: rows are independent, so bands run on the shared render workers.
++        applyBands(new RowIo() {
++            @Override public int get(int y, short[] strip) { return rgb.get(y, 0, strip); }
++            @Override public int put(int y, short[] strip) { return rgb.put(y, 0, strip); }
++        }, raster, width, height, M9ShadingParallel1A.WORKERS);
++    }
++
++    /** Reads/writes whole RGB16 rows starting at row y; returns bytes transferred. */
++    interface RowIo {
++        int get(int y, short[] strip);
++        int put(int y, short[] strip);
++    }
++
++    /**
++     * Same 32-row strips and per-row arithmetic as before, on independent row bands. A strip
++     * never extends past its band: a short final strip uses an exactly sized buffer, so a
++     * band can neither read nor write rows owned by its neighbour.
++     */
++    static void applyBands(RowIo io, Raster raster, int width, int height, int workers) {
++        final int bands = Math.max(1, Math.min(height, workers <= 1 ? 1 : workers * 4));
++        if (bands == 1) {
++            applyBand(io, raster, width, 0, height);
++            return;
++        }
++        java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>(bands);
++        java.util.concurrent.ExecutorService executor = M9ShadingParallel1A.pool();
++        for (int band = 0; band < bands; band++) {
++            final int y0 = (int) ((long) height * band / bands);
++            final int y1 = (int) ((long) height * (band + 1) / bands);
++            futures.add(executor.submit(() -> applyBand(io, raster, width, y0, y1)));
++        }
++        boolean interrupted = false;
++        RuntimeException failure = null;
++        for (java.util.concurrent.Future<?> future : futures) {
++            while (true) {
++                try {
++                    future.get();
++                    break;
++                } catch (InterruptedException e) {
++                    interrupted = true;
++                } catch (java.util.concurrent.ExecutionException e) {
++                    Throwable cause = e.getCause();
++                    if (failure == null) failure = cause instanceof RuntimeException
++                            ? (RuntimeException) cause : new IllegalStateException("Lens falloff band failed", cause);
++                    break;
++                }
++            }
++        }
++        if (interrupted) Thread.currentThread().interrupt();
++        if (failure != null) throw failure;
++    }
++
++    private static void applyBand(RowIo io, Raster raster, int width, int y0, int y1) {
++        if (y1 <= y0) return;
++        int stripHeight = Math.min(32, y1 - y0);
+         short[] strip = new short[width * stripHeight * 3];
+-        for (int y = 0; y < height; y += stripHeight) {
+-            int rows = Math.min(stripHeight, height - y);
++        for (int y = y0; y < y1; y += stripHeight) {
++            int rows = Math.min(stripHeight, y1 - y);
++            short[] buffer = rows == stripHeight ? strip : new short[width * rows * 3];
+             int bytes = rows * width * 3 * Short.BYTES;
+-            if (rgb.get(y, 0, strip) != bytes) throw new IllegalStateException("Incomplete RGB16 strip");
+-            raster.applyRows(strip, y, rows);
+-            if (rgb.put(y, 0, strip) != bytes) throw new IllegalStateException("Incomplete RGB16 write");
++            if (io.get(y, buffer) != bytes) throw new IllegalStateException("Incomplete RGB16 strip");
++            raster.applyRows(buffer, y, rows);
++            if (io.put(y, buffer) != bytes) throw new IllegalStateException("Incomplete RGB16 write");
+         }
+     }
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+index 9bdad0b..2945ef2 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -246,6 +246,15 @@ public class ImageSaver {
+         // ParseExif.setAllAttributes()/saveAttributes(). M9JpegFinalizeQueue owns that exact
+         // metadata step and Photon publication afterward.
+         public static boolean saveBitmapAsJPGPayloadM9(Path fileToSave, Bitmap img, int jpgQuality, ParseExif.ExifData exifData) {
++            return saveBitmapAsJPGPayloadM9(fileToSave, img, jpgQuality, exifData, true);
++        }
++
++        /**
++         * JPEGPERF346: identical quality-95 payload encode. With recycle=false the caller
++         * keeps the Bitmap (other readers may still be sampling it) and recycles it later.
++         */
++        public static boolean saveBitmapAsJPGPayloadM9(Path fileToSave, Bitmap img, int jpgQuality,
++                                                       ParseExif.ExifData exifData, boolean recycle) {
+             // METADATAFIX1A_PRIMARY_JPEG_COMPRESSION_TAG_OMITTED
+             exifData.COMPRESSION = null;
+             M9JpegSaveTiming timing = new M9JpegSaveTiming();
+@@ -264,9 +273,11 @@ public class ImageSaver {
+                 outputStream.flush();
+                 outputStream.close();
+ 
+-                stageStartedNs = System.nanoTime();
+-                img.recycle();
+-                timing.recycleNs = System.nanoTime() - stageStartedNs;
++                if (recycle) {
++                    stageStartedNs = System.nanoTime();
++                    img.recycle();
++                    timing.recycleNs = System.nanoTime() - stageStartedNs;
++                }
+                 return true;
+             } catch (IOException e) {
+                 e.printStackTrace();
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGateScanTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGateScanTest.java
+new file mode 100644
+index 0000000..1947540
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9EdgePlacementGateScanTest.java
+@@ -0,0 +1,85 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import org.junit.Test;
++
++import java.util.Random;
++
++import static org.junit.Assert.assertArrayEquals;
++import static org.junit.Assert.assertEquals;
++
++/** JPEGPERF346: the band-parallel gate scan must equal the original serial full-pixel loop. */
++public class M9EdgePlacementGateScanTest {
++    private static final int GRID_R = 16, GRID_C = 22, REG_R = 4, REG_C = 6, SCAN_ROWS = 64;
++
++    private static int[] partitionMap(int n, int k) {
++        int[] out = new int[n];
++        for (int cell = 0; cell < k; cell++) {
++            int a = cell * n / k;
++            int b = (cell + 1) * n / k;
++            for (int i = a; i < b; i++) out[i] = cell;
++        }
++        return out;
++    }
++
++    /** Verbatim 3.45 serial loop over a row-major ARGB raster. */
++    private static long serial(int[] argb, int width, int height, int[] gridX, int[] gridY, int[] regX, int[] regY,
++                               long[] gridSums, long[] gridCounts, long[] regionHist) {
++        final int rowsPerBlock = Math.min(SCAN_ROWS, height);
++        final int[] pixels = new int[Math.multiplyExact(width, rowsPerBlock)];
++        long pixelCount = 0L;
++        for (int y0 = 0; y0 < height; y0 += rowsPerBlock) {
++            final int rows = Math.min(rowsPerBlock, height - y0);
++            System.arraycopy(argb, y0 * width, pixels, 0, rows * width);
++            for (int ly = 0; ly < rows; ly++) {
++                final int y = y0 + ly;
++                final int gy = gridY[y];
++                final int rr = regY[y];
++                final int rowBase = ly * width;
++                for (int x = 0; x < width; x++) {
++                    final int p = pixels[rowBase + x];
++                    final int r = (p >>> 16) & 0xff;
++                    final int g = (p >>> 8) & 0xff;
++                    final int b = p & 0xff;
++                    final int yy = (4899 * r + 9617 * g + 1868 * b) >> 14;
++                    final int gi = gy * GRID_C + gridX[x];
++                    gridSums[gi] += yy;
++                    gridCounts[gi]++;
++                    final int ri = rr * REG_C + regX[x];
++                    regionHist[(ri << 8) + yy]++;
++                    pixelCount++;
++                }
++            }
++        }
++        return pixelCount;
++    }
++
++    private static void check(int width, int height, int workers, long seed) {
++        Random random = new Random(seed);
++        int[] argb = new int[width * height];
++        for (int i = 0; i < argb.length; i++) argb[i] = random.nextInt();
++        int[] gridX = partitionMap(width, GRID_C), gridY = partitionMap(height, GRID_R);
++        int[] regX = partitionMap(width, REG_C), regY = partitionMap(height, REG_R);
++        long[] s1 = new long[GRID_R * GRID_C], c1 = new long[GRID_R * GRID_C], h1 = new long[REG_R * REG_C * 256];
++        long[] s2 = s1.clone(), c2 = c1.clone(), h2 = h1.clone();
++        long n1 = serial(argb, width, height, gridX, gridY, regX, regY, s1, c1, h1);
++        long n2 = M9EdgePlacementGate1ADiagnostic.scan(
++                (dst, w, y0, rows) -> System.arraycopy(argb, y0 * w, dst, 0, rows * w),
++                width, height, gridX, gridY, regX, regY, s2, c2, h2, workers);
++        String label = width + "x" + height + " workers=" + workers;
++        assertEquals(label, n1, n2);
++        assertArrayEquals(label, s1, s2);
++        assertArrayEquals(label, c1, c2);
++        assertArrayEquals(label, h1, h2);
++    }
++
++    @Test public void bandParallelScanEqualsSerialLoop() {
++        for (int workers : new int[] {1, 2, 3, 8})
++            for (int[] size : new int[][] {{22, 16}, {23, 17}, {640, 480}, {1, 1}, {3, 200}, {517, 63}})
++                check(size[0], size[1], workers, size[0] * 131L + size[1] + workers);
++    }
++
++    @Test public void fullFrameOrientationsMatch() {
++        check(4096, 3072, M9ShadingParallel1A.WORKERS, 4096);
++        check(3072, 4096, M9ShadingParallel1A.WORKERS, 3072);
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffBandsTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffBandsTest.java
+new file mode 100644
+index 0000000..5c853bd
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9LensFalloffBandsTest.java
+@@ -0,0 +1,63 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import org.junit.Test;
++
++import java.util.Random;
++
++import static org.junit.Assert.assertArrayEquals;
++
++/** JPEGPERF346: band-parallel lens falloff must equal the 3.45 whole-frame strip loop. */
++public class M9LensFalloffBandsTest {
++    /** Emulates OpenCV Mat.get/put on a packed RGB16 frame: copy up to the buffer length, clamped at the end. */
++    private static final class ArrayIo implements M9TargetFalloff1A.RowIo {
++        final short[] frame;
++        final int width;
++        ArrayIo(short[] frame, int width) { this.frame = frame; this.width = width; }
++        @Override public int get(int y, short[] strip) {
++            int start = y * width * 3, n = Math.min(strip.length, frame.length - start);
++            System.arraycopy(frame, start, strip, 0, n);
++            return n * Short.BYTES;
++        }
++        @Override public int put(int y, short[] strip) {
++            int start = y * width * 3, n = Math.min(strip.length, frame.length - start);
++            System.arraycopy(strip, 0, frame, start, n);
++            return n * Short.BYTES;
++        }
++    }
++
++    /** Verbatim 3.45 apply() loop, against the same Mat-like adapter. */
++    private static void serial(M9TargetFalloff1A.RowIo rgb, M9TargetFalloff1A.Raster raster, int width, int height) {
++        int stripHeight = Math.min(32, height);
++        short[] strip = new short[width * stripHeight * 3];
++        for (int y = 0; y < height; y += stripHeight) {
++            int rows = Math.min(stripHeight, height - y);
++            int bytes = rows * width * 3 * Short.BYTES;
++            if (rgb.get(y, strip) != bytes) throw new IllegalStateException("Incomplete RGB16 strip");
++            raster.applyRows(strip, y, rows);
++            if (rgb.put(y, strip) != bytes) throw new IllegalStateException("Incomplete RGB16 write");
++        }
++    }
++
++    private static void check(int width, int height, int strength, int workers, long seed) {
++        Random random = new Random(seed);
++        short[] expected = new short[width * height * 3];
++        for (int i = 0; i < expected.length; i++) expected[i] = (short) random.nextInt(65536);
++        short[] actual = expected.clone();
++        M9TargetFalloff1A.Raster raster = new M9TargetFalloff1A.Raster(width, height, strength);
++        serial(new ArrayIo(expected, width), raster, width, height);
++        M9TargetFalloff1A.applyBands(new ArrayIo(actual, width), raster, width, height, workers);
++        assertArrayEquals(width + "x" + height + " strength=" + strength + " workers=" + workers, expected, actual);
++    }
++
++    @Test public void bandsEqualWholeFrameStrips() {
++        for (int workers : new int[] {1, 2, 3, 8})
++            for (int strength : new int[] {1, 50, 100})
++                for (int[] size : new int[][] {{64, 33}, {65, 100}, {1, 1}, {7, 31}, {300, 257}, {4, 1000}})
++                    check(size[0], size[1], strength, workers, size[0] * 7L + size[1] + strength + workers);
++    }
++
++    @Test public void fullFrameMatches() {
++        check(4096, 3072, 100, M9ShadingParallel1A.WORKERS, 1);
++        check(3000, 4000, 73, M9ShadingParallel1A.WORKERS, 2);
++    }
++}
