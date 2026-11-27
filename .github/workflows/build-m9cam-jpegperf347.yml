@@ -132,17 +132,6 @@ jobs:
             PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.48_JPEGSTORE-debug.apk \
             patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" installer
 
-      - name: Build the scoped-storage instrumentation tests
-        working-directory: PhotonCamera
-        run: bash gradlew :app:assembleDebugAndroidTest --no-daemon --max-workers=2
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: jpegstore348-device-tests
-          path: PhotonCamera/app/build/outputs/apk/androidTest/debug/*.apk
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
@@ -150,6 +139,17 @@ jobs:
           path: installer/
           if-no-files-found: error
           retention-days: 90
+
+      - name: Build the scoped-storage instrumentation tests
+        working-directory: PhotonCamera
+        run: bash gradlew -I ../patches/jpegstore348/device-tests.gradle :app:assembleDebugAndroidTest --no-daemon --max-workers=2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jpegstore348-device-tests
+          path: PhotonCamera/app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Analyze reconstructed production source
         uses: github/codeql-action/analyze@v4

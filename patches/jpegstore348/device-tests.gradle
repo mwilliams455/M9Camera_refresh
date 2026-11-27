@@ -1,0 +1,10 @@
+// The emulator job builds only the shared-storage suite that it installs and runs.
+gradle.beforeProject { project ->
+    project.pluginManager.withPlugin('com.android.application') {
+        project.androidComponents.finalizeDsl { android ->
+            android.sourceSets.getByName('androidTest').java.setSrcDirs([
+                project.file('src/androidTest/java/com/particlesdevs/photoncamera/m9/render')
+            ])
+        }
+    }
+}
