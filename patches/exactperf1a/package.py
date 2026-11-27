@@ -15,10 +15,14 @@ patches = here.parent
 sha = lambda data: hashlib.sha256(data).hexdigest()
 certificate = '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
 scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
-integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf')
-jpeg347 = scope['version'] == '3.47-jpegperf'
+integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf', '3.48-jpegstore')
+jpeg348 = scope['version'] == '3.48-jpegstore'
+jpeg347 = jpeg348 or scope['version'] == '3.47-jpegperf'
 jpegperf = jpeg347 or scope['version'] == '3.46-jpegperf'
-if jpeg347:
+if jpeg348:
+    version, code, filename = '3.48-jpegstore', 27348, 'M9Cam_3.48_JPEGSTORE.apk'
+    stage, parent = patches / 'jpegstore348', '3.47-jpegperf'
+elif jpeg347:
     version, code, filename = '3.47-jpegperf', 27347, 'M9Cam_3.47_JPEGPERF.apk'
     stage, parent = patches / 'jpegperf347', '3.46-jpegperf'
 elif jpegperf:
@@ -126,6 +130,8 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     if jpeg347:
         for marker in ('M9PendingJpeg', 'edgeGridSkippedForLockedExposure', 'JPEG encoder returned false'):
             assert marker.encode() in dex, marker
+    if jpeg348:
+        assert b'Unable to reserve JPEG in MediaStore' in dex
     for marker in ['M9ShadingParallel1A', 'M9EXACTPERF1A_SHADING_ROWBANDS_EXACT', 'saveSingleRawM9PhysicalCfaStaged',
                    'embedInPlace', 'embedStaged', 'StagingNotRestoredException', 'publishStagedDng',
                    'M9PHASENOISEPERF1D_DYNAMIC_EXACT', 'dynamic_tiles_chunk1', 'AutomaticSubjectSelection',

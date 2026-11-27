@@ -1,0 +1,741 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 94a3ca9..85decde 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27347
++        versionCode 27348
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.47-jpegperf'
++        versionName '3.48-jpegstore'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -106,7 +106,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.47_JPEGPERF-${variant.name}.apk"
++            outputFileName = "M9Cam_3.48_JPEGSTORE-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java b/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java
+new file mode 100644
+index 0000000..f4c0309
+--- /dev/null
++++ b/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java
+@@ -0,0 +1,134 @@
++package com.particlesdevs.photoncamera.m9.render;
++
++import android.content.ContentResolver;
++import android.database.Cursor;
++import android.graphics.Bitmap;
++import android.graphics.BitmapFactory;
++import android.net.Uri;
++import android.os.Environment;
++import android.provider.MediaStore;
++import androidx.exifinterface.media.ExifInterface;
++import androidx.test.ext.junit.runners.AndroidJUnit4;
++import androidx.test.platform.app.InstrumentationRegistry;
++import com.particlesdevs.photoncamera.api.ParseExif;
++import com.particlesdevs.photoncamera.processing.ImageSaver;
++import java.io.IOException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.util.UUID;
++import org.json.JSONObject;
++import org.json.JSONArray;
++import com.particlesdevs.photoncamera.processing.M9DngProfileExport;
++import org.junit.After;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import static org.junit.Assert.*;
++
++@RunWith(AndroidJUnit4.class)
++public class M9SharedJpegTest {
++    private final ContentResolver resolver = InstrumentationRegistry.getInstrumentation().getTargetContext().getContentResolver();
++    private final Path camera = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toPath().resolve("Camera");
++    private final String stem = "IMG_20261127_140305_" + UUID.randomUUID();
++    private final Path target = camera.resolve(stem + ".jpg");
++    private final Uri images = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
++
++    private int count(String name, int pending) {
++        Uri all = MediaStore.setIncludePending(images);
++        try (Cursor rows = resolver.query(all, new String[]{"_id"},
++                "_display_name = ? AND relative_path = ? AND is_pending = ?",
++                new String[]{name, "DCIM/Camera/", Integer.toString(pending)}, null)) {
++            assertNotNull(rows);
++            return rows.getCount();
++        }
++    }
++
++    private ParseExif.ExifData encode(M9PendingJpeg item) {
++        Bitmap bitmap = Bitmap.createBitmap(96, 64, Bitmap.Config.ARGB_8888);
++        bitmap.eraseColor(0xff457938);
++        ParseExif.ExifData exif = new ParseExif.ExifData();
++        exif.PHOTOGRAPHIC_SENSITIVITY = "320";
++        assertTrue(ImageSaver.Util.saveBitmapAsJPGPayloadM9(item::openOutput, bitmap, 95, exif, true));
++        return exif;
++    }
++
++    @After public void removeTestCaptures() {
++        resolver.delete(MediaStore.setIncludePending(images), "_display_name LIKE ?", new String[]{"%" + stem + "%"});
++    }
++
++    @Test public void finishedJpegIsPublishedAfterExif() throws Exception {
++        M9PendingJpeg item = M9PendingJpeg.create(target, resolver);
++        ParseExif.ExifData exif = encode(item);
++        assertFalse(Files.exists(target));
++        assertEquals(1, count(target.getFileName().toString(), 1));
++        assertEquals(0, count(target.getFileName().toString(), 0));
++        String before = item.readSignature().codingSha256;
++        M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target, exif, null, null, item);
++        ticket.awaitCompletion();
++        assertTrue(ticket.error(), ticket.isSuccess());
++        assertEquals(1, count(target.getFileName().toString(), 0));
++        assertEquals(0, count(target.getFileName().toString(), 1));
++        assertEquals(before, item.readSignature().codingSha256);
++        ExifInterface saved = new ExifInterface(target.toFile());
++        assertEquals(320, saved.getAttributeInt(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, -1));
++        assertEquals("2026:11:27 14:03:05", saved.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
++        Bitmap decoded = BitmapFactory.decodeFile(target.toString());
++        assertNotNull(decoded);
++        assertEquals(96, decoded.getWidth());
++        assertEquals(64, decoded.getHeight());
++        decoded.recycle();
++    }
++
++    @Test public void jpegAndProfiledDngShareTheCaptureName() throws Exception {
++        M9PendingJpeg jpeg = M9PendingJpeg.create(target, resolver);
++        M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target, encode(jpeg), null, null, jpeg);
++        ticket.awaitCompletion();
++        assertTrue(ticket.error(), ticket.isSuccess());
++        // 8x8 RAW16 from the deterministic M9DngProfileStagingTest fixture.
++        byte[] seed = android.util.Base64.decode("SUkqAFABAACZFw+7GDR3o1qUyb85C3cCCdMqWV1KmH1B9LPlkkcavgUZS7VdyrORABYXWqFH4fPpjuge33+uQL/nk9n87VKyAuNNFeXEyq8Wb8LtzqT7G2XiQKTpRLMdBwXmyLcc+L38l8aWaTBYsi7dFHnxlTKX4cghQaakbZk2TPRhsxfJn1N5bnRoZXRpYyBzdGFnaW5nIHByb2JlAEAfAAAQJwAAMPj//xAnAADoAwAAECcAABj8//8QJwAA+CoAABAnAADcBQAAECcAAPQBAAAQJwAA6AMAABAnAABYGwAAECcAAIgTAAAQJwAAECcAABAnAABMHQAAECcAAHjs//8QJwAAcBcAABAnAAC4CwAAECcAAIICAAAQJwAA0AcAABAnAABYGwAAECcAAOgDAAAQJwAAyAAAABAnAADoAwAAECcAAIkbAAAQJwAAEwD+AAQAAQAAAAAAAAAAAQQAAQAAAAgAAAABAQQAAQAAAAgAAAACAQMAAQAAABAAAAADAQMAAQAAAAEAAAAGAQMAAQAAACOAAAARAQQAAQAAAAgAAAAVAQMAAQAAAAEAAAAWAQQAAQAAAAgAAAAXAQQAAQAAAIAAAACNggMAAgAAAAIAAgCOggEABAAAAAABAQISxgEABAAAAAEEAAAUxgIAGAAAAIgAAAAhxgoACQAAAKAAAAAoxgUAAwAAAOgAAAAqxgoAAQAAAAABAABaxgMAAQAAABUAAAAUxwoACQAAAAgBAAAAAAAA", android.util.Base64.DEFAULT);
++        Path finalDng = target.resolveSibling(stem + ".dng");
++        Path raw = M9DngPublication.createStagingFile(finalDng);
++        try {
++            Files.write(raw, seed);
++            JSONObject calibration = new JSONObject().put("effectiveRenderGain", 1.0)
++                    .put("currentPpToM9Composed", new JSONArray("[[1,0,0],[0,1,0],[0,0,1]]"));
++            JSONObject frozen = new JSONObject().put("nativeSaturationBankActuallySelected", 2)
++                    .put("nativeContrastLevelActuallySelected", 2).put("identityHsmApplied", true)
++                    .put("targetDomainTrace1A", calibration);
++            JSONObject profile = M9DngProfileExport.embedStaged(raw, frozen.toString(), true);
++            assertEquals(profile.toString(), "embedded", profile.optString("status"));
++            assertEquals(finalDng, M9DngPublication.publishStagedDng(raw, finalDng));
++            assertTrue(Files.isRegularFile(target));
++            byte[] saved = Files.readAllBytes(finalDng);
++            assertTrue(saved.length > seed.length);
++            assertTrue(new String(saved, java.nio.charset.StandardCharsets.ISO_8859_1)
++                    .contains(profile.getString("profileName")));
++        } finally {
++            Files.deleteIfExists(raw);
++            Files.deleteIfExists(finalDng);
++        }
++    }
++
++    @Test public void rejectedRenderDeletesPendingImage() throws Exception {
++        M9PendingJpeg item = M9PendingJpeg.create(target, resolver);
++        encode(item);
++        item.discard(new IOException("injected render rejection"));
++        assertFalse(Files.exists(target));
++        assertEquals(0, count(target.getFileName().toString(), 0));
++        assertEquals(0, count(target.getFileName().toString(), 1));
++    }
++
++    @Test public void acceptedJpegCanBeRecoveredByCaptureName() throws Exception {
++        M9PendingJpeg item = M9PendingJpeg.create(target, resolver);
++        encode(item);
++        IOException error = new IOException("injected publication failure");
++        item.recover(error);
++        try (Cursor rows = resolver.query(images, new String[]{"_display_name"},
++                "_display_name LIKE ? AND is_pending = 0", new String[]{stem + "_recovered_%.jpg"}, null)) {
++            assertNotNull(rows);
++            assertEquals(1, rows.getCount());
++            assertTrue(rows.moveToFirst());
++            assertNotNull(BitmapFactory.decodeFile(camera.resolve(rows.getString(0)).toString()));
++        }
++        assertFalse(Files.exists(target));
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/api/ParseExif.java b/app/src/main/java/com/particlesdevs/photoncamera/api/ParseExif.java
+index 23c7be4..af69dfc 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/api/ParseExif.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/api/ParseExif.java
+@@ -128,6 +128,10 @@ public class ParseExif {
+             e.printStackTrace();
+             return inter;
+         }
++        return setAllAttributes(inter, data);
++    }
++
++    public static ExifInterface setAllAttributes(ExifInterface inter, ExifData data) {
+         inter.setAttribute(TAG_SENSITIVITY_TYPE, data.SENSITIVITY_TYPE);
+         inter.setAttribute(TAG_PHOTOGRAPHIC_SENSITIVITY, data.PHOTOGRAPHIC_SENSITIVITY);
+         inter.setAttribute(TAG_F_NUMBER, data.F_NUMBER);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
+index 2d1971c..1ac6465 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
+@@ -24,50 +24,56 @@ public final class M9JpegSignature1A {
+     private static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format(Locale.ROOT,"%02x",v&255));return s.toString();}
+     private static int read(InputStream in)throws IOException{int v=in.read();if(v<0)throw new EOFException("truncated JPEG");return v;}
+     public static Result read(File file)throws Exception {
++        return read(new FileInputStream(file));
++    }
++    public static Result read(InputStream source)throws Exception {
++        try(InputStream in=new BufferedInputStream(source,65536)) {
++            return readBuffered(in);
++        }
++    }
++    private static Result readBuffered(InputStream in)throws Exception {
+         CodingDigest digest=new CodingDigest();MessageDigest icc=MessageDigest.getInstance("SHA-256");
+         Result out=new Result();boolean scan=false,done=false;int pending=-1;
+-        try(InputStream in=new BufferedInputStream(new FileInputStream(file),65536)) {
+-            if(read(in)!=255||read(in)!=216)throw new IOException("not JPEG");
+-            digest.update(new byte[]{(byte)255,(byte)216});out.codingBytes=2;
+-            while(!done) {
+-                int marker;
+-                if(scan) {
+-                    int v=read(in);
+-                    if(v!=255){digest.update((byte)v);out.codingBytes++;continue;}
+-                    int count=1;marker=read(in);
+-                    while(marker==255){count++;marker=read(in);}
+-                    if(marker==0||(marker>=208&&marker<=215)) {
+-                        for(int i=0;i<count;i++)digest.update((byte)255);
+-                        digest.update((byte)marker);out.codingBytes+=count+1;continue;
+-                    }
+-                    // Marker fill bytes do not affect decoded samples. Canonicalize the marker prefix.
+-                    scan=false;
+-                } else {
+-                    if(pending>=0){marker=pending;pending=-1;}
+-                    else {if(read(in)!=255)throw new IOException("invalid JPEG marker");do{marker=read(in);}while(marker==255);}
+-                }
+-                if(marker==217){digest.update(new byte[]{(byte)255,(byte)217});out.codingBytes+=2;done=true;continue;}
+-                if(marker==216||marker==0||marker==1||(marker>=208&&marker<=215))throw new IOException("unexpected standalone marker");
+-                int hi=read(in),lo=read(in),length=(hi<<8)|lo;
+-                if(length<2)throw new IOException("invalid JPEG segment length");
+-                byte[] data=new byte[length-2];int pos=0,n;
+-                while(pos<data.length&&(n=in.read(data,pos,data.length-pos))>0)pos+=n;
+-                if(pos!=data.length)throw new EOFException("truncated JPEG segment");
+-                boolean metadata=(marker>=224&&marker<=239)||marker==254;
+-                if(!metadata){digest.update(new byte[]{(byte)255,(byte)marker,(byte)hi,(byte)lo});digest.update(data);out.codingBytes+=length+2;}
+-                if(marker==226&&data.length>=14&&new String(data,0,12,"US-ASCII").equals("ICC_PROFILE\0")){
+-                    icc.update(data);out.iccSegments++;
++        if(read(in)!=255||read(in)!=216)throw new IOException("not JPEG");
++        digest.update(new byte[]{(byte)255,(byte)216});out.codingBytes=2;
++        while(!done) {
++            int marker;
++            if(scan) {
++                int v=read(in);
++                if(v!=255){digest.update((byte)v);out.codingBytes++;continue;}
++                int count=1;marker=read(in);
++                while(marker==255){count++;marker=read(in);}
++                if(marker==0||(marker>=208&&marker<=215)) {
++                    for(int i=0;i<count;i++)digest.update((byte)255);
++                    digest.update((byte)marker);out.codingBytes+=count+1;continue;
+                 }
+-                if((marker>=192&&marker<=195)||(marker>=197&&marker<=199)||(marker>=201&&marker<=203)||(marker>=205&&marker<=207)) {
+-                    if(data.length<6)throw new IOException("short SOF");
+-                    out.height=((data[1]&255)<<8)|(data[2]&255);out.width=((data[3]&255)<<8)|(data[4]&255);
+-                    int channels=data[5]&255;if(data.length<6+3*channels)throw new IOException("short SOF components");
+-                    StringBuilder s=new StringBuilder();
+-                    for(int i=0;i<channels;i++){if(i>0)s.append(',');int v=data[7+i*3]&255;s.append(data[6+i*3]&255).append(':').append(v>>4).append('x').append(v&15);}
+-                    out.sampling=s.toString();
+-                }
+-                if(marker==218)scan=true;
++                // Marker fill bytes do not affect decoded samples. Canonicalize the marker prefix.
++                scan=false;
++            } else {
++                if(pending>=0){marker=pending;pending=-1;}
++                else {if(read(in)!=255)throw new IOException("invalid JPEG marker");do{marker=read(in);}while(marker==255);}
++            }
++            if(marker==217){digest.update(new byte[]{(byte)255,(byte)217});out.codingBytes+=2;done=true;continue;}
++            if(marker==216||marker==0||marker==1||(marker>=208&&marker<=215))throw new IOException("unexpected standalone marker");
++            int hi=read(in),lo=read(in),length=(hi<<8)|lo;
++            if(length<2)throw new IOException("invalid JPEG segment length");
++            byte[] data=new byte[length-2];int pos=0,n;
++            while(pos<data.length&&(n=in.read(data,pos,data.length-pos))>0)pos+=n;
++            if(pos!=data.length)throw new EOFException("truncated JPEG segment");
++            boolean metadata=(marker>=224&&marker<=239)||marker==254;
++            if(!metadata){digest.update(new byte[]{(byte)255,(byte)marker,(byte)hi,(byte)lo});digest.update(data);out.codingBytes+=length+2;}
++            if(marker==226&&data.length>=14&&new String(data,0,12,"US-ASCII").equals("ICC_PROFILE\0")){
++                icc.update(data);out.iccSegments++;
++            }
++            if((marker>=192&&marker<=195)||(marker>=197&&marker<=199)||(marker>=201&&marker<=203)||(marker>=205&&marker<=207)) {
++                if(data.length<6)throw new IOException("short SOF");
++                out.height=((data[1]&255)<<8)|(data[2]&255);out.width=((data[3]&255)<<8)|(data[4]&255);
++                int channels=data[5]&255;if(data.length<6+3*channels)throw new IOException("short SOF components");
++                StringBuilder s=new StringBuilder();
++                for(int i=0;i<channels;i++){if(i>0)s.append(',');int v=data[7+i*3]&255;s.append(data[6+i*3]&255).append(':').append(v>>4).append('x').append(v&15);}
++                out.sampling=s.toString();
+             }
++            if(marker==218)scan=true;
+         }
+         out.codingSha256=hex(digest.digest());out.digestUpdates=digest.updates;out.iccSha256=out.iccSegments==0?null:hex(icc.digest());return out;
+     }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
+index 5a8e989..6a7bfbf 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
+@@ -159,17 +159,20 @@ public final class M9ShutterTrace1A {
+     }
+     /** Synchronous small streaming digest: must finish before the EXIF worker is allowed to rewrite the file. */
+     public static void payloadWritten(Path path) {
+-        payloadWritten(path, path);
++        payloadWritten(path, () -> M9JpegSignature1A.read(path.toFile()));
+     }
+-    public static void payloadWritten(Path path, Path encodedBytes) {
++    public static void payloadWritten(Path path, java.util.concurrent.Callable<M9JpegSignature1A.Result> signatureReader) {
+         Session s=session(LEDGER.byFilename(path.getFileName().toString()));if(s==null)return;
+         long started=SystemClock.elapsedRealtimeNanos();
+-        try {s.payload=M9JpegSignature1A.read(encodedBytes.toFile());long elapsed=SystemClock.elapsedRealtimeNanos()-started;
++        try {s.payload=signatureReader.call();long elapsed=SystemClock.elapsedRealtimeNanos()-started;
+             submit(()->{try{s.root.put("encodedBeforeExif",signature(s.payload)).put("payloadDigestNs",elapsed);persist(s,"encoded");}catch(Exception t){Log.w(REVISION,t.toString());}});
+         }catch(Throwable t){submit(()->{try{s.root.put("encodedBeforeExif",error(t));persist(s,"encode_probe_failed");}catch(Exception ignored){}});}
+     }
+     public static void finalized(Path path,boolean success) {
+-        Session s=session(LEDGER.byFilename(path.getFileName().toString()));if(s==null)return;
++        finalized(path, path, success);
++    }
++    public static void finalized(Path capturePath,Path path,boolean success) {
++        Session s=session(LEDGER.byFilename(capturePath.getFileName().toString()));if(s==null)return;
+         long called=SystemClock.elapsedRealtimeNanos();
+         LEDGER.jpegComplete(s.join.id,called);
+         for(int delay:new int[]{250,1000,3000,7500})MAIN.postDelayed(()->{
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
+index a59ce6c..4c836a7 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
+@@ -218,51 +218,56 @@ public final class M9JpegFinalizeQueue {
+                                     Completion completion, M9PendingJpeg pending) {
+         final long startedNs = System.nanoTime();
+         ticket.queueWaitElapsedMs = (startedNs - ticket.queuedAtNs) / 1_000_000L;
++        Path publishedPath = jpegPath;
+         try {
+             if (backgroundThread) Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+ 
+-            long stageStartedNs = System.nanoTime();
+-            ExifInterface inter = ParseExif.setAllAttributes((pending == null ? jpegPath : pending.staged).toFile(), exifData);
+-            ticket.exifSetupElapsedNs = System.nanoTime() - stageStartedNs;
+-            if (inter == null) throw new IllegalStateException("ParseExif.setAllAttributes returned null");
++            try (android.os.ParcelFileDescriptor descriptor = pending == null ? null : pending.openExifDescriptor()) {
++                long stageStartedNs = System.nanoTime();
++                ExifInterface inter = descriptor == null
++                        ? ParseExif.setAllAttributes((pending == null ? jpegPath : pending.legacyFile).toFile(), exifData)
++                        : ParseExif.setAllAttributes(new ExifInterface(descriptor.getFileDescriptor()), exifData);
++                ticket.exifSetupElapsedNs = System.nanoTime() - stageStartedNs;
++                if (inter == null) throw new IllegalStateException("ParseExif.setAllAttributes returned null");
+ 
+-            // METADATAFIX1A_EXIF_FINALIZE: metadata-only normalization.
+-            String captureDateTime = captureDateTimeFromPath(jpegPath, exifData.DATETIME);
+-            if (captureDateTime != null && !captureDateTime.isEmpty()) {
+-                inter.setAttribute(ExifInterface.TAG_DATETIME, captureDateTime);
+-                inter.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, captureDateTime);
+-                inter.setAttribute(ExifInterface.TAG_DATETIME_DIGITIZED, captureDateTime);
+-            }
+-            inter.setAttribute(ExifInterface.TAG_ORIENTATION,
+-                    String.valueOf(ExifInterface.ORIENTATION_NORMAL));
+-            // Primary JPEG compression is identified by the JPEG stream itself; do not write
+-            // JPEG quality (95) into the TIFF/EXIF Compression enum.
+-            inter.setAttribute(ExifInterface.TAG_COMPRESSION, null);
+-            inter.setAttribute(ExifInterface.TAG_SOFTWARE, M9_SOFTWARE);
++                // METADATAFIX1A_EXIF_FINALIZE: metadata-only normalization.
++                String captureDateTime = captureDateTimeFromPath(jpegPath, exifData.DATETIME);
++                if (captureDateTime != null && !captureDateTime.isEmpty()) {
++                    inter.setAttribute(ExifInterface.TAG_DATETIME, captureDateTime);
++                    inter.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, captureDateTime);
++                    inter.setAttribute(ExifInterface.TAG_DATETIME_DIGITIZED, captureDateTime);
++                }
++                inter.setAttribute(ExifInterface.TAG_ORIENTATION,
++                        String.valueOf(ExifInterface.ORIENTATION_NORMAL));
++                // Primary JPEG compression is identified by the JPEG stream itself; do not write
++                // JPEG quality (95) into the TIFF/EXIF Compression enum.
++                inter.setAttribute(ExifInterface.TAG_COMPRESSION, null);
++                inter.setAttribute(ExifInterface.TAG_SOFTWARE, M9_SOFTWARE);
+ 
+-            String apertureValue = apexApertureValue(exifData.F_NUMBER);
+-            if (apertureValue != null) {
+-                inter.setAttribute(ExifInterface.TAG_APERTURE_VALUE, apertureValue);
+-            }
++                String apertureValue = apexApertureValue(exifData.F_NUMBER);
++                if (apertureValue != null) {
++                    inter.setAttribute(ExifInterface.TAG_APERTURE_VALUE, apertureValue);
++                }
+ 
+-            ticket.metadataSchema = METADATA_SCHEMA;
+-            ticket.exifPhotographicSensitivity = exifData.PHOTOGRAPHIC_SENSITIVITY;
+-            ticket.exifCaptureDateTime = captureDateTime;
+-            ticket.exifApertureValue = apertureValue;
+-            ticket.exifSoftware = M9_SOFTWARE;
+-            ticket.exifOrientation = ExifInterface.ORIENTATION_NORMAL;
+-            ticket.exifCompressionTagOmitted = true;
++                ticket.metadataSchema = METADATA_SCHEMA;
++                ticket.exifPhotographicSensitivity = exifData.PHOTOGRAPHIC_SENSITIVITY;
++                ticket.exifCaptureDateTime = captureDateTime;
++                ticket.exifApertureValue = apertureValue;
++                ticket.exifSoftware = M9_SOFTWARE;
++                ticket.exifOrientation = ExifInterface.ORIENTATION_NORMAL;
++                ticket.exifCompressionTagOmitted = true;
+ 
+-            stageStartedNs = System.nanoTime();
+-            inter.saveAttributes();
+-            ticket.exifSaveElapsedNs = System.nanoTime() - stageStartedNs;
+-            if (pending != null) pending.publish();
++                stageStartedNs = System.nanoTime();
++                inter.saveAttributes();
++                ticket.exifSaveElapsedNs = System.nanoTime() - stageStartedNs;
++            }
++            if (pending != null) publishedPath = pending.publish();
+             ticket.success = true;
+ 
+             // Photon publication remains strictly after EXIF saveAttributes(), exactly as before.
+             if (processingEventsListener != null) {
+-                stageStartedNs = System.nanoTime();
+-                processingEventsListener.notifyImageSavedStatus(true, jpegPath);
++                long stageStartedNs = System.nanoTime();
++                processingEventsListener.notifyImageSavedStatus(true, publishedPath);
+                 ticket.publishElapsedNs = System.nanoTime() - stageStartedNs;
+             }
+         } catch (Throwable t) {
+@@ -273,7 +278,7 @@ public final class M9JpegFinalizeQueue {
+         } finally {
+             ticket.finalizeElapsedNs = System.nanoTime() - startedNs;
+             try {
+-                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.finalized(jpegPath, ticket.success);
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.finalized(jpegPath, publishedPath, ticket.success);
+             } finally {
+                 ticket.done.countDown();
+                 if (completion != null) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
+index 735fb8d..cc322d0 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
+@@ -1,52 +1,133 @@
+ package com.particlesdevs.photoncamera.m9.render;
+ 
++import android.content.ContentResolver;
++import android.content.ContentValues;
++import android.database.Cursor;
++import android.net.Uri;
++import android.os.Build;
++import android.os.Environment;
++import android.os.ParcelFileDescriptor;
++import android.provider.MediaStore;
++
+ import java.io.IOException;
++import java.io.InputStream;
++import java.io.OutputStream;
+ import java.nio.file.AtomicMoveNotSupportedException;
+ import java.nio.file.Files;
+ import java.nio.file.Path;
+ import java.nio.file.StandardCopyOption;
++import java.util.UUID;
+ 
+-/** A private, same-directory JPEG until the render and its EXIF have both succeeded. */
++/** One capture owns its unpublished JPEG until the encoder and metadata worker finish. */
+ final class M9PendingJpeg {
+     final Path target;
+-    final Path staged;
++    final Path legacyFile;
++    private final ContentResolver resolver;
++    private final Uri item;
+ 
+-    private M9PendingJpeg(Path target, Path staged) {
++    private M9PendingJpeg(Path target, Path legacyFile, ContentResolver resolver, Uri item) {
+         this.target = target;
+-        this.staged = staged;
++        this.legacyFile = legacyFile;
++        this.resolver = resolver;
++        this.item = item;
++    }
++
++    static M9PendingJpeg create(Path target, ContentResolver resolver) throws IOException {
++        if (Build.VERSION.SDK_INT < 29) return createLegacy(target);
++        Path root = Environment.getExternalStorageDirectory().toPath();
++        String directory = root.relativize(target.toAbsolutePath().getParent()).toString();
++        ContentValues values = new ContentValues();
++        values.put(MediaStore.MediaColumns.DISPLAY_NAME, target.getFileName().toString());
++        values.put(MediaStore.MediaColumns.RELATIVE_PATH, directory + "/");
++        values.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
++        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
++        Uri collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
++        Uri item = resolver.insert(collection, values);
++        if (item == null) throw new IOException("Unable to reserve JPEG in MediaStore: " + target);
++        return new M9PendingJpeg(target, null, resolver, item);
++    }
++
++    static M9PendingJpeg createLegacy(Path target) throws IOException {
++        String stem = stem(target);
++        Path file = Files.createTempFile(target.toAbsolutePath().getParent(), "." + stem + "_recovered_", ".jpg");
++        return new M9PendingJpeg(target, file, null, null);
+     }
+ 
+-    static M9PendingJpeg create(Path target) throws IOException {
+-        String name = target.getFileName().toString();
++    private static String stem(Path path) {
++        String name = path.getFileName().toString();
+         int dot = name.lastIndexOf('.');
+-        String stem = dot > 0 ? name.substring(0, dot) : name;
+-        Path staged = Files.createTempFile(target.toAbsolutePath().getParent(), "." + stem + "_recovered_", ".pending");
+-        return new M9PendingJpeg(target, staged);
++        return dot > 0 ? name.substring(0, dot) : name;
++    }
++
++    OutputStream openOutput() throws IOException {
++        if (item == null) return Files.newOutputStream(legacyFile);
++        OutputStream stream = resolver.openOutputStream(item, "wt");
++        if (stream == null) throw new IOException("Unable to open pending JPEG output: " + item);
++        return stream;
++    }
++
++    InputStream openInput() throws IOException {
++        if (item == null) return Files.newInputStream(legacyFile);
++        InputStream stream = resolver.openInputStream(item);
++        if (stream == null) throw new IOException("Unable to read pending JPEG: " + item);
++        return stream;
+     }
+ 
+-    void publish() throws IOException {
++    com.particlesdevs.photoncamera.m9.preview.M9JpegSignature1A.Result readSignature() throws Exception {
++        return com.particlesdevs.photoncamera.m9.preview.M9JpegSignature1A.read(openInput());
++    }
++
++    ParcelFileDescriptor openExifDescriptor() throws IOException {
++        if (item == null) return null; // Pre-Q metadata writer uses the app-owned file.
++        ParcelFileDescriptor fd = resolver.openFileDescriptor(item, "rw");
++        if (fd == null) throw new IOException("Unable to open pending JPEG for EXIF: " + item);
++        return fd;
++    }
++
++    private void finishMediaItem(String recoveredName) throws IOException {
++        ContentValues values = new ContentValues();
++        if (recoveredName != null) values.put(MediaStore.MediaColumns.DISPLAY_NAME, recoveredName);
++        values.put(MediaStore.MediaColumns.IS_PENDING, 0);
++        if (resolver.update(item, values, null, null) != 1) throw new IOException("Unable to publish JPEG: " + item);
++    }
++
++    Path publish() throws IOException {
++        if (item != null) {
++            finishMediaItem(null);
++            // MediaStore can disambiguate two captures with the same display name.
++            // Publication has already committed, even if a provider cannot report the final name.
++            String column = MediaStore.MediaColumns.DISPLAY_NAME;
++            try (Cursor cursor = resolver.query(item, new String[]{column}, null, null, null)) {
++                if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0))
++                    return target.resolveSibling(cursor.getString(0));
++            } catch (RuntimeException unavailable) {
++                android.util.Log.w("M9PendingJpeg", "Published JPEG name unavailable", unavailable);
++            }
++            return target;
++        }
+         try {
+-            Files.move(staged, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
++            Files.move(legacyFile, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+         } catch (AtomicMoveNotSupportedException unsupported) {
+-            // Both paths are in the same directory; Android rename never copies into the visible name.
+-            if (!staged.toFile().renameTo(target.toFile())) throw unsupported;
++            if (!legacyFile.toFile().renameTo(target.toFile())) throw unsupported;
+         }
++        return target;
+     }
+ 
+     void discard(Throwable failure) {
+-        try { Files.deleteIfExists(staged); }
+-        catch (IOException | SecurityException cleanup) { failure.addSuppressed(cleanup); }
++        try {
++            if (item == null) Files.deleteIfExists(legacyFile);
++            else resolver.delete(item, null, null);
++        } catch (IOException | RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+     }
+ 
+     void recover(Throwable failure) {
+-        // Capture-specific and unique. Preserve the private copy if even a recovery rename fails.
+-        String name = staged.getFileName().toString();
+-        Path recovered = staged.resolveSibling(name.substring(1, name.length() - ".pending".length()) + ".jpg");
++        String name = stem(target) + "_recovered_" + UUID.randomUUID() + ".jpg";
+         try {
+-            Files.move(staged, recovered);
+-            failure.addSuppressed(new IOException("Recovered JPEG at " + recovered));
+-        } catch (IOException | SecurityException rename) {
+-            failure.addSuppressed(new IOException("Unable to rename pending JPEG at " + staged, rename));
++            if (item == null) Files.move(legacyFile, target.resolveSibling(name));
++            else finishMediaItem(name);
++            failure.addSuppressed(new IOException("Recovered JPEG as " + name));
++        } catch (IOException | RuntimeException error) {
++            failure.addSuppressed(new IOException("Unable to publish recovery JPEG for " + target, error));
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index 483f16a..b67eec4 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -855,15 +855,15 @@ public final class M9R35Renderer {
+                 M9RenderCrash1D.stage("pre_encode_trace");
+                 com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
+                 M9RenderCrash1D.stage("jpeg_encode_write");
+-                pending = M9PendingJpeg.create(jpgPath);
+-                final Path overlapPath346 = pending.staged;
++                pending = M9PendingJpeg.create(jpgPath, com.particlesdevs.photoncamera.app.PhotonCamera.getAppContext().getContentResolver());
++                final M9PendingJpeg encodingJpeg = pending;
+                 final Bitmap overlapBitmap346 = bitmap;
+                 final ParseExif.ExifData overlapExifData346 = overlapExif346;
+                 overlapJpeg346 = JPEG_OVERLAP_346.submit(() -> {
+                     Jpeg346 result = new Jpeg346();
+                     long encodeStartedNs = System.nanoTime();
+                     result.saved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(
+-                            overlapPath346, overlapBitmap346, JPEG_QUALITY, overlapExifData346, false);
++                            encodingJpeg::openOutput, overlapBitmap346, JPEG_QUALITY, overlapExifData346, false);
+                     result.elapsedMs = (System.nanoTime() - encodeStartedNs) / 1_000_000L;
+                     result.timing = ImageSaver.Util.consumeM9JpegSaveTiming();
+                     return result;
+@@ -1107,21 +1107,21 @@ public final class M9R35Renderer {
+                 bitmap = null;
+                 if (!encoded.saved) throw new IllegalStateException("M9 JPEG payload save failed");
+                 M9RenderCrash1D.stage("jpeg_payload_written");
+-                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath, pending.staged);
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath, pending::readSignature);
+             } else if (saveJpeg) {
+                 exif = m9JpegExif(captureResult, captureRequest);
+                 M9RenderCrash1D.stage("pre_encode_trace");
+                 com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
+                 M9RenderCrash1D.stage("jpeg_encode_write");
+                 long jpegStartedNs = System.nanoTime();
+-                pending = M9PendingJpeg.create(jpgPath);
+-                boolean jpgSaved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.staged, bitmap, JPEG_QUALITY, exif);
++                pending = M9PendingJpeg.create(jpgPath, com.particlesdevs.photoncamera.app.PhotonCamera.getAppContext().getContentResolver());
++                boolean jpgSaved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending::openOutput, bitmap, JPEG_QUALITY, exif, true);
+                 jpegEncodeWriteElapsedMs = (System.nanoTime() - jpegStartedNs) / 1_000_000L;
+                 jpegTiming = ImageSaver.Util.consumeM9JpegSaveTiming();
+                 bitmap = null;
+                 if (!jpgSaved) throw new IllegalStateException("M9 JPEG payload save failed");
+                 M9RenderCrash1D.stage("jpeg_payload_written");
+-                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath, pending.staged);
++                com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.payloadWritten(jpgPath, pending::readSignature);
+             } else {
+                 // RAW-only still computes the exact capture-owned Leica profile/AE evidence,
+                 // but never opens a JPEG, encodes it, finalizes EXIF or publishes it.
+@@ -1489,8 +1489,8 @@ public final class M9R35Renderer {
+             if (!deferPublication && pending != null) {
+                 M9PendingJpeg accepted = pending;
+                 pending = null;
+-                try { accepted.publish(); }
+-                catch (java.io.IOException | SecurityException failure) { accepted.recover(failure); throw failure; }
++                try { jpgPath = accepted.publish(); }
++                catch (java.io.IOException | RuntimeException failure) { accepted.recover(failure); throw failure; }
+             }
+             return new Result(true, jpgPath, SAVE_PARITY_PNG && M9OutputSettings.diagnosticsEnabled() ? pngPath : null,
+                     null, diag, exif, pending);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+index 4b57bf9..6db1617 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ImageSaver.java
+@@ -255,6 +255,15 @@ public class ImageSaver {
+          */
+         public static boolean saveBitmapAsJPGPayloadM9(Path fileToSave, Bitmap img, int jpgQuality,
+                                                        ParseExif.ExifData exifData, boolean recycle) {
++            return saveBitmapAsJPGPayloadM9(() -> Files.newOutputStream(fileToSave), img, jpgQuality, exifData, recycle);
++        }
++
++        public interface JpegOutput {
++            OutputStream open() throws IOException;
++        }
++
++        public static boolean saveBitmapAsJPGPayloadM9(JpegOutput destination, Bitmap img, int jpgQuality,
++                                                       ParseExif.ExifData exifData, boolean recycle) {
+             // METADATAFIX1A_PRIMARY_JPEG_COMPRESSION_TAG_OMITTED
+             exifData.COMPRESSION = null;
+             M9JpegSaveTiming timing = new M9JpegSaveTiming();
+@@ -262,7 +271,7 @@ public class ImageSaver {
+             long totalStartedNs = System.nanoTime();
+             try {
+                 long stageStartedNs = System.nanoTime();
+-                try (OutputStream raw = Files.newOutputStream(fileToSave);
++                try (OutputStream raw = destination.open();
+                      OutputStream output = new java.io.BufferedOutputStream(new M9TimingOutputStream(raw, timing), 64 * 1024)) {
+                     timing.fileOpenNs = System.nanoTime() - stageStartedNs;
+                     stageStartedNs = System.nanoTime();
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java
+index 54a79f5..86aab43 100644
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/render/M9Jpeg347Test.java
+@@ -36,18 +36,18 @@ public class M9Jpeg347Test {
+     @Test public void rejectedRenderLeavesExistingGalleryFileAlone() throws Exception {
+         Path target = target();
+         Files.write(target, new byte[]{9, 8, 7});
+-        M9PendingJpeg pending = M9PendingJpeg.create(target);
+-        Files.write(pending.staged, new byte[]{1, 2});
++        M9PendingJpeg pending = M9PendingJpeg.createLegacy(target);
++        Files.write(pending.legacyFile, new byte[]{1, 2});
+         pending.discard(new IOException("render rejected"));
+         assertArrayEquals(new byte[]{9, 8, 7}, Files.readAllBytes(target));
+-        assertFalse(Files.exists(pending.staged));
++        assertFalse(Files.exists(pending.legacyFile));
+     }
+ 
+     @Test public void overlappingCapturesOwnDifferentStagingFiles() throws Exception {
+-        M9PendingJpeg first = M9PendingJpeg.create(target());
+-        M9PendingJpeg second = M9PendingJpeg.create(target());
+-        assertNotEquals(first.staged, second.staged);
+-        Files.write(second.staged, new byte[]{5});
++        M9PendingJpeg first = M9PendingJpeg.createLegacy(target());
++        M9PendingJpeg second = M9PendingJpeg.createLegacy(target());
++        assertNotEquals(first.legacyFile, second.legacyFile);
++        Files.write(second.legacyFile, new byte[]{5});
+         first.discard(new IOException("first rejected"));
+         assertFalse(Files.exists(target()));
+         second.publish();
+@@ -57,35 +57,35 @@ public class M9Jpeg347Test {
+     @Test public void rejectedEncodeReturnsFailureAndRetainsCallerOwnedBitmap() throws Exception {
+         Bitmap bitmap = mock(Bitmap.class);
+         when(bitmap.compress(eq(Bitmap.CompressFormat.JPEG), eq(95), any(OutputStream.class))).thenReturn(false);
+-        M9PendingJpeg pending = M9PendingJpeg.create(target());
+-        assertFalse(ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.staged, bitmap, 95, new ParseExif.ExifData(), false));
++        M9PendingJpeg pending = M9PendingJpeg.createLegacy(target());
++        assertFalse(ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.legacyFile, bitmap, 95, new ParseExif.ExifData(), false));
+         verify(bitmap, never()).recycle();
+         pending.discard(new IOException("encoder rejected"));
+-        assertFalse(Files.exists(pending.staged));
++        assertFalse(Files.exists(pending.legacyFile));
+         assertFalse(Files.exists(target()));
+     }
+ 
+     @Test public void finalizePublishesEncodedImageWithCaptureTimeAndIso() throws Exception {
+-        M9PendingJpeg pending = M9PendingJpeg.create(target());
++        M9PendingJpeg pending = M9PendingJpeg.createLegacy(target());
+         Bitmap bitmap = Bitmap.createBitmap(96, 64, Bitmap.Config.ARGB_8888);
+         bitmap.eraseColor(0xff457938);
+         ParseExif.ExifData exif = new ParseExif.ExifData();
+         exif.PHOTOGRAPHIC_SENSITIVITY = "320";
+-        assertTrue(ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.staged, bitmap, 95, exif));
++        assertTrue(ImageSaver.Util.saveBitmapAsJPGPayloadM9(pending.legacyFile, bitmap, 95, exif));
+         assertFalse(Files.exists(target()));
+         M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target(), exif, null, null, pending);
+         ticket.awaitCompletion();
+         assertTrue(ticket.error(), ticket.isSuccess());
+-        assertFalse(Files.exists(pending.staged));
++        assertFalse(Files.exists(pending.legacyFile));
+         ExifInterface saved = new ExifInterface(target().toFile());
+         assertEquals("2026:11:27 12:03:15", saved.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+         assertEquals(320, saved.getAttributeInt(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, -1));
+     }
+ 
+     @Test public void failedExifRecoversTheCaptureUnderAnotherName() throws Exception {
+-        M9PendingJpeg pending = M9PendingJpeg.create(target());
++        M9PendingJpeg pending = M9PendingJpeg.createLegacy(target());
+         byte[] invalid = {12, 34, 56};
+-        Files.write(pending.staged, invalid);
++        Files.write(pending.legacyFile, invalid);
+         M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target(), new ParseExif.ExifData(), null, null, pending);
+         ticket.awaitCompletion();
+         assertFalse(ticket.isSuccess());

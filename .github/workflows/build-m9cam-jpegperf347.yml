@@ -1,4 +1,4 @@
-name: M9Cam 3.47 JPEGPERF build, parity, tests and installer
+name: M9Cam 3.48 JPEGSTORE build, parity, tests and installer
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'patches/performance345/**'
       - 'patches/jpegperf346/**'
       - 'patches/jpegperf347/**'
+      - 'patches/jpegstore348/**'
       - 'scripts/ci/**'
       - '.github/workflows/build-m9cam-jpegperf347.yml'
   workflow_dispatch:
@@ -42,8 +43,8 @@ jobs:
       - name: Provision pinned Android tools
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
 
-      - name: Reconstruct the 3.44 through 3.47 sources
-        run: python3 scripts/ci/prepare_347.py "$RUNNER_TEMP/ci-source"
+      - name: Reconstruct the 3.44 through 3.48 sources
+        run: python3 scripts/ci/prepare_348.py "$RUNNER_TEMP/ci-source"
 
       - name: Rebuild 3.44 and 3.46 native libraries at the accepted build path
         # The accepted libraries embed /home/runner/work/M9Camera_refresh/M9Camera_refresh/PhotonCamera.
@@ -64,13 +65,13 @@ jobs:
             rm -rf "$GITHUB_WORKSPACE/PhotonCamera"
           done
 
-      - name: Place the 3.47 candidate at the same build path
+      - name: Place the 3.48 candidate at the same build path
         run: |
-          mv "$RUNNER_TEMP/ci-source/PhotonCamera_347" "$GITHUB_WORKSPACE/PhotonCamera"
+          mv "$RUNNER_TEMP/ci-source/PhotonCamera_348" "$GITHUB_WORKSPACE/PhotonCamera"
           mkdir -p ci-reports
           cp -r "$RUNNER_TEMP/ci-source/verification" ci-reports/verification
 
-      - name: Host native parity (3.44 kernels, ThreadSanitizer, DNG writer; 3.46 vs 3.47 scheduling)
+      - name: Host native parity (3.44 kernels, ThreadSanitizer, DNG writer; 3.46 vs 3.48 scheduling)
         run: |
           python3 -m pip install numpy
           python3 patches/exactperf1a/host/native_parity.py "$RUNNER_TEMP/ci-source/PhotonCamera_344" PhotonCamera ci-reports/native-parity
@@ -87,7 +88,7 @@ jobs:
           bash patches/performance345/host/check_java.sh PhotonCamera
           python3 patches/performance345/host/worker_pressure.py PhotonCamera ci-reports/native-parity
 
-      - name: Run tracking and focus policy checks against 3.47
+      - name: Run tracking and focus policy checks against 3.48
         run: bash scripts/ci/test_tracking.sh PhotonCamera
 
       - name: Initialize Java and Kotlin analysis
@@ -116,25 +117,36 @@ jobs:
           mkdir -p installer
           python3 patches/exactperf1a/native_provenance.py patches/trackingrecovery1a/baseline \
             "$RUNNER_TEMP/native-344" \
-            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.47_JPEGPERF-debug.apk installer
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.48_JPEGSTORE-debug.apk installer
           python3 patches/jpegperf346/native_delta.py "$RUNNER_TEMP/native-346" \
-            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.47_JPEGPERF-debug.apk installer 346 347
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.48_JPEGSTORE-debug.apk installer 346 348
 
-      - name: Package and verify the 3.47 installer
+      - name: Package and verify the 3.48 installer
         run: |
-          cp ci-reports/verification/jpegperf347.json installer/SOURCE_VERIFICATION.json
+          cp ci-reports/verification/jpegstore348.json installer/SOURCE_VERIFICATION.json
           cp ci-reports/verification/MODEL_PROVENANCE.json installer/
           cp ci-reports/native-parity/NATIVE_PARITY.json installer/
           cp ci-reports/native-parity-346/NATIVE_PARITY_346.json installer/
           cp TEST_VERIFICATION.json installer/
           python3 patches/exactperf1a/package.py PhotonCamera \
-            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.47_JPEGPERF-debug.apk \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.48_JPEGSTORE-debug.apk \
             patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" installer
+
+      - name: Build the scoped-storage instrumentation tests
+        working-directory: PhotonCamera
+        run: bash gradlew :app:assembleDebugAndroidTest --no-daemon --max-workers=2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jpegstore348-device-tests
+          path: PhotonCamera/app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
-          name: M9Cam-3.47-JPEGPERF-installer
+          name: M9Cam-3.48-JPEGSTORE-installer
           path: installer/
           if-no-files-found: error
           retention-days: 90
@@ -159,3 +171,42 @@ jobs:
             PhotonCamera/app/build/reports/tests/testDebugUnitTest/**
           retention-days: 30
           if-no-files-found: warn
+
+  device-storage:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-3.48-JPEGSTORE-installer
+          path: installer
+      - uses: actions/download-artifact@v4
+        with:
+          name: jpegstore348-device-tests
+          path: tests
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise the signed APK in Android shared DCIM storage
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disk-size: 4096M
+          disable-animations: true
+          script: |
+            adb install -t installer/M9Cam_3.48_JPEGSTORE.apk
+            adb install -t tests/*.apk
+            adb shell am instrument -w -r -e class com.particlesdevs.photoncamera.m9.render.M9SharedJpegTest com.m9project.m9cam.photon.test/androidx.test.runner.AndroidJUnitRunner | tee storage-tests.txt
+            grep -F 'OK (4 tests)' storage-tests.txt
+      - name: Retain device test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jpegstore348-emulator-results
+          path: storage-tests.txt
