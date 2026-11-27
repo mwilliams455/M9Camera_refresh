@@ -183,16 +183,16 @@ index 23c7be4..af69dfc 100644
          inter.setAttribute(TAG_PHOTOGRAPHIC_SENSITIVITY, data.PHOTOGRAPHIC_SENSITIVITY);
          inter.setAttribute(TAG_F_NUMBER, data.F_NUMBER);
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
-index 2d1971c..1ac6465 100644
+index 2d1971c..ef23854 100644
 --- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
 @@ -24,50 +24,56 @@ public final class M9JpegSignature1A {
      private static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format(Locale.ROOT,"%02x",v&255));return s.toString();}
      private static int read(InputStream in)throws IOException{int v=in.read();if(v<0)throw new EOFException("truncated JPEG");return v;}
      public static Result read(File file)throws Exception {
-+        return read(new FileInputStream(file));
++        return readStream(new FileInputStream(file));
 +    }
-+    public static Result read(InputStream source)throws Exception {
++    public static Result readStream(InputStream source)throws Exception {
 +        try(InputStream in=new BufferedInputStream(source,65536)) {
 +            return readBuffered(in);
 +        }
@@ -417,7 +417,7 @@ index a59ce6c..4c836a7 100644
                  ticket.done.countDown();
                  if (completion != null) {
 diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
-index 735fb8d..cc322d0 100644
+index 735fb8d..c866bcb 100644
 --- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
 +++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
 @@ -1,52 +1,133 @@
@@ -507,7 +507,7 @@ index 735fb8d..cc322d0 100644
  
 -    void publish() throws IOException {
 +    com.particlesdevs.photoncamera.m9.preview.M9JpegSignature1A.Result readSignature() throws Exception {
-+        return com.particlesdevs.photoncamera.m9.preview.M9JpegSignature1A.read(openInput());
++        return com.particlesdevs.photoncamera.m9.preview.M9JpegSignature1A.readStream(openInput());
 +    }
 +
 +    ParcelFileDescriptor openExifDescriptor() throws IOException {
