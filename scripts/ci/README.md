@@ -62,3 +62,11 @@ It adds `patches/amazesimd350/host/simd_parity350.py`, which checks that the arm
 AMaZE (under qemu, built with GCC and clang) equals AMaZE's SSE2 path bit for bit, and that
 the scalar fallback equals 3.49. The packager checks that only the arm64 `libm9color.so`
 carries the vector path. The 3.49 workflow now runs on manual dispatch only.
+
+## 3.51 CENTREMETER test candidate
+
+`build-m9cam-centremeter351.yml` reconstructs 3.44 through 3.51 with `prepare_351.py <dest>`.
+3.51 changes only Java and resources. `native_delta.py ... 350 351 none` therefore requires
+every native library to match a 3.50 rebuild at the same path. The packager checks that the
+centre-metering switch is in the M9 menu only. The 3.50 workflow now runs on manual
+dispatch only.

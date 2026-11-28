@@ -119,6 +119,8 @@ if __name__ == "__main__":
         SUITES["M9Jpeg347Test"] = 6
     if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignatureReaderTest.java").is_file():
         SUITES["M9JpegSignatureReaderTest"] = 4
+    if (args.source / "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGateTest.java").is_file():
+        SUITES.update(M9PlacementSteadyGateTest=6, M9CentreMeteringTest=3)
     results = args.source / "app/build/test-results/testDebugUnitTest"
     if args.run:
         command = ["bash", "gradlew", ":app:assembleDebug", ":app:testDebugUnitTest"]

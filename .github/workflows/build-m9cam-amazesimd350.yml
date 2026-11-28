@@ -1,18 +1,7 @@
 name: M9Cam 3.50 AMAZESIMD build, parity, tests and installer
 
+# 3.50 is delivered (run 46135037849); later stages on this branch rebuild it on request only.
 on:
-  push:
-    branches: ['claude/dazzling-galileo-rbqoe6']
-    paths:
-      - 'patches/exactperf1a/**'
-      - 'patches/performance345/**'
-      - 'patches/jpegperf346/**'
-      - 'patches/jpegperf347/**'
-      - 'patches/jpegstore348/**'
-      - 'patches/jpegperf349/**'
-      - 'patches/amazesimd350/**'
-      - 'scripts/ci/**'
-      - '.github/workflows/build-m9cam-amazesimd350.yml'
   workflow_dispatch:
 
 permissions:

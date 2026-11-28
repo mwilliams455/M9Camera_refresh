@@ -1,0 +1,224 @@
+name: M9Cam 3.51 CENTREMETER build, parity, tests and installer
+
+on:
+  push:
+    branches: ['claude/dazzling-galileo-rbqoe6']
+    paths:
+      - 'patches/exactperf1a/**'
+      - 'patches/performance345/**'
+      - 'patches/jpegperf346/**'
+      - 'patches/jpegperf347/**'
+      - 'patches/jpegstore348/**'
+      - 'patches/jpegperf349/**'
+      - 'patches/amazesimd350/**'
+      - 'patches/centremeter351/**'
+      - 'scripts/ci/**'
+      - '.github/workflows/build-m9cam-centremeter351.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m9cam-centremeter351-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    env:
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: 'false'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Provision pinned Android tools
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+
+      - name: Reconstruct the 3.44 through 3.51 sources
+        run: python3 scripts/ci/prepare_351.py "$RUNNER_TEMP/ci-source"
+
+      - name: Rebuild 3.44 and 3.50 native libraries at the accepted build path
+        # The accepted libraries embed /home/runner/work/M9Camera_refresh/M9Camera_refresh/PhotonCamera.
+        run: |
+          for parent in 344 350; do
+            cp -a "$RUNNER_TEMP/ci-source/PhotonCamera_$parent" "$GITHUB_WORKSPACE/PhotonCamera"
+            # Retry: Maven Central occasionally rate-limits hosted runners (HTTP 429).
+            for attempt in 1 2 3; do
+              (cd PhotonCamera && bash gradlew :app:externalNativeBuildDebug --no-daemon --max-workers=2) && break
+              [ "$attempt" = 3 ] && exit 1
+              sleep 60
+            done
+            for abi in arm64-v8a armeabi-v7a; do
+              mkdir -p "$RUNNER_TEMP/native-$parent/$abi"
+              find PhotonCamera/app/build/intermediates/cxx -path "*/obj/$abi/*.so" -exec cp -n {} "$RUNNER_TEMP/native-$parent/$abi/" \;
+              ls -la "$RUNNER_TEMP/native-$parent/$abi"
+            done
+            rm -rf "$GITHUB_WORKSPACE/PhotonCamera"
+          done
+
+      - name: Place the 3.51 candidate at the same build path
+        run: |
+          mv "$RUNNER_TEMP/ci-source/PhotonCamera_351" "$GITHUB_WORKSPACE/PhotonCamera"
+          mkdir -p ci-reports
+          cp -r "$RUNNER_TEMP/ci-source/verification" ci-reports/verification
+
+      - name: Host native parity (3.44 kernels, ThreadSanitizer, DNG writer; 3.46 scheduling; 3.48 vs 3.49 noise cancel)
+        run: |
+          python3 -m pip install numpy
+          python3 patches/exactperf1a/host/native_parity.py "$RUNNER_TEMP/ci-source/PhotonCamera_344" PhotonCamera ci-reports/native-parity
+          python3 patches/jpegperf346/host/native_parity346.py "$RUNNER_TEMP/ci-source/PhotonCamera_346" PhotonCamera ci-reports/native-parity-346
+          python3 patches/jpegperf349/host/noise_parity349.py "$RUNNER_TEMP/ci-source/PhotonCamera_348" PhotonCamera ci-reports/noise-parity-349
+
+      - name: arm64 vector AMaZE equals AMaZE's SSE2 path; scalar fallback equals 3.49
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q g++-aarch64-linux-gnu qemu-user clang
+          python3 patches/amazesimd350/host/simd_parity350.py "$RUNNER_TEMP/ci-source/PhotonCamera_349" PhotonCamera ci-reports/amaze-simd-350
+
+      - name: Verify 12 MP JPEG denoising under allocation pressure
+        run: |
+          g++ -std=c++17 -O2 -pthread -DM9NOISEPERF1A_HOST patches/jpegperf347/host/noise_pressure.cpp \
+            PhotonCamera/app/src/main/cpp/m9noisecancel1b.cpp -o "$RUNNER_TEMP/noise_pressure"
+          "$RUNNER_TEMP/noise_pressure" | tee ci-reports/noise-pressure-347.txt
+
+      - name: Exercise DNG storage failures, worker memory pressure and face-meter frame matching
+        run: |
+          bash patches/performance345/host/check_java.sh PhotonCamera
+          python3 patches/performance345/host/worker_pressure.py PhotonCamera ci-reports/native-parity
+
+      - name: Run tracking and focus policy checks against 3.51
+        run: bash scripts/ci/test_tracking.sh PhotonCamera
+
+      - name: Initialize Java and Kotlin analysis
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          source-root: PhotonCamera
+          threads: 2
+
+      - name: Build and run all selected regression suites
+        # Retry: Maven Central occasionally rate-limits hosted runners (HTTP 429).
+        run: |
+          for attempt in 1 2 3; do
+            python3 scripts/ci/verify_tests.py "$GITHUB_WORKSPACE/PhotonCamera" --run && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep 60
+          done
+
+      - name: Verify library release resources
+        working-directory: PhotonCamera
+        run: bash gradlew :circularbarlib:verifyReleaseResources --no-daemon --max-workers=2
+
+      - name: Native provenance gate; native libraries identical to 3.50
+        run: |
+          mkdir -p installer
+          python3 patches/exactperf1a/native_provenance.py patches/trackingrecovery1a/baseline \
+            "$RUNNER_TEMP/native-344" \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.51_CENTREMETER-debug.apk installer
+          python3 patches/jpegperf346/native_delta.py "$RUNNER_TEMP/native-350" \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.51_CENTREMETER-debug.apk installer 350 351 none
+
+      - name: Package and verify the 3.51 installer
+        run: |
+          cp ci-reports/verification/centremeter351.json installer/SOURCE_VERIFICATION.json
+          cp ci-reports/verification/MODEL_PROVENANCE.json installer/
+          cp ci-reports/native-parity/NATIVE_PARITY.json installer/
+          cp ci-reports/native-parity-346/NATIVE_PARITY_346.json installer/
+          cp ci-reports/noise-parity-349/NOISE_PARITY_349.json installer/
+          cp ci-reports/amaze-simd-350/AMAZE_SIMD_PARITY_350.json installer/
+          cp TEST_VERIFICATION.json installer/
+          python3 patches/exactperf1a/package.py PhotonCamera \
+            PhotonCamera/app/build/outputs/apk/debug/M9Cam_3.51_CENTREMETER-debug.apk \
+            patches/trackingrecovery1a/baseline "$ANDROID_HOME/build-tools/35.0.0" installer
+
+      - name: Upload verified installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: M9Cam-3.51-CENTREMETER-installer
+          path: installer/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Build the scoped-storage instrumentation tests
+        working-directory: PhotonCamera
+        run: bash gradlew -I ../patches/jpegstore348/device-tests.gradle :app:assembleDebugAndroidTest --no-daemon --max-workers=2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: centremeter351-device-tests
+          path: PhotonCamera/app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Analyze reconstructed production source
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /m9cam-centremeter351/java-kotlin
+          output: ci-reports/codeql
+          wait-for-processing: true
+
+      - name: Retain verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m9cam-centremeter351-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci-reports/**
+            installer/*.json
+            TEST_VERIFICATION.json
+            PhotonCamera/app/build/test-results/testDebugUnitTest/**
+            PhotonCamera/app/build/reports/tests/testDebugUnitTest/**
+          retention-days: 30
+          if-no-files-found: warn
+
+  device-storage:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: M9Cam-3.51-CENTREMETER-installer
+          path: installer
+      - uses: actions/download-artifact@v4
+        with:
+          name: centremeter351-device-tests
+          path: tests
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise the signed APK in Android shared DCIM storage
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disk-size: 4096M
+          disable-animations: true
+          script: |
+            adb install -t installer/M9Cam_3.51_CENTREMETER.apk
+            adb install -t tests/*.apk
+            adb shell am instrument -w -r -e class com.particlesdevs.photoncamera.m9.render.M9SharedJpegTest com.m9project.m9cam.photon.test/androidx.test.runner.AndroidJUnitRunner | tee storage-tests.txt
+            grep -F 'OK (5 tests)' storage-tests.txt
+      - name: Retain device test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: centremeter351-emulator-results
+          path: storage-tests.txt

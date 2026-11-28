@@ -21,7 +21,9 @@ CHANGED = ('libm9color.so',)
 
 def main():
     parent_dir, candidate_apk, out = (Path(a).resolve() for a in sys.argv[1:4])
-    base, head = sys.argv[4:6] if len(sys.argv) == 6 else ('345', '346')
+    base, head = sys.argv[4:6] if len(sys.argv) >= 6 else ('345', '346')
+    # A seventh argument 'none' means the stage changes no native source: every library must match.
+    changed_libs = () if len(sys.argv) == 7 and sys.argv[6] == 'none' else CHANGED
     parent_version, candidate_version = base[0] + '.' + base[1:], head[0] + '.' + head[1:]
     out.mkdir(parents=True, exist_ok=True)
     parent = {f'lib/{abi}/{p.name}': p.read_bytes() for abi in ABIS for p in sorted((parent_dir / abi).glob('*.so'))}
@@ -35,7 +37,7 @@ def main():
             problems.append(f'candidate APK missing {name}')
             continue
         result = compare(parent[name], candidate[name])
-        changed = Path(name).name in CHANGED
+        changed = Path(name).name in changed_libs
         rows[name] = {'expectedChange': changed, 'exact': exact(result), 'sections': result}
         if changed and result.get('.text', {}).get('exact', True):
             problems.append(f'{name} .text did not change from {parent_version}')
@@ -46,7 +48,7 @@ def main():
             if f'lib/{abi}/{lib}' not in parent:
                 problems.append(f'{parent_version} parent rebuild missing lib/{abi}/{lib}')
     report = {'status': 'BLOCKED' if problems else 'PASS', 'revision': f'M9JPEGPERF{head}_NATIVE_DELTA',
-              f'changedSince{base}': list(CHANGED), 'problems': problems, f'candidateVs{base}SamePath': rows,
+              f'changedSince{base}': list(changed_libs), 'problems': problems, f'candidateVs{base}SamePath': rows,
               'candidateSha256': {n: sha(candidate[n]) for n in sorted(rows)}}
     (out / f'NATIVE_DELTA_{head}.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({'status': report['status'], 'problems': problems,

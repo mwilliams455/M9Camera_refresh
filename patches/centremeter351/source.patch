@@ -1,0 +1,532 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index df7764c..7b80e94 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27350
++        versionCode 27351
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.50-amazesimd'
++        versionName '3.51-centremeter'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -106,7 +106,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.50_AMAZESIMD-${variant.name}.apk"
++            outputFileName = "M9Cam_3.51_CENTREMETER-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+index 336b490..b038c1a 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -6194,8 +6194,18 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+         rebuildPreviewBuilder();
+     }
+ 
++    /** M9CENTREMETER351: the M9 profile meters its reference exposure centre-weighted by default. */
++    public boolean m9CentreMeteringActive() {
++        return com.particlesdevs.photoncamera.m9.preview.M9CentreMetering1A.active(PreferenceKeys.getAeMeteringStd(),
++                !com.particlesdevs.photoncamera.renderprofile.RenderProfile.isMonochrom(),
++                com.particlesdevs.photoncamera.m9.preview.M9CentreMetering1A.enabled());
++    }
++
+     private void applyAeMeteringRegions(CaptureRequest.Builder builder) {
+-        int mode = PreferenceKeys.getAeMeteringStd();
++        int mode = com.particlesdevs.photoncamera.m9.preview.M9CentreMetering1A.effectiveMode(
++                PreferenceKeys.getAeMeteringStd(),
++                !com.particlesdevs.photoncamera.renderprofile.RenderProfile.isMonochrom(),
++                com.particlesdevs.photoncamera.m9.preview.M9CentreMetering1A.enabled());
+         Log.d(TAG, "applyAeMeteringRegions mode:" + mode);
+         MeteringRectangle[] rectangles = getAEMeteringRectangles(mode);
+         if (mode == -1) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java b/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java
+index 568ff87..46814e1 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/TouchFocus.java
+@@ -604,8 +604,13 @@ public class TouchFocus {
+                 boolean m9tap=com.particlesdevs.photoncamera.renderprofile.RenderProfile.isMonochrom()
+                         ?com.particlesdevs.photoncamera.monochrom.preview.MonoTapMeter1A.selection(SystemClock.elapsedRealtimeNanos())!=null
+                         :com.particlesdevs.photoncamera.m9.preview.M9TapMeter1A.selection(SystemClock.elapsedRealtimeNanos())!=null;
++                // M9CENTREMETER351: with centre metering the neutral reference is the centre-weighted
++                // region set, so a tap or AE lock does not switch the reference meter underneath M9.
++                MeteringRectangle[] neutral = captureController.m9CentreMeteringActive()
++                        ? regionsOr(captureController.mPreviewMeteringAE, new MeteringRectangle(0,0,0,0,0))
++                        : new MeteringRectangle[]{new MeteringRectangle(0,0,0,0,0)};
+                 builder.set(CaptureRequest.CONTROL_AE_REGIONS,(m9tap || captureController.isM9AeLocked())
+-                    ?new MeteringRectangle[]{new MeteringRectangle(0,0,0,0,0)}:regions);
++                    ?neutral:regions);
+                 aeRegionsWritten = true;
+             }
+             armedRegionsTag = (afRegionsWritten || aeRegionsWritten) ? regions : null;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+index 7c32150..93f4a7a 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+@@ -67,6 +67,8 @@ public final class M9AutoExposure2D {
+     private static final M9BackgroundQualification1A backgroundQualification=new M9BackgroundQualification1A();
+     private static final M9OpenAnchorQualification1A openAnchorQualification=new M9OpenAnchorQualification1A();
+     private static final M9ExposureRise1A placementRise=new M9ExposureRise1A(1e-9);
++    // M9STEADYGATE351: holds single quarter-stop moves until they persist (with centre metering on).
++    private static final M9PlacementSteadyGate1A steadyGate=new M9PlacementSteadyGate1A();
+     private static final M9RegionalClipQualification1A regionalClipQualification=new M9RegionalClipQualification1A();
+     private static boolean placementAcquired;
+     private static String historyStatus="";
+@@ -130,7 +132,7 @@ public final class M9AutoExposure2D {
+         M9TapMeter1A.clear("auto_reset");tapEpochSeen=M9TapMeter1A.epoch();
+         latest=null;owner="";heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+         backlightLatched=false;pendingLowerTargetEv=Double.NaN;lowerTargetConfirmations=0;
+-        resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;resetHighlightRecovery();
++        resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;resetHighlightRecovery();
+         clearReferenceBridge();
+         meterStatus="awaiting_gpu_probe";
+     }
+@@ -469,10 +471,12 @@ public final class M9AutoExposure2D {
+     public static synchronized Decision decide(String camera,String mode,long nowNs,
+             double referenceEnergy,double userEv,long manualExposure,int manualIso,double legacyEv,
+             boolean autoEligible) {
++        final boolean steadyGateEnabled=M9CentreMetering1A.enabled();
++        if(!steadyGateEnabled)steadyGate.reset();
+         String key=camera+"|"+mode;
+         if(!key.equals(owner)){
+             owner=key;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;clearReferenceBridge();
+-            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;resetHighlightRecovery();
++            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;resetHighlightRecovery();
+         }
+ 
+         M9TapMeter1A.Selection tap=M9TapMeter1A.selection(nowNs);
+@@ -481,7 +485,7 @@ public final class M9AutoExposure2D {
+         }
+         long tapEpoch=M9TapMeter1A.epoch();
+         if(tapEpoch!=tapEpochSeen) {
+-            tapEpochSeen=tapEpoch;resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;resetLowerTargetHysteresis();resetHighlightRecovery();clearReferenceBridge();
++            tapEpochSeen=tapEpoch;resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;resetLowerTargetHysteresis();resetHighlightRecovery();clearReferenceBridge();
+             backlightLatched=false;consumedSampleNs=-1;
+         }
+         if(tap!=null&&manualExposure==0&&manualIso==0&&Math.abs(userEv)<=1e-6&&autoEligible)
+@@ -554,17 +558,17 @@ public final class M9AutoExposure2D {
+ 
+         if(manualExposure!=0||manualIso!=0) {
+             result=0;target=0;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+-            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;resetHighlightRecovery();
++            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;resetHighlightRecovery();
+             clearReferenceBridge();
+             reason="manual_ISO_or_shutter";
+         } else if(Math.abs(userEv)>1e-6) {
+             if(!haveAuto){heldAutoEv=legacy;haveAuto=true;}
+             result=heldAutoEv;target=result;reason="manual_EV_holds_auto_baseline";
+             clearReferenceBridge();
+-            resetLowerTargetHysteresis();resetHighlightRecovery();backgroundQualification.reset();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;
++            resetLowerTargetHysteresis();resetHighlightRecovery();backgroundQualification.reset();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;
+         } else if(!autoEligible) {
+             result=0;target=0;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+-            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;resetHighlightRecovery();
++            backlightLatched=false;resetLowerTargetHysteresis();resetBodyLock();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;resetHighlightRecovery();
+             clearReferenceBridge();
+             reason="auto_scene_placement_not_eligible";
+         } else if(valid) {
+@@ -675,6 +679,12 @@ public final class M9AutoExposure2D {
+                 result=current;resetLowerTargetHysteresis();
+                 recoveryFirstTargetEv=Double.NaN;recoveryRiseConfirmed=false;
+             }
++            // M9STEADYGATE351: a single quarter-stop move towards a target at most one
++            // step away must persist for a second; safety releases, highlight
++            // recovery and initial acquisition are never held.
++            if(freshSample&&steadyGateEnabled)
++                result=steadyGate.gate(current,result,rawTarget,sample.submittedNs,
++                        hardSafetyRelease||recoveryArmed||!placementAcquired);
+             if(recoveryArmed&&freshSample) {
+                 observeRecoveryTarget(rawTarget,sample.submittedNs);
+                 if(Math.abs(result-rawTarget)<=1e-9
+@@ -743,14 +753,14 @@ public final class M9AutoExposure2D {
+             reason="rendered_meter_reference_transition_hold";
+             resetLowerTargetHysteresis();
+             recoveryFirstTargetEv=Double.NaN;recoveryRiseConfirmed=false;
+-            resetRecoveryTargetWindow();backgroundQualification.breakWindow();openAnchorQualification.breakWindow();placementRise.breakWindow();
++            resetRecoveryTargetWindow();backgroundQualification.breakWindow();openAnchorQualification.breakWindow();placementRise.breakWindow();steadyGate.reset();
+         } else {
+             double bounded=legacy>0?0:legacy;
+             heldAutoEv=bounded;haveAuto=true;result=bounded;target=bounded;
+             reason="rendered_meter_unavailable_or_stale";
+             clearReferenceBridge();
+             // A confirmed target cannot survive a gap in valid meter evidence.
+-            resetLowerTargetHysteresis();resetHighlightRecovery();backgroundQualification.reset();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();placementAcquired=false;
++            resetLowerTargetHysteresis();resetHighlightRecovery();backgroundQualification.reset();openAnchorQualification.reset();regionalClipQualification.reset();placementRise.reset();steadyGate.reset();placementAcquired=false;
+         }
+ 
+         if(!valid||manualExposure!=0||manualIso!=0||Math.abs(userEv)>1e-6||!autoEligible)
+@@ -875,6 +885,9 @@ public final class M9AutoExposure2D {
+                     .put("fastPositiveSlewEv",FAST_POSITIVE_SLEW_EV)
+                     .put("safeFastPositiveSlewEv",SAFE_FAST_POSITIVE_SLEW_EV)
+                     .put("safeFastMaxSampleAgeMs",SAFE_FAST_MAX_SAMPLE_AGE_NS/1e6)
++                    .put("centreMeteringRevision",M9CentreMetering1A.REVISION)
++                    .put("steadyGateEnabled",steadyGateEnabled)
++                    .put("steadyGate",steadyGate.diagnostics(nowNs))
+                     .put("multifieldTopology","4x6_24_regions_rendered_neutral_reference")
+                     .put("multifieldBorrowedArchitecture","M10R_4x6_topology_only_not_numerical_parity")
+                     .put("multifieldProposedBody",proposedBody.json())
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java
+new file mode 100644
+index 0000000..1464735
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java
+@@ -0,0 +1,49 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/**
++ * M9CENTREMETER351: M9-style centre-weighted metering for the phone's reference AE,
++ * plus the steady gate on single quarter-stop placement moves.
++ *
++ * The Leica M9 meters centre-weighted. The M9 profile otherwise inherits the phone's
++ * whole-frame metering as its reference exposure, so a bright window entering the
++ * edge of the frame pulls the whole preview down before the M9 placement lifts it
++ * back. With this on, the M9 profile uses PhotonCamera's existing centre-weighted
++ * AE regions (nested 70/45/20 percent areas weighted 200/300/500) unless a standard
++ * metering mode was explicitly chosen.
++ */
++public final class M9CentreMetering1A {
++    public static final String KEY = "pref_m9_centre_metering";
++    public static final String REVISION = "M9CENTREMETER351";
++    /** PhotonCamera metering modes: -1 phone default, 0 centre-weighted, 1 average, 2 spot. */
++    public static final int PHONE_DEFAULT = -1, CENTRE_WEIGHTED = 0;
++
++    private M9CentreMetering1A() {}
++
++    public static boolean enabled() {
++        return enabled(PhotonCamera.getSettingsManagerStatic());
++    }
++
++    /** No settings context (host tests, early start-up) keeps the previous behaviour. */
++    static boolean enabled(SettingsManager settings) {
++        if (settings == null) return false;
++        try {
++            return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, KEY, true);
++        } catch (RuntimeException malformed) {
++            return true;
++        }
++    }
++
++    /** AE metering mode for the reference exposure. */
++    public static int effectiveMode(int standardMode, boolean m9Profile, boolean enabled) {
++        if (standardMode != PHONE_DEFAULT) return standardMode;
++        return m9Profile && enabled ? CENTRE_WEIGHTED : PHONE_DEFAULT;
++    }
++
++    /** True when this feature, not an explicit standard mode, selects the AE regions. */
++    public static boolean active(int standardMode, boolean m9Profile, boolean enabled) {
++        return standardMode == PHONE_DEFAULT && m9Profile && enabled;
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGate1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGate1A.java
+new file mode 100644
+index 0000000..4428cfb
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGate1A.java
+@@ -0,0 +1,94 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import org.json.JSONException;
++import org.json.JSONObject;
++
++/**
++ * M9STEADYGATE351: holds single quarter-stop placement moves until they persist.
++ *
++ * The rendered placement controller moves Auto EV on a 0.25-EV grid. With a scene
++ * that sits near a grid boundary, small hand movement flips the target between two
++ * neighbouring steps and the preview visibly ticks up and down. This gate only acts
++ * when the controller proposes a single step towards a target that is no more than
++ * one step away: that move is applied once the same direction has been proposed
++ * continuously for {@link #HOLD_NS}. Moves towards targets two or more steps away,
++ * highlight safety releases, recovery and initial acquisition pass straight through.
++ * Pure state machine; no Android dependencies.
++ */
++public final class M9PlacementSteadyGate1A {
++    public static final String REVISION = "M9STEADYGATE351";
++    static final double STEP_EV = .25;
++    static final long HOLD_NS = 1_000_000_000L;
++    private static final double EPS = 1e-9;
++
++    private int pendingDirection;
++    private long pendingSinceNs = -1;
++    private boolean lastHeld;
++    private String lastReason = "idle";
++
++    public void reset() {
++        pendingDirection = 0;
++        pendingSinceNs = -1;
++        lastHeld = false;
++        lastReason = "reset";
++    }
++
++    /**
++     * @param current   Auto EV currently applied
++     * @param proposed  Auto EV the placement controller wants to apply for this sample
++     * @param rawTarget unsettled placement target for this sample
++     * @param sampleNs  timestamp of the rendered sample behind this decision
++     * @param exempt    safety release, recovery or initial acquisition: never held
++     * @return the Auto EV to apply
++     */
++    public double gate(double current, double proposed, double rawTarget, long sampleNs, boolean exempt) {
++        lastHeld = false;
++        if (exempt) {
++            reset();
++            lastReason = "exempt";
++            return proposed;
++        }
++        double move = proposed - current;
++        if (Math.abs(rawTarget - current) >= 2 * STEP_EV - EPS) {
++            // A real exposure change of half a stop or more: unchanged behaviour.
++            reset();
++            lastReason = "large_change";
++            return proposed;
++        }
++        if (Math.abs(move) <= EPS) {
++            if (Math.abs(rawTarget - current) < STEP_EV / 2) {
++                pendingDirection = 0;
++                pendingSinceNs = -1;
++                lastReason = "settled";
++            } else {
++                lastReason = "controller_waiting";
++            }
++            return proposed;
++        }
++        int direction = move > 0 ? 1 : -1;
++        if (direction != pendingDirection || pendingSinceNs < 0) {
++            pendingDirection = direction;
++            pendingSinceNs = sampleNs;
++        }
++        if (sampleNs - pendingSinceNs >= HOLD_NS) {
++            pendingDirection = 0;
++            pendingSinceNs = -1;
++            lastReason = "persisted_step_applied";
++            return proposed;
++        }
++        lastHeld = true;
++        lastReason = "single_step_held";
++        return current;
++    }
++
++    public JSONObject diagnostics(long nowNs) {
++        try {
++            return new JSONObject().put("revision", REVISION).put("held", lastHeld).put("reason", lastReason)
++                    .put("pendingDirection", pendingDirection)
++                    .put("pendingMs", pendingSinceNs < 0 ? 0 : Math.max(0, nowNs - pendingSinceNs) / 1e6)
++                    .put("holdMs", HOLD_NS / 1e6).put("stepEv", STEP_EV);
++        } catch (JSONException e) {
++            return new JSONObject();
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index 697efe7..3b7c04f 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -649,6 +649,33 @@ public final class M9R35Renderer {
+         }
+     }
+ 
++    /** M9CENTREMETER351: which AE regions the capture asked for and which the HAL reported. */
++    private static JSONObject centreMeteringDiagnostics351(CaptureRequest request, CaptureResult result) {
++        JSONObject o = new JSONObject();
++        try {
++            o.put("revision", com.particlesdevs.photoncamera.m9.preview.M9CentreMetering1A.REVISION);
++            o.put("enabled", com.particlesdevs.photoncamera.m9.preview.M9CentreMetering1A.enabled());
++            o.put("requestAeRegions", meteringRegions351(request == null ? null
++                    : request.get(CaptureRequest.CONTROL_AE_REGIONS)));
++            o.put("resultAeRegions", meteringRegions351(result == null ? null
++                    : result.get(CaptureResult.CONTROL_AE_REGIONS)));
++        } catch (Exception unavailable) {
++            try { o.put("error", unavailable.toString()); } catch (Exception ignored) { }
++        }
++        return o;
++    }
++
++    private static Object meteringRegions351(android.hardware.camera2.params.MeteringRectangle[] regions)
++            throws org.json.JSONException {
++        if (regions == null) return JSONObject.NULL;
++        org.json.JSONArray out = new org.json.JSONArray();
++        for (android.hardware.camera2.params.MeteringRectangle r : regions) {
++            out.put(new org.json.JSONArray().put(r.getX()).put(r.getY()).put(r.getWidth())
++                    .put(r.getHeight()).put(r.getMeteringWeight()));
++        }
++        return out;
++    }
++
+     private static Path m9JpegPath(Path dngPath, boolean primaryRoute) {
+         String dngName = dngPath.getFileName().toString();
+         int dot = dngName.lastIndexOf('.');
+@@ -1173,6 +1200,7 @@ public final class M9R35Renderer {
+             diag.put("jpegOverlapMode", jpegOverlapWaitElapsedMs346 >= 0
+                     ? "JPEGPERF346_encode_parallel_with_post_render_diagnostics" : "sequential");
+             diag.put("jpegOverlapWaitElapsedMs", jpegOverlapWaitElapsedMs346);
++            diag.put("centreMetering351", centreMeteringDiagnostics351(captureRequest, captureResult));
+             diag.put("mediaStoreReserveElapsedMs", mediaStoreReserveElapsedMs349);
+             diag.put("mediaStoreReserveThread", mediaStoreReserveElapsedMs349 >= 0
+                     ? "JPEGPERF349_jpeg_encode_thread" : "render_thread");
+diff --git a/app/src/main/res/values/m9_menu.xml b/app/src/main/res/values/m9_menu.xml
+index 8e23e62..2945c88 100644
+--- a/app/src/main/res/values/m9_menu.xml
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -28,4 +28,6 @@
+     <string name="m9_lens_falloff">Lens falloff (%)</string>
+     <string name="m9_tungsten_guard_title">Tungsten guard</string>
+     <string name="m9_tungsten_guard_summary">Reduce yellow and green casts in warm light.</string>
++    <string name="m9_centre_metering_title">Centre-weighted metering</string>
++    <string name="m9_centre_metering_summary">Meter the middle of the frame like the M9 and hold small exposure changes until they persist. Off: the phone\'s whole-frame metering.</string>
+ </resources>
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+index 48ba0d1..1deaa81 100644
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -59,6 +59,13 @@
+             android:icon="@drawable/ic_focus" />
+         <ListPreference android:key="@string/pref_expocompensation_seekbar_key" android:layout="@layout/preference_with_margin" android:title="@string/expocompensation" android:dialogTitle="@string/m9_ev_dialog" android:entries="@array/m9_ev_entries" android:entryValues="@array/m9_ev_values" android:defaultValue="0.0" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <Preference android:key="m9_ev_info" android:layout="@layout/preference_with_margin" android:selectable="false" android:summary="@string/m9_ev_info" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++            android:key="pref_m9_centre_metering"
++            android:title="@string/m9_centre_metering_title"
++            android:summary="@string/m9_centre_metering_summary"
++            android:defaultValue="true"
++            android:layout="@layout/preference_with_margin"
++            android:icon="@drawable/ic_exposure" />
+         <PreferenceScreen android:key="pref_m9_auto_iso_screen" android:title="@string/m9_auto_iso_title" android:summary="@string/m9_auto_iso_summary" android:layout="@layout/preference_with_margin" android:orderingFromXml="true">
+             <ListPreference android:key="pref_m9_auto_iso_max" android:title="@string/m9_auto_iso_max_title" android:dialogTitle="@string/m9_auto_iso_max_title" android:layout="@layout/preference_with_margin" android:entries="@array/m9_auto_iso_max_entries" android:entryValues="@array/m9_auto_iso_max_values" android:defaultValue="2500" app:useSimpleSummaryProvider="true" />
+             <ListPreference android:key="pref_m9_auto_iso_slowest" android:title="@string/m9_auto_iso_slowest_title" android:dialogTitle="@string/m9_auto_iso_slowest_title" android:layout="@layout/preference_with_margin" android:entries="@array/m9_auto_iso_slowest_entries" android:entryValues="@array/m9_auto_iso_slowest_values" android:defaultValue="0" app:useSimpleSummaryProvider="true" />
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java
+new file mode 100644
+index 0000000..e88f6c6
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java
+@@ -0,0 +1,42 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++import org.junit.Test;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++/** M9CENTREMETER351: the M9 profile meters centre-weighted unless told otherwise. */
++public class M9CentreMeteringTest {
++    @Test public void m9ProfileDefaultsToCentreWeighted() {
++        assertEquals(M9CentreMetering1A.CENTRE_WEIGHTED, M9CentreMetering1A.effectiveMode(-1, true, true));
++        assertTrue(M9CentreMetering1A.active(-1, true, true));
++    }
++
++    @Test public void offMonochromOrExplicitModesKeepTheirMetering() {
++        assertEquals(-1, M9CentreMetering1A.effectiveMode(-1, true, false));
++        assertEquals(-1, M9CentreMetering1A.effectiveMode(-1, false, true));
++        for (int explicit : new int[] {0, 1, 2}) {
++            assertEquals(explicit, M9CentreMetering1A.effectiveMode(explicit, true, true));
++            assertFalse(M9CentreMetering1A.active(explicit, true, true));
++        }
++        assertFalse(M9CentreMetering1A.active(-1, false, true));
++        assertFalse(M9CentreMetering1A.active(-1, true, false));
++    }
++
++    @Test public void settingDefaultsOnAndWithoutSettingsKeepsPreviousBehaviour() {
++        SettingsManager settings = mock(SettingsManager.class);
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, true)).thenReturn(true);
++        assertTrue(M9CentreMetering1A.enabled(settings));
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, true)).thenReturn(false);
++        assertFalse(M9CentreMetering1A.enabled(settings));
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, true))
++                .thenThrow(new ClassCastException("stored as string"));
++        assertTrue(M9CentreMetering1A.enabled(settings));
++        assertFalse(M9CentreMetering1A.enabled(null));
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGateTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGateTest.java
+new file mode 100644
+index 0000000..b123f9a
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9PlacementSteadyGateTest.java
+@@ -0,0 +1,70 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import org.junit.Test;
++
++import static org.junit.Assert.assertEquals;
++
++/** M9STEADYGATE351: single quarter-stop moves wait for a second; real changes do not. */
++public class M9PlacementSteadyGateTest {
++    private static final long MS = 1_000_000L;
++    private static final double E = 1e-12;
++
++    @Test public void singleStepIsHeldUntilItPersistsForOneSecond() {
++        M9PlacementSteadyGate1A gate = new M9PlacementSteadyGate1A();
++        assertEquals(.25, gate.gate(.25, .50, .50, 0, false), E);
++        assertEquals(.25, gate.gate(.25, .50, .50, 250 * MS, false), E);
++        assertEquals(.25, gate.gate(.25, .50, .50, 999 * MS, false), E);
++        assertEquals(.50, gate.gate(.25, .50, .50, 1000 * MS, false), E);
++        // Settled afterwards: nothing pending.
++        assertEquals(.50, gate.gate(.50, .50, .50, 1250 * MS, false), E);
++    }
++
++    @Test public void downwardSingleStepIsHeldTheSameWay() {
++        M9PlacementSteadyGate1A gate = new M9PlacementSteadyGate1A();
++        assertEquals(.50, gate.gate(.50, .25, .25, 0, false), E);
++        assertEquals(.50, gate.gate(.50, .25, .25, 750 * MS, false), E);
++        assertEquals(.25, gate.gate(.50, .25, .25, 1000 * MS, false), E);
++    }
++
++    @Test public void flickerBetweenNeighbouringStepsNeverMoves() {
++        M9PlacementSteadyGate1A gate = new M9PlacementSteadyGate1A();
++        for (int i = 0; i < 40; i++) {
++            boolean up = (i / 2) % 2 == 0;   // the target flips direction every half second
++            double proposed = up ? .75 : .25;
++            assertEquals("sample " + i, .50, gate.gate(.50, proposed, proposed, i * 250L * MS, false), E);
++        }
++    }
++
++    @Test public void directionChangeRestartsTheHold() {
++        M9PlacementSteadyGate1A gate = new M9PlacementSteadyGate1A();
++        assertEquals(.50, gate.gate(.50, .75, .75, 0, false), E);
++        assertEquals(.50, gate.gate(.50, .25, .25, 500 * MS, false), E);
++        assertEquals(.50, gate.gate(.50, .25, .25, 1400 * MS, false), E);
++        assertEquals(.25, gate.gate(.50, .25, .25, 1500 * MS, false), E);
++    }
++
++    @Test public void controllerWaitingKeepsTheTimerButSettlingClearsIt() {
++        M9PlacementSteadyGate1A gate = new M9PlacementSteadyGate1A();
++        assertEquals(.25, gate.gate(.25, .50, .50, 0, false), E);
++        // The controller itself pauses for a sample while the target is still a step away.
++        assertEquals(.25, gate.gate(.25, .25, .50, 500 * MS, false), E);
++        assertEquals(.50, gate.gate(.25, .50, .50, 1000 * MS, false), E);
++        // A target that returns to the applied value clears the pending move.
++        M9PlacementSteadyGate1A other = new M9PlacementSteadyGate1A();
++        assertEquals(.25, other.gate(.25, .50, .50, 0, false), E);
++        assertEquals(.25, other.gate(.25, .25, .25, 500 * MS, false), E);
++        assertEquals(.25, other.gate(.25, .50, .50, 1000 * MS, false), E);
++        assertEquals(.50, other.gate(.25, .50, .50, 2000 * MS, false), E);
++    }
++
++    @Test public void largeChangesAndExemptMovesPassStraightThrough() {
++        M9PlacementSteadyGate1A gate = new M9PlacementSteadyGate1A();
++        // Target half a stop or more away: the controller's own step applies at once.
++        assertEquals(.50, gate.gate(.25, .50, .75, 0, false), E);
++        assertEquals(1.0, gate.gate(.25, 1.0, 2.0, 0, false), E);
++        assertEquals(0.0, gate.gate(.75, 0.0, 0.0, 0, false), E);
++        // Highlight safety release, recovery or first acquisition: never held.
++        assertEquals(.50, gate.gate(.25, .50, .50, 0, true), E);
++        assertEquals(0.0, gate.gate(.25, 0.0, .25 - .25, 0, true), E);
++    }
++}
