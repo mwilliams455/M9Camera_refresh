@@ -1,0 +1,30 @@
+{
+  "app/build.gradle": {
+    "before": "b3b70d795df9a1c16f673609795bac031088553b8fecb1746223aae0c2c5d3d5",
+    "after": "5417488a31c38ae86ed135f83a9c91851e334b9354ebc877621e738950cd43de"
+  },
+  "app/src/main/cpp/colourtrial1c/native.inc": {
+    "before": "3e01756b64de170f670e8453885a854881c2218e44b9ceb2511f3a0109ea4c7f",
+    "after": "764d341ee1b4b3f304335c4829c8be1386fdf85633761cc4ab274227c406cdb8"
+  },
+  "app/src/main/cpp/colourtrial1c/upstream/amaze.cc": {
+    "before": "a43f01c7ffe70efdf92dec473d5a785658c11756365d78df617d7a4c28117f1e",
+    "after": "16e3ed8126576ab92aa5cecefa8715fbc084063461a412fd43d643ab19a4fa4f"
+  },
+  "app/src/main/cpp/colourtrial1c/upstream/include/m9simd_portable.h": {
+    "before": null,
+    "after": "9a6ea24982f5f42e4a20b51b23c8f3cf683c449132ccd7671a6b04d60952041b"
+  },
+  "app/src/main/cpp/colourtrial1c/upstream/include/median.h": {
+    "before": "7914b1fe45c7d2ba1075653a22f25b65bf01ec73d2ab2b0fed047b02490818be",
+    "after": "b0872e281e932a908a4af625a3696343969e880fea8670dc8f0bf2e5675f55fb"
+  },
+  "app/src/main/cpp/colourtrial1c/upstream/include/opthelper.h": {
+    "before": "ad4df7ab4205f6c84cafa27c852ac103b35aff06ca73429b29681cc71461fb0f",
+    "after": "e82fa3c79c1d3b28b50dca781f8aef58ae80e72d2094fe50a7cddb5cbfde29b0"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9ColourTrial1C.java": {
+    "before": "7e9ba6230647c0d9269a89bd1e7fc44deed144f040fdb35aeecb9ce7fd1a5a02",
+    "after": "13260a39678691836e198c44a5147151924cf9d0832fd285c0370a1d0b276dae"
+  }
+}

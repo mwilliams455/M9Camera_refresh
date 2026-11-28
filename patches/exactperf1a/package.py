@@ -15,12 +15,17 @@ patches = here.parent
 sha = lambda data: hashlib.sha256(data).hexdigest()
 certificate = '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
 scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
-integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf', '3.48-jpegstore', '3.49-jpegperf')
-jpeg349 = scope['version'] == '3.49-jpegperf'
+integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf', '3.48-jpegstore', '3.49-jpegperf',
+                                  '3.50-amazesimd')
+amaze350 = scope['version'] == '3.50-amazesimd'
+jpeg349 = amaze350 or scope['version'] == '3.49-jpegperf'
 jpeg348 = jpeg349 or scope['version'] == '3.48-jpegstore'
 jpeg347 = jpeg348 or scope['version'] == '3.47-jpegperf'
 jpegperf = jpeg347 or scope['version'] == '3.46-jpegperf'
-if jpeg349:
+if amaze350:
+    version, code, filename = '3.50-amazesimd', 27350, 'M9Cam_3.50_AMAZESIMD.apk'
+    stage, parent = patches / 'amazesimd350', '3.49-jpegperf'
+elif jpeg349:
     version, code, filename = '3.49-jpegperf', 27349, 'M9Cam_3.49_JPEGPERF.apk'
     stage, parent = patches / 'jpegperf349', '3.48-jpegstore'
 elif jpeg348:
@@ -136,6 +141,9 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
             assert marker.encode() in dex, marker
     if jpeg348:
         assert b'Unable to reserve JPEG in MediaStore' in dex
+    if amaze350:
+        for marker in ('M9AMAZESIMD350', 'amazeSimdPath'):
+            assert marker.encode() in dex, marker
     if jpeg349:
         for marker in ('M9JPEGPERF349_UNSYNCHRONIZED_64K_READER', 'JPEGPERF349_jpeg_encode_thread',
                        'mediaStoreReserveElapsedMs', 'indexedByMediaStore'):
@@ -204,6 +212,11 @@ with zipfile.ZipFile(final) as signed:
                   'libm9dngnoise.so': 'phone_noise_shaded_parallel',
                   'libdngCreator.so': 'Java_com_particlesdevs_photoncamera_processing_DngCreator_createDNG'}[Path(name).name]
         assert marker in symbols, (name, marker)
+        if amaze350 and Path(name).name == 'libm9color.so':
+            # The phone's arm64 library carries the vector AMaZE; 32-bit ARM keeps the scalar path.
+            assert 'm9_amaze_simd_path' in symbols, name
+            vector = b'M9AMAZESIMD350_PORTABLE_VECTOR' in lib.read_bytes()
+            assert vector == ('arm64-v8a' in name), (name, vector)
         lib.unlink()
 report = dict(status='PASS', version=version, versionCode=code, sha256=sha(final.read_bytes()),
               bytes=final.stat().st_size, parent=parent,
@@ -216,6 +229,8 @@ report = dict(status='PASS', version=version, versionCode=code, sha256=sha(final
               phoneTimingAndVisualValidationPending=True)
 if integrated:
     report['released344ShaderSha256'] = expected[preview_shader]
+if amaze350:
+    report['amazePathByAbi'] = {'arm64-v8a': 'M9AMAZESIMD350_PORTABLE_VECTOR', 'armeabi-v7a': 'SCALAR'}
 if jpeg347:
     report['nativeSourceChangesSince346'] = ['libm9color.so']
 elif jpegperf:

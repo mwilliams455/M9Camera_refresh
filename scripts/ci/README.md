@@ -54,3 +54,11 @@ for the delta gate. It runs the 3.46 and 3.49 parity suites and the 3.47 allocat
 then the regression tests. It packages the installer and runs the shared-storage suite on an
 Android 15 emulator. The 3.46 workflow now runs on manual dispatch only.
 See patches/jpegperf349/README.md.
+
+## 3.50 AMAZESIMD test candidate
+
+`build-m9cam-amazesimd350.yml` reconstructs 3.44 through 3.50 with `prepare_350.py <dest>`.
+It adds `patches/amazesimd350/host/simd_parity350.py`, which checks that the arm64 vector
+AMaZE (under qemu, built with GCC and clang) equals AMaZE's SSE2 path bit for bit, and that
+the scalar fallback equals 3.49. The packager checks that only the arm64 `libm9color.so`
+carries the vector path. The 3.49 workflow now runs on manual dispatch only.

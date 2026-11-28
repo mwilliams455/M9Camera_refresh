@@ -1,0 +1,176 @@
+{
+  "status": "PASS",
+  "scope": "x86 host and arm64 under qemu; not handset timing",
+  "parent": "3.49-jpegperf",
+  "candidate": "3.50-amazesimd",
+  "simdParity": {
+    "revision": "M9AMAZESIMD350_PARITY",
+    "scope": "x86 host and arm64 under qemu; not handset timing",
+    "clangArm64AmazeVectorFloatOps": 561,
+    "clangArm64AmazeFusedMultiplyAdds": 0,
+    "cases": [
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 0,
+        "phaseNoise": false,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.874,
+        "maxAbsDiff16bit": 1093,
+        "meanAbsDiff16bit": 0.0355,
+        "samplesDifferingAtLeast1of256": 14,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 0,
+        "phaseNoise": true,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.823,
+        "maxAbsDiff16bit": 1093,
+        "meanAbsDiff16bit": 0.0332,
+        "samplesDifferingAtLeast1of256": 15,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 1,
+        "phaseNoise": false,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.833,
+        "maxAbsDiff16bit": 932,
+        "meanAbsDiff16bit": 0.0309,
+        "samplesDifferingAtLeast1of256": 8,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 1,
+        "phaseNoise": true,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.813,
+        "maxAbsDiff16bit": 932,
+        "meanAbsDiff16bit": 0.0286,
+        "samplesDifferingAtLeast1of256": 8,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 2,
+        "phaseNoise": false,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.845,
+        "maxAbsDiff16bit": 360,
+        "meanAbsDiff16bit": 0.0328,
+        "samplesDifferingAtLeast1of256": 2,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 2,
+        "phaseNoise": true,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.76,
+        "maxAbsDiff16bit": 360,
+        "meanAbsDiff16bit": 0.0283,
+        "samplesDifferingAtLeast1of256": 3,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 3,
+        "phaseNoise": false,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.88,
+        "maxAbsDiff16bit": 966,
+        "meanAbsDiff16bit": 0.0385,
+        "samplesDifferingAtLeast1of256": 22,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "cfa": 3,
+        "phaseNoise": true,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.797,
+        "maxAbsDiff16bit": 959,
+        "meanAbsDiff16bit": 0.0344,
+        "samplesDifferingAtLeast1of256": 22,
+        "compiledPathsReported": true
+      },
+      {
+        "size": [
+          4096,
+          3072
+        ],
+        "cfa": 0,
+        "phaseNoise": true,
+        "arm64VectorEqualsSse2": true,
+        "arm64ScalarFallbackEquals349": true,
+        "differsFrom349Percent": 0.709,
+        "maxAbsDiff16bit": 1220,
+        "meanAbsDiff16bit": 0.0203,
+        "samplesDifferingAtLeast1of256": 25,
+        "compiledPathsReported": true
+      }
+    ],
+    "status": "PASS"
+  },
+  "x86TimingAmazeCoreMs": {
+    "scalar": 363.5,
+    "portableVector": 176.7,
+    "sse2": 134.0
+  },
+  "qualityGreySyntheticScene": {
+    "rmseVsTruth": {
+      "scalar349": 179.69,
+      "vector350": 179.689
+    },
+    "falseColourNearEdges": {
+      "scalar349": 722.29,
+      "vector350": 722.31
+    },
+    "falseColourP999NearEdges": {
+      "scalar349": 4830.0,
+      "vector350": 4829.9
+    },
+    "eightBitPixelsDiffering": "0.475%",
+    "eightBitSamplesMovingMoreThanOneLevel": "0.009%"
+  },
+  "x86Sse2OutputUnchangedFrom349": true,
+  "sourceFingerprints": {
+    "3.49-jpegperf": "517b56f6d2d4b2eb6ee04c46a5d990fc0f81b861a8cf2e45169aa714a143c063",
+    "3.50-amazesimd": "4dcab1ccac3b96a5ea8cb40f703de6a88f2cf88c5c6510157cae42510950a1ae"
+  }
+}
