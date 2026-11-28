@@ -70,3 +70,11 @@ carries the vector path. The 3.49 workflow now runs on manual dispatch only.
 every native library to match a 3.50 rebuild at the same path. The packager checks that the
 centre-metering switch is in the M9 menu only. The 3.50 workflow now runs on manual
 dispatch only.
+
+## 3.52 SETTLEMETER test candidate
+
+`build-m9cam-settlemeter352.yml` reconstructs 3.44 through 3.52 with `prepare_352.py <dest>`.
+3.52 changes only Java and resources. `native_delta.py ... 351 352 none` therefore requires
+every native library to match a 3.51 rebuild at the same path. The packager checks the dex
+markers and that the "Settle, then meter" switch is in the M9 menu only. The 3.51 workflow
+now runs on manual dispatch only.

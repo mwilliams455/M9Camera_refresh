@@ -16,14 +16,18 @@ sha = lambda data: hashlib.sha256(data).hexdigest()
 certificate = '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
 scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
 integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf', '3.48-jpegstore', '3.49-jpegperf',
-                                  '3.50-amazesimd', '3.51-centremeter')
-centre351 = scope['version'] == '3.51-centremeter'
+                                  '3.50-amazesimd', '3.51-centremeter', '3.52-settlemeter')
+settle352 = scope['version'] == '3.52-settlemeter'
+centre351 = settle352 or scope['version'] == '3.51-centremeter'
 amaze350 = centre351 or scope['version'] == '3.50-amazesimd'
 jpeg349 = amaze350 or scope['version'] == '3.49-jpegperf'
 jpeg348 = jpeg349 or scope['version'] == '3.48-jpegstore'
 jpeg347 = jpeg348 or scope['version'] == '3.47-jpegperf'
 jpegperf = jpeg347 or scope['version'] == '3.46-jpegperf'
-if centre351:
+if settle352:
+    version, code, filename = '3.52-settlemeter', 27352, 'M9Cam_3.52_SETTLEMETER.apk'
+    stage, parent = patches / 'settlemeter352', '3.51-centremeter'
+elif centre351:
     version, code, filename = '3.51-centremeter', 27351, 'M9Cam_3.51_CENTREMETER.apk'
     stage, parent = patches / 'centremeter351', '3.50-amazesimd'
 elif amaze350:
@@ -151,6 +155,9 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
     if centre351:
         for marker in ('M9STEADYGATE351', 'M9CENTREMETER351', 'pref_m9_centre_metering', 'centreMetering351'):
             assert marker.encode() in dex, marker
+    if settle352:
+        for marker in ('M9SETTLEMETER352', 'pref_m9_settle_meter', 'settleMeter352', 'refreshing_while_moving'):
+            assert marker.encode() in dex, marker
     if jpeg349:
         for marker in ('M9JPEGPERF349_UNSYNCHRONIZED_64K_READER', 'JPEGPERF349_jpeg_encode_thread',
                        'mediaStoreReserveElapsedMs', 'indexedByMediaStore'):
@@ -201,6 +208,8 @@ for profile in ('m9', 'monochrom'):
             assert (control in menu) == (profile == 'm9'), (profile, control)
     if centre351:
         assert ('pref_m9_centre_metering' in menu) == (profile == 'm9'), (profile, 'pref_m9_centre_metering')
+    if settle352:
+        assert ('pref_m9_settle_meter' in menu) == (profile == 'm9'), (profile, 'pref_m9_settle_meter')
     for marker in ('pref_focus_tracking', 'pref_focus_tracking_semantic', 'pref_focus_tracking_predictive',
                    'pref_focus_tracking_identity', 'pref_focus_auto_eye_enabled', 'pref_focus_subject_pet',
                    'pref_export_tracking_trace'):

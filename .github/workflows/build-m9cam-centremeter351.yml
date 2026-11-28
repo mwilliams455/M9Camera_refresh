@@ -1,19 +1,6 @@
 name: M9Cam 3.51 CENTREMETER build, parity, tests and installer
 
 on:
-  push:
-    branches: ['claude/dazzling-galileo-rbqoe6']
-    paths:
-      - 'patches/exactperf1a/**'
-      - 'patches/performance345/**'
-      - 'patches/jpegperf346/**'
-      - 'patches/jpegperf347/**'
-      - 'patches/jpegstore348/**'
-      - 'patches/jpegperf349/**'
-      - 'patches/amazesimd350/**'
-      - 'patches/centremeter351/**'
-      - 'scripts/ci/**'
-      - '.github/workflows/build-m9cam-centremeter351.yml'
   workflow_dispatch:
 
 permissions:

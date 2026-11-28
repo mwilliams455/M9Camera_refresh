@@ -1,0 +1,78 @@
+{
+  "app/build.gradle": {
+    "before": "cf758a74fe629481227370c24acfb89e8fa67c93bdd0240c82612ba5e0582de0",
+    "after": "30ff6de3069f080c6869be30eed321500bf0e6a932d94db384fa4fdff800c7c4"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java": {
+    "before": "128e489449535d0ad745a666533d13f35d45eb4a365c52a1b5518f9cbb9b8843",
+    "after": "4740af18037af5580f5c1610f9ad4d6ce88ac1409d6cc3af9887de2ccce38b21"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/control/Gyro.java": {
+    "before": "e5ae7840427dd44c4f088f5a1808a0d6178751de2c0baffe9af96f85b1c6d029",
+    "after": "3ac647e6719fe94c34cf79c939f2d29522b541c613bd52252fb83b65477fb7bf"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java": {
+    "before": "8a83686f6381fafb535794722b2cc31d51a23ee7e953b8e2ad878e4ebea1fc51",
+    "after": "f7b4a1b197b65d2afc674e620484dd93664d1ffcce46c0cb189dd4f717b982e3"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java": {
+    "before": "49391056e475a01c72c89acc99927828278385097627835ef140950d7c1624dd",
+    "after": "135a17879e7950dfb2326ec03f115e20717f9c7fb967f7732a34d7fd383fe209"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java": {
+    "before": "5a94ced044052c42567028499a56e5582dda2f8fca0878adfe0785a63208b75e",
+    "after": "9981ff92dbd8228d05497607a9ebc53cc82c844e08032b71b0505c0fbf39c08d"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEase1A.java": {
+    "before": null,
+    "after": "1bc601c52176678e5ec5f75c239b2a0241d5f8b1f7162b85058709ea3e4c1d90"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHold1A.java": {
+    "before": null,
+    "after": "6c1a083bc416d5f793561db5528d7b6ac4ea5e9854b119f26731ac350d99d71d"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeter1A.java": {
+    "before": null,
+    "after": "e27abda748b028a3c0df71c28160e852d5c975f243b20655c213d96dd381e1c1"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
+    "before": "6a60a7e5765ee8a7ee3d9a9448e16d20c25e11509923986e888306cb4f598270",
+    "after": "c74c6fe8eaa398f1b9c76b9cf3d2a39d7112217e38fdeb86a3738bac8a3a9871"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": {
+    "before": "86f620d3c880d86abde8524f772fc8322abded53aab22417cd9c113bfc04a5da",
+    "after": "e30c1fe6dcdf8b5cc9fb742efc0a06cf9ad8d21290eafc6128f4cde49f2333a1"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java": {
+    "before": "c980c3188e7d3072ff6aacc1aa3566ebbbab1bf3fd37b446a7197d027e4c2f12",
+    "after": "dc2eed67b3689c0691cff2cf76520c9ada93e6769527625c68de5117872ba7d0"
+  },
+  "app/src/main/res/values/m9_menu.xml": {
+    "before": "e0c1f5d37e513b53681986d8bf3df16fd11a138b5de1ba3400908b9e4e4e676d",
+    "after": "57547506c39107c2909cbe0124a1904fe5c01bc8a252eb2594c65294cb32b67e"
+  },
+  "app/src/main/res/xml/preferences_m9.xml": {
+    "before": "363fe29e20a3bf4d2ee2c3663d71177bda5cee861354e519f8a7263996e7a5e1",
+    "after": "9ef128122dbbf858e9991feb7fe6f38fb1becafae0702f8bcf0a06606d3396a6"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockAutomaticTest.java": {
+    "before": null,
+    "after": "5a15a6c859c3d184cb94813955a1bfbf085687df3c394d647f3dad2cf0a12be1"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java": {
+    "before": "72f3c06f0f2fead8808434178eea965460bc2cc8fc6c8951104fbec0e10cbb5d",
+    "after": "aa802cbba93e768c1059fe4a029929dde84896427f35fae0c32f7de9ee6fd70a"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEaseTest.java": {
+    "before": null,
+    "after": "1270cd81974b644249a6c46c10a0c2dbf79fc2a35426fe577c2eced31c7ec395"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHoldTest.java": {
+    "before": null,
+    "after": "3f49eec1ce5efba801dc5ba63a4f67506d4fa51445b3c6a0ca8f0b3deddbf2c2"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeterTest.java": {
+    "before": null,
+    "after": "c77c3b43a65f5c5a3577a1d867970bf29077ae5b7596f2cfcbd598fb965ee67b"
+  }
+}

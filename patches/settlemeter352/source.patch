@@ -1,0 +1,883 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 7b80e94..99fc3a3 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27351
++        versionCode 27352
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.51-centremeter'
++        versionName '3.52-settlemeter'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -106,7 +106,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.51_CENTREMETER-${variant.name}.apk"
++            outputFileName = "M9Cam_3.52_SETTLEMETER-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+index b038c1a..987e78a 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/capture/CaptureController.java
+@@ -207,6 +207,9 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+     private volatile M9ExposurePlan1A m9ExposurePlan1A;
+     private final com.particlesdevs.photoncamera.m9.M9AeLock1A m9AeLock =
+             new com.particlesdevs.photoncamera.m9.M9AeLock1A();
++    // M9SETTLEMETER352: holds the displayed exposure while the phone pans.
++    private final com.particlesdevs.photoncamera.m9.preview.M9MotionHold1A m9MotionHold =
++            new com.particlesdevs.photoncamera.m9.preview.M9MotionHold1A();
+     private volatile int m9AeLockUiState = -1;
+     private final com.particlesdevs.photoncamera.m9.M9Bracket1A.Series m9Bracket =
+             new com.particlesdevs.photoncamera.m9.M9Bracket1A.Series();
+@@ -5143,13 +5146,13 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+     }
+ 
+     private void publishM9AeLockUi() {
+-        int state=m9AeLock.isLocked()?1:0;
++        int state=m9AeLock.isUserLocked()?1:0;
+         if (activity==null || state==m9AeLockUiState) return;
+         m9AeLockUiState=state;
+         activity.runOnUiThread(() -> {
+             android.view.View button=activity.findViewById(com.particlesdevs.photoncamera.R.id.m9_ae_lock_button);
+             if (button!=null) {
+-                boolean held=m9AeLock.isLocked();
++                boolean held=m9AeLock.isUserLocked();
+                 button.setSelected(held);
+                 button.setContentDescription(activity.getString(held
+                         ? com.particlesdevs.photoncamera.R.string.m9_ae_lock_locked
+@@ -5169,7 +5172,39 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+     public boolean isM9AeLocked() {
+         if(com.particlesdevs.photoncamera.renderprofile.RenderProfile.isMonochrom())return isMonoAeLock1F();
+         syncM9AeLockContext(m9AeLockContext());
+-        return m9AeLock.isLocked();
++        return m9AeLock.isUserLocked();
++    }
++
++    /**
++     * M9SETTLEMETER352: while the phone pans, hold the displayed exposure with an automatic
++     * metering-memory lock (never shown as AE-L); once it settles, release it and re-meter in one
++     * step. AE-L, tap-metering, manual ISO/shutter and bracketing always take precedence.
++     */
++    private void updateM9MotionHold352() {
++        long nowNs = SystemClock.elapsedRealtimeNanos();
++        boolean allowed = com.particlesdevs.photoncamera.m9.preview.M9SettleMeter1A.enabled()
++                && !m9AeLock.isUserLocked()
++                && paramController.getCurrentExposureValue() <= 0
++                && paramController.getCurrentISOValue() <= 0
++                && com.particlesdevs.photoncamera.m9.preview.M9TapMeter1A.selection(nowNs) == null
++                && !isM9BracketActive();
++        com.particlesdevs.photoncamera.control.Gyro gyro = PhotonCamera.getGyro();
++        double speed = gyro != null ? gyro.angularSpeedDegPerSec() : Double.NaN;
++        long sampleNs = gyro != null ? gyro.angularSampleNs() : -1L;
++        boolean hold = m9MotionHold.update(nowNs, speed, sampleNs, allowed);
++        if (hold && !m9AeLock.isLocked()) {
++            M9ExposurePlan1A displayed = getM9DisplayedExposurePlan1A(nowNs);
++            if (m9AeLock.engageAutomatic(displayed, m9AeLockContext(), SystemClock.elapsedRealtime())) {
++                m9ExposurePlan1A = null;
++            }
++        } else if (!hold && m9AeLock.releaseAutomatic()) {
++            m9ExposurePlan1A = null;
++            com.particlesdevs.photoncamera.m9.preview.M9AutoExposure2D.settleAfterHold(nowNs);
++        }
++    }
++
++    org.json.JSONObject m9MotionHoldDiagnostics352() {
++        return m9MotionHold.diagnostics(SystemClock.elapsedRealtimeNanos(), m9AeLock.isAutomaticHold());
+     }
+ 
+     public boolean toggleM9AeLock() {
+@@ -5279,6 +5314,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+     /** Lock projection replaces re-metering, while each real preview observation stays fresh. */
+     public M9ExposurePlan1A createM9ExposurePlan1A(CaptureResult observation) {
+         if (!isCameraResumed || !paramController.useM9ExposurePlan1A() || observation==null) return null;
++        updateM9MotionHold352();
+         com.particlesdevs.photoncamera.m9.M9AeLock1A.Context context=m9AeLockContext();
+         long token=syncM9AeLockContext(context);
+         M9ExposurePlan1A plan;
+@@ -5711,6 +5747,7 @@ public class CaptureController implements MediaRecorder.OnInfoListener {
+ 
+             final long[] baseFrameNumber = {0};
+             final int[] maxFrameCount = {frameCount};
++            com.particlesdevs.photoncamera.m9.preview.M9SettleMeter1A.recordShutter(m9MotionHoldDiagnostics352());
+             com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.begin(m9LivePairPreviewSnapshot1P, mTextureView);
+             final AtomicBoolean m9LivePairWritten1P = new AtomicBoolean(false);
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/control/Gyro.java b/app/src/main/java/com/particlesdevs/photoncamera/control/Gyro.java
+index 564f2a3..6538830 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/control/Gyro.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/control/Gyro.java
+@@ -129,9 +129,31 @@ public class Gyro {
+         @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+     };
+ 
++    // M9SETTLEMETER352: smoothed rotation speed for the motion hold (rad/s, 40 ms time constant).
++    private volatile float angularSpeedRadPerSec;
++    private volatile long angularSampleNs = -1;
++
++    /** Smoothed rotation speed in degrees per second. */
++    public double angularSpeedDegPerSec() { return Math.toDegrees(angularSpeedRadPerSec); }
++
++    /** Timestamp of the newest gyroscope sample (elapsed-realtime nanoseconds), or -1. */
++    public long angularSampleNs() { return angularSampleNs; }
++
++    private void trackAngularSpeed(SensorEvent event) {
++        if (event.values == null || event.values.length < 3) return;
++        float wx = event.values[0], wy = event.values[1], wz = event.values[2];
++        float speed = (float) Math.sqrt(wx * wx + wy * wy + wz * wz);
++        long last = angularSampleNs;
++        float dt = last > 0 ? Math.max(0f, Math.min(.2f, (event.timestamp - last) * 1e-9f)) : .04f;
++        float alpha = dt / (.04f + dt);
++        angularSpeedRadPerSec = last > 0 ? angularSpeedRadPerSec + alpha * (speed - angularSpeedRadPerSec) : speed;
++        angularSampleNs = event.timestamp;
++    }
++
+     private final SensorEventListener mGravityTracker = new SensorEventListener() {
+         @Override
+         public void onSensorChanged(SensorEvent sensorEvent) {
++            trackAngularSpeed(sensorEvent);
+             mAngles = sensorEvent.values;
+             float anglex = 0.0f,angley = 0.0f,anglez = 0.0f;
+             if(prevStamp != 0) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java
+index 9f679d7..047fed8 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/M9AeLock1A.java
+@@ -31,15 +31,43 @@ public final class M9AeLock1A {
+     private Context context;
+     private long generation=1;
+     private M9ExposurePlan1A source;
++    /** M9SETTLEMETER352: true while the hold was engaged automatically for phone motion. */
++    private boolean automatic;
+ 
+     public synchronized long context(Context next) {
+-        if (!Objects.equals(context,next)) { context=next; source=null; generation++; }
++        if (!Objects.equals(context,next)) { context=next; source=null; automatic=false; generation++; }
+         return generation;
+     }
++    /** Any held exposure: the user's AE-L or an automatic motion hold. */
+     public synchronized boolean isLocked() { return source!=null; }
+-    public synchronized void clear() { source=null; generation++; }
++    /** The user's AE-L only; this drives the AE-L control and tap-metering behaviour. */
++    public synchronized boolean isUserLocked() { return source!=null && !automatic; }
++    public synchronized boolean isAutomaticHold() { return source!=null && automatic; }
++    public synchronized void clear() { source=null; automatic=false; generation++; }
+ 
++    /** User AE-L. Engaging during an automatic hold keeps that held exposure and makes it the user's. */
+     public synchronized boolean engage(M9ExposurePlan1A displayed, Context current, long nowMs) {
++        if (engageInternal(displayed,current,nowMs)) { automatic=false; return true; }
++        if (source!=null && automatic && Objects.equals(context,current)) { automatic=false; return true; }
++        return false;
++    }
++
++    /** M9SETTLEMETER352: hold the displayed exposure while the phone pans. Never replaces AE-L. */
++    public synchronized boolean engageAutomatic(M9ExposurePlan1A displayed, Context current, long nowMs) {
++        if (source!=null) return false;
++        if (!engageInternal(displayed,current,nowMs)) return false;
++        automatic=true;
++        return true;
++    }
++
++    /** Ends an automatic hold; the user's AE-L is never released here. */
++    public synchronized boolean releaseAutomatic() {
++        if (source==null || !automatic) return false;
++        source=null; automatic=false; generation++;
++        return true;
++    }
++
++    private boolean engageInternal(M9ExposurePlan1A displayed, Context current, long nowMs) {
+         context(current);
+         if (current==null || current.manualTime>0 || !M9ExposurePlan1A.supportsMode1B(current.mode)
+                 || !accepts(displayed,current,nowMs)) return false;
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+index 93f4a7a..031b884 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9AutoExposure2D.java
+@@ -69,6 +69,10 @@ public final class M9AutoExposure2D {
+     private static final M9ExposureRise1A placementRise=new M9ExposureRise1A(1e-9);
+     // M9STEADYGATE351: holds single quarter-stop moves until they persist (with centre metering on).
+     private static final M9PlacementSteadyGate1A steadyGate=new M9PlacementSteadyGate1A();
++    // M9SETTLEMETER352: after a motion hold, the first fresh reading goes straight to its target.
++    private static final long SETTLE_ACQUIRE_MAX_AGE_NS=1500000000L;
++    private static boolean settleAcquirePending, settleAcquireApplied;
++    private static long settleAcquireArmNs=-1;
+     private static final M9RegionalClipQualification1A regionalClipQualification=new M9RegionalClipQualification1A();
+     private static boolean placementAcquired;
+     private static String historyStatus="";
+@@ -127,7 +131,19 @@ public final class M9AutoExposure2D {
+         return bodyMissConfirmations;
+     }
+ 
++    /**
++     * M9SETTLEMETER352: re-meter after a motion hold. The newest rendered probe is kept (probes keep
++     * following the live reference during the hold); placement restarts as an initial acquisition
++     * and the next fresh reading applies its full target in one step.
++     */
++    public static synchronized void settleAfterHold(long nowNs) {
++        placementAcquired=false;placementRise.reset();steadyGate.reset();resetLowerTargetHysteresis();
++        resetHighlightRecovery();consumedSampleNs=-1;
++        settleAcquirePending=true;settleAcquireApplied=false;settleAcquireArmNs=nowNs;
++    }
++
+     public static synchronized void reset() {
++        settleAcquirePending=false;settleAcquireApplied=false;settleAcquireArmNs=-1;
+         M9TrackedSubjectMeter.clear();
+         M9TapMeter1A.clear("auto_reset");tapEpochSeen=M9TapMeter1A.epoch();
+         latest=null;owner="";heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;
+@@ -471,8 +487,10 @@ public final class M9AutoExposure2D {
+     public static synchronized Decision decide(String camera,String mode,long nowNs,
+             double referenceEnergy,double userEv,long manualExposure,int manualIso,double legacyEv,
+             boolean autoEligible) {
+-        final boolean steadyGateEnabled=M9CentreMetering1A.enabled();
++        final boolean steadyGateEnabled=M9SettleMeter1A.enabled();
+         if(!steadyGateEnabled)steadyGate.reset();
++        if(settleAcquirePending&&nowNs-settleAcquireArmNs>SETTLE_ACQUIRE_MAX_AGE_NS)settleAcquirePending=false;
++        settleAcquireApplied=false;
+         String key=camera+"|"+mode;
+         if(!key.equals(owner)){
+             owner=key;heldAutoEv=0;haveAuto=false;consumedSampleNs=-1;clearReferenceBridge();
+@@ -679,6 +697,12 @@ public final class M9AutoExposure2D {
+                 result=current;resetLowerTargetHysteresis();
+                 recoveryFirstTargetEv=Double.NaN;recoveryRiseConfirmed=false;
+             }
++            // M9SETTLEMETER352: first fresh reading after a motion hold: one step to the target,
++            // which is already bounded by the highlight and headroom limits above.
++            if(settleAcquirePending&&freshSample) {
++                if(!hardSafetyRelease)result=target;
++                settleAcquirePending=false;settleAcquireApplied=true;
++            }
+             // M9STEADYGATE351: a single quarter-stop move towards a target at most one
+             // step away must persist for a second; safety releases, highlight
+             // recovery and initial acquisition are never held.
+@@ -888,6 +912,9 @@ public final class M9AutoExposure2D {
+                     .put("centreMeteringRevision",M9CentreMetering1A.REVISION)
+                     .put("steadyGateEnabled",steadyGateEnabled)
+                     .put("steadyGate",steadyGate.diagnostics(nowNs))
++                    .put("settleMeterRevision",M9SettleMeter1A.REVISION)
++                    .put("settleAcquireApplied",settleAcquireApplied)
++                    .put("settleAcquirePending",settleAcquirePending)
+                     .put("multifieldTopology","4x6_24_regions_rendered_neutral_reference")
+                     .put("multifieldBorrowedArchitecture","M10R_4x6_topology_only_not_numerical_parity")
+                     .put("multifieldProposedBody",proposedBody.json())
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java
+index 1464735..180eb7c 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMetering1A.java
+@@ -4,8 +4,9 @@ import com.particlesdevs.photoncamera.app.PhotonCamera;
+ import com.particlesdevs.photoncamera.settings.SettingsManager;
+ 
+ /**
+- * M9CENTREMETER351: M9-style centre-weighted metering for the phone's reference AE,
+- * plus the steady gate on single quarter-stop placement moves.
++ * M9CENTREMETER351: M9-style centre-weighted metering for the phone's reference AE.
++ * 3.52 turns it off by default (it did not calm the preview in tests) and moves the steady gate
++ * to "Settle, then meter" ({@link M9SettleMeter1A}).
+  *
+  * The Leica M9 meters centre-weighted. The M9 profile otherwise inherits the phone's
+  * whole-frame metering as its reference exposure, so a bright window entering the
+@@ -30,9 +31,9 @@ public final class M9CentreMetering1A {
+     static boolean enabled(SettingsManager settings) {
+         if (settings == null) return false;
+         try {
+-            return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, KEY, true);
++            return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, KEY, false);
+         } catch (RuntimeException malformed) {
+-            return true;
++            return false;
+         }
+     }
+ 
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEase1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEase1A.java
+new file mode 100644
+index 0000000..acbeb2c
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEase1A.java
+@@ -0,0 +1,54 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++/**
++ * M9SETTLEMETER352: eases visible exposure steps on screen only.
++ *
++ * When the planned exposure jumps by {@link #MIN_STEP_EV} or more between preview frames
++ * (an M9 placement step, or re-metering after a motion hold), the on-screen brightness glides
++ * to the new exposure over {@link #DURATION_NS} instead of popping. Only the final display
++ * uniform is multiplied: metering probes, evidence panels and the shutter always use the plan.
++ */
++public final class M9DisplayEase1A {
++    public static final M9DisplayEase1A INSTANCE = new M9DisplayEase1A();
++    static final double MIN_STEP_EV = .2, MAX_OFFSET_EV = 4;
++    static final long DURATION_NS = 300_000_000L;
++
++    private boolean havePrevious;
++    private double previousLogEnergy, startOffsetEv;
++    private long startNs = -1;
++
++    public synchronized void reset() {
++        havePrevious = false;
++        startOffsetEv = 0;
++        startNs = -1;
++    }
++
++    /** Called once per preview result with log2 of the planned ISO x exposure-time energy. */
++    public synchronized void observe(long nowNs, double logEnergy, boolean enabled) {
++        if (!enabled || !Double.isFinite(logEnergy)) { reset(); return; }
++        if (havePrevious) {
++            double delta = logEnergy - previousLogEnergy;
++            if (Math.abs(delta) >= MIN_STEP_EV) {
++                // Keep the brightness on screen where it was, then glide from there.
++                startOffsetEv = Math.max(-MAX_OFFSET_EV, Math.min(MAX_OFFSET_EV, offsetEv(nowNs) - delta));
++                startNs = nowNs;
++            }
++        }
++        previousLogEnergy = logEnergy;
++        havePrevious = true;
++    }
++
++    /** EV offset to apply on screen; 0 when no step is easing. */
++    public synchronized double offsetEv(long nowNs) {
++        if (startNs < 0) return 0;
++        long elapsed = nowNs - startNs;
++        if (elapsed < 0) return startOffsetEv;
++        if (elapsed >= DURATION_NS) { startNs = -1; startOffsetEv = 0; return 0; }
++        return startOffsetEv * (1 - elapsed / (double) DURATION_NS);
++    }
++
++    /** Multiplier for the on-screen exposure scale. */
++    public float multiplier(long nowNs) {
++        return (float) Math.pow(2, offsetEv(nowNs));
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHold1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHold1A.java
+new file mode 100644
+index 0000000..a62a91e
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHold1A.java
+@@ -0,0 +1,104 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import org.json.JSONException;
++import org.json.JSONObject;
++
++/**
++ * M9SETTLEMETER352: decides from gyroscope speed whether the displayed exposure should be held.
++ *
++ * Moving: the phone turns faster than {@link #MOVING_DEG_S} for {@link #MOVING_CONFIRM_NS}.
++ * Settled: slower than {@link #SETTLED_DEG_S} continuously for {@link #SETTLE_NS}. Between the
++ * two thresholds the state does not change, so hand tremor neither starts nor ends a hold.
++ * A hold lasting {@link #MAX_HOLD_NS} pauses for {@link #REFRESH_NS} of live metering so a long
++ * walk or pan still follows the light. Missing or stale gyroscope data never holds.
++ * Pure state machine: the caller engages or releases the actual exposure lock.
++ */
++public final class M9MotionHold1A {
++    public static final String REVISION = "M9SETTLEMETER352";
++    static final double MOVING_DEG_S = 12.0, SETTLED_DEG_S = 4.0;
++    static final long MOVING_CONFIRM_NS = 50_000_000L, SETTLE_NS = 300_000_000L;
++    static final long MAX_HOLD_NS = 2_500_000_000L, REFRESH_NS = 350_000_000L;
++    static final long STALE_GYRO_NS = 200_000_000L;
++
++    private boolean moving;
++    private long fastSinceNs = -1, slowSinceNs = -1, holdSinceNs = -1, refreshUntilNs = -1;
++    private double lastSpeed;
++    private long lastHoldMs, holds;
++    private String reason = "idle";
++
++    public synchronized void reset() {
++        moving = false;
++        fastSinceNs = slowSinceNs = holdSinceNs = refreshUntilNs = -1;
++        reason = "reset";
++    }
++
++    /**
++     * @param nowNs        elapsed-realtime clock
++     * @param speedDegS    smoothed gyroscope speed
++     * @param gyroSampleNs timestamp of the newest gyroscope sample (same clock), or -1
++     * @param allowed      the hold may apply (setting on, no AE-L, tap, manual exposure, bracket)
++     * @return whether the displayed exposure should be held now
++     */
++    public synchronized boolean update(long nowNs, double speedDegS, long gyroSampleNs, boolean allowed) {
++        lastSpeed = speedDegS;
++        boolean fresh = gyroSampleNs > 0 && nowNs - gyroSampleNs <= STALE_GYRO_NS && Double.isFinite(speedDegS);
++        if (!allowed || !fresh) {
++            endHold(nowNs);
++            moving = false;
++            fastSinceNs = slowSinceNs = -1;
++            reason = !allowed ? "not_allowed" : "gyro_unavailable";
++            return false;
++        }
++        if (speedDegS >= MOVING_DEG_S) {
++            slowSinceNs = -1;
++            if (fastSinceNs < 0) fastSinceNs = nowNs;
++            if (!moving && nowNs - fastSinceNs >= MOVING_CONFIRM_NS) moving = true;
++        } else if (speedDegS <= SETTLED_DEG_S) {
++            fastSinceNs = -1;
++            if (slowSinceNs < 0) slowSinceNs = nowNs;
++            if (moving && nowNs - slowSinceNs >= SETTLE_NS) moving = false;
++        } else {
++            fastSinceNs = -1;
++            slowSinceNs = -1;
++        }
++        if (!moving) {
++            endHold(nowNs);
++            refreshUntilNs = -1;
++            reason = "settled";
++            return false;
++        }
++        if (refreshUntilNs >= 0) {
++            if (nowNs < refreshUntilNs) { reason = "refreshing_while_moving"; return false; }
++            refreshUntilNs = -1;
++        }
++        if (holdSinceNs < 0) { holdSinceNs = nowNs; holds++; }
++        if (nowNs - holdSinceNs >= MAX_HOLD_NS) {
++            endHold(nowNs);
++            refreshUntilNs = nowNs + REFRESH_NS;
++            reason = "refreshing_while_moving";
++            return false;
++        }
++        reason = "holding_while_moving";
++        return true;
++    }
++
++    private void endHold(long nowNs) {
++        if (holdSinceNs >= 0) lastHoldMs = (nowNs - holdSinceNs) / 1_000_000L;
++        holdSinceNs = -1;
++    }
++
++    public synchronized boolean moving() { return moving; }
++
++    public synchronized JSONObject diagnostics(long nowNs, boolean lockHeld) {
++        try {
++            return new JSONObject().put("revision", REVISION).put("moving", moving).put("reason", reason)
++                    .put("lockHeld", lockHeld).put("speedDegPerSec", Math.round(lastSpeed * 10) / 10.0)
++                    .put("holdElapsedMs", holdSinceNs < 0 ? 0 : (nowNs - holdSinceNs) / 1_000_000L)
++                    .put("lastHoldMs", lastHoldMs).put("holds", holds)
++                    .put("movingDegPerSec", MOVING_DEG_S).put("settledDegPerSec", SETTLED_DEG_S)
++                    .put("settleMs", SETTLE_NS / 1_000_000L).put("maxHoldMs", MAX_HOLD_NS / 1_000_000L);
++        } catch (JSONException e) {
++            return new JSONObject();
++        }
++    }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeter1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeter1A.java
+new file mode 100644
+index 0000000..944667d
+--- /dev/null
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeter1A.java
+@@ -0,0 +1,40 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import com.particlesdevs.photoncamera.app.PhotonCamera;
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++/**
++ * M9SETTLEMETER352 setting: "Settle, then meter" (default on).
++ *
++ * On: the displayed exposure is held while the phone pans ({@link M9MotionHold1A}), re-metered in
++ * one step once it settles, single quarter-stop flicker is held ({@link M9PlacementSteadyGate1A})
++ * and visible exposure steps glide on screen ({@link M9DisplayEase1A}). Off: continuous metering.
++ */
++public final class M9SettleMeter1A {
++    public static final String KEY = "pref_m9_settle_meter";
++    public static final String REVISION = "M9SETTLEMETER352";
++    private static volatile String lastShutter = "{}";
++
++    private M9SettleMeter1A() {}
++
++    public static boolean enabled() {
++        return enabled(PhotonCamera.getSettingsManagerStatic());
++    }
++
++    /** No settings context (host tests, early start-up) keeps the previous behaviour. */
++    static boolean enabled(SettingsManager settings) {
++        if (settings == null) return false;
++        try {
++            return settings.getBoolean(SettingsManager.SCOPE_GLOBAL, KEY, true);
++        } catch (RuntimeException malformed) {
++            return true;
++        }
++    }
++
++    /** Motion-hold state when the shutter was pressed, for that photo's diagnostics. */
++    public static void recordShutter(org.json.JSONObject state) {
++        lastShutter = state == null ? "{}" : state.toString();
++    }
++
++    public static String lastShutter() { return lastShutter; }
++}
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index 3b7c04f..bce966c 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -1201,6 +1201,10 @@ public final class M9R35Renderer {
+                     ? "JPEGPERF346_encode_parallel_with_post_render_diagnostics" : "sequential");
+             diag.put("jpegOverlapWaitElapsedMs", jpegOverlapWaitElapsedMs346);
+             diag.put("centreMetering351", centreMeteringDiagnostics351(captureRequest, captureResult));
++            try {
++                diag.put("settleMeter352", new JSONObject(
++                        com.particlesdevs.photoncamera.m9.preview.M9SettleMeter1A.lastShutter()));
++            } catch (org.json.JSONException ignored) { }
+             diag.put("mediaStoreReserveElapsedMs", mediaStoreReserveElapsedMs349);
+             diag.put("mediaStoreReserveThread", mediaStoreReserveElapsedMs349 >= 0
+                     ? "JPEGPERF349_jpeg_encode_thread" : "render_thread");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+index 0060a54..52adaf8 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -1286,6 +1286,12 @@ public class CameraFragment extends Fragment {
+                 boolean statsReady1F = com.particlesdevs.photoncamera.m9.M9SubjectMotionAnalyzer
+                         .fillLiveToneStats1R(mM9LiveReferenceScale1A, mM9LiveToneStats1F);
+                 Long timestamp1W = result != null ? result.get(CaptureResult.SENSOR_TIMESTAMP) : null;
++                // M9SETTLEMETER352: on-screen easing of exposure steps (display uniform only).
++                com.particlesdevs.photoncamera.m9.preview.M9DisplayEase1A.INSTANCE.observe(
++                        android.os.SystemClock.elapsedRealtimeNanos(),
++                        framePlan1W != null ? Math.log(M9ExposurePlan1A.energy(framePlan1W.iso,
++                                framePlan1W.exposureNs)) / Math.log(2.0) : Double.NaN,
++                        com.particlesdevs.photoncamera.m9.preview.M9SettleMeter1A.enabled());
+                 textureView.setM9FrameState1W(new M9PreviewFrameState1W(
+                         framePlan1W, timestamp1W != null ? timestamp1W : -1L,
+                         com.particlesdevs.photoncamera.m9.M9SubjectMotionAnalyzer.getLatestLumaElapsedRealtimeNs1P(),
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+index 21ded86..fb4dd9d 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/views/viewfinder/MainRenderer.java
+@@ -388,7 +388,10 @@ public class MainRenderer implements GLSurfaceView.Renderer, SurfaceTexture.OnFr
+                 com.particlesdevs.photoncamera.m9.render.M9ContrastSettings.selected());
+         GLES20.glUniform1i(uM9SaturationBank,
+                 com.particlesdevs.photoncamera.m9.render.M9SaturationSettings.selected());
+-        GLES20.glUniform1f(uM9ExposureScale1B, frame1W.exposureScale);
++        // M9SETTLEMETER352: glide visible exposure steps on screen; metering uses the plan scale.
++        GLES20.glUniform1f(uM9ExposureScale1B, Math.max(0.0625f, Math.min(16f, frame1W.exposureScale
++                * com.particlesdevs.photoncamera.m9.preview.M9DisplayEase1A.INSTANCE.multiplier(
++                        android.os.SystemClock.elapsedRealtimeNanos()))));
+         GLES20.glUniform1f(uM9PreviewTc20Gain1A, previewTc20Gain1A);
+         GLES20.glUniform1i(uM9EvidenceStage2E, 0);
+         bindSource2A(frame1W.source2A);
+diff --git a/app/src/main/res/values/m9_menu.xml b/app/src/main/res/values/m9_menu.xml
+index 2945c88..d2216d5 100644
+--- a/app/src/main/res/values/m9_menu.xml
++++ b/app/src/main/res/values/m9_menu.xml
+@@ -29,5 +29,7 @@
+     <string name="m9_tungsten_guard_title">Tungsten guard</string>
+     <string name="m9_tungsten_guard_summary">Reduce yellow and green casts in warm light.</string>
+     <string name="m9_centre_metering_title">Centre-weighted metering</string>
+-    <string name="m9_centre_metering_summary">Meter the middle of the frame like the M9 and hold small exposure changes until they persist. Off: the phone\'s whole-frame metering.</string>
++    <string name="m9_centre_metering_summary">Meter the middle of the frame like the M9. Off: the phone\'s whole-frame metering.</string>
++    <string name="m9_settle_meter_title">Settle, then meter</string>
++    <string name="m9_settle_meter_summary">Hold exposure while the phone pans and re-meter in one smooth step once it settles. Small quarter-stop changes wait until they persist. Off: continuous metering.</string>
+ </resources>
+diff --git a/app/src/main/res/xml/preferences_m9.xml b/app/src/main/res/xml/preferences_m9.xml
+index 1deaa81..05a0c7b 100644
+--- a/app/src/main/res/xml/preferences_m9.xml
++++ b/app/src/main/res/xml/preferences_m9.xml
+@@ -59,11 +59,18 @@
+             android:icon="@drawable/ic_focus" />
+         <ListPreference android:key="@string/pref_expocompensation_seekbar_key" android:layout="@layout/preference_with_margin" android:title="@string/expocompensation" android:dialogTitle="@string/m9_ev_dialog" android:entries="@array/m9_ev_entries" android:entryValues="@array/m9_ev_values" android:defaultValue="0.0" app:useSimpleSummaryProvider="true" android:icon="@drawable/ic_saturation" />
+         <Preference android:key="m9_ev_info" android:layout="@layout/preference_with_margin" android:selectable="false" android:summary="@string/m9_ev_info" />
++        <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
++            android:key="pref_m9_settle_meter"
++            android:title="@string/m9_settle_meter_title"
++            android:summary="@string/m9_settle_meter_summary"
++            android:defaultValue="true"
++            android:layout="@layout/preference_with_margin"
++            android:icon="@drawable/ic_exposure" />
+         <com.particlesdevs.photoncamera.ui.settings.custompreferences.ManagedSwitchPreference
+             android:key="pref_m9_centre_metering"
+             android:title="@string/m9_centre_metering_title"
+             android:summary="@string/m9_centre_metering_summary"
+-            android:defaultValue="true"
++            android:defaultValue="false"
+             android:layout="@layout/preference_with_margin"
+             android:icon="@drawable/ic_exposure" />
+         <PreferenceScreen android:key="pref_m9_auto_iso_screen" android:title="@string/m9_auto_iso_title" android:summary="@string/m9_auto_iso_summary" android:layout="@layout/preference_with_margin" android:orderingFromXml="true">
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockAutomaticTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockAutomaticTest.java
+new file mode 100644
+index 0000000..05a35b4
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/M9AeLockAutomaticTest.java
+@@ -0,0 +1,72 @@
++package com.particlesdevs.photoncamera.m9;
++
++import org.junit.Test;
++
++import static org.junit.Assert.*;
++
++/** M9SETTLEMETER352: the automatic motion hold reuses the AE lock without becoming AE-L. */
++public class M9AeLockAutomaticTest {
++    private static M9AeLock1A.Context context(long manualTime, String mode) {
++        return new M9AeLock1A.Context("0", mode, 1, 0, manualTime, 0,
++                new M9AutoIsoSettings(800, 1).resolve(24, 36).identity, "default");
++    }
++    private static M9AeLock1A.Context normal() { return context(0, "PHOTO"); }
++    private static M9ExposurePlan1A shown(M9AeLock1A lock, M9AeLock1A.Context c, long now) {
++        long generation = lock.context(c);
++        M9ExposurePlan1A plan = new M9ExposurePlan1A(now, now, now * 1000000, c.camera, c.mode, 200, 16000000L,
++                400, 8000000L, 320, 8000000L, c.ev, 0.2, "auto_placement", c.manualTime, c.manualIso, 100)
++                .withAutoIsoControls(c.autoIsoIdentity).withAllocationSnapshot2G("{\"source\":true}")
++                .withAutoPlacement2D("{\"meter\":true}");
++        return lock.stamp(plan, c, generation);
++    }
++
++    @Test public void automaticHoldHoldsTheShownExposureButIsNotAeL() {
++        M9AeLock1A lock = new M9AeLock1A(); M9AeLock1A.Context c = normal();
++        M9ExposurePlan1A plan = shown(lock, c, 100);
++        assertTrue(lock.engageAutomatic(plan, c, 110));
++        assertTrue(lock.isLocked());
++        assertTrue(lock.isAutomaticHold());
++        assertFalse(lock.isUserLocked());
++        M9ExposurePlan1A held = lock.project(c, lock.context(c), 200, 200, 200000000L, 800, 4000000L, 100, 800, 4000000L);
++        assertNotNull(held);
++        assertEquals(plan.iso, held.iso);
++        assertEquals(plan.exposureNs, held.exposureNs);
++        assertTrue(lock.releaseAutomatic());
++        assertFalse(lock.isLocked());
++    }
++
++    @Test public void pressingAeLDuringAHoldKeepsThatExposureAsTheUsersLock() {
++        M9AeLock1A lock = new M9AeLock1A(); M9AeLock1A.Context c = normal();
++        M9ExposurePlan1A plan = shown(lock, c, 100);
++        assertTrue(lock.engageAutomatic(plan, c, 110));
++        M9ExposurePlan1A held = lock.stamp(lock.project(c, lock.context(c), 300, 300, 300000000L,
++                800, 4000000L, 100, 800, 4000000L), c, lock.context(c));
++        assertTrue(lock.engage(held, c, 310));
++        assertTrue(lock.isUserLocked());
++        assertFalse(lock.isAutomaticHold());
++        assertFalse(lock.releaseAutomatic());
++        assertTrue(lock.isLocked());
++        M9ExposurePlan1A after = lock.project(c, lock.context(c), 400, 400, 400000000L, 100, 30000000L, 100, 100, 30000000L);
++        assertEquals(plan.iso, after.iso);
++        assertEquals(plan.exposureNs, after.exposureNs);
++    }
++
++    @Test public void automaticHoldNeverReplacesOrReleasesAeL() {
++        M9AeLock1A lock = new M9AeLock1A(); M9AeLock1A.Context c = normal();
++        assertTrue(lock.engage(shown(lock, c, 100), c, 110));
++        assertFalse(lock.engageAutomatic(shown(lock, c, 120), c, 130));
++        assertFalse(lock.releaseAutomatic());
++        assertTrue(lock.isUserLocked());
++    }
++
++    @Test public void controlChangesEndTheHoldAndManualShutterIsRefused() {
++        M9AeLock1A lock = new M9AeLock1A(); M9AeLock1A.Context c = normal();
++        assertTrue(lock.engageAutomatic(shown(lock, c, 100), c, 110));
++        lock.context(context(0, "PHOTO_OTHER"));
++        assertFalse(lock.isLocked());
++        M9AeLock1A manual = new M9AeLock1A(); M9AeLock1A.Context m = context(10000000L, "PHOTO");
++        assertFalse(manual.engageAutomatic(shown(manual, m, 100), m, 110));
++        M9AeLock1A video = new M9AeLock1A(); M9AeLock1A.Context v = context(0, "VIDEO");
++        assertFalse(video.engageAutomatic(shown(video, v, 100), v, 110));
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java
+index e88f6c6..2674b90 100644
+--- a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9CentreMeteringTest.java
+@@ -28,15 +28,15 @@ public class M9CentreMeteringTest {
+         assertFalse(M9CentreMetering1A.active(-1, true, false));
+     }
+ 
+-    @Test public void settingDefaultsOnAndWithoutSettingsKeepsPreviousBehaviour() {
++    @Test public void settingDefaultsOffSince352AndFollowsTheStoredValue() {
+         SettingsManager settings = mock(SettingsManager.class);
+-        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, true)).thenReturn(true);
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, false)).thenReturn(true);
+         assertTrue(M9CentreMetering1A.enabled(settings));
+-        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, true)).thenReturn(false);
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, false)).thenReturn(false);
+         assertFalse(M9CentreMetering1A.enabled(settings));
+-        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, true))
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9CentreMetering1A.KEY, false))
+                 .thenThrow(new ClassCastException("stored as string"));
+-        assertTrue(M9CentreMetering1A.enabled(settings));
++        assertFalse(M9CentreMetering1A.enabled(settings));
+         assertFalse(M9CentreMetering1A.enabled(null));
+     }
+ }
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEaseTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEaseTest.java
+new file mode 100644
+index 0000000..8e95e13
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9DisplayEaseTest.java
+@@ -0,0 +1,57 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import org.junit.Test;
++
++import static org.junit.Assert.assertEquals;
++
++/** M9SETTLEMETER352: exposure steps glide on screen over 300 ms; small drifts do not. */
++public class M9DisplayEaseTest {
++    private static final long MS = 1_000_000L;
++    private static final double E = 1e-9;
++
++    @Test public void stepGlidesFromTheOldBrightnessToTheNewOne() {
++        M9DisplayEase1A ease = new M9DisplayEase1A();
++        ease.observe(0, 10.0, true);
++        ease.observe(33 * MS, 11.0, true);                 // one stop brighter
++        assertEquals(-1.0, ease.offsetEv(33 * MS), E);     // screen still shows the old brightness
++        assertEquals(-0.5, ease.offsetEv(183 * MS), E);    // halfway
++        assertEquals(0.0, ease.offsetEv(333 * MS), E);     // arrived
++        assertEquals(1.0, ease.multiplier(400 * MS), E);
++    }
++
++    @Test public void smallChangesAreNotEased() {
++        M9DisplayEase1A ease = new M9DisplayEase1A();
++        ease.observe(0, 10.0, true);
++        for (int i = 1; i <= 20; i++) {
++            ease.observe(i * 33 * MS, 10.0 + i * .1, true); // continuous drift, 0.1 EV per frame
++            assertEquals(0.0, ease.offsetEv(i * 33 * MS), E);
++        }
++    }
++
++    @Test public void aNewStepMidwayStartsFromWhatIsOnScreen() {
++        M9DisplayEase1A ease = new M9DisplayEase1A();
++        ease.observe(0, 10.0, true);
++        ease.observe(0, 11.0, true);                        // offset -1 at t=0
++        ease.observe(150 * MS, 10.0, true);                 // back down by one stop at halfway
++        assertEquals(-0.5 + 1.0, ease.offsetEv(150 * MS), E);
++        assertEquals(0.0, ease.offsetEv(450 * MS), E);
++    }
++
++    @Test public void disabledOrUnknownExposureNeverOffsets() {
++        M9DisplayEase1A ease = new M9DisplayEase1A();
++        ease.observe(0, 10.0, true);
++        ease.observe(33 * MS, 12.0, false);
++        assertEquals(0.0, ease.offsetEv(33 * MS), E);
++        ease.observe(66 * MS, Double.NaN, true);
++        assertEquals(0.0, ease.offsetEv(66 * MS), E);
++        ease.observe(99 * MS, 20.0, true);                  // first value after reset: no step
++        assertEquals(0.0, ease.offsetEv(99 * MS), E);
++    }
++
++    @Test public void offsetIsBoundedToFourStops() {
++        M9DisplayEase1A ease = new M9DisplayEase1A();
++        ease.observe(0, 0.0, true);
++        ease.observe(0, 9.0, true);
++        assertEquals(-4.0, ease.offsetEv(0), E);
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHoldTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHoldTest.java
+new file mode 100644
+index 0000000..9e20139
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9MotionHoldTest.java
+@@ -0,0 +1,74 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import org.junit.Test;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++/** M9SETTLEMETER352: hold while the phone pans, release once it settles. */
++public class M9MotionHoldTest {
++    private static final long MS = 1_000_000L;
++
++    /** Feeds a constant speed at 30 Hz from {@code fromMs} to {@code toMs}; returns the last decision. */
++    private static boolean run(M9MotionHold1A hold, double speed, long fromMs, long toMs, boolean allowed) {
++        boolean out = false;
++        for (long t = fromMs; t <= toMs; t += 33) out = hold.update(t * MS, speed, t * MS, allowed);
++        return out;
++    }
++
++    @Test public void deliberatePanHoldsAndSettlingReleasesAfter300ms() {
++        M9MotionHold1A hold = new M9MotionHold1A();
++        assertFalse(run(hold, 2, 0, 500, true));
++        assertTrue(run(hold, 40, 533, 700, true));
++        // Still: needs 300 ms below the settled threshold.
++        assertTrue(run(hold, 1, 733, 1000, true));
++        assertFalse(run(hold, 1, 1033, 1100, true));
++    }
++
++    @Test public void tremorAndBriefSpikesNeverHold() {
++        M9MotionHold1A hold = new M9MotionHold1A();
++        assertFalse(run(hold, 8, 0, 3000, true));                 // between thresholds: tremor
++        assertFalse(hold.update(3033 * MS, 60, 3033 * MS, true)); // one 33 ms spike
++        assertFalse(hold.update(3066 * MS, 2, 3066 * MS, true));
++        assertFalse(hold.moving());
++    }
++
++    @Test public void speedsBetweenThresholdsKeepTheCurrentState() {
++        M9MotionHold1A hold = new M9MotionHold1A();
++        assertTrue(run(hold, 30, 0, 200, true));
++        assertTrue(run(hold, 8, 233, 2000, true));                // slow pan continues the hold
++    }
++
++    @Test public void longPanRefreshesExposureEveryTwoAndAHalfSeconds() {
++        M9MotionHold1A hold = new M9MotionHold1A();
++        boolean sawRefresh = false, heldAgain = false;
++        for (long t = 0; t <= 4000; t += 33) {
++            boolean h = hold.update(t * MS, 30, t * MS, true);
++            if (t > 2600 && t < 2900 && !h) sawRefresh = true;
++            if (t > 3000 && h) heldAgain = true;
++        }
++        assertTrue(sawRefresh);
++        assertTrue(heldAgain);
++    }
++
++    @Test public void notAllowedOrStaleGyroReleasesImmediately() {
++        M9MotionHold1A hold = new M9MotionHold1A();
++        assertTrue(run(hold, 30, 0, 200, true));
++        assertFalse(hold.update(233 * MS, 30, 233 * MS, false));   // AE-L, tap or manual exposure
++        M9MotionHold1A stale = new M9MotionHold1A();
++        assertTrue(run(stale, 30, 0, 200, true));
++        assertFalse(stale.update(600 * MS, 30, 200 * MS, true));   // newest gyro sample is 400 ms old
++        assertFalse(stale.update(633 * MS, Double.NaN, 633 * MS, true));
++        assertFalse(new M9MotionHold1A().update(0, 50, -1, true));
++    }
++
++    @Test public void diagnosticsDescribeTheHold() throws Exception {
++        M9MotionHold1A hold = new M9MotionHold1A();
++        run(hold, 30, 0, 500, true);
++        org.json.JSONObject d = hold.diagnostics(500 * MS, true);
++        assertEquals(M9MotionHold1A.REVISION, d.getString("revision"));
++        assertTrue(d.getBoolean("moving"));
++        assertTrue(d.getLong("holdElapsedMs") > 0);
++    }
++}
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeterTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeterTest.java
+new file mode 100644
+index 0000000..d6b177e
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9SettleMeterTest.java
+@@ -0,0 +1,30 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import com.particlesdevs.photoncamera.settings.SettingsManager;
++
++import org.junit.Test;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++/** M9SETTLEMETER352: "Settle, then meter" defaults on; no settings context keeps old behaviour. */
++public class M9SettleMeterTest {
++    @Test public void settingDefaultsOnAndFollowsTheStoredValue() {
++        SettingsManager settings = mock(SettingsManager.class);
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9SettleMeter1A.KEY, true)).thenReturn(true);
++        assertTrue(M9SettleMeter1A.enabled(settings));
++        when(settings.getBoolean(SettingsManager.SCOPE_GLOBAL, M9SettleMeter1A.KEY, true)).thenReturn(false);
++        assertFalse(M9SettleMeter1A.enabled(settings));
++        assertFalse(M9SettleMeter1A.enabled(null));
++    }
++
++    @Test public void shutterStateIsKeptForThePhotosDiagnostics() throws Exception {
++        M9SettleMeter1A.recordShutter(new org.json.JSONObject().put("moving", true));
++        assertEquals("{\"moving\":true}", M9SettleMeter1A.lastShutter());
++        M9SettleMeter1A.recordShutter(null);
++        assertEquals("{}", M9SettleMeter1A.lastShutter());
++    }
++}
