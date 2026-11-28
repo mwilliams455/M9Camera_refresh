@@ -45,3 +45,12 @@ It now runs on manual dispatch only.
 and the 3.45 native libraries for the 3.46 delta gate. Then it runs both native parity
 suites and the regression tests, and packages the installer. See
 patches/jpegperf346/README.md.
+
+## 3.49 JPEGPERF candidate
+
+`build-m9cam-jpegperf349.yml` reconstructs 3.44 through 3.49 with `prepare_349.py <dest>`.
+It rebuilds the 3.44 native libraries for the 3.13 provenance gate and the 3.48 libraries
+for the delta gate. It runs the 3.46 and 3.49 parity suites and the 3.47 allocation probe,
+then the regression tests. It packages the installer and runs the shared-storage suite on an
+Android 15 emulator. The 3.46 workflow now runs on manual dispatch only.
+See patches/jpegperf349/README.md.

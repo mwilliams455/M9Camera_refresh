@@ -1,0 +1,50 @@
+{
+  "app/build.gradle": {
+    "before": "67eb7daf9fbbaf56a38aa6649147c97812b778dc557e5aea475b96cfad3fc852",
+    "after": "b3b70d795df9a1c16f673609795bac031088553b8fecb1746223aae0c2c5d3d5"
+  },
+  "app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java": {
+    "before": "9fafe2e6de60410cca5148250047d648672afa0cdc1bae41fc45f9e79f4c603c",
+    "after": "7f61adb6821cc1499ab3435a9e5cca8e1a5004ef70cb8aabafdcb91e12121032"
+  },
+  "app/src/main/cpp/m9noisecancel1b.cpp": {
+    "before": "cb8e9910a1bfffa89c20789196bfbd46ad353e18d44f325cbfe523bd8dfcb871",
+    "after": "84cb0ca29d99d920a87f5105480334761b2809a0796bfe0aba9ae5a6b940e6d2"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java": {
+    "before": "a71ec1f7dc75dc35cc4b272161bb6a3000602924f915ccd69bdf2c4457a79519",
+    "after": "93c409471ff0d73c2100c041ea22c71ed3191d610d2d07a7482749330127fe9a"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java": {
+    "before": "7b4b2d6acda1761fb719aee055108b210709e9a127d329ff65c51bd72185ed12",
+    "after": "58bf1d3883389c21ca9ae949cd93d9b872993c7f18b655afcc17de6baa314a44"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java": {
+    "before": "0a43e73f7e48f89c07aa975b1e077864e066c0803a466f0850b73af6bd215feb",
+    "after": "4365c0e16ce7e75d36bdaf4a7318997efe0f2c587ad3a628ddf0dad8a5337589"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java": {
+    "before": "4e245d6f39baceccb49d2774de9b78f3550636dddc722a7b2c6e50f1ce889cc4",
+    "after": "70291f8263b56a0d44fcf567c6527e1fa71081f8e13f610893087e6b9759a8f2"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java": {
+    "before": "7b3a62fbc089cc365e9fe4e21a00f20c830621cfc4fe8d5ed9a62dccf633d851",
+    "after": "ef5e7d19786464f4782c9622b902cf8e750315f95e444c5028cd5f979eee187c"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java": {
+    "before": "685e648f787a7e4741d94069a33602d6e994bb89571afbb8b3e4c6bef82ec4f8",
+    "after": "83a73fc0a6ea1e4226943c851ee2fbf0d87be7fd2743b17f83de237153597a7b"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/processing/ProcessingEventsListener.java": {
+    "before": "f5714a6e34cee53a129b18b04a448ae28229a27ab1a1e2f90ed9cb1f51643c5b",
+    "after": "c9c228ecf34470d82880618f452d55e2cb99b6a43e4906b9f634560e11b31b62"
+  },
+  "app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java": {
+    "before": "ac9071a6af47903ae4b6ef638a8deed12b90118903bb497d218faa803e92e1c1",
+    "after": "86f620d3c880d86abde8524f772fc8322abded53aab22417cd9c113bfc04a5da"
+  },
+  "app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignatureReaderTest.java": {
+    "before": null,
+    "after": "a53f38b39c1bf3817045985e8c69c1f96dcd0a5808cf54a14e56cec26bbdc7cd"
+  }
+}

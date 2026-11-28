@@ -1,0 +1,540 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 85decde..8b14163 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -43,13 +43,13 @@ android {
+         applicationId 'com.m9project.m9cam.photon'
+         minSdkVersion 26
+         targetSdkVersion 35
+-        versionCode 27348
++        versionCode 27349
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+         ndk {
+             //noinspection ChromeOsAbiSupport
+             abiFilters "arm64-v8a", "armeabi-v7a"
+         }
+-        versionName '3.48-jpegstore'
++        versionName '3.49-jpegperf'
+         versionProps['VERSION_NAME'] = versionName
+         proguardFiles
+     }
+@@ -106,7 +106,7 @@ android {
+     namespace 'com.particlesdevs.photoncamera'
+     applicationVariants.all {
+         variant -> variant.outputs.all {
+-            outputFileName = "M9Cam_3.48_JPEGSTORE-${variant.name}.apk"
++            outputFileName = "M9Cam_3.49_JPEGPERF-${variant.name}.apk"
+         }
+     }
+     testOptions {
+diff --git a/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java b/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java
+index f4c0309..0a2e56c 100644
+--- a/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java
++++ b/app/src/androidTest/java/com/particlesdevs/photoncamera/m9/render/M9SharedJpegTest.java
+@@ -108,6 +108,45 @@ public class M9SharedJpegTest {
+         }
+     }
+ 
++    /** JPEGPERF349: records how the finalizer reports a published JPEG. */
++    private static final class SavedEvents implements com.particlesdevs.photoncamera.processing.ProcessingEventsListener {
++        final java.util.List<String> calls = new java.util.concurrent.CopyOnWriteArrayList<>();
++        @Override public void onProcessingStarted(String processName) {}
++        @Override public void onProcessingChanged(Object obj) {}
++        @Override public void onProcessingFinished(Object obj) {}
++        @Override public void onProcessingError(Object obj) {}
++        @Override public void notifyImageSavedStatus(boolean saved, Path path) { calls.add("scan-path:" + saved + ":" + path); }
++        @Override public void notifyImageSavedStatus(boolean saved, Path path, boolean indexed) { calls.add(saved + ":" + path + ":" + indexed); }
++    }
++
++    @Test public void mediaStorePublicationIsIndexedWithoutScanRequest() throws Exception {
++        M9PendingJpeg item = M9PendingJpeg.create(target, resolver);
++        assertTrue(item.indexedByMediaStore());
++        SavedEvents events = new SavedEvents();
++        M9JpegFinalizeQueue.Ticket ticket = M9JpegFinalizeQueue.submit(target, encode(item), events, null, item);
++        ticket.awaitCompletion();
++        assertTrue(ticket.error(), ticket.isSuccess());
++        assertEquals(java.util.Collections.singletonList("true:" + target + ":true"), events.calls);
++        // MediaStore fills the image's own metadata on publication, with no scan broadcast.
++        String[] columns = {MediaStore.MediaColumns.WIDTH, MediaStore.MediaColumns.HEIGHT, MediaStore.MediaColumns.SIZE};
++        long deadline = System.nanoTime() + 10_000_000_000L;
++        int width = 0, height = 0; long size = 0;
++        while (System.nanoTime() < deadline) {
++            try (Cursor rows = resolver.query(images, columns, "_display_name = ? AND relative_path = ?",
++                    new String[]{target.getFileName().toString(), "DCIM/Camera/"}, null)) {
++                assertNotNull(rows);
++                assertEquals(1, rows.getCount());
++                assertTrue(rows.moveToFirst());
++                width = rows.getInt(0); height = rows.getInt(1); size = rows.getLong(2);
++            }
++            if (width == 96 && height == 64 && size == Files.size(target)) break;
++            Thread.sleep(100);
++        }
++        assertEquals(96, width);
++        assertEquals(64, height);
++        assertEquals(Files.size(target), size);
++    }
++
+     @Test public void rejectedRenderDeletesPendingImage() throws Exception {
+         M9PendingJpeg item = M9PendingJpeg.create(target, resolver);
+         encode(item);
+diff --git a/app/src/main/cpp/m9noisecancel1b.cpp b/app/src/main/cpp/m9noisecancel1b.cpp
+index f3014ca..62bfb83 100644
+--- a/app/src/main/cpp/m9noisecancel1b.cpp
++++ b/app/src/main/cpp/m9noisecancel1b.cpp
+@@ -182,7 +182,11 @@ extern "C" int m9_noisecancel1b_apply(uint16_t* rgb, int w, int h, const double*
+     const auto started = std::chrono::steady_clock::now();
+     const int inner = h - 2;
+     const size_t bytesPerRow = size_t(w) * 3 * sizeof(uint16_t);
+-    const int rowBudget = int((1024u * 1024u) / bytesPerRow);
++    // JPEGPERF349: 1 MiB holds 42 rows of a 4096-wide frame. Wider frames (the 8000x6000
++    // vendor RAW size) keep that row count rather than dropping to five workers; their
++    // scratch peaks near 2 MiB. Frames up to 4096 wide schedule exactly as in 3.48.
++    constexpr int kMinRowBudget = 42;
++    const int rowBudget = std::max(kMinRowBudget, int((1024u * 1024u) / bytesPerRow));
+     int workers = inner >= 256 ? std::min(8, (rowBudget + 2) / 4) : 1;
+     int bands = workers == 1 ? 1 : std::min({workers * 8, inner / 32, 1 + rowBudget / 2 - workers});
+     for (;;) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
+index ef23854..80134ac 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignature1A.java
+@@ -21,17 +21,44 @@ public final class M9JpegSignature1A {
+         void update(byte[] bytes){int offset=0;while(offset<bytes.length){int n=Math.min(buffer.length-used,bytes.length-offset);System.arraycopy(bytes,offset,buffer,used,n);used+=n;offset+=n;if(used==buffer.length)flush();}}
+         byte[] digest(){flush();return digest.digest();}
+     }
++    public static final String READER = "M9JPEGPERF349_UNSYNCHRONIZED_64K_READER";
++    /**
++     * JPEGPERF349: the parser pulls one byte per call across the whole entropy-coded scan.
++     * BufferedInputStream takes a monitor on every read(); this private, single-threaded
++     * 64 KiB buffer returns exactly the same byte sequence without that per-byte lock.
++     */
++    private static final class ByteSource implements Closeable {
++        private final InputStream source;
++        private final byte[] buffer=new byte[65536];
++        private int position,limit;
++        ByteSource(InputStream source){this.source=source;}
++        int read()throws IOException {
++            if(position==limit){
++                int n=source.read(buffer,0,buffer.length);
++                if(n<=0)return -1;
++                position=0;limit=n;
++            }
++            return buffer[position++]&255;
++        }
++        int read(byte[] dst,int offset,int length)throws IOException {
++            if(length==0)return 0;
++            if(position==limit)return source.read(dst,offset,length);
++            int n=Math.min(length,limit-position);
++            System.arraycopy(buffer,position,dst,offset,n);position+=n;return n;
++        }
++        @Override public void close()throws IOException{source.close();}
++    }
+     private static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format(Locale.ROOT,"%02x",v&255));return s.toString();}
+-    private static int read(InputStream in)throws IOException{int v=in.read();if(v<0)throw new EOFException("truncated JPEG");return v;}
++    private static int read(ByteSource in)throws IOException{int v=in.read();if(v<0)throw new EOFException("truncated JPEG");return v;}
+     public static Result read(File file)throws Exception {
+         return readStream(new FileInputStream(file));
+     }
+     public static Result readStream(InputStream source)throws Exception {
+-        try(InputStream in=new BufferedInputStream(source,65536)) {
++        try(ByteSource in=new ByteSource(source)) {
+             return readBuffered(in);
+         }
+     }
+-    private static Result readBuffered(InputStream in)throws Exception {
++    private static Result readBuffered(ByteSource in)throws Exception {
+         CodingDigest digest=new CodingDigest();MessageDigest icc=MessageDigest.getInstance("SHA-256");
+         Result out=new Result();boolean scan=false,done=false;int pending=-1;
+         if(read(in)!=255||read(in)!=216)throw new IOException("not JPEG");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
+index 6a7bfbf..02a8b03 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/preview/M9ShutterTrace1A.java
+@@ -77,7 +77,7 @@ public final class M9ShutterTrace1A {
+     private static JSONObject signature(M9JpegSignature1A.Result s)throws Exception {
+         return new JSONObject().put("codingSha256",s.codingSha256).put("codingBytes",s.codingBytes).put("digestProviderUpdates",s.digestUpdates)
+             .put("iccSegments",s.iccSegments).put("iccSegmentOrderSha256",s.iccSha256==null?JSONObject.NULL:s.iccSha256)
+-            .put("width",s.width).put("height",s.height).put("sofSampling",s.sampling);
++            .put("width",s.width).put("height",s.height).put("sofSampling",s.sampling).put("signatureReader",M9JpegSignature1A.READER);
+     }
+     public static void begin(JSONObject preview,View view) {
+         try {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
+index 4c836a7..f784417 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9JpegFinalizeQueue.java
+@@ -267,7 +267,9 @@ public final class M9JpegFinalizeQueue {
+             // Photon publication remains strictly after EXIF saveAttributes(), exactly as before.
+             if (processingEventsListener != null) {
+                 long stageStartedNs = System.nanoTime();
+-                processingEventsListener.notifyImageSavedStatus(true, publishedPath);
++                // JPEGPERF349: a MediaStore publication is already indexed; skip the rescan broadcast.
++                processingEventsListener.notifyImageSavedStatus(true, publishedPath,
++                        pending != null && pending.indexedByMediaStore());
+                 ticket.publishElapsedNs = System.nanoTime() - stageStartedNs;
+             }
+         } catch (Throwable t) {
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
+index cd7ad8b..7be3d64 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9NoiseCancel1B.java
+@@ -62,7 +62,7 @@ final class M9NoiseCancel1B {
+         d.put("elapsedMs",stats[9]);
+         d.put("parallelWorkers",(int)stats[12]);
+         d.put("parallelMode",stats[13]==1.0?"disjoint_row_bands_preloaded_boundaries":"scalar_reference");
+-        d.put("bandScheduling","JPEGPERF347_bounded_rows_work_queue");
++        d.put("bandScheduling","JPEGPERF349_bounded_rows_work_queue_42_row_floor");
+         d.put("pixelMathRevision","NOISECANCEL1B_FROZEN_EXACT");
+         d.put("parallelParityPolicy","byte_exact_RGB_output_vs_frozen_1_86_scalar");
+         d.put("greenMutatedSamples",0);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
+index c866bcb..bd05e77 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9PendingJpeg.java
+@@ -59,6 +59,11 @@ final class M9PendingJpeg {
+         return dot > 0 ? name.substring(0, dot) : name;
+     }
+ 
++    /** True when MediaStore itself holds this JPEG, so publishing it also indexes it. */
++    boolean indexedByMediaStore() {
++        return item != null;
++    }
++
+     OutputStream openOutput() throws IOException {
+         if (item == null) return Files.newOutputStream(legacyFile);
+         OutputStream stream = resolver.openOutputStream(item, "wt");
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+index b67eec4..697efe7 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/m9/render/M9R35Renderer.java
+@@ -614,6 +614,9 @@ public final class M9R35Renderer {
+         boolean saved;
+         long elapsedMs;
+         ImageSaver.Util.M9JpegSaveTiming timing;
++        /** JPEGPERF349: the MediaStore entry reserved on the encode thread, and how long that took. */
++        M9PendingJpeg pending;
++        double reserveElapsedMs = -1.0;
+     }
+ 
+     private static Jpeg346 awaitJpeg346(java.util.concurrent.Future<Jpeg346> future) throws Exception {
+@@ -636,11 +639,13 @@ public final class M9R35Renderer {
+         }
+     }
+ 
+-    private static void awaitJpeg346Quietly(java.util.concurrent.Future<Jpeg346> future) {
++    private static Jpeg346 awaitJpeg346Quietly(java.util.concurrent.Future<Jpeg346> future) {
+         try {
+-            awaitJpeg346(future);
++            return awaitJpeg346(future);
+         } catch (Throwable ignored) {
+             // The original failure is reported; this wait only keeps the bitmap alive.
++            // A failed encode task has already discarded its own reservation.
++            return null;
+         }
+     }
+ 
+@@ -855,17 +860,30 @@ public final class M9R35Renderer {
+                 M9RenderCrash1D.stage("pre_encode_trace");
+                 com.particlesdevs.photoncamera.m9.preview.M9ShutterTrace1A.beforeEncode(jpgPath, bitmap, captureResult);
+                 M9RenderCrash1D.stage("jpeg_encode_write");
+-                pending = M9PendingJpeg.create(jpgPath, com.particlesdevs.photoncamera.app.PhotonCamera.getAppContext().getContentResolver());
+-                final M9PendingJpeg encodingJpeg = pending;
++                // JPEGPERF349: reserve the MediaStore entry on the encode thread, so that provider
++                // round trip overlaps the post-render diagnostics instead of delaying the encode.
++                final Path reservePath349 = jpgPath;
++                final android.content.ContentResolver resolver349 =
++                        com.particlesdevs.photoncamera.app.PhotonCamera.getAppContext().getContentResolver();
+                 final Bitmap overlapBitmap346 = bitmap;
+                 final ParseExif.ExifData overlapExifData346 = overlapExif346;
+                 overlapJpeg346 = JPEG_OVERLAP_346.submit(() -> {
+                     Jpeg346 result = new Jpeg346();
+-                    long encodeStartedNs = System.nanoTime();
+-                    result.saved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(
+-                            encodingJpeg::openOutput, overlapBitmap346, JPEG_QUALITY, overlapExifData346, false);
+-                    result.elapsedMs = (System.nanoTime() - encodeStartedNs) / 1_000_000L;
+-                    result.timing = ImageSaver.Util.consumeM9JpegSaveTiming();
++                    long reserveStartedNs = System.nanoTime();
++                    M9PendingJpeg reserved = M9PendingJpeg.create(reservePath349, resolver349);
++                    result.reserveElapsedMs = (System.nanoTime() - reserveStartedNs) / 1_000_000.0;
++                    try {
++                        long encodeStartedNs = System.nanoTime();
++                        result.saved = ImageSaver.Util.saveBitmapAsJPGPayloadM9(
++                                reserved::openOutput, overlapBitmap346, JPEG_QUALITY, overlapExifData346, false);
++                        result.elapsedMs = (System.nanoTime() - encodeStartedNs) / 1_000_000L;
++                        result.timing = ImageSaver.Util.consumeM9JpegSaveTiming();
++                    } catch (RuntimeException | Error failure) {
++                        reserved.discard(failure);
++                        throw failure;
++                    }
++                    // From here the render thread owns the reservation (publish, recover or discard).
++                    result.pending = reserved;
+                     return result;
+                 });
+             }
+@@ -1093,11 +1111,14 @@ public final class M9R35Renderer {
+             long jpegEncodeWriteElapsedMs = 0L;
+             ImageSaver.Util.M9JpegSaveTiming jpegTiming = null;
+             double jpegOverlapWaitElapsedMs346 = -1.0;
++            double mediaStoreReserveElapsedMs349 = -1.0;
+             if (saveJpeg && overlapJpeg346 != null) {
+                 exif = overlapExif346;
+                 long waitStartedNs = System.nanoTime();
+                 Jpeg346 encoded = awaitJpeg346(overlapJpeg346);
+                 overlapJpeg346 = null;
++                pending = encoded.pending;
++                mediaStoreReserveElapsedMs349 = encoded.reserveElapsedMs;
+                 jpegOverlapWaitElapsedMs346 = (System.nanoTime() - waitStartedNs) / 1_000_000.0;
+                 jpegEncodeWriteElapsedMs = encoded.elapsedMs;
+                 jpegTiming = encoded.timing;
+@@ -1152,6 +1173,9 @@ public final class M9R35Renderer {
+             diag.put("jpegOverlapMode", jpegOverlapWaitElapsedMs346 >= 0
+                     ? "JPEGPERF346_encode_parallel_with_post_render_diagnostics" : "sequential");
+             diag.put("jpegOverlapWaitElapsedMs", jpegOverlapWaitElapsedMs346);
++            diag.put("mediaStoreReserveElapsedMs", mediaStoreReserveElapsedMs349);
++            diag.put("mediaStoreReserveThread", mediaStoreReserveElapsedMs349 >= 0
++                    ? "JPEGPERF349_jpeg_encode_thread" : "render_thread");
+             if (jpegTiming != null) {
+                 diag.put("jpegFileOpenElapsedMs", jpegTiming.fileOpenNs / 1_000_000.0);
+                 diag.put("jpegCompressElapsedMs", jpegTiming.compressNs / 1_000_000.0);
+@@ -1496,7 +1520,11 @@ public final class M9R35Renderer {
+                     null, diag, exif, pending);
+         } catch (Throwable t) {
+             M9RenderCrash1D.failure(t);
+-            if (overlapJpeg346 != null) awaitJpeg346Quietly(overlapJpeg346);
++            if (overlapJpeg346 != null) {
++                Jpeg346 late = awaitJpeg346Quietly(overlapJpeg346);
++                // JPEGPERF349: an encode that finished after this failure still hands back its reservation.
++                if (pending == null && late != null) pending = late.pending;
++            }
+             if (pending != null) pending.discard(t);
+             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+             Log.e(TAG, "R3.8-H25/TG1 render failed", t);
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/processing/ProcessingEventsListener.java b/app/src/main/java/com/particlesdevs/photoncamera/processing/ProcessingEventsListener.java
+index 651e22d..316c719 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/processing/ProcessingEventsListener.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/processing/ProcessingEventsListener.java
+@@ -16,6 +16,14 @@ public interface ProcessingEventsListener {
+ 
+     void notifyImageSavedStatus(boolean saved, Path savedFilePath);
+ 
++    /**
++     * JPEGPERF349: {@code indexedByMediaStore} is true when the saved image was published
++     * through MediaStore, which has already indexed it, so no media-scan request is needed.
++     */
++    default void notifyImageSavedStatus(boolean saved, Path savedFilePath, boolean indexedByMediaStore) {
++        notifyImageSavedStatus(saved, savedFilePath);
++    }
++
+     void onProcessingError(Object obj);
+ 
+ }
+diff --git a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+index 677b7ae..0060a54 100644
+--- a/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
++++ b/app/src/main/java/com/particlesdevs/photoncamera/ui/camera/CameraFragment.java
+@@ -2133,10 +2133,17 @@ public class CameraFragment extends Fragment {
+ 
+         @Override
+         public void notifyImageSavedStatus(boolean saved, Path savedFilePath) {
++            notifyImageSavedStatus(saved, savedFilePath, false);
++        }
++
++        @Override
++        public void notifyImageSavedStatus(boolean saved, Path savedFilePath, boolean indexedByMediaStore) {
+             if (saved) {
+                 Uri imageUri = null;
+                 if (savedFilePath != null) {
+-                    triggerMediaScanner(imageUri = Uri.fromFile(savedFilePath.toFile()));
++                    imageUri = Uri.fromFile(savedFilePath.toFile());
++                    // JPEGPERF349: MediaStore indexed its own publication; a scan request would rescan it.
++                    if (!indexedByMediaStore) triggerMediaScanner(imageUri);
+                     logD("ImageSaved: " + savedFilePath);
+ //                    showSnackBar("ImageSaved: " + savedFilePath.toString());
+                 }
+diff --git a/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignatureReaderTest.java b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignatureReaderTest.java
+new file mode 100644
+index 0000000..ab59da2
+--- /dev/null
++++ b/app/src/test/java/com/particlesdevs/photoncamera/m9/preview/M9JpegSignatureReaderTest.java
+@@ -0,0 +1,181 @@
++package com.particlesdevs.photoncamera.m9.preview;
++
++import org.junit.Test;
++
++import java.io.*;
++import java.security.MessageDigest;
++import java.util.*;
++
++import static org.junit.Assert.*;
++
++/** JPEGPERF349: the unsynchronized signature reader must return exactly what 3.48 returned. */
++public class M9JpegSignatureReaderTest {
++    /** Returns 1..maxChunk bytes per bulk read, to cross every buffer boundary. */
++    private static final class ChoppyStream extends InputStream {
++        final byte[] data;final Random random;final int maxChunk;int pos;
++        ChoppyStream(byte[] data,long seed,int maxChunk){this.data=data;this.random=new Random(seed);this.maxChunk=maxChunk;}
++        @Override public int read(){return pos<data.length?data[pos++]&255:-1;}
++        @Override public int read(byte[] b,int o,int n){
++            if(n==0)return 0;if(pos>=data.length)return -1;
++            int k=Math.min(Math.min(n,1+random.nextInt(maxChunk)),data.length-pos);
++            System.arraycopy(data,pos,b,o,k);pos+=k;return k;
++        }
++    }
++
++    private static void segment(ByteArrayOutputStream out,int marker,byte[] payload){
++        out.write(255);out.write(marker);int length=payload.length+2;out.write(length>>8);out.write(length&255);
++        out.write(payload,0,payload.length);
++    }
++
++    private static byte[] filled(Random r,int n){byte[] b=new byte[n];r.nextBytes(b);return b;}
++
++    /** Synthetic but structurally valid JPEG: APP0, ICC x2, COM, DQT, SOF, DHT, scans with stuffing, RST and fill bytes. */
++    static byte[] jpeg(long seed,boolean progressive,int scanBytes){
++        Random r=new Random(seed);ByteArrayOutputStream out=new ByteArrayOutputStream();
++        out.write(255);out.write(216);
++        segment(out,224,"JFIF\0\1\2\0\0\1\0\1\0\0".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
++        for(int part=1;part<=2;part++){
++            byte[] icc=filled(r,300+part*17);byte[] id="ICC_PROFILE\0".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
++            System.arraycopy(id,0,icc,0,12);icc[12]=(byte)part;icc[13]=2;segment(out,226,icc);
++        }
++        segment(out,254,"M9 test".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
++        segment(out,219,filled(r,130));
++        segment(out,progressive?194:192,new byte[]{8,12,0,16,0,3,1,0x22,0,2,0x11,1,3,0x11,1});
++        segment(out,196,filled(r,180));
++        int scans=progressive?4:1;
++        for(int s=0;s<scans;s++){
++            segment(out,218,new byte[]{3,1,0,2,0x11,3,0x11,0,63,0});
++            for(int i=0;i<scanBytes;i++){
++                int v=r.nextInt(256);
++                if(v==255){out.write(255);out.write(0);}            // byte stuffing
++                else out.write(v);
++                if(i%4099==4098){out.write(255);out.write(208+(i/4099)%8);} // restart markers
++                if(i%9973==9972){out.write(255);out.write(255);out.write(0);} // fill byte before stuffing
++            }
++            if(s+1<scans){out.write(255);out.write(255);segment(out,196,filled(r,40));} // fill byte before marker
++        }
++        out.write(255);out.write(255);out.write(217);
++        return out.toByteArray();
++    }
++
++    private static Object summary(Object result)throws Exception{
++        Map<String,Object> m=new TreeMap<>();
++        for(String f:new String[]{"codingSha256","iccSha256","sampling","width","height","iccSegments","codingBytes","digestUpdates"})
++            m.put(f,result.getClass().getField(f).get(result));
++        return m;
++    }
++
++    private static String failure(Callable<?> c){
++        try{c.call();return "no failure";}catch(Exception e){return e.getClass().getName()+": "+e.getMessage();}
++    }
++
++    interface Callable<T>{T call()throws Exception;}
++
++    @Test public void matchesReferenceAcrossChunkingAndStructures()throws Exception{
++        for(long seed=1;seed<=6;seed++)for(boolean progressive:new boolean[]{false,true})for(int size:new int[]{0,1,700,70000,300000}){
++            byte[] jpeg=jpeg(seed*31+size,progressive,size);
++            Object expected=summary(M9JpegSignature348Reference.readStream(new ByteArrayInputStream(jpeg)));
++            assertEquals(expected,summary(M9JpegSignature1A.readStream(new ByteArrayInputStream(jpeg))));
++            for(int chunk:new int[]{1,7,65535,200000})
++                assertEquals("seed "+seed+" chunk "+chunk,expected,summary(M9JpegSignature1A.readStream(new ChoppyStream(jpeg,seed,chunk))));
++        }
++    }
++
++    @Test public void fileEntryPointMatchesReference()throws Exception{
++        File file=File.createTempFile("m9sig",".jpg");
++        try{
++            try(FileOutputStream out=new FileOutputStream(file)){out.write(jpeg(99,false,1_500_000));}
++            assertEquals(summary(M9JpegSignature348Reference.read(file)),summary(M9JpegSignature1A.read(file)));
++        }finally{assertTrue(file.delete());}
++    }
++
++    @Test public void malformedInputFailsTheSameWay()throws Exception{
++        byte[] good=jpeg(5,true,20000);
++        List<byte[]> bad=new ArrayList<>();
++        bad.add(new byte[0]);bad.add(new byte[]{(byte)255});bad.add(new byte[]{1,2,3});
++        for(int cut:new int[]{3,25,400,good.length/2,good.length-1})bad.add(Arrays.copyOf(good,cut));
++        byte[] standalone=good.clone();standalone[2]=(byte)255;standalone[3]=(byte)216;bad.add(standalone);
++        byte[] shortLength=good.clone();shortLength[4]=0;shortLength[5]=1;bad.add(shortLength);
++        for(byte[] b:bad){
++            assertEquals(failure(()->M9JpegSignature348Reference.readStream(new ByteArrayInputStream(b))),
++                    failure(()->M9JpegSignature1A.readStream(new ChoppyStream(b,3,5))));
++        }
++    }
++
++    @Test public void readerIsLabelled(){assertEquals("M9JPEGPERF349_UNSYNCHRONIZED_64K_READER",M9JpegSignature1A.READER);}
++}
++
++/** Verbatim 3.48 reader (BufferedInputStream), the parity oracle for JPEGPERF349. */
++final class M9JpegSignature348Reference {
++    public static final class Result {
++        public String codingSha256, iccSha256, sampling;
++        public int width,height,iccSegments;
++        public long codingBytes, digestUpdates;
++    }
++    // Batch provider calls: Android's SHA provider must not receive one JNI call per byte.
++    private static final class CodingDigest {
++        final MessageDigest digest=MessageDigest.getInstance("SHA-256");
++        final byte[] buffer=new byte[65536];int used;long updates;
++        CodingDigest() throws java.security.NoSuchAlgorithmException {}
++        void flush(){if(used>0){digest.update(buffer,0,used);updates++;used=0;}}
++        void update(byte b){buffer[used++]=b;if(used==buffer.length)flush();}
++        void update(byte[] bytes){int offset=0;while(offset<bytes.length){int n=Math.min(buffer.length-used,bytes.length-offset);System.arraycopy(bytes,offset,buffer,used,n);used+=n;offset+=n;if(used==buffer.length)flush();}}
++        byte[] digest(){flush();return digest.digest();}
++    }
++    private static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format(Locale.ROOT,"%02x",v&255));return s.toString();}
++    private static int read(InputStream in)throws IOException{int v=in.read();if(v<0)throw new EOFException("truncated JPEG");return v;}
++    public static Result read(File file)throws Exception {
++        return readStream(new FileInputStream(file));
++    }
++    public static Result readStream(InputStream source)throws Exception {
++        try(InputStream in=new BufferedInputStream(source,65536)) {
++            return readBuffered(in);
++        }
++    }
++    private static Result readBuffered(InputStream in)throws Exception {
++        CodingDigest digest=new CodingDigest();MessageDigest icc=MessageDigest.getInstance("SHA-256");
++        Result out=new Result();boolean scan=false,done=false;int pending=-1;
++        if(read(in)!=255||read(in)!=216)throw new IOException("not JPEG");
++        digest.update(new byte[]{(byte)255,(byte)216});out.codingBytes=2;
++        while(!done) {
++            int marker;
++            if(scan) {
++                int v=read(in);
++                if(v!=255){digest.update((byte)v);out.codingBytes++;continue;}
++                int count=1;marker=read(in);
++                while(marker==255){count++;marker=read(in);}
++                if(marker==0||(marker>=208&&marker<=215)) {
++                    for(int i=0;i<count;i++)digest.update((byte)255);
++                    digest.update((byte)marker);out.codingBytes+=count+1;continue;
++                }
++                // Marker fill bytes do not affect decoded samples. Canonicalize the marker prefix.
++                scan=false;
++            } else {
++                if(pending>=0){marker=pending;pending=-1;}
++                else {if(read(in)!=255)throw new IOException("invalid JPEG marker");do{marker=read(in);}while(marker==255);}
++            }
++            if(marker==217){digest.update(new byte[]{(byte)255,(byte)217});out.codingBytes+=2;done=true;continue;}
++            if(marker==216||marker==0||marker==1||(marker>=208&&marker<=215))throw new IOException("unexpected standalone marker");
++            int hi=read(in),lo=read(in),length=(hi<<8)|lo;
++            if(length<2)throw new IOException("invalid JPEG segment length");
++            byte[] data=new byte[length-2];int pos=0,n;
++            while(pos<data.length&&(n=in.read(data,pos,data.length-pos))>0)pos+=n;
++            if(pos!=data.length)throw new EOFException("truncated JPEG segment");
++            boolean metadata=(marker>=224&&marker<=239)||marker==254;
++            if(!metadata){digest.update(new byte[]{(byte)255,(byte)marker,(byte)hi,(byte)lo});digest.update(data);out.codingBytes+=length+2;}
++            if(marker==226&&data.length>=14&&new String(data,0,12,"US-ASCII").equals("ICC_PROFILE\0")){
++                icc.update(data);out.iccSegments++;
++            }
++            if((marker>=192&&marker<=195)||(marker>=197&&marker<=199)||(marker>=201&&marker<=203)||(marker>=205&&marker<=207)) {
++                if(data.length<6)throw new IOException("short SOF");
++                out.height=((data[1]&255)<<8)|(data[2]&255);out.width=((data[3]&255)<<8)|(data[4]&255);
++                int channels=data[5]&255;if(data.length<6+3*channels)throw new IOException("short SOF components");
++                StringBuilder s=new StringBuilder();
++                for(int i=0;i<channels;i++){if(i>0)s.append(',');int v=data[7+i*3]&255;s.append(data[6+i*3]&255).append(':').append(v>>4).append('x').append(v&15);}
++                out.sampling=s.toString();
++            }
++            if(marker==218)scan=true;
++        }
++        out.codingSha256=hex(digest.digest());out.digestUpdates=digest.updates;out.iccSha256=out.iccSegments==0?null:hex(icc.digest());return out;
++    }
++}

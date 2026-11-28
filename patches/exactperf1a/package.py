@@ -15,11 +15,15 @@ patches = here.parent
 sha = lambda data: hashlib.sha256(data).hexdigest()
 certificate = '255cb09eaddd26a9cc680786e4985372cf24d0e54bb120fc44d48f3273ff3956'
 scope = json.loads((out / 'SOURCE_VERIFICATION.json').read_text())
-integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf', '3.48-jpegstore')
-jpeg348 = scope['version'] == '3.48-jpegstore'
+integrated = scope['version'] in ('3.45-performance', '3.46-jpegperf', '3.47-jpegperf', '3.48-jpegstore', '3.49-jpegperf')
+jpeg349 = scope['version'] == '3.49-jpegperf'
+jpeg348 = jpeg349 or scope['version'] == '3.48-jpegstore'
 jpeg347 = jpeg348 or scope['version'] == '3.47-jpegperf'
 jpegperf = jpeg347 or scope['version'] == '3.46-jpegperf'
-if jpeg348:
+if jpeg349:
+    version, code, filename = '3.49-jpegperf', 27349, 'M9Cam_3.49_JPEGPERF.apk'
+    stage, parent = patches / 'jpegperf349', '3.48-jpegstore'
+elif jpeg348:
     version, code, filename = '3.48-jpegstore', 27348, 'M9Cam_3.48_JPEGSTORE.apk'
     stage, parent = patches / 'jpegstore348', '3.47-jpegperf'
 elif jpeg347:
@@ -124,7 +128,7 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
             assert marker.encode() in dex, marker
     if jpegperf:
         for marker in ('M9JPEGPERF346_GATE_ROWBANDS_EXACT', 'M9JpegOverlap346', 'jpegOverlapMode',
-                       'JPEGPERF346_dynamic_rows', ('JPEGPERF347_bounded_rows_work_queue' if jpeg347 else 'JPEGPERF346_up_to_64_preloaded_bands_work_queue'),
+                       'JPEGPERF346_dynamic_rows', ('JPEGPERF349_bounded_rows_work_queue_42_row_floor' if jpeg349 else 'JPEGPERF347_bounded_rows_work_queue' if jpeg347 else 'JPEGPERF346_up_to_64_preloaded_bands_work_queue'),
                        '.jpegperf346', 'postRenderDiagnosticsElapsedMs'):
             assert marker.encode() in dex, marker
     if jpeg347:
@@ -132,6 +136,10 @@ with zipfile.ZipFile(built) as new, zipfile.ZipFile(unsigned, 'w') as dst:
             assert marker.encode() in dex, marker
     if jpeg348:
         assert b'Unable to reserve JPEG in MediaStore' in dex
+    if jpeg349:
+        for marker in ('M9JPEGPERF349_UNSYNCHRONIZED_64K_READER', 'JPEGPERF349_jpeg_encode_thread',
+                       'mediaStoreReserveElapsedMs', 'indexedByMediaStore'):
+            assert marker.encode() in dex, marker
     for marker in ['M9ShadingParallel1A', 'M9EXACTPERF1A_SHADING_ROWBANDS_EXACT', 'saveSingleRawM9PhysicalCfaStaged',
                    'embedInPlace', 'embedStaged', 'StagingNotRestoredException', 'publishStagedDng',
                    'M9PHASENOISEPERF1D_DYNAMIC_EXACT', 'dynamic_tiles_chunk1', 'AutomaticSubjectSelection',

@@ -1,14 +1,7 @@
 name: M9Cam 3.46 JPEGPERF build, parity, tests and installer
 
+# 3.46 is delivered (run 45995687836); later stages on this branch rebuild it on request only.
 on:
-  push:
-    branches: ['claude/dazzling-galileo-rbqoe6']
-    paths:
-      - 'patches/exactperf1a/**'
-      - 'patches/performance345/**'
-      - 'patches/jpegperf346/**'
-      - 'scripts/ci/**'
-      - '.github/workflows/build-m9cam-jpegperf346.yml'
   workflow_dispatch:
 
 permissions:

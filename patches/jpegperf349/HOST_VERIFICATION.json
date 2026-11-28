@@ -1,0 +1,150 @@
+{
+  "status": "PASS",
+  "scope": "x86 host, not handset timing",
+  "parent": "3.48-jpegstore",
+  "candidate": "3.49-jpegperf",
+  "signatureReader": {
+    "junit": "M9JpegSignatureReaderTest 4/4 pass; mutation (one-byte skip) fails 3/4",
+    "realJpeg12MP": {
+      "bytes": 12501109,
+      "parentBestMs": 239,
+      "candidateBestMs": 32,
+      "codingSha256Identical": true
+    }
+  },
+  "noiseParity349": {
+    "status": "PASS",
+    "cases": [
+      {
+        "size": [
+          4096,
+          3072
+        ],
+        "parentWorkers": 8,
+        "candidateWorkers": 8,
+        "parentMs": 677.6,
+        "candidateMs": 660.5,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          3072,
+          4096
+        ],
+        "parentWorkers": 8,
+        "candidateWorkers": 8,
+        "parentMs": 502.6,
+        "candidateMs": 512.3,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          4000,
+          3000
+        ],
+        "parentWorkers": 8,
+        "candidateWorkers": 8,
+        "parentMs": 595.4,
+        "candidateMs": 622.0,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          1024,
+          768
+        ],
+        "parentWorkers": 8,
+        "candidateWorkers": 8,
+        "parentMs": 38.3,
+        "candidateMs": 43.8,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          300,
+          97
+        ],
+        "parentWorkers": 1,
+        "candidateWorkers": 1,
+        "parentMs": 4.0,
+        "candidateMs": 3.9,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          4097,
+          400
+        ],
+        "parentWorkers": 8,
+        "candidateWorkers": 8,
+        "parentMs": 64.0,
+        "candidateMs": 70.2,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          6000,
+          1200
+        ],
+        "parentWorkers": 7,
+        "candidateWorkers": 8,
+        "parentMs": 335.6,
+        "candidateMs": 400.0,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          8000,
+          6000
+        ],
+        "parentWorkers": 5,
+        "candidateWorkers": 8,
+        "parentMs": 2868.8,
+        "candidateMs": 2337.0,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          8160,
+          6144
+        ],
+        "parentWorkers": 5,
+        "candidateWorkers": 8,
+        "parentMs": 3331.1,
+        "candidateMs": 2550.0,
+        "pixelsExact": true,
+        "scheduleOk": true
+      },
+      {
+        "size": [
+          8192,
+          260
+        ],
+        "parentWorkers": 5,
+        "candidateWorkers": 8,
+        "parentMs": 132.1,
+        "candidateMs": 90.4,
+        "pixelsExact": true,
+        "scheduleOk": true
+      }
+    ],
+    "threadSanitizerWideQueue": {
+      "exitCode": 0,
+      "dataRaceReported": false
+    }
+  },
+  "noisePressure347Probe": "unchanged vs 3.48 (peak 1032192 bytes at 4096 wide; -2 only with 1 row available)",
+  "javacChangedFilesVs348": "no new errors",
+  "sourceFingerprints": {
+    "3.48-jpegstore": "8123334d2fd35984c524f0140dbb9da302a69bec170afdf7e42c9b5437cafb72",
+    "3.49-jpegperf": "517b56f6d2d4b2eb6ee04c46a5d990fc0f81b861a8cf2e45169aa714a143c063"
+  }
+}
